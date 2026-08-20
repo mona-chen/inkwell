@@ -1,6 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
+/* Prevent Safari from auto-zooming text when the tab becomes visible again (minimize/restore,
+   tab switch). Without this, iOS/desktop Safari re-applies text-size-adjust and "zooms into"
+   the page content. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* Content locations Tailwind v4's automatic scanner won't cover by default:
    ViewComponent classes, theme templates, and plugin views. */
 @source "../../views/**/*.erb";

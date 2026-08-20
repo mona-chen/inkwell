@@ -15,4 +15,5 @@ class ApplicationComponent < Phlex::HTML
   include Phlex::Rails::Helpers::DOMID
   include Phlex::Rails::Helpers::FormWith
   include Phlex::Rails::Helpers::FormFor
+  include Phlex::Rails::Helpers::TurboFrameTag
 end

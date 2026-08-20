@@ -1,77 +1,105 @@
-<%# The theme-specific landing page — a modern editorial front page: large featured
-    post, then an editorial grid. Full-bleed, no content box. %>
+<%# The default theme's front page — a premium editorial landing:
+    statement hero, featured story, latest grid, categories, newsletter. %>
 
-<% if @posts.any? %>
-  <% featured = @posts.first %>
-  <% rest = @posts.drop(1) %>
+<% featured = @posts.first %>
+<% rest = @posts.drop(1) %>
 
-  <% featured_image = featured.content_blocks.find { |b| b["type"] == "image" } %>
-
-  <section class="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-end">
-    <div class="lg:col-span-7">
-      <% if featured_image %>
-        <%= link_to post_path(featured) do %>
-          <img src="<%= featured_image.dig("data", "url") %>" alt="" class="aspect-[16/10] w-full rounded-2xl object-cover shadow-sm">
-        <% end %>
-      <% end %>
+<section class="relative overflow-hidden py-24 sm:py-32">
+  <div class="absolute inset-0 bg-gradient-to-b from-[#f3ede3] via-[#faf8f5] to-[#fcfbf9] -z-10"></div>
+  <div class="mx-auto max-w-4xl px-5 text-center sm:px-8">
+    <p class="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-600">
+      <%= Current.site.name %>
+    </p>
+    <h1 class="font-serif-display mt-6 text-5xl font-semibold leading-[1.05] tracking-tight sm:text-7xl">
+      <%= Current.site.setting("tagline").presence || "Writing worth reading." %>
+    </h1>
+    <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600">
+      Thoughts on design, engineering, and the craft of building for the web.
+    </p>
+    <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
+      <a href="#latest" class="rounded-full bg-[#1a1a1a] px-7 py-3 text-sm font-medium text-white transition-colors hover:bg-black">
+        Start reading
+      </a>
+      <a href="#newsletter" class="rounded-full border border-[#ddd8cf] bg-white px-7 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-[#f6f4ef]">
+        Subscribe
+      </a>
     </div>
-    <div class="lg:col-span-5 lg:pb-2">
-      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
-        <%= featured.categories.map(&:name).join(" · ").presence || "Featured" %>
-      </p>
-      <h1 class="font-serif-display mt-4 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
-        <%= link_to featured.title, post_path(featured), class: "hover:text-indigo-700 transition-colors" %>
-      </h1>
-      <p class="mt-5 text-lg leading-relaxed text-gray-600">
-        <%= featured.excerpt.presence || truncate(featured.content_blocks.find { |b| b["type"] == "paragraph" }&.dig("data", "text").to_s, length: 200) %>
-      </p>
-      <p class="mt-6 text-sm text-gray-500">
-        <%= featured.author.name %> · <%= featured.published_at&.strftime("%B %-d, %Y") %>
-      </p>
+  </div>
+</section>
+
+<% if featured %>
+  <section class="mx-auto mt-8 max-w-7xl px-5 sm:px-8">
+    <div class="grid grid-cols-1 items-end gap-10 lg:grid-cols-12">
+      <div class="lg:col-span-7">
+        <% img = featured.content_blocks.find { |b| b["type"] == "image" } %>
+        <%= link_to post_path(featured) do %>
+          <div class="aspect-[16/10] w-full overflow-hidden rounded-2xl bg-[#f3ede3] shadow-sm">
+            <% if img %>
+              <img src="<%= img.dig("data", "url") %>" alt="" class="h-full w-full object-cover transition-transform duration-500 hover:scale-[1.03]">
+            <% else %>
+              <div class="flex h-full items-center justify-center font-serif-display text-2xl text-gray-400"><%= featured.title %></div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+      <div class="lg:col-span-5 lg:pb-1">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
+          <%= featured.categories.map(&:name).join(" · ").presence || "Featured story" %>
+        </p>
+        <h2 class="font-serif-display mt-4 text-3xl font-semibold leading-[1.15] tracking-tight sm:text-4xl">
+          <%= link_to featured.title, post_path(featured), class: "transition-colors hover:text-indigo-700" %>
+        </h2>
+        <p class="mt-4 text-lg leading-relaxed text-gray-600">
+          <%= featured.excerpt.presence || truncate(featured.content_blocks.find { |b| b["type"] == "paragraph" }&.dig("data", "text").to_s, length: 200) %>
+        </p>
+        <p class="mt-5 text-sm text-gray-500">
+          <span class="font-medium text-gray-700"><%= featured.author.name %></span>
+          <span class="text-gray-300">·</span>
+          <%= featured.published_at&.strftime("%B %-d, %Y") %>
+        </p>
+      </div>
     </div>
   </section>
-
-  <% if rest.any? %>
-    <section class="mt-20">
-      <div class="mb-10 flex items-center gap-4">
-        <h2 class="font-serif-display text-2xl font-semibold tracking-tight">Latest writing</h2>
-        <div class="h-px flex-1 bg-[#e8e4dc]"></div>
-      </div>
-
-      <div class="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-        <% rest.each do |post| %>
-          <article class="group flex flex-col">
-            <% img = post.content_blocks.find { |b| b["type"] == "image" } %>
-            <% if img %>
-              <%= link_to post_path(post) do %>
-                <img src="<%= img.dig("data", "url") %>" alt="" class="mb-5 aspect-[16/10] w-full rounded-xl object-cover transition-transform duration-300 group-hover:scale-[1.02]">
-              <% end %>
-            <% end %>
-            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-              <%= post.categories.map(&:name).join(" · ").presence || "Journal" %>
-            </p>
-            <h3 class="font-serif-display mt-2 text-xl font-semibold leading-snug tracking-tight">
-              <%= link_to post.title, post_path(post), class: "transition-colors group-hover:text-indigo-700" %>
-            </h3>
-            <p class="mt-2 line-clamp-3 text-sm leading-relaxed text-gray-600">
-              <%= post.excerpt.presence || truncate(post.content_blocks.find { |b| b["type"] == "paragraph" }&.dig("data", "text").to_s, length: 120) %>
-            </p>
-            <p class="mt-4 text-xs text-gray-400"><%= post.author.name %> · <%= post.published_at&.strftime("%b %-d, %Y") %></p>
-          </article>
-        <% end %>
-      </div>
-    </section>
-  <% end %>
-
-<% else %>
-  <div class="py-32 text-center">
-    <h1 class="font-serif-display text-4xl font-semibold tracking-tight"><%= Current.site.name %></h1>
-    <p class="mt-4 text-gray-500">Nothing published yet — head to the admin to write your first post.</p>
-  </div>
 <% end %>
 
-<%# Newsletter signup (wired to the newsletter plugin; 404s gracefully if deactivated). %>
-<section class="mx-auto mt-24 max-w-2xl rounded-2xl border border-[#e8e4dc] bg-[#f6f4ef] px-8 py-12 text-center">
+<section id="latest" class="mx-auto mt-24 max-w-7xl px-5 sm:px-8">
+  <div class="mb-10 flex items-center gap-4">
+    <h2 class="font-serif-display text-2xl font-semibold tracking-tight">Latest writing</h2>
+    <div class="h-px flex-1 bg-[#e8e4dc]"></div>
+  </div>
+
+  <% if rest.any? %>
+    <div class="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+      <% rest.each do |post| %>
+        <article class="group flex flex-col">
+          <% img = post.content_blocks.find { |b| b["type"] == "image" } %>
+          <% if img %>
+            <%= link_to post_path(post) do %>
+              <div class="mb-5 aspect-[16/10] w-full overflow-hidden rounded-xl bg-[#f3ede3]">
+                <img src="<%= img.dig("data", "url") %>" alt="" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]">
+              </div>
+            <% end %>
+          <% end %>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+            <%= post.categories.map(&:name).join(" · ").presence || "Journal" %>
+          </p>
+          <h3 class="font-serif-display mt-2 text-xl font-semibold leading-snug tracking-tight">
+            <%= link_to post.title, post_path(post), class: "transition-colors group-hover:text-indigo-700" %>
+          </h3>
+          <p class="mt-2 line-clamp-3 text-sm leading-relaxed text-gray-600">
+            <%= post.excerpt.presence || truncate(post.content_blocks.find { |b| b["type"] == "paragraph" }&.dig("data", "text").to_s, length: 120) %>
+          </p>
+          <p class="mt-4 text-xs text-gray-400"><%= post.author.name %> · <%= post.published_at&.strftime("%b %-d, %Y") %></p>
+        </article>
+      <% end %>
+    </div>
+  <% else %>
+    <p class="text-gray-500">More stories on the way.</p>
+  <% end %>
+</section>
+
+<%# Newsletter %>
+<section id="newsletter" class="mx-auto mt-24 max-w-2xl rounded-2xl border border-[#e8e4dc] bg-[#f6f4ef] px-8 py-12 text-center">
   <h2 class="font-serif-display text-2xl font-semibold tracking-tight">Get new posts by email</h2>
   <p class="mt-2 text-sm text-gray-500">No spam, unsubscribe anytime.</p>
   <%= form_with url: "/plugins/newsletter/subscribers", method: :post, local: true, class: "mx-auto mt-6 flex max-w-sm gap-2" do %>

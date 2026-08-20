@@ -32,4 +32,10 @@ class Site < ApplicationRecord
   def front_page?
     show_on_front == "page" && front_page.present?
   end
+
+  # Site logo — the id of a MediaItem in the media library (set via Settings → General).
+  def logo_item
+    id = setting("site_logo")
+    id.present? ? media_items.find_by(id: id) : nil
+  end
 end

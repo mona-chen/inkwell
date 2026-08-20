@@ -1,6 +1,6 @@
 module Admin
   class PagesController < BaseController
-    before_action :set_page, only: %i[edit update destroy]
+    before_action :set_page, only: %i[edit update destroy publish]
 
     def index
       @pages = Current.site.pages.includes(:author)
@@ -54,6 +54,9 @@ module Admin
 
     def publish
       authorize @page
+      # The Publish button submits the main form, so persist the serialized draft from the
+      # hidden field before committing it to live content (covers deletes made right before publish).
+      @page.update!(draft_content: page_params[:draft_content]) if params.dig(:page, :draft_content).present?
       @page.publish_draft!
       redirect_to edit_admin_page_path(@page), notice: "Published."
     end

@@ -1,7 +1,7 @@
 module Admin
   class SettingsController < BaseController
     SETTINGS_SCHEMA = %w[
-      site_title tagline site_url timezone posts_per_page comments_enabled
+      site_title tagline site_url timezone posts_per_page comments_enabled site_logo
       show_on_front page_on_front
     ].freeze
 

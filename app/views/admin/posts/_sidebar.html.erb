@@ -23,8 +23,10 @@
       class: "w-full bg-white border border-gray-200 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50 active:scale-[0.98] transition-colors cursor-pointer" %>
 
   <% unless post.new_record? %>
-    <%= button_to "Publish", publish_admin_post_path(post), method: :post, form: { data: { turbo: false } },
-        class: "w-full bg-gray-900 text-white rounded-lg py-2 text-sm font-medium shadow-sm hover:bg-black active:scale-[0.98] transition-colors cursor-pointer" %>
+    <button type="submit" formaction="<%= publish_admin_post_path(post) %>" formmethod="post"
+            class="w-full bg-gray-900 text-white rounded-lg py-2 text-sm font-medium shadow-sm hover:bg-black active:scale-[0.98] transition-colors cursor-pointer">
+      Publish
+    </button>
   <% end %>
 
   <% unless post.new_record? %>

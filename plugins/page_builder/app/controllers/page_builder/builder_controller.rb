@@ -2,8 +2,12 @@ module PageBuilder
   class BuilderController < ::ApplicationController
     before_action :authenticate_user!
     before_action :require_admin_access!
-    before_action :set_record, except: :index
+    before_action :set_record, except: %i[index upload_asset]
     layout :resolve_layout
+
+    # Builder.js uploads via a raw FormData fetch (no Rails CSRF header) from an already
+    # authenticated admin session — skip token verification for this one action.
+    protect_from_forgery with: :null_session, only: :upload_asset
 
     def index
       @posts = Current.site.posts.published.order(updated_at: :desc).limit(12)
@@ -27,6 +31,20 @@ module PageBuilder
       @record.update!(content: blocks)
 
       render json: { ok: true, erb_length: erb.length }
+    end
+
+    # Builder.js assetUploadHandler: accepts a multipart file upload, stores it in the
+    # site's media library, and returns { url: ... } as Builder.js expects.
+    def upload_asset
+      # Current.user is set by ApplicationController#set_current_attributes from the
+      # authenticated session (see the User Load in the request log).
+      item = Current.site.media_items.build(uploaded_by: Current.user)
+      item.file.attach(params[:file])
+      if item.save
+        render json: { url: item.url }
+      else
+        render json: { error: item.errors.full_messages.to_sentence }, status: :unprocessable_entity
+      end
     end
 
     private

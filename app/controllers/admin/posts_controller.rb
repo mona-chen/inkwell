@@ -1,6 +1,6 @@
 module Admin
   class PostsController < BaseController
-    before_action :set_post, only: %i[edit update destroy]
+    before_action :set_post, only: %i[edit update destroy publish]
 
     def index
       @posts = policy_scope(Post).includes(:author)
@@ -59,6 +59,9 @@ module Admin
     # Explicit publish: commit the in-progress draft to live content + mark published.
     def publish
       authorize @post
+      # The Publish button submits the main form, so persist the serialized draft from the
+      # hidden field before committing it (covers deletes made right before publish).
+      @post.update!(draft_content: post_params[:draft_content]) if params.dig(:post, :draft_content).present?
       @post.publish_draft!
       redirect_to edit_admin_post_path(@post), notice: "Published."
     end

@@ -13,9 +13,9 @@
      class="grid grid-cols-[1fr_280px] gap-6">
 
   <div class="relative min-w-0">
-    <%# Unbound hidden field — the block editor serializes the draft blocks into it; it is
-        NOT submitted with the form (publishing goes through publish_draft!, not the form). %>
-    <input type="hidden" data-block-editor-target="hiddenField" value="<%= html_escape(post.editing_blocks.to_json) %>">
+    <%# Hidden field carries the serialized draft blocks. Bound to draft_content so the
+        form's "Save draft" persists them (autosave also PATCHes the same key). %>
+    <input type="hidden" name="post[draft_content]" data-block-editor-target="hiddenField" value="<%= html_escape(post.editing_blocks.to_json) %>">
 
     <%# Editor toolbar: undo/redo + save status + add block %>
     <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-gray-50/90 backdrop-blur border-b border-gray-200 mb-4 flex items-center justify-between gap-3">

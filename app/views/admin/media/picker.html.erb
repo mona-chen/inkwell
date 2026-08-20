@@ -1,0 +1,13 @@
+<%# Media picker grid — rendered inside a Turbo Frame dialog in the block editor.
+    Lightweight: just the items (or an empty state), each clickable to insert. %>
+<div id="media_picker_grid" class="grid grid-cols-3 sm:grid-cols-4 gap-3 p-4">
+  <% @media_items.each do |item| %>
+    <%= render Admin::MediaPickerItem.new(item: item) %>
+  <% end %>
+</div>
+
+<% if @media_items.empty? %>
+  <div class="px-4 pb-4 text-center text-sm text-muted-foreground">
+    No media yet — upload files in the Media library.
+  </div>
+<% end %>

@@ -268,7 +268,11 @@ export default class extends Controller {
     }))
   }
 
+  // Refresh the hidden field from the DOM, then record history. Every mutation must flow
+  // through here so the form's hidden input always reflects the current block list —
+  // otherwise deleting a block would leave the stale serialized value behind.
   commit() {
+    this.hiddenFieldTarget.value = this.serializeValue()
     const current = this.hiddenFieldTarget.value
     if (this.historyIndex >= 0 && this.history[this.historyIndex] === current) return
     if (this.historyIndex < this.history.length - 1) this.history = this.history.slice(0, this.historyIndex + 1)

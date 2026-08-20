@@ -16,7 +16,7 @@
              value="<%= local_assigns[:data]&.dig("url") %>" placeholder="Image URL (or pick from media library)"
              class="w-full text-sm border rounded px-2 py-1">
       <button type="button" data-action="media-picker#open" class="text-xs text-gray-900 hover:underline">Choose from media library</button>
-      <input data-field="alt" data-action="input->block-editor#serialize" type="text"
+      <input data-field="alt" data-media-picker-target="altField" data-action="input->block-editor#serialize" type="text"
              value="<%= local_assigns[:data]&.dig("alt") %>" placeholder="Alt text"
              class="w-full text-sm border rounded px-2 py-1">
       <input data-field="caption" data-action="input->block-editor#serialize" type="text"
@@ -24,4 +24,21 @@
              class="w-full text-sm border rounded px-2 py-1">
     </div>
   </div>
+
+  <%# Media picker dialog: loads the picker grid in a Turbo Frame %>
+  <dialog data-media-picker-target="dialog" data-action="click->media-picker#backdropClose"
+          class="m-auto w-[42rem] max-w-full rounded-2xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-black/40">
+    <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+      <h3 class="text-sm font-semibold text-gray-900">Media library</h3>
+      <button type="button" data-action="media-picker#close" class="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
+        ✕
+      </button>
+    </div>
+    <div class="max-h-[60vh] overflow-y-auto">
+      <turbo-frame id="media-picker-frame" data-media-picker-target="frame"
+                   data-src="<%= admin_media_path(picker: 1) %>">
+        <div class="p-4 text-center text-sm text-gray-400">Loading…</div>
+      </turbo-frame>
+    </div>
+  </dialog>
 </div>

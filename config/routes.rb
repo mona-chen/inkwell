@@ -23,7 +23,7 @@ Rails.application.routes.draw do
     resources :pages do
       member { post :publish }
     end
-    resources :media, only: [:index, :create, :destroy]
+    resources :media, only: [:index, :create, :update, :destroy]
     resources :comments, only: [:index, :update, :destroy]
     resources :menus do
       resources :menu_items, only: [:create, :update, :destroy]
