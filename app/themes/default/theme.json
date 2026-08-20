@@ -1,0 +1,7 @@
+{
+  "name": "Default",
+  "description": "Inkwell's clean, editorial ship theme. Warm neutrals, generous whitespace.",
+  "author": "Inkwell Core",
+  "version": "1.0.0",
+  "templates": { "page": ["default", "full-width", "landing"] }
+}

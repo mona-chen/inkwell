@@ -1,0 +1,9 @@
+# ...existing code...
+dist
+/dist
+/node_modules
+/demo/dist
+/demo/uploads
+.DS_Store
+**/.DS_Store
+.env

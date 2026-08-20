@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+/* Content locations Tailwind v4's automatic scanner won't cover by default:
+   ViewComponent classes, theme templates, and plugin views. */
+@source "../../views/**/*.erb";
+@source "../../components/**/*.{rb,erb}";
+@source "../../themes/**/*.erb";
+@source "../../javascript/**/*.js";
+@source "../../../plugins/*/app/views/**/*.erb";
+
+/* Design tokens — see design.md "Typography".
+   `--font-sans` (Inter) is admin's implicit default; serif/mono are the themes' own stacks,
+   untouched so neither theme's identity changes. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Georgia", ui-serif, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Combine Nitro Kit's design tokens with Tailwind utilities.
+   `@theme inline` maps Nitro's public --nk-* tokens onto Tailwind's --color-* and --radius-*
+   names so app-owned markup can use bg-background, text-foreground, border-border,
+   bg-primary, rounded-lg, shadow-sm, etc. and share values with Nitro components.
+   Loaded after nitro_kit.css via the canonical stylesheet order. */
+@theme inline {
+  --color-background: var(--nk-color-canvas);
+  --color-foreground: var(--nk-color-foreground);
+  --color-muted: var(--nk-color-muted);
+  --color-muted-foreground: var(--nk-color-muted-foreground);
+  --color-border: var(--nk-color-border);
+  --color-ring: var(--nk-color-focus);
+  --color-primary: var(--nk-color-primary);
+  --color-primary-foreground: var(--nk-color-primary-foreground);
+  --color-destructive: var(--nk-color-danger);
+  --color-destructive-foreground: var(--nk-color-danger-foreground);
+
+  --radius-sm: var(--nk-radius-sm);
+  --radius-md: var(--nk-radius-md);
+  --radius-lg: var(--nk-radius-lg);
+  --radius-xl: var(--nk-radius-xl);
+
+  --shadow-sm: var(--nk-shadow-sm);
+  --shadow-md: var(--nk-shadow-md);
+  --shadow-lg: var(--nk-shadow-lg);
+}
+
+/* Block-editor floating toolbar (app/views/admin/posts/blocks/_toolbar.html.erb).
+   Visible on hover only while nothing is selected; once a block is selected the editor
+   container gets `.editor-has-selection` and only the selected block's toolbar shows — so
+   moving toward an open toolbar never reveals a neighboring block's. */
+.block-toolbar {
+  opacity: 0;
+}
+[data-block-editor-target="block"]:hover > .block-toolbar,
+[data-block-editor-target="block"].block-selected > .block-toolbar {
+  opacity: 1;
+}
+.editor-has-selection [data-block-editor-target="block"]:not(.block-selected) > .block-toolbar {
+  opacity: 0;
+}
+

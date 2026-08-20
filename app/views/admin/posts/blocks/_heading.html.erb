@@ -1,0 +1,15 @@
+<div data-block-editor-target="block" data-type="heading"
+     data-action="focusin->block-editor#selectBlock"
+     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <div class="flex items-center gap-3">
+    <select data-field="level" data-action="change->block-editor#serialize" class="text-xs border rounded px-2 py-1">
+      <% (1..4).each do |lvl| %>
+        <option value="<%= lvl %>" <%= "selected" if local_assigns[:data]&.dig("level").to_i == lvl %>>H<%= lvl %></option>
+      <% end %>
+    </select>
+    <input data-field="text" data-action="input->block-editor#onInput keydown->block-editor#onKeydown" type="text"
+           value="<%= local_assigns[:data]&.dig("text") %>" placeholder="Heading text"
+           class="flex-1 border-0 focus:ring-0 text-xl font-bold p-0">
+  </div>
+</div>

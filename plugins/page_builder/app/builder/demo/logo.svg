@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="Layer_2" viewBox="0 0 31.84 18.65">
+                                    <defs>
+                                        <linearGradient id="linear-gradient" x1="-530.35" y1="362.03" x2="-529.18" y2="360.85" gradientTransform="translate(8486.13 3982.79) scale(16 -11)" gradientUnits="userSpaceOnUse">
+                                            <stop offset="0" stop-color="#7c5fdc" />
+                                            <stop offset="1" stop-color="#6941c6" />
+                                        </linearGradient>
+                                    </defs>
+                                    <g id="Layer_1-2">
+                                        <rect x="15.84" y="7.4" width="16" height="11" rx="2.5" ry="2.5" style="fill:#f0f0f0; isolation:isolate; opacity:.3;" />
+                                        <rect x="14.85" y="6.4" width="16" height="11" rx="2.5" ry="2.5" style="fill:#e1d5f3; stroke:#c8b6ec; stroke-width:.8px;" />
+                                        <rect x="10.63" y="3.45" width="16" height="11" rx="2.5" ry="2.5" style="fill:#d4c4f0; stroke:#c8b6ec; stroke-width:.8px;" />
+                                        <rect x=".47" y=".47" width="18.81" height="12.93" rx="2.94" ry="2.94" style="fill:url(#linear-gradient); stroke:#5a369f; stroke-width:.94px;" />
+                                        <path d="M2.82,2.1h14.1c.65,0,1.18.78,1.18,1.74h0c0,.96-.53,1.74-1.18,1.74H2.82c-.65,0-1.18-.78-1.18-1.74h0c0-.96.53-1.74,1.18-1.74Z" style="fill:#fff; isolation:isolate; opacity:.2;" />
+                                        <circle cx="1.97" cy="16.9" r="1.5" style="fill:#6941c6; stroke:#5a369f; stroke-width:.5px;" />
+                                        <circle cx="5.97" cy="16.9" r="1.5" style="fill:#c8b6ec; stroke:#b8a6dc; stroke-width:.5px;" />
+                                        <circle cx="9.97" cy="16.9" r="1.5" style="fill:#c8b6ec; stroke:#b8a6dc; stroke-width:.5px;" />
+                                        <circle cx="1.97" cy="16.9" r=".7" style="fill:#fff; isolation:isolate; opacity:.9;" />
+                                        <circle cx="4.25" cy="9.22" r="2.28" style="fill:#fff; opacity:.2;" />
+                                    </g>
+                                </svg>

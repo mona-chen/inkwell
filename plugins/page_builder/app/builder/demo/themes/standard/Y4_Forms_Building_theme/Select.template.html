@@ -1,0 +1,7 @@
+
+<select name="[[NAME]]" class="form-control"
+ id="exampleFormControlSelect1">
+ <% items.forEach(function(item) { %>
+ <option value="<%= item.value %>"><%= item.label %></option>
+ <% }); %>
+</select>

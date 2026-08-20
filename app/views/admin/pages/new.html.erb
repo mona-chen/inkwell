@@ -1,0 +1,6 @@
+<%= form_with model: [:admin, @page] do |f| %>
+  <div class="mb-6">
+    <%= f.text_field :title, placeholder: "Page title", class: "w-full text-3xl font-bold border-0 focus:ring-0 px-0 placeholder:text-gray-300" %>
+  </div>
+  <%= render "admin/pages/editor", f: f, page: @page %>
+<% end %>

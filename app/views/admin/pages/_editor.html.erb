@@ -1,0 +1,109 @@
+<%# Page editor. Pages use the same block content structure as posts — see admin/posts/_editor. %>
+
+<div data-controller="block-editor"
+     data-block-editor-types-value="<%= BlockRenderer.registered_types.to_json %>"
+     data-block-editor-save-url-value="<%= page.new_record? ? nil : admin_page_path(page) %>"
+     data-block-editor-resource-key-value="page"
+     class="grid grid-cols-[1fr_280px] gap-6">
+
+  <div class="relative min-w-0">
+    <%# Unbound hidden field — the block editor serializes the draft blocks into it; it is
+        NOT submitted with the form (publishing goes through publish_draft!, not the form). %>
+    <input type="hidden" data-block-editor-target="hiddenField" value="<%= html_escape(page.editing_blocks.to_json) %>">
+
+    <%# Editor toolbar: undo/redo + save status + add block %>
+    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-gray-50/90 backdrop-blur border-b border-gray-200 mb-4 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-1">
+        <button type="button" data-action="block-editor#undo"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">
+          ↺ Undo
+        </button>
+        <button type="button" data-action="block-editor#redo"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                data-block-editor-target="redoButton" title="Redo (Ctrl+Y)" aria-label="Redo">
+          ↻ Redo
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span data-block-editor-target="saveStatus" class="text-xs text-gray-400">
+          <%= page.new_record? ? "New — not saved yet" : "Saved" %>
+        </span>
+        <details data-block-editor-target="blockPicker" class="relative">
+          <summary class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-900 text-white text-sm font-medium shadow-sm cursor-pointer hover:bg-black active:scale-[0.98] transition list-none">
+            + Add block
+          </summary>
+          <div class="absolute right-0 z-10 mt-2 grid grid-cols-2 gap-2 p-3 bg-white rounded-lg shadow-lg w-80 border border-gray-200">
+            <% BlockRenderer.registered_types.each do |type| %>
+              <button type="button"
+                      data-action="block-editor#addBlock"
+                      data-block-editor-type-param="<%= type %>"
+                      class="flex flex-col items-center gap-1 p-3 rounded-md border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-colors text-sm">
+                <%= type.titleize %>
+              </button>
+            <% end %>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div data-block-editor-target="list" class="relative space-y-3 min-h-[200px]">
+      <% page.editing_blocks.each do |block| %>
+        <%= render BlockRenderer.editor_partial(block['type']), data: block["data"], record: page %>
+      <% end %>
+    </div>
+
+    <%# Floating slash-command ("/") insertion menu, positioned by the Stimulus controller %>
+    <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1"></div>
+
+    <p data-block-editor-target="emptyState" class="text-gray-400 text-sm italic py-8 text-center border-2 border-dashed rounded-lg <%= 'hidden' unless page.editing_blocks.empty? %>">
+      No blocks yet — click "+ Add block" to start writing.
+    </p>
+
+    <%# Hidden <template> elements the Stimulus controller clones when a block type is picked %>
+    <%= render "admin/posts/blocks/templates" %>
+  </div>
+
+  <aside class="space-y-4">
+    <div class="bg-white rounded-lg shadow-sm p-4 space-y-4">
+      <div>
+        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</label>
+        <%= f.select :status, %w[draft published], {}, class: "mt-1 w-full text-sm border rounded px-2 py-1.5" %>
+      </div>
+
+      <%# Layout — mirrors Elementor's Page Layout setting %>
+      <div>
+        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Layout</label>
+        <div class="mt-1.5 space-y-1.5">
+          <% Page::LAYOUTS.each do |layout| %>
+            <label class="flex items-start gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-colors <%= page.template == layout[:value] ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-300' %>">
+              <%= f.radio_button :template, layout[:value], class: "mt-0.5 accent-gray-900" %>
+              <span class="min-w-0">
+                <span class="block text-sm font-medium text-gray-800"><%= layout[:label] %></span>
+                <span class="block text-xs text-gray-400 mt-0.5 leading-snug"><%= layout[:description] %></span>
+              </span>
+            </label>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <label for="page_hide_title" class="text-sm font-medium text-gray-700">Hide page title</label>
+        <%= f.check_box :hide_title, id: "page_hide_title", class: "rounded accent-gray-900" %>
+      </div>
+
+      <div>
+        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Menu order</label>
+        <%= f.number_field :menu_order, class: "mt-1 w-full text-sm border rounded px-2 py-1.5" %>
+      </div>
+      <%= f.submit "Save draft", name: "save_draft",
+          class: "w-full bg-white border border-gray-200 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50 active:scale-[0.98] transition-colors cursor-pointer" %>
+
+      <% unless page.new_record? %>
+        <%= button_to "Publish", publish_admin_page_path(page), method: :post, form: { data: { turbo: false } },
+            class: "w-full bg-gray-900 text-white rounded-lg py-2 text-sm font-medium shadow-sm hover:bg-black active:scale-[0.98] transition-colors cursor-pointer" %>
+      <% end %>
+    </div>
+  </aside>
+</div>

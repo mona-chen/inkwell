@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <%= csrf_meta_tags %>
+  <title>Ink Builder — Inkwell</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+
+  <link href="/page_builder_assets/builder.css" rel="stylesheet" />
+  <script src="/page_builder_assets/builder.js"></script>
+
+  <link href="/page_builder_theme/demo.css" rel="stylesheet" />
+</head>
+<body>
+  <!-- Loading Overlay -->
+  <div id="page-loader-overlay">
+    <div class="loader"></div>
+  </div>
+
+  <script>
+    window.addEventListener('load', () => {
+      const loader = document.getElementById('page-loader-overlay');
+      loader.classList.add('fade-out');
+      document.body.classList.remove('loading');
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.classList.add('loading');
+    });
+  </script>
+
+  <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom" style="z-index: 10;">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </a>
+      <div class="collapse navbar-collapse" style="justify-content: space-between" id="navbarNav">
+        <div class="d-flex align-items-center">
+          <span class="mb-0 py-2 px-3 rounded-3 fw-bold shadow-sm" style="background-color: #0000000a;">
+            <span class="d-flex align-items-center">
+              <span>Blank</span>
+              <span class="material-symbols-rounded ms-1">brush</span>
+            </span>
+          </span>
+        </div>
+        <div class="d-flex align-items-center">
+          <div class="btn-group border bg-light" role="group">
+            <button id="desktopModeButton" onclick="switchToDesktopMode()" type="button" class="btn btn-light active d-flex align-items-center builder-mode-button">
+              <span class="material-symbols-rounded">desktop_windows</span>
+            </button>
+            <button id="tabletModeButton" onclick="switchToTabletMode()" type="button" class="btn btn-light d-flex align-items-center builder-mode-button">
+              <span class="material-symbols-rounded">tablet</span>
+            </button>
+            <button id="mobileModeButton" onclick="switchToMobileMode()" type="button" class="btn btn-light d-flex align-items-center builder-mode-button">
+              <span class="material-symbols-rounded">smartphone</span>
+            </button>
+          </div>
+        </div>
+        <div class="d-flex align-items-center">
+          <button id="clearButton" onclick="clearPage()" type="button" class="btn btn-outline-danger me-2">
+            <span class="d-flex align-items-center">
+              <span class="material-symbols-rounded me-2">clear_all</span>
+              <span>Clear</span>
+            </span>
+          </button>
+          <span class="mx-3">|</span>
+          <button id="btn-cancel" onclick="window.close()" type="button" class="btn btn-light border me-2">Cancel</button>
+          <button id="btn-save" onclick="saveToInkwell()" type="button" class="btn btn-primary me-2">
+            <span class="d-flex align-items-center">
+              <span class="material-symbols-rounded me-2">save</span>
+              <span>Save</span>
+            </span>
+          </button>
+          <span class="mx-3">|</span>
+          <button id="toggleButton" onclick="toggleDesignMode()" type="button" class="btn btn-light border">
+            <span class="d-flex align-items-center">
+              <span class="material-symbols-rounded">visibility_off</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="d-flex">
+    <div class="content-wrapper mx-4 my-5 d-flex justify-content-center">
+      <div class="spin-loader"></div>
+      <div id="MainContainer" class="content-container"></div>
+    </div>
+
+    <div class="builder-sidebar">
+      <div data-smenu-container="design">
+        <div id="Sidebar">
+          <div class="builder-sidebar-tabs px-3 py-2 rounded-0 d-flex bg-light border-bottom">
+            <div class="tab-item active" data-tab="widgets">
+              <span class="material-symbols-rounded">widgets</span>
+            </div>
+            <div class="tab-item" data-tab="controls">
+              <span class="material-symbols-rounded">settings</span>
+            </div>
+            <div class="tab-item" data-tab="styles">
+              <span class="material-symbols-rounded">palette</span>
+            </div>
+          </div>
+          <div>
+            <div id="WidgetsContainer" data-tab-container="widgets" style="display: block;"></div>
+            <div id="SettingsContainer" data-tab-container="controls" style="display: none;"></div>
+            <div data-tab-container="styles" style="display: none;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="global-sidebar bg-white border-start">
+      <div class="sidebar-toggle-button">
+        <span class="material-symbols-rounded sidebar-toggle-icon">menu_open</span>
+      </div>
+      <script>
+        document.addEventListener('DOMContentLoaded', () => {
+          const toggleButton = document.querySelector('.sidebar-toggle-button');
+          toggleButton.addEventListener('click', () => {
+            document.body.classList.toggle('hide-sidebar');
+          });
+        });
+      </script>
+      <div class="smenu-items p-2">
+        <div data-smenu="design" class="smenu-item p-2 my-3 active">
+          <div class="d-flex align-items-center justify-content-center w-100">
+            <span class="material-symbols-rounded smenu-item-icon rounded-2 p-1 mb-1">design_services</span>
+          </div>
+          <div class="d-block text-center smenu-item-label">Design</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var savedStore = <%= @saved_store.to_json.html_safe %>;
+    var recordType = <%= params[:record_type].to_json.html_safe %>;
+    var recordId = <%= params[:record_id].to_json.html_safe %>;
+    var themeUrl = '/page_builder_theme';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      window.builder = new Builder({
+        mainContainer: '#MainContainer',
+        settingsContainer: '#SettingsContainer',
+        widgetsContainer: '#WidgetsContainer',
+        assetUploadHandler: null,
+        aiHandler: null,
+        carousel: false,
+      });
+
+      var loadPromise;
+      if (savedStore && savedStore.elementLists && savedStore.elementLists.length > 0) {
+        loadPromise = Promise.resolve(savedStore);
+      } else {
+        loadPromise = Promise.resolve({ theme: '1_Column_Layout', name: 'PageElement', elementLists: [] });
+      }
+
+      loadPromise.then(function (store) {
+        builder.load(store, themeUrl, () => {
+          document.querySelector('.spin-loader').remove();
+        });
+      });
+
+      window.sidebarTabManager = new TabsManager();
+      sidebarTabManager.addTab(document.querySelector('[data-tab="widgets"]'), document.querySelector('[data-tab-container="widgets"]'));
+      sidebarTabManager.addTab(document.querySelector('[data-tab="controls"]'), document.querySelector('[data-tab-container="controls"]'));
+      sidebarTabManager.addTab(document.querySelector('[data-tab="styles"]'), document.querySelector('[data-tab-container="styles"]'));
+
+      switchToDesktopMode();
+    });
+
+    function saveToInkwell() {
+      var html = builder.getHtml();
+      var store = builder.getData();
+      var btn = document.getElementById('btn-save');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Saving...';
+
+      fetch('/builder/save', {
+        method: 'POST',
+        headers: {
+          'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ html: html, store: store, record_type: recordType, record_id: recordId })
+      }).then(function (r) { return r.json(); }).then(function () {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-rounded me-2">save</span><span>Save</span>';
+        try { localStorage.setItem('inkwell_pb_' + recordType + '_' + recordId, Date.now()); } catch (e) {}
+      }).catch(function () {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-rounded me-2">save</span><span>Save</span>';
+      });
+    }
+
+    function clearPage() {
+      builder.clear();
+    }
+
+    function toggleDesignMode() {
+      if (builder.getMode() == 'design') {
+        builder.setMode('preview');
+        document.getElementById('toggleButton').innerHTML = '<span class="d-flex align-items-center"><span class="material-symbols-rounded">visibility_off</span></span>';
+      } else {
+        builder.setMode('design');
+        document.getElementById('toggleButton').innerHTML = '<span class="d-flex align-items-center"><span class="material-symbols-rounded">visibility</span></span>';
+      }
+    }
+
+    function switchToMobileMode() {
+      document.querySelector('.content-container').classList.add('mobile-mode');
+      document.querySelector('.content-container').classList.remove('desktop-mode', 'tablet-mode');
+      document.getElementById('mobileModeButton').classList.add('active');
+      document.getElementById('desktopModeButton').classList.remove('active');
+      document.getElementById('tabletModeButton').classList.remove('active');
+    }
+
+    function switchToTabletMode() {
+      document.querySelector('.content-container').classList.remove('mobile-mode', 'desktop-mode');
+      document.querySelector('.content-container').classList.add('tablet-mode');
+      document.getElementById('tabletModeButton').classList.add('active');
+      document.getElementById('desktopModeButton').classList.remove('active');
+      document.getElementById('mobileModeButton').classList.remove('active');
+    }
+
+    function switchToDesktopMode() {
+      document.querySelector('.content-container').classList.add('desktop-mode');
+      document.querySelector('.content-container').classList.remove('mobile-mode', 'tablet-mode');
+      document.getElementById('desktopModeButton').classList.add('active');
+      document.getElementById('mobileModeButton').classList.remove('active');
+      document.getElementById('tabletModeButton').classList.remove('active');
+    }
+  </script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.9.2/umd/popper.min.js" integrity="sha512-2rNj2KJ+D8s1ceNasTIex6z4HWyOnEYLVC3FigGOmyQCZc2eBXKgOxQmo3oKLHyfcj53uz4QMsRCWNbLd32Q1g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
+  <script>
+    var tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
+    var tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+  </script>
+</body>
+</html>

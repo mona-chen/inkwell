@@ -1,0 +1,52 @@
+<% content_for :title, "Ink Builder" %>
+
+<div class="mb-8">
+  <h2 class="text-2xl font-bold tracking-tight">Ink Builder</h2>
+  <p class="text-sm text-gray-500 mt-1">Drag-and-drop layouts saved as ERB — use <code>{{ page.title }}</code> or <code>{{ loop posts:3 }}</code> for dynamic content.</p>
+</div>
+
+<div class="grid grid-cols-2 gap-6">
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div class="px-6 py-4 border-b font-semibold text-sm">Posts</div>
+    <% if @posts.empty? %>
+      <p class="px-6 py-10 text-center text-sm text-gray-400">No published posts yet.</p>
+    <% else %>
+      <ul class="divide-y">
+        <% @posts.each do |post| %>
+          <li class="px-6 py-3.5 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium truncate"><%= post.title %></div>
+              <div class="text-xs text-gray-400 mt-0.5"><%= post.updated_at.strftime("%b %-d, %Y") %></div>
+            </div>
+            <a href="/builder/post/<%= post.id %>" target="_blank" rel="noopener"
+               class="text-sm px-3 py-1.5 rounded-md bg-gray-900 text-white font-medium hover:bg-black active:scale-[0.98] transition shrink-0">
+              Open builder
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  </div>
+
+  <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+    <div class="px-6 py-4 border-b font-semibold text-sm">Pages</div>
+    <% if @pages.empty? %>
+      <p class="px-6 py-10 text-center text-sm text-gray-400">No published pages yet.</p>
+    <% else %>
+      <ul class="divide-y">
+        <% @pages.each do |page| %>
+          <li class="px-6 py-3.5 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium truncate"><%= page.title %></div>
+              <div class="text-xs text-gray-400 mt-0.5"><%= page.updated_at.strftime("%b %-d, %Y") %></div>
+            </div>
+            <a href="/builder/page/<%= page.id %>" target="_blank" rel="noopener"
+               class="text-sm px-3 py-1.5 rounded-md bg-gray-900 text-white font-medium hover:bg-black active:scale-[0.98] transition shrink-0">
+              Open builder
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
+  </div>
+</div>

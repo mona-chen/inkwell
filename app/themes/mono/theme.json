@@ -1,0 +1,7 @@
+{
+  "name": "Mono",
+  "description": "High-contrast, monospace-forward theme for technical blogs.",
+  "author": "Inkwell Core",
+  "version": "1.0.0",
+  "templates": { "page": ["default"] }
+}

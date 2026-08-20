@@ -1,0 +1,10 @@
+<% content_for :title, page.title %>
+<article class="mx-auto max-w-3xl">
+  <% unless page.hide_title? %>
+    <h1 class="font-serif-display text-4xl font-semibold tracking-tight sm:text-5xl"><%= page.title %></h1>
+    <div class="mt-6 h-px w-full bg-[#e8e4dc]"></div>
+  <% end %>
+  <div class="prose-content mt-10 text-[17px] leading-[1.85] text-[#2a2a2a]">
+    <%= BlockRenderer.render(page.content_blocks, self) %>
+  </div>
+</article>

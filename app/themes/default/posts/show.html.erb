@@ -1,0 +1,31 @@
+<article class="mx-auto max-w-3xl">
+  <header class="text-center">
+    <% if @post.categories.any? %>
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">
+        <%= @post.categories.map(&:name).join(" · ") %>
+      </p>
+    <% end %>
+    <h1 class="font-serif-display mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
+      <%= @post.title %>
+    </h1>
+    <div class="mt-6 flex items-center justify-center gap-3 text-sm text-gray-500">
+      <span class="font-medium text-gray-700"><%= @post.author.name %></span>
+      <span class="text-gray-300">·</span>
+      <time datetime="<%= @post.published_at&.iso8601 %>"><%= @post.published_at&.strftime("%B %-d, %Y") %></time>
+    </div>
+  </header>
+
+  <% if @post.excerpt.present? %>
+    <p class="mx-auto mt-10 max-w-2xl text-center font-serif-display text-xl italic leading-relaxed text-gray-600">
+      <%= @post.excerpt %>
+    </p>
+  <% end %>
+
+  <div class="mt-12 h-px w-full bg-[#e8e4dc]"></div>
+
+  <div class="prose-content mt-10 text-[17px] leading-[1.85] text-[#2a2a2a]">
+    <%= BlockRenderer.render(@post.content_blocks, self) %>
+  </div>
+
+  <%= render "site/comments", post: @post %>
+</article>

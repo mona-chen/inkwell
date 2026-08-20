@@ -1,0 +1,22 @@
+6.0.4
+==========================
+
+ * Added: More triggers API for integration
+ * Added: Better browser compatibility as of 2025
+ * Added: Template schema, allowing users to create their own themes/templates
+ * Added: Removed certain JS/CSS dependencies
+ * Added: Improved UI/UX
+ * Added: Smart caching when saving
+ * Added: Flexible configuration on host page
+ * Added: More hooks, allowing potential integration (document updated)
+ * Added: Certain components like menu bar, attribute panels are fully configurable
+ * Added: Better interaction and UI effects
+ * Added: More publishing options
+ * Added: Allow users to export/import development bundle
+ * Added: More compact HTML generated
+ * Added: Improved performance in general
+ * Fixed: HTML corrupt in certain cases
+ * Fixed: Cannot import existing page design, due to incompatible components
+ * Fixed: UTF-8 encoding issues
+ * Fixed: Inconsistent HTML output for the same page design
+ * Fixed: Various template import issues

@@ -1,0 +1,25 @@
+/log/*
+/tmp/*
+/storage/*
+/public/assets
+/public/packs
+.env
+.DS_Store
+/node_modules
+**/node_modules
+/db/*.sqlite3
+
+# Rails credentials — never commit the master key
+/config/master.key
+/config/credentials/*.key
+
+# Keep the page builder's build output out of source control; it's rebuilt by bin/build-builder
+/public/page_builder_assets
+/public/page_builder_theme
+
+# Builder.js vendored dependency — keep the buildable source + demo reference, drop the
+# heavy support assets (editor + screenshots) that aren't used by the Inkwell integration.
+/plugins/page_builder/app/builder/guideline
+/plugins/page_builder/app/builder/demo/tinymce
+/plugins/page_builder/app/builder/demo/html2canvas
+/plugins/page_builder/app/builder/demo/uploads

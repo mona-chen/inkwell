@@ -1,0 +1,60 @@
+<div class="container py-4">
+    <div class="pricing-table" style="margin:-7px;padding:7px">
+        <div class="row mx-0 h-100" style="border-left: solid 1px #ccc;">
+            <cells>
+                <div class="p-3 pb-0 col h-100"
+                    style="border: solid 1px #ccc;
+ border-left: none;
+ min-height: 400px;
+ display: flex;
+ flex-direction: column;">
+                    <!-- Header Content -->
+                    <div class="pricing-content flex-grow-1">
+                        <h3 class="font-weight-normal text-center"
+                            inline-edit="text">[[TITLE]]</h3>
+                        <div>
+                            <p class="my-3 text-start" inline-edit="text">[[DESCRIPTION]]</p>
+                        </div>
+                    </div>
+
+                    <!-- Pricing Section -->
+                    <div class="pricing-footer" style="margin-top: auto;">
+                        <div class="text-center">Starting at</div>
+                        <div class="display-4 text-center my-2"
+                            style="font-size: 40px;font-weight:400">[[PRICE]]</div>
+                        <div class="text-center">[[DURATION]]</div>
+                        <div class="text-center my-3">
+                            <a href="#" class="btn btn-primary"
+                                style="width: 80%;
+ background-color: #007c89;
+ color:#ffffff;">[[BUTTON]]</a>
+                        </div>
+                    </div>
+                </div>
+            </cells>
+        </div>
+    </div>
+</div>
+
+<style>
+.pricing-table .row {
+ display: flex !important;
+ flex-wrap: nowrap !important;
+}
+
+.pricing-table cells {
+ display: flex !important;
+ flex: 1;
+}
+
+.pricing-table .col {
+ flex: 1 1 0 !important;
+ max-width: none;
+}
+
+.pricing-content {
+ display: flex;
+ flex-direction: column;
+ height: 100%;
+}
+</style>

@@ -1,0 +1,8 @@
+<div builder-element="BlockElement"
+ style="padding-top:15px;padding-bottom:15px;<%- styleString %>">
+ <div class="container" style="<%- contentStyleString %>">
+ <% cells.forEach(function(cell) { %>
+ <%- cell %>
+ <% }); %>
+ </div>
+</div>

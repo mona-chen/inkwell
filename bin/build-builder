@@ -1,0 +1,69 @@
+#!/bin/bash
+# Builds the Ink Builder page builder library from source and syncs assets
+# to the public/ directory where Rails serves them.
+#
+# Usage:
+#   bin/build-builder          # one-shot build
+#   bin/build-builder --watch  # rebuild + resync on source changes
+
+set -euo pipefail
+
+BUILDER_DIR="plugins/page_builder/app/builder"
+THEME_SRC="plugins/page_builder/themes/standard/blank"
+ASSETS_DIR="public/page_builder_assets"
+THEME_DIR="public/page_builder_theme"
+
+sync_builder_dist() {
+  echo "==> Syncing Builder.js dist to $ASSETS_DIR/"
+  cp "$BUILDER_DIR/dist/builder.js" "$ASSETS_DIR/builder.js"
+  cp "$BUILDER_DIR/dist/builder.css" "$ASSETS_DIR/builder.css"
+}
+
+sync_theme() {
+  echo "==> Syncing theme from $THEME_SRC/ to $THEME_DIR/"
+  cp "$THEME_SRC/store.json" "$THEME_DIR/store.json"
+  cp "$THEME_SRC"/*.template.html "$THEME_DIR/" 2>/dev/null || true
+  cp "$THEME_SRC/index.json" "$THEME_DIR/" 2>/dev/null || true
+  cp "$THEME_SRC/index.html" "$THEME_DIR/" 2>/dev/null || true
+  cp "$THEME_SRC/store.html" "$THEME_DIR/" 2>/dev/null || true
+  cp "$THEME_SRC/thumb.svg" "$THEME_DIR/" 2>/dev/null || true
+  cp "$THEME_SRC/canvas-image-2.png" "$THEME_DIR/" 2>/dev/null || true
+  mkdir -p "$THEME_DIR/css"
+  cp "$THEME_SRC/css/"* "$THEME_DIR/css/" 2>/dev/null || true
+  mkdir -p "$THEME_DIR/image/icons"
+  cp "$THEME_SRC/image/"* "$THEME_DIR/image/" 2>/dev/null || true
+  cp "$THEME_SRC/image/icons/"* "$THEME_DIR/image/icons/" 2>/dev/null || true
+  mkdir -p "$THEME_DIR/widgets"
+  cp "$THEME_SRC/widgets/"* "$THEME_DIR/widgets/" 2>/dev/null || true
+  cp "$THEME_SRC/demo.css" "$THEME_DIR/demo.css" 2>/dev/null || true
+}
+
+echo "==> Building Ink Builder from source..."
+cd "$BUILDER_DIR"
+
+if [ "${1:-}" = "--watch" ]; then
+  npx webpack --watch &
+  WEBPACK_PID=$!
+else
+  npx webpack
+fi
+
+cd - > /dev/null
+
+sync_builder_dist
+sync_theme
+
+if [ "${1:-}" = "--watch" ]; then
+  echo "==> Watching for changes... (PID: $WEBPACK_PID)"
+  echo "==> Watching for dist changes to re-sync..."
+  LAST_SYNC=$(stat -f %m "$ASSETS_DIR/builder.js" 2>/dev/null || echo 0)
+  while kill -0 $WEBPACK_PID 2>/dev/null; do
+    sleep 1
+    if [ -f "$BUILDER_DIR/dist/builder.js" ] && [ "$(stat -f %m "$BUILDER_DIR/dist/builder.js")" -gt "$LAST_SYNC" ]; then
+      sync_builder_dist
+      LAST_SYNC=$(stat -f %m "$BUILDER_DIR/dist/builder.js")
+    fi
+  done
+else
+  echo "==> Build complete."
+fi

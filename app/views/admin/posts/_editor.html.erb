@@ -1,0 +1,77 @@
+<%# The block editor. `post.content` seeds the initial blocks server-side (rendered as real
+    fields, not JSON dumped into a textarea) so it degrades gracefully with JS disabled — you'd
+    just get a flat reorderable list without drag animation, still fully editable and submittable.
+
+    Autosave: the controller serializes the blocks to the hidden field, and a debounced fetch
+    PATCHes the record in the background (the same update endpoint the form submits to), so
+    work is never lost. Undo/redo + a live "Saved / Saving…" indicator live in the toolbar. %>
+
+<div data-controller="block-editor"
+     data-block-editor-types-value="<%= BlockRenderer.registered_types.to_json %>"
+     data-block-editor-save-url-value="<%= post.new_record? ? nil : admin_post_path(post) %>"
+     data-block-editor-resource-key-value="post"
+     class="grid grid-cols-[1fr_280px] gap-6">
+
+  <div class="relative min-w-0">
+    <%# Unbound hidden field — the block editor serializes the draft blocks into it; it is
+        NOT submitted with the form (publishing goes through publish_draft!, not the form). %>
+    <input type="hidden" data-block-editor-target="hiddenField" value="<%= html_escape(post.editing_blocks.to_json) %>">
+
+    <%# Editor toolbar: undo/redo + save status + add block %>
+    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-gray-50/90 backdrop-blur border-b border-gray-200 mb-4 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-1">
+        <button type="button" data-action="block-editor#undo"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">
+          ↺ Undo
+        </button>
+        <button type="button" data-action="block-editor#redo"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                data-block-editor-target="redoButton" title="Redo (Ctrl+Y)" aria-label="Redo">
+          ↻ Redo
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span data-block-editor-target="saveStatus" class="text-xs text-gray-400">
+          <%= post.new_record? ? "New — not saved yet" : "Saved" %>
+        </span>
+        <details data-block-editor-target="blockPicker" class="relative">
+          <summary class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-900 text-white text-sm font-medium shadow-sm cursor-pointer hover:bg-black active:scale-[0.98] transition list-none">
+            + Add block
+          </summary>
+          <div class="absolute right-0 z-10 mt-2 grid grid-cols-2 gap-2 p-3 bg-white rounded-lg shadow-lg w-80 border border-gray-200">
+            <% BlockRenderer.registered_types.each do |type| %>
+              <button type="button"
+                      data-action="block-editor#addBlock"
+                      data-block-editor-type-param="<%= type %>"
+                      class="flex flex-col items-center gap-1 p-3 rounded-md border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-colors text-sm">
+                <%= type.titleize %>
+              </button>
+            <% end %>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div data-block-editor-target="list" class="relative space-y-3 min-h-[200px]">
+      <% post.editing_blocks.each do |block| %>
+        <%= render BlockRenderer.editor_partial(block['type']), data: block["data"], record: post %>
+      <% end %>
+    </div>
+
+    <%# Floating slash-command ("/") insertion menu, positioned by the Stimulus controller %>
+    <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1"></div>
+
+    <p data-block-editor-target="emptyState" class="text-gray-400 text-sm italic py-8 text-center border-2 border-dashed rounded-lg <%= 'hidden' unless post.editing_blocks.empty? %>">
+      No blocks yet — click "+ Add block" to start writing.
+    </p>
+
+    <%# Hidden <template> elements the Stimulus controller clones when a block type is picked %>
+    <%= render "admin/posts/blocks/templates" %>
+  </div>
+
+  <aside class="space-y-4">
+    <%= render "admin/posts/sidebar", f: f, post: post %>
+  </aside>
+</div>

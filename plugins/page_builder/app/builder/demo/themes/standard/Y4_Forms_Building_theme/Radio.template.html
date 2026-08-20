@@ -1,0 +1,7 @@
+<% items.forEach(function(item) { %>
+ <span class="mr-4 radio-option" inline-edit="text">
+ <input type="radio" name="<%= item.name %>" value="<%= item.value %>"
+ autocomplete="off">
+ <span class="text" inline-edit="text"><%= item.label %></span>
+ </span>
+<% }); %>

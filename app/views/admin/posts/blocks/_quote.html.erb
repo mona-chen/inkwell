@@ -1,0 +1,10 @@
+<div data-block-editor-target="block" data-type="quote"
+     data-action="focusin->block-editor#selectBlock"
+     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <textarea data-field="text" data-action="input->block-editor#onInput keydown->block-editor#onKeydown" rows="2"
+            placeholder="Quote text" class="w-full border-0 focus:ring-0 resize-none italic text-lg p-0"><%= local_assigns[:data]&.dig("text") %></textarea>
+  <input data-field="attribution" data-action="input->block-editor#serialize" type="text"
+         value="<%= local_assigns[:data]&.dig("attribution") %>" placeholder="Attribution (optional)"
+         class="w-full text-sm text-gray-500 border-0 focus:ring-0 mt-2 p-0">
+</div>

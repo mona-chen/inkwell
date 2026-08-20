@@ -1,0 +1,27 @@
+<section class="mb-12">
+  <pre class="text-green-500 text-xs leading-tight mb-6">$ whoami<br><%= Current.site.name %></pre>
+  <p class="text-green-300">
+    <%= Current.site.setting("tagline").presence || "// technical notes, mostly." %>
+  </p>
+</section>
+
+<div class="space-y-8">
+  <% @posts.each do |post| %>
+    <article class="border-b border-green-900 pb-6">
+      <h2 class="text-base font-bold">
+        <%= link_to "> #{post.title}", post_path(post), class: "hover:text-green-200" %>
+      </h2>
+      <p class="text-xs text-green-700 mt-1">
+        <%= post.published_at&.strftime("%Y-%m-%d") %>
+        <% if post.categories.any? %> · <%= post.categories.map(&:name).join(", ") %><% end %>
+      </p>
+      <p class="text-green-400 mt-2">
+        <%= post.excerpt.presence || truncate(post.content_blocks.find { |b| b["type"] == "paragraph" }&.dig("data", "text").to_s, length: 140) %>
+      </p>
+    </article>
+  <% end %>
+</div>
+
+<% if @posts.empty? %>
+  <p class="text-green-700">// nothing published yet</p>
+<% end %>

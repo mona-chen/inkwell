@@ -1,0 +1,19 @@
+<%
+  menu = Current.site.menus.find_by(location: location)
+  is_header = location == "header"
+%>
+<% if menu&.menu_items&.any? %>
+  <% if is_header %>
+    <nav class="hidden items-center gap-7 md:flex" aria-label="Main">
+      <% menu.menu_items.each do |item| %>
+        <%= link_to item.label, item.resolved_url, class: "text-sm font-medium text-gray-600 transition-colors hover:text-gray-900" %>
+      <% end %>
+    </nav>
+  <% else %>
+    <nav class="flex flex-col gap-2" aria-label="Footer">
+      <% menu.menu_items.each do |item| %>
+        <%= link_to item.label, item.resolved_url, class: "text-sm text-gray-500 transition-colors hover:text-gray-900" %>
+      <% end %>
+    </nav>
+  <% end %>
+<% end %>

@@ -1,0 +1,9 @@
+<div class="border rounded-lg p-6 my-6 bg-gray-50">
+  <h3 class="font-semibold mb-4"><%= @title %></h3>
+  <%= form_with url: "/plugins/contact_form/messages", method: :post, local: true, class: "space-y-3" do |f| %>
+    <input type="text" name="contact_form_message[name]" placeholder="Name" class="w-full text-sm border rounded px-3 py-2">
+    <input type="email" name="contact_form_message[email]" placeholder="Email" class="w-full text-sm border rounded px-3 py-2">
+    <textarea name="contact_form_message[body]" placeholder="Message" rows="4" class="w-full text-sm border rounded px-3 py-2"></textarea>
+    <%= f.submit "Send", class: "bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg cursor-pointer" %>
+  <% end %>
+</div>

@@ -1,0 +1,33 @@
+<div class="bg-white rounded-lg shadow-sm p-4 space-y-4">
+  <div>
+    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</label>
+    <%= f.select :status, %w[draft published scheduled], {}, class: "mt-1 w-full text-sm border rounded px-2 py-1.5" %>
+  </div>
+  <div>
+    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Excerpt</label>
+    <%= f.text_area :excerpt, rows: 3, class: "mt-1 w-full text-sm border rounded px-2 py-1.5" %>
+  </div>
+  <div>
+    <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Categories</label>
+    <div class="mt-1 space-y-1 max-h-32 overflow-y-auto">
+      <% Term.categories.each do |category| %>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="post[category_ids][]" value="<%= category.id %>"
+                 <%= "checked" if post.categories.include?(category) %> class="rounded">
+          <%= category.name %>
+        </label>
+      <% end %>
+    </div>
+  </div>
+  <%= f.submit "Save draft", name: "save_draft",
+      class: "w-full bg-white border border-gray-200 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50 active:scale-[0.98] transition-colors cursor-pointer" %>
+
+  <% unless post.new_record? %>
+    <%= button_to "Publish", publish_admin_post_path(post), method: :post, form: { data: { turbo: false } },
+        class: "w-full bg-gray-900 text-white rounded-lg py-2 text-sm font-medium shadow-sm hover:bg-black active:scale-[0.98] transition-colors cursor-pointer" %>
+  <% end %>
+
+  <% unless post.new_record? %>
+    <%= link_to "View revision history", admin_post_revisions_path(post), class: "block text-center text-sm text-gray-500 hover:text-gray-900" %>
+  <% end %>
+</div>

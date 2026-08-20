@@ -1,0 +1,10 @@
+<div data-block-editor-target="block" data-type="rich_text"
+     data-action="focusin->block-editor#selectBlock"
+     data-controller="rich-text"
+     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <input type="hidden" data-rich-text-target="hiddenField" data-field="json"
+         data-action="change->block-editor#serialize"
+         value="<%= html_escape(local_assigns[:data]&.dig("json")) %>">
+  <div data-rich-text-target="editor" class="rich-text text-sm leading-relaxed"></div>
+</div>

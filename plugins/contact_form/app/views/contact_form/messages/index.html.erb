@@ -1,0 +1,11 @@
+<div class="max-w-2xl">
+  <h1 class="text-lg font-semibold mb-4">Contact messages</h1>
+  <div class="bg-white border rounded-lg divide-y">
+    <% @messages.each do |m| %>
+      <div class="px-4 py-3 text-sm">
+        <div class="font-medium"><%= m.name %> <span class="text-gray-400">&lt;<%= m.email %>&gt;</span></div>
+        <p class="text-gray-600 mt-1"><%= m.body %></p>
+      </div>
+    <% end %>
+  </div>
+</div>

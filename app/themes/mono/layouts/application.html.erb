@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title><%= content_for?(:title) ? yield(:title) : Current.site.name %></title>
+  <%= raw @head_meta&.join("\n") %>
+  <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+  <%= javascript_importmap_tags %>
+</head>
+<body class="bg-black text-green-400 font-mono antialiased">
+  <header class="border-b border-green-900 py-4">
+    <div class="max-w-2xl mx-auto px-4 flex items-center justify-between text-sm">
+      <%= link_to "~/#{Current.site.name.parameterize}", root_path, class: "font-bold" %>
+      <%= render "site/nav", location: "header" %>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 py-10 text-sm leading-relaxed"><%= yield %></main>
+
+  <footer class="border-t border-green-900 py-6 mt-16 text-xs text-green-700">
+    <div class="max-w-2xl mx-auto px-4">// <%= render "site/nav", location: "footer" %></div>
+  </footer>
+</body>
+</html>

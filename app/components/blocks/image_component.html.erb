@@ -1,0 +1,6 @@
+<figure class="my-6">
+  <img src="<%= @url %>" alt="<%= @alt %>" class="w-full rounded-lg" loading="lazy">
+  <% if @caption.present? %>
+    <figcaption class="text-sm text-gray-500 mt-2 text-center"><%= @caption %></figcaption>
+  <% end %>
+</figure>

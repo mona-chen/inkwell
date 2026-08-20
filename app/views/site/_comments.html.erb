@@ -1,0 +1,11 @@
+<section class="mx-auto mt-20 max-w-2xl pt-10">
+  <div class="border-t border-[#e8e4dc] pt-8">
+    <h2 class="font-serif-display text-2xl font-semibold tracking-tight"><%= pluralize(post.comments.approved.count, "comment") %></h2>
+    <div class="mt-8 space-y-8">
+      <% post.comments.approved.roots.each do |comment| %>
+        <%= render "site/comment", comment: comment %>
+      <% end %>
+    </div>
+    <%= render "site/comment_form", post: post %>
+  </div>
+</section>

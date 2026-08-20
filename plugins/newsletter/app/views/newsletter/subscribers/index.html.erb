@@ -1,0 +1,8 @@
+<div class="max-w-lg">
+  <h1 class="text-lg font-semibold mb-4">Subscribers</h1>
+  <div class="bg-white border rounded-lg divide-y text-sm">
+    <% @subscribers.each do |s| %>
+      <div class="px-4 py-2 flex justify-between"><span><%= s.email %></span><span class="text-gray-400"><%= s.status %></span></div>
+    <% end %>
+  </div>
+</div>

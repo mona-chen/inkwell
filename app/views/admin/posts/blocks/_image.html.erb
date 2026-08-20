@@ -1,0 +1,27 @@
+<div data-block-editor-target="block" data-type="image"
+     data-action="focusin->block-editor#selectBlock"
+     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors"
+     data-controller="media-picker">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <div class="flex gap-4 items-start">
+    <div class="w-32 h-32 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden shrink-0" data-media-picker-target="preview">
+      <% if local_assigns[:data]&.dig("url").present? %>
+        <img src="<%= data["url"] %>" class="w-full h-full object-cover">
+      <% else %>
+        <span class="text-gray-400 text-xs">No image</span>
+      <% end %>
+    </div>
+    <div class="flex-1 space-y-2">
+      <input data-field="url" data-media-picker-target="urlField" data-action="input->block-editor#serialize" type="text"
+             value="<%= local_assigns[:data]&.dig("url") %>" placeholder="Image URL (or pick from media library)"
+             class="w-full text-sm border rounded px-2 py-1">
+      <button type="button" data-action="media-picker#open" class="text-xs text-gray-900 hover:underline">Choose from media library</button>
+      <input data-field="alt" data-action="input->block-editor#serialize" type="text"
+             value="<%= local_assigns[:data]&.dig("alt") %>" placeholder="Alt text"
+             class="w-full text-sm border rounded px-2 py-1">
+      <input data-field="caption" data-action="input->block-editor#serialize" type="text"
+             value="<%= local_assigns[:data]&.dig("caption") %>" placeholder="Caption (optional)"
+             class="w-full text-sm border rounded px-2 py-1">
+    </div>
+  </div>
+</div>

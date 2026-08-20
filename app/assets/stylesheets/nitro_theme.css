@@ -1,0 +1,24 @@
+/* Nitro Kit theme — generated from the Nitro Kit Customizer:
+   accent=neutral, neutral=zinc, radius=md, density=comfortable, font=system.
+   Overrides documented public --nk-* tokens only; loaded after nitro_kit.css. */
+
+:root,
+[data-theme="light"] {
+  --nk-color-focus: oklch(0.439 0 0);
+  --nk-color-primary: oklch(0.269 0 0);
+  --nk-color-primary-foreground: oklch(0.97 0 0);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --nk-color-focus: oklch(0.708 0 0);
+    --nk-color-primary: oklch(0.985 0 0);
+    --nk-color-primary-foreground: oklch(0.205 0 0);
+  }
+}
+
+[data-theme="dark"] {
+  --nk-color-focus: oklch(0.708 0 0);
+  --nk-color-primary: oklch(0.985 0 0);
+  --nk-color-primary-foreground: oklch(0.205 0 0);
+}

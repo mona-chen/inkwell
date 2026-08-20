@@ -1,0 +1,11 @@
+<div data-block-editor-target="block" data-type="code"
+     data-action="focusin->block-editor#selectBlock"
+     class="group relative border border-gray-200 rounded-lg p-4 bg-gray-900 hover:border-gray-500 transition-colors">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <input data-field="language" data-action="input->block-editor#serialize" type="text"
+         value="<%= local_assigns[:data]&.dig("language") %>" placeholder="Language (e.g. ruby, css, js)"
+         class="w-full bg-transparent text-xs text-gray-400 border-0 focus:ring-0 p-0 mb-2 placeholder:text-gray-600">
+  <textarea data-field="code" data-action="input->block-editor#onInput keydown->block-editor#onKeydown"
+            rows="5" placeholder="code = everything(%w[is data])" spellcheck="false"
+            class="w-full bg-transparent border-0 focus:ring-0 resize-none text-sm font-mono text-gray-100 p-0 placeholder:text-gray-600"><%= local_assigns[:data]&.dig("code") %></textarea>
+</div>

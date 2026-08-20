@@ -1,0 +1,16 @@
+<%# Hidden <template> tags cloned by the Stimulus controller when a block type is added fresh
+    (empty data). Kept as real partial renders so there's exactly one source of truth per
+    block's markup — editor and "add new" share the same _paragraph/_heading/etc partial. %>
+<template id="block-template-paragraph"><%= render "admin/posts/blocks/paragraph", data: {} %></template>
+<template id="block-template-heading"><%= render "admin/posts/blocks/heading", data: {} %></template>
+<template id="block-template-image"><%= render "admin/posts/blocks/image", data: {} %></template>
+<template id="block-template-quote"><%= render "admin/posts/blocks/quote", data: {} %></template>
+<template id="block-template-list"><%= render "admin/posts/blocks/list", data: {} %></template>
+<template id="block-template-code"><%= render "admin/posts/blocks/code", data: {} %></template>
+<template id="block-template-separator"><%= render "admin/posts/blocks/separator", data: {} %></template>
+<template id="block-template-callout"><%= render "admin/posts/blocks/callout", data: {} %></template>
+<template id="block-template-button"><%= render "admin/posts/blocks/button", data: {} %></template>
+<template id="block-template-rich_text"><%= render "admin/posts/blocks/rich_text", data: {} %></template>
+
+<%# Plugins contribute their own block <template> tags here (e.g. the Ink Builder). %>
+<% BlockRenderer.templates_partials.each { |partial| concat(render(partial)) } %>

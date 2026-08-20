@@ -1,0 +1,7 @@
+#!/bin/bash
+
+npm install
+rm -rf dist
+rm -rf demo/dist
+npm run build
+cp -r dist demo/

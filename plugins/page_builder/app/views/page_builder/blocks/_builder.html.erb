@@ -1,0 +1,54 @@
+<%
+  record = local_assigns[:record] || @post || @page
+  record_type = record.is_a?(Page) ? "page" : "post"
+  record_id = record&.id
+  saved_html = local_assigns[:data]&.dig("html").to_s
+  preview_html = saved_html[/<body[^>]*>(.*?)<\/body>/m, 1].presence || saved_html
+%>
+<div data-block-editor-target="block" data-type="page_builder"
+     data-action="click->block-editor#selectBlock"
+     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <input type="hidden" data-field="html" value="<%= html_escape(saved_html) %>">
+
+  <div class="flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
+      </div>
+      <div>
+        <div class="text-sm font-medium">Ink Builder</div>
+        <div class="text-xs text-gray-400 mt-0.5">Drag-and-drop layout · saved as ERB</div>
+      </div>
+    </div>
+    <% if record_id %>
+      <a href="/builder/<%= record_type %>/<%= record_id %>" target="_blank" rel="noopener"
+         class="text-sm px-4 py-2 rounded-lg bg-gray-900 text-white font-medium shadow-sm hover:bg-black active:scale-[0.98] transition">
+        Open Ink Builder
+      </a>
+    <% else %>
+      <span class="text-xs text-gray-400">Save the <%= record_type %> first, then open the builder.</span>
+    <% end %>
+  </div>
+
+  <% unless saved_html.blank? %>
+    <div class="mt-4 pt-4 border-t border-gray-100">
+      <div class="text-xs text-gray-400 mb-2">Preview</div>
+      <div class="max-w-none text-sm text-gray-800 leading-relaxed border border-dashed border-gray-200 rounded-lg p-4 bg-gray-50/50">
+        <%= render(inline: preview_html, type: :erb) %>
+      </div>
+    </div>
+  <% end %>
+</div>
+
+<% if record_id %>
+<%# Cross-tab: when the builder saves, this page reloads so the block reflects the new build. %>
+<script>
+  (function () {
+    var key = 'inkwell_pb_<%= record_type %>_<%= record_id %>';
+    window.addEventListener('storage', function (e) {
+      if (e.key === key) { location.reload(); }
+    });
+  })();
+</script>
+<% end %>
