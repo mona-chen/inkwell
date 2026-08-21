@@ -1,22 +1,39 @@
 module PageBuilder
+  # Renders a builder-designed page. The stored block carries:
+  #   html        — the canvas HTML converted to ERB (the body content)
+  #   store       — the builder's element store (for re-editing in the canvas)
+  #   custom_css  — page-level custom CSS, preserved across canvas saves
+  #   custom_js   — page-level custom JS, preserved across canvas saves
+  #
+  # Custom code is stored separately from the canvas HTML so the builder's own Save (which
+  # regenerates HTML from its element store) can never strip it — Framer's "Code component
+  # ships on export" model. It's rendered as a <style> before and a <script> after the body.
   class BuilderBlockComponent < ViewComponent::Base
     def initialize(data:)
-      @html = data["html"].to_s
+      @data = data || {}
+      @html = @data["html"].to_s
     end
 
-    # The stored value is ERB produced by PageBuilder::ErbConverter from an admin-only builder
-    # session — rendering it inline is intentional (the "custom code block" tradeoff).
-    #
-    # The builder saves a full HTML document (<html><head>…<body>…</body></html>); extract just
-    # the <body> contents so it can be embedded inside the surrounding page template.
     def call
-      return "" if @html.blank?
+      return "" if @html.blank? && custom_css.blank? && custom_js.blank?
 
-      view_context.render(inline: body_only, type: :erb)
+      style = custom_css.present? ? "<style>#{custom_css}</style>" : ""
+      script = custom_js.present? ? "<script>#{custom_js}</script>" : ""
+      view_context.render(inline: style + body_only + script, type: :erb)
     end
 
     private
 
+    def custom_css
+      @data["custom_css"].to_s
+    end
+
+    def custom_js
+      @data["custom_js"].to_s
+    end
+
+    # The builder saves a full HTML document (<html><head>…<body>…</body></html>); extract just
+    # the <body> contents so it can be embedded inside the surrounding page template.
     def body_only
       body = @html[/<body[^>]*>(.*?)<\/body>/m, 1]
       body.presence || @html

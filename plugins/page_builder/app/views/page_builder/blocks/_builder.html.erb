@@ -3,13 +3,14 @@
   record_type = record.is_a?(Page) ? "page" : "post"
   record_id = record&.id
   saved_html = local_assigns[:data]&.dig("html").to_s
-  preview_html = saved_html[/<body[^>]*>(.*?)<\/body>/m, 1].presence || saved_html
+  # Only the body is page content — the stored <head> is builder/theme scaffolding (and has,
+  # historically, carried multi-MB bloat). Never ship it into the editor DOM.
+  body_only_html = saved_html[/<body[^>]*>(.*?)<\/body>/m, 1].presence || saved_html
 %>
 <div data-block-editor-target="block" data-type="page_builder"
-     data-action="click->block-editor#selectBlock"
      class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
   <%= render "admin/posts/blocks/toolbar" %>
-  <input type="hidden" data-field="html" value="<%= html_escape(saved_html) %>">
+  <input type="hidden" data-field="html" value="<%= html_escape(body_only_html) %>">
 
   <div class="flex items-center justify-between gap-4">
     <div class="flex items-center gap-3">
@@ -22,7 +23,10 @@
       </div>
     </div>
     <% if record_id %>
-      <a href="/builder/<%= record_type %>/<%= record_id %>" target="_blank" rel="noopener"
+      <%# Open the builder in a new tab when the browser allows it; if the popup is
+          blocked (w === null) fall back to navigating this tab so the button always works. %>
+      <a href="/builder/<%= record_type %>/<%= record_id %>" rel="noopener"
+         onclick="var w=window.open(this.href,'_blank','noopener');if(w){return false;}"
          class="text-sm px-4 py-2 rounded-lg bg-gray-900 text-white font-medium shadow-sm hover:bg-black active:scale-[0.98] transition">
         Open Ink Builder
       </a>
@@ -34,8 +38,10 @@
   <% unless saved_html.blank? %>
     <div class="mt-4 pt-4 border-t border-gray-100">
       <div class="text-xs text-gray-400 mb-2">Preview</div>
-      <div class="max-w-none text-sm text-gray-800 leading-relaxed border border-dashed border-gray-200 rounded-lg p-4 bg-gray-50/50">
-        <%= render(inline: preview_html, type: :erb) %>
+      <div class="border border-dashed border-gray-200 rounded-lg bg-white overflow-hidden">
+        <iframe sandbox="" title="Ink Builder preview" loading="lazy"
+                class="w-full" style="height: 320px; border: 0; display: block;"
+                srcdoc="<%= html_escape(body_only_html) %>"></iframe>
       </div>
     </div>
   <% end %>

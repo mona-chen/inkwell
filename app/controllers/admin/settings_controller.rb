@@ -21,5 +21,18 @@ module Admin
       Inkwell::Hooks.fire(:settings_updated, params[:settings])
       redirect_to admin_settings_path, notice: "Settings saved."
     end
+
+    # Maintenance: clear the application cache (fragments, Solid Cache in prod). Also bumps
+    # the asset digest so browsers fetch freshly-compiled stylesheets (Propshaft re-digests
+    # when the file changes, but this forces a clean slate for cached render fragments).
+    def purge_cache
+      Rails.cache.clear
+      # Touch the stylesheet so Propshaft computes a new digest on the next request.
+      stylesheet_path = Rails.root.join("app/assets/builds/tailwind.css")
+      if stylesheet_path.exist?
+        File.utime(File.mtime(stylesheet_path), Time.now, stylesheet_path)
+      end
+      redirect_to admin_settings_path, notice: "Cache cleared."
+    end
   end
 end

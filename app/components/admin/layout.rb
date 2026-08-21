@@ -54,8 +54,12 @@ module Admin
     end
 
     def nav_groups
+      pending_count = Comment.pending.count
       groups = Admin::Shell::GROUPS.map do |group|
-        items = group[:items].map { |item| item.merge(icon: Admin::Shell::ICONS[item[:icon]] || :circle) }
+        items = group[:items].map do |item|
+          badge = item[:label] == "Comments" && pending_count.positive? ? pending_count : nil
+          item.merge(icon: Admin::Shell::ICONS[item[:icon]] || :circle, badge: badge)
+        end
         [group[:label], items]
       end
       plugin_items = Inkwell::PluginManager.admin_nav_items.map do |item|

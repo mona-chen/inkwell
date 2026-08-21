@@ -1,0 +1,818 @@
+<%# Copilot for the Ink Builder (visual page builder). Unlike the block editor, here the
+    whole HTML canvas is Copilot's playground: it designs elegant, builder-native stores (real
+    elements the Ink Builder can load and edit), using the {{ site.name }} / {{ loop posts:3 }}
+    dynamic tokens. Rendered by the page_builder layout while this plugin is active.
+    NOTE: the builder page uses Bootstrap, not the app's Tailwind — so all widget styling is
+    self-contained scoped CSS (bc-*) below. %>
+<div data-controller="builder-copilot"
+     data-builder-copilot-context-value="<%= @record&.title %>"
+     data-builder-copilot-site-value="<%= Current.site.name %>"
+     data-builder-copilot-record-id-value="<%= @record&.id %>"
+     data-builder-copilot-record-type-value="<%= @record.is_a?(Page) ? "page" : "post" %>">
+  <button type="button" data-action="builder-copilot#open" aria-label="Open Copilot" class="bc-fab">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+    Copilot
+  </button>
+
+  <div data-builder-copilot-target="window" class="bc-window hidden">
+    <div class="bc-header">
+      <div class="bc-header-left">
+        <span class="bc-title">Copilot</span>
+        <span class="bc-badge">Page builder</span>
+        <span data-builder-copilot-target="statusDot" class="bc-dot hidden"></span>
+      </div>
+      <button type="button" data-action="builder-copilot#close" class="bc-icon-btn" aria-label="Close Copilot">✕</button>
+    </div>
+
+    <div data-builder-copilot-target="chatView" class="bc-chat">
+      <div data-builder-copilot-target="transcript" class="bc-transcript"></div>
+
+      <div data-builder-copilot-target="designView" class="bc-design hidden">
+        <div class="bc-design-head">
+          <span class="bc-design-label">Design preview</span>
+          <div class="bc-design-actions">
+            <button type="button" data-action="builder-copilot#expandPreview" class="bc-btn bc-btn-ghost">Expand</button>
+            <button type="button" data-builder-copilot-target="apply" data-action="builder-copilot#apply" class="bc-btn">Apply design</button>
+          </div>
+        </div>
+        <iframe data-builder-copilot-target="preview" class="bc-preview-frame" sandbox="allow-same-origin"></iframe>
+      </div>
+
+      <div class="bc-input-area">
+        <div class="bc-modes">
+          <button type="button" data-builder-copilot-target="mode" data-mode="design" data-action="builder-copilot#setMode" class="bc-mode">Design</button>
+          <button type="button" data-builder-copilot-target="mode" data-mode="add_section" data-action="builder-copilot#setMode" class="bc-mode">Add section</button>
+          <button type="button" data-builder-copilot-target="mode" data-mode="rewrite" data-action="builder-copilot#setMode" class="bc-mode">Rewrite</button>
+        </div>
+        <textarea data-builder-copilot-target="prompt" rows="2" data-action="keydown->builder-copilot#promptKeydown"
+                  placeholder="Describe the page you want — tell me your site's story and I'll design it…" class="bc-prompt"></textarea>
+        <div class="bc-input-row">
+          <span data-builder-copilot-target="status" class="bc-status"></span>
+          <button type="button" data-builder-copilot-target="send" data-action="builder-copilot#send" class="bc-btn bc-btn-primary">Generate</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%# Fullscreen preview overlay — expand the design out of the floating widget %>
+  <div data-builder-copilot-target="previewOverlay" class="bc-overlay hidden">
+    <div class="bc-overlay-head">
+      <span class="bc-overlay-title">Design preview</span>
+      <button type="button" data-action="builder-copilot#closePreview" class="bc-overlay-close" aria-label="Close preview">✕</button>
+    </div>
+    <iframe data-builder-copilot-target="previewFull" class="bc-overlay-frame" sandbox="allow-same-origin"></iframe>
+  </div>
+
+  <style>
+    .hidden { display: none !important; }
+
+    .bc-fab {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      z-index: 9000;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 9999px;
+      background: #111827;
+      color: #fff;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      border: none;
+      box-shadow: 0 10px 25px rgba(0,0,0,.25);
+      cursor: pointer;
+      transition: transform .15s ease, background .15s ease;
+      font-family: inherit;
+    }
+    .bc-fab:hover { background: #000; }
+    .bc-fab:active { transform: scale(.98); }
+
+    .bc-window {
+      position: fixed;
+      bottom: 72px;
+      right: 16px;
+      z-index: 9001;
+      width: 420px;
+      max-width: calc(100vw - 32px);
+      height: 600px;
+      max-height: calc(100vh - 144px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      box-shadow: 0 25px 50px rgba(0,0,0,.3);
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    }
+
+    .bc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #f3f4f6;
+      padding: 12px 16px;
+    }
+    .bc-header-left { display: flex; align-items: center; gap: 8px; }
+    .bc-title { font-size: 14px; font-weight: 600; color: #111827; }
+    .bc-badge {
+      border-radius: 9999px;
+      background: #eef2ff;
+      color: #4f46e5;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .bc-dot { width: 8px; height: 8px; border-radius: 9999px; background: #10b981; }
+    .bc-icon-btn {
+      border: 0;
+      background: transparent;
+      border-radius: 6px;
+      padding: 4px;
+      color: #9ca3af;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .bc-icon-btn:hover { background: #f3f4f6; color: #374151; }
+
+    .bc-chat { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+    .bc-transcript { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+    .bc-user { display: flex; justify-content: flex-end; }
+    .bc-user > div { max-width: 85%; border-radius: 12px; border-bottom-right-radius: 4px; background: #111827; color: #fff; padding: 8px 12px; white-space: pre-wrap; word-break: break-word; }
+    .bc-bubble { max-width: 90%; white-space: pre-wrap; word-break: break-word; border-radius: 12px; border-bottom-left-radius: 4px; border: 1px solid #e5e7eb; background: #f9fafb; color: #111827; padding: 8px 12px; }
+    .bc-error { border: 1px solid #fecaca; background: #fef2f2; color: #b91c1c; padding: 8px 12px; border-radius: 8px; font-size: 12px; }
+    .bc-log { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7280; }
+    .bc-log .bc-log-arrow { color: #d1d5db; }
+    .bc-thinking { display: flex; gap: 8px; }
+    .bc-thinking-dot { margin-top: 2px; width: 8px; height: 8px; border-radius: 9999px; background: #111827; animation: bc-pulse 1s ease-in-out infinite; }
+    .bc-thinking-body { min-width: 0; flex: 1; }
+    .bc-thinking-label { font-size: 11px; font-weight: 500; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; }
+    .bc-thinking-text { margin-top: 4px; max-height: 80px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #4b5563; }
+    @keyframes bc-pulse { 50% { opacity: .35; } }
+
+    .bc-plan { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 10px 12px; }
+    .bc-plan-title { font-size: 12px; font-weight: 600; color: #111827; margin-bottom: 8px; }
+    .bc-plan-body { display: flex; flex-direction: column; gap: 6px; }
+    .bc-plan-sec { font-size: 12px; color: #374151; cursor: pointer; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; margin: 0 -6px; transition: all .15s ease; }
+    .bc-plan-sec:hover { background: #f3f4f6; }
+    .bc-section-active { background: #eef2ff; border-color: #c7d2fe; }
+    .bc-section-updated { border-color: #a7f3d0; background: #ecfdf5; }
+    .bc-plan-sec-label { font-weight: 600; }
+    .bc-plan-els { margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .bc-plan-el { border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 9999px; padding: 1px 8px; font-size: 10px; color: #6b7280; }
+    .bc-plan-actions { margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+    .bc-plan-hint { font-size: 11px; color: #9ca3af; }
+
+    .bc-design { border-top: 1px solid #e5e7eb; padding: 12px; }
+    .bc-design-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .bc-design-label { font-size: 12px; font-weight: 600; color: #374151; }
+    .bc-design-actions { display: flex; gap: 6px; }
+    .bc-preview-frame { width: 100%; height: 208px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+    .bc-btn-ghost { background: #fff; color: #111827; border: 1px solid #d1d5db; }
+    .bc-btn-ghost:hover { background: #f9fafb; }
+
+    .bc-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(15,23,42,.55); backdrop-filter: blur(4px); display: flex; flex-direction: column; padding: 20px; }
+    .bc-overlay-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .bc-overlay-title { color: #fff; font-weight: 600; font-size: 14px; }
+    .bc-overlay-close { background: transparent; border: 0; color: #fff; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+    .bc-overlay-close:hover { background: rgba(255,255,255,.15); }
+    .bc-overlay-frame { flex: 1; width: 100%; border: 0; border-radius: 12px; background: #fff; }
+
+    .bc-input-area { border-top: 1px solid #f3f4f6; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .bc-modes { display: flex; flex-wrap: wrap; gap: 4px; }
+    .bc-mode {
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #4b5563;
+      border-radius: 9999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .bc-mode:hover { background: #f9fafb; }
+    .bc-mode-active { background: #111827; color: #fff; border-color: #111827; }
+    .bc-prompt {
+      width: 100%;
+      resize: none;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+    }
+    .bc-prompt:focus { border-color: #9ca3af; box-shadow: 0 0 0 2px rgba(156,163,175,.2); }
+    .bc-input-row { display: flex; align-items: center; gap: 8px; }
+    .bc-status { flex: 1; font-size: 12px; color: #9ca3af; }
+    .bc-btn {
+      border: 0;
+      border-radius: 6px;
+      background: #111827;
+      color: #fff;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .bc-btn:hover { background: #000; }
+    .bc-btn:disabled { opacity: .5; cursor: default; }
+    .bc-btn-primary { padding: 8px 14px; font-size: 14px; }
+  </style>
+
+  <script type="module">
+    import { Controller } from "@hotwired/stimulus"
+    import { application } from "controllers/application"
+
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+    }
+
+    // Exact default formats the builder's theme expects. Content elements (H1/P/Button) use
+    // this simple formats object; sections are GridElement -> CellElement -> elementLists.
+    const ELEMENT_FORMATS = {
+      text_color: null, background_color: null, background_image: null,
+      background_position: "center", background_size: "100%", background_repeat: "no-repeat",
+      padding_top: 0, padding_right: 0, padding_bottom: 0, padding_left: 0, text_align: "center"
+    }
+    const CELL_FORMATS = {
+      background_color: null, background_image: null, background_position: "center",
+      background_size: "100%", background_repeat: "no-repeat", padding_top: 0,
+      padding_right: 0, padding_bottom: 0, padding_left: 0, width: "", height: ""
+    }
+    const SECTION_FORMATS = {
+      font_size: null, font_style: null, text_color: null, font_family: "inherit",
+      font_weight: null, padding_top: 0, padding_left: 0, padding_right: 0,
+      padding_bottom: 0, background_size: "100%", background_color: "#ffffff",
+      background_image: null, background_repeat: "no-repeat", background_position: "center"
+    }
+    const LEFT_ALIGNED = { PElement: true, ListElement: true, DescriptionImageElement: true }
+
+    // Element names the builder's ElementFactory actually accepts (switch cases + window
+    // globals). Anything else makes createElement alert + throw and blanks the canvas, so we
+    // map unknown model output to a safe paragraph element.
+    const SAFE_ELEMENTS = {
+      H1Element: true, H2Element: true, H3Element: true, H4Element: true, H5Element: true,
+      PElement: true, ListElement: true, ImageElement: true, ButtonElement: true,
+      LinkElement: true, BlockElement: true, GridElement: true, CellElement: true,
+      DescriptionImageElement: true, SocialIconsElement: true, AlertElement: true,
+      VideoElement: true, TableElement: true, MenuElement: true, RSSElement: true,
+      TextInputElement: true, RadioElement: true, SelectElement: true,
+      PricingTableElement: true, YoutubeElement: true
+    }
+
+    // Turn a compact spec { elementLists: [{ bg, elements: [{name,template,text,align}] }] }
+    // into the builder's hierarchical store: each section is an ARRAY wrapping a GridElement
+    // whose cells hold a CellElement whose elementLists hold the content elements — the exact
+    // shape the theme's own store.json uses (verified to load via builder.load).
+    function completeStore(spec) {
+      const sections = (spec && spec.elementLists) || []
+      const elementLists = sections.map((sec) => {
+        const elements = (sec && (sec.elements || [])) || []
+        const content = elements.map((el) => {
+          const align = el.align || (LEFT_ALIGNED[el.name] ? "left" : "center")
+          // Never emit an element the factory can't parse (that would throw + blank the canvas).
+          const name = SAFE_ELEMENTS[el.name] ? el.name : "PElement"
+          const template = name === "PElement" ? "P" : (el.template || el.name.replace(/Element$/, ""))
+          const obj = { name, template, formats: Object.assign({}, ELEMENT_FORMATS, { text_align: align }) }
+          if (el.text != null) obj.text = el.text
+          return obj
+        })
+        return [{
+          name: "GridElement", template: "Grid", type: null,
+          formats: Object.assign({}, SECTION_FORMATS),
+          cells: [{
+            name: "CellElement", template: "Cell", elementLists: [content],
+            formats: Object.assign({}, CELL_FORMATS, sec && sec.bg ? { background_color: sec.bg } : {})
+          }]
+        }]
+      })
+      return { name: "PageElement", theme: "1_Column_Layout", formats: SECTION_FORMATS, elementLists }
+    }
+
+    // Content elements of a section (digs through Grid -> Cell -> elementLists).
+    function sectionElements(sec) {
+      if (Array.isArray(sec)) return sec
+      const cells = sec && sec.cells
+      if (cells && cells[0] && cells[0].elementLists && cells[0].elementLists[0]) return cells[0].elementLists[0]
+      return []
+    }
+
+    // The design system (.cp-*) lives in the app stylesheet app/assets/stylesheets/
+    // copilot_design.css, loaded on the builder canvas and the public theme — so generated
+    // HTML carries only semantic classes, no inline <style> tags.
+
+    function isDark(bg) {
+      const h = String(bg || "").replace("#", "")
+      if (h.length !== 6) return false
+      const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
+      return (r * 299 + g * 587 + b * 114) / 1000 < 140
+    }
+
+    // Render a design spec as semantic .cp-* HTML (styled by the app's copilot_design.css),
+    // for the live preview and the saved page. No inline <style> tags.
+    function specToHtml(spec) {
+      const sections = (spec && spec.elementLists) || []
+      return sections.map(renderSection).join("")
+    }
+
+    function renderSection(sec) {
+      const bg = (sec && sec.bg) || "#ffffff"
+      const els = (sec && sec.elements) || []
+      const eyebrow = [], title = [], lead = [], cards = [], buttons = [], lists = []
+      let idx = 0
+      while (idx < els.length && ["H5Element", "H1Element", "PElement"].includes(els[idx].name)) {
+        const e = els[idx]
+        if (e.name === "H5Element") eyebrow.push(esc(e.text || ""))
+        else if (e.name === "H1Element") title.push(esc(e.text || ""))
+        else lead.push(esc(e.text || ""))
+        idx++
+      }
+      while (idx < els.length) {
+        const e = els[idx]
+        if (e.name === "H5Element" && els[idx + 1] && els[idx + 1].name === "PElement") {
+          cards.push({ t: esc(e.text || ""), b: esc(els[idx + 1].text || "") })
+          idx += 2
+        } else if (e.name === "ButtonElement") { buttons.push(esc(e.text || "")); idx++ }
+        else if (e.name === "ListElement") { lists.push(esc(e.text || "")); idx++ }
+        else if (e.name === "PElement") { lead.push(esc(e.text || "")); idx++ }
+        else idx++
+      }
+      let html = ""
+      if (eyebrow.length) html += '<p class="cp-eyebrow">' + eyebrow.join(" ") + "</p>"
+      if (title.length) html += '<h1 class="cp-title">' + title.join(" ") + "</h1>"
+      if (lead.length) html += '<p class="cp-lead">' + lead.join(" ") + "</p>"
+      if (cards.length) {
+        html += '<div class="cp-cards">' + cards.map((c) =>
+          '<div class="cp-card"><div class="cp-card-dot"></div><h3>' + c.t + "</h3><p>" + c.b + "</p></div>").join("") + "</div>"
+      }
+      lists.forEach((list) => {
+        html += '<ul class="cp-list">' + String(list).split("\n").filter(Boolean).map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>"
+      })
+      if (buttons.length) {
+        html += '<div class="cp-actions">' + buttons.map((b, i) =>
+          '<a href="#" class="cp-btn ' + (i === 0 ? "cp-btn-primary" : "cp-btn-ghost") + '">' + b + "</a>").join("") + "</div>"
+      }
+      return '<section class="cp-section' + (isDark(bg) ? " cp-dark" : "") + '" style="background:' + bg + '"><div class="cp-container">' + html + "</div></section>"
+    }
+
+    // Accept either a compact spec (client completes formats) or a full builder store.
+    function toStore(design) {
+      if (design.spec && design.spec.elementLists) return completeStore(design.spec)
+      if (design.store && design.store.elementLists) return design.store
+      return null
+    }
+
+    class BuilderCopilotController extends Controller {
+      static targets = ["window", "transcript", "prompt", "send", "status", "statusDot", "mode", "designView", "preview", "apply", "previewOverlay", "previewFull"]
+      static values = { context: String, site: String, recordId: String, recordType: String }
+
+      connect() {
+        if (this.element.parentElement !== document.body) document.body.appendChild(this.element)
+        this.mode = "design"
+        this.history = []
+        this.busy = false
+        this.design = ""
+        this.designHtml = ""
+        this.pendingSpec = null
+        this.editingSection = null
+        this.markActiveModes()
+        // Delegate section clicks: Stimulus doesn't re-scan data-action on dynamically
+        // inserted rows, so we bind a delegated listener on the transcript instead.
+        this._sectionClick = (e) => {
+          const row = e.target.closest("[data-section-row]")
+          if (row) { e.preventDefault(); this.selectSection({ currentTarget: row }) }
+        }
+        this.transcriptTarget.addEventListener("click", this._sectionClick)
+      }
+
+      disconnect() {
+        if (this.transcriptTarget && this._sectionClick) this.transcriptTarget.removeEventListener("click", this._sectionClick)
+      }
+
+      open(event) {
+        event && event.preventDefault()
+        const closed = this.windowTarget.classList.contains("hidden")
+        this.windowTarget.classList.toggle("hidden", !closed)
+        if (closed) this.promptTarget.focus()
+      }
+
+      close(event) {
+        event && event.preventDefault()
+        this.windowTarget.classList.add("hidden")
+      }
+
+      setMode(event) {
+        this.mode = event.currentTarget.dataset.mode
+        this.markActiveModes()
+      }
+
+      markActiveModes() {
+        this.modeTargets.forEach((b) => {
+          b.classList.toggle("bc-mode-active", b.dataset.mode === this.mode)
+        })
+      }
+
+      promptKeydown(event) {
+        if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); this.send() }
+      }
+
+      currentHtml() {
+        try { return (window.builder && window.builder.getHtml) ? window.builder.getHtml() : "" } catch { return "" }
+      }
+
+      currentStore() {
+        try { return (window.builder && window.builder.getData) ? window.builder.getData() : {} } catch { return {} }
+      }
+
+      async send() {
+        if (this.busy) return
+        const prompt = this.promptTarget.value.trim()
+        if (!prompt) return
+        this.busy = true
+        this.sendTarget.disabled = true
+        this.setStatus("Thinking…", true)
+
+        const editIndex = this.targetSectionIndex(prompt)
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content
+        this.addUserMessage(prompt)
+        this.beginThinking()
+        try {
+          const resp = await fetch("/plugins/ai_writer/chat", {
+            method: "POST",
+            headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json", "Accept": "text/event-stream" },
+            body: JSON.stringify({
+              mode: this.mode, prompt, html: this.currentHtml(), store: this.currentStore(),
+              context: this.contextValue, site: this.siteValue, recordType: this.recordTypeValue,
+              env: "html", history: this.history,
+              editSection: editIndex == null ? null : editIndex,
+              currentSections: this.pendingSpec ? this.pendingSpec.elementLists : null
+            })
+          })
+          if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || "Copilot failed (" + resp.status + ")") }
+          const { content } = await this.streamResponse(resp)
+          this.handleResponse(content)
+          this.setStatus("", false)
+        } catch (e) {
+          this.endThinking()
+          this.addError(e.message)
+          this.setStatus("", false)
+        } finally {
+          this.busy = false
+          this.sendTarget.disabled = false
+        }
+      }
+
+      // Read the SSE stream. reasoning_content (the model's thinking) is shown in the
+      // thinking area but kept separate from `content` (the actual reply), so a reasoner's
+      // internal prose never pollutes the JSON plan we parse.
+      async streamResponse(resp) {
+        const reader = resp.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ""
+        let content = ""
+        let reasoning = ""
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split("\n")
+          buffer = lines.pop()
+          for (const line of lines) {
+            const s = line.trim()
+            if (!s.startsWith("data:")) continue
+            const payload = s.slice(5).trim()
+            if (payload === "[DONE]") continue
+            try {
+              const evt = JSON.parse(payload)
+              if (evt.error) throw new Error(evt.error)
+              const delta = evt.choice && evt.choice.delta
+              const c = delta && (delta.content || "")
+              const r = delta && (delta.reasoning_content || "")
+              if (r) { reasoning += r; this.appendThinking(r) }
+              if (c) { content += c; this.appendThinking(c) }
+            } catch { /* skip */ }
+          }
+        }
+        return { content, reasoning }
+      }
+
+      handleResponse(text) {
+        this.endThinking()
+        const parsed = this.parseDesign(text)
+        const spec = parsed && parsed.spec && parsed.spec.elementLists ? parsed.spec : null
+        const editIndex = this.editingSection
+        if (editIndex != null && spec && this.pendingSpec && this.pendingSpec.elementLists[editIndex]) {
+          // Surgical edit: merge the model's returned (single) section into the design.
+          const newSection = spec.elementLists[0]
+          this.pendingSpec.elementLists[editIndex] = newSection
+          if (parsed.customCss) this.customCss = parsed.customCss
+          if (parsed.customJs) this.customJs = parsed.customJs
+          this.designHtml = specToHtml(this.pendingSpec)
+          this.previewTarget.srcdoc = this.wrapPreview(this.designHtml)
+          this.addAssistantMessage(parsed.reply || "Updated section " + (editIndex + 1) + ".")
+          this.logAction("Updated section " + (editIndex + 1) + " — review, then Apply")
+          this.updatePlanRow(editIndex, newSection)
+          this.previewOnCanvas()
+        } else if (spec) {
+          this.pendingSpec = spec
+          if (parsed.customCss) this.customCss = parsed.customCss
+          if (parsed.customJs) this.customJs = parsed.customJs
+          this.designHtml = specToHtml(spec)
+          this.addAssistantMessage(parsed.reply || "Here's a proposed design.")
+          this.showPlan(spec)
+          this.previewTarget.srcdoc = this.wrapPreview(this.designHtml)
+          this.designViewTarget.classList.remove("hidden")
+          this.previewOnCanvas()
+        } else if (parsed && parsed.html) {
+          this.addAssistantMessage(parsed.reply || "Here's a design for your page.")
+          this.pendingSpec = null
+          this.design = parsed.html
+          this.previewTarget.srcdoc = this.wrapPreview(parsed.html)
+          this.designViewTarget.classList.remove("hidden")
+        } else if (parsed && parsed.reply) {
+          this.addAssistantMessage(parsed.reply)
+        } else {
+          this.addAssistantMessage(text ? "Hmm, that didn't come through as a design or a reply — try again." : "No response — check Settings → Copilot.")
+        }
+        this.history.push({ role: "user", content: this.promptTarget.value.trim() })
+        this.history.push({ role: "assistant", content: parsed && parsed.reply ? parsed.reply : (text || "") })
+        this.promptTarget.value = ""
+      }
+
+      // Show the current design on the builder canvas in realtime. We inject the design HTML
+      // directly into the canvas iframe (instead of the fragile store clear/parse/render) so
+      // what you see on the canvas EXACTLY matches the preview, reliably, on every redesign.
+      previewOnCanvas() {
+        if (!this.designHtml) return
+        const doc = window.builder && (window.builder.iframeDoc || (window.builder.iframe && window.builder.iframe.contentDocument))
+        if (!doc || !doc.body) return
+        doc.body.innerHTML = this.designHtml
+        if (typeof window.applyCustomCode === "function") window.applyCustomCode()
+      }
+
+      // Update a plan-card section row in place after a surgical edit.
+      updatePlanRow(index, sec) {
+        const row = this.transcriptTarget.querySelector('[data-section-row][data-index="' + index + '"]')
+        if (!row) return
+        const els = sec && sec.elements || []
+        const pills = els.map((e) => "<span class=\"bc-plan-el\">" + esc(e.name || "Element") + "</span>").join(" ")
+        const firstText = esc((els[0] && els[0].text || "").slice(0, 70))
+        row.innerHTML = '<span class="bc-plan-sec-label">Section ' + (index + 1) + ':</span> ' + firstText +
+          '<div class="bc-plan-els">' + pills + '</div>'
+        row.classList.add("bc-section-updated")
+      }
+
+      // Render the proposed design as a plan card, so the user reviews before applying.
+      showPlan(spec) {
+        const sections = spec.elementLists || []
+        const items = sections.map((sec, i) => {
+          const els = sec && sec.elements || []
+          const pills = els.map((e) => "<span class=\"bc-plan-el\">" + esc(e.name || "Element") + "</span>").join(" ")
+          const firstText = esc((els[0] && els[0].text || "").slice(0, 70))
+          return '<div class="bc-plan-sec" data-section-row data-index="' + i + '" title="Click to edit this section">' +
+            '<span class="bc-plan-sec-label">Section ' + (i + 1) + ':</span> ' + firstText +
+            '<div class="bc-plan-els">' + pills + "</div></div>"
+        }).join("")
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="bc-plan"><div class="bc-plan-title">Proposed design — review before applying</div>' +
+          '<div class="bc-plan-body">' + items + "</div>" +
+          '<div class="bc-plan-actions"><span class="bc-plan-hint">Click a section to edit it surgically, or preview below and hit Apply.</span></div></div>')
+        this.scrollTranscript()
+      }
+
+      expandPreview() {
+        if (!this.previewTarget.srcdoc) return
+        this.previewFullTarget.srcdoc = this.previewTarget.srcdoc
+        this.previewOverlayTarget.classList.remove("hidden")
+      }
+
+      closePreview() {
+        this.previewOverlayTarget.classList.add("hidden")
+        this.previewFullTarget.srcdoc = ""
+      }
+
+      // Apply the proposed design to the page: saves the rendered HTML through the builder's
+      // save endpoint. The published page renders the design (the builder's public output is
+      // the saved HTML). The canvas itself edits its own store, which this third-party builder
+      // won't reliably load from AI-generated content — so after applying we point the user at
+      // the live page rather than pretending the canvas changed.
+      async apply() {
+        const html = this.designHtml || this.design
+        if (!html) { this.addError("No design to apply yet."); return }
+        const btn = this.applyTarget
+        const original = btn.textContent
+        btn.disabled = true
+        btn.textContent = "Saving…"
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content
+        const fullDoc = "<html><head></head><body>" + html + "</body></html>"
+        // Preserve the page's custom CSS/JS: use the design's custom code if the model
+        // provided it, otherwise keep the builder Code tab's values — so nothing is stripped.
+        const tabCss = document.getElementById("customCss") ? document.getElementById("customCss").value : ""
+        const tabJs = document.getElementById("customJs") ? document.getElementById("customJs").value : ""
+        const customCss = this.customCss || tabCss
+        const customJs = this.customJs || tabJs
+        try {
+          const resp = await fetch("/builder/save", {
+            method: "POST",
+            headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json", "Accept": "application/json" },
+            body: JSON.stringify({ html: fullDoc, custom_css: customCss, custom_js: customJs, record_type: this.recordTypeValue, record_id: this.recordIdValue })
+          })
+          const j = await resp.json().catch(() => ({}))
+          if (!resp.ok) throw new Error(j.error || "Save failed (" + resp.status + ")")
+          btn.textContent = "Applied"
+          this.logAction("Design applied to the page.")
+          const viewPath = (this.recordTypeValue === "page" ? "/pages/" : "/posts/") + this.recordIdValue
+          this.showViewLink(viewPath)
+        } catch (e) {
+          btn.textContent = original
+          this.addError(e.message)
+          btn.disabled = false
+        }
+      }
+
+      // A prominent "view it live" link after applying a design.
+      showViewLink(path) {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="bc-plan" style="border-color:#a7f3d0;background:#ecfdf5"><div class="bc-plan-title">Design saved to your page</div>' +
+          '<div class="bc-plan-body"><a href="' + esc(path) + '" target="_blank" rel="noopener" class="bc-btn" style="display:inline-flex;width:auto">View it live →</a></div>' +
+          '<div class="bc-plan-hint" style="margin-top:6px">The canvas edits its own store, so AI-generated pages render on the published page. Re-open the builder to keep editing the theme layout.</div></div>')
+        this.scrollTranscript()
+      }
+
+      // ---- surgical section editing ---------------------------------------------
+
+      // Select a section from the plan card to edit surgically (highlight + target).
+      selectSection(event) {
+        const idx = Number(event.currentTarget.dataset.index)
+        this.editingSection = idx
+        this.transcriptTarget.querySelectorAll("[data-section-row]").forEach((row) => {
+          row.classList.toggle("bc-section-active", Number(row.dataset.index) === idx)
+        })
+        this.setStatus("Editing section " + (idx + 1) + " — tell Copilot what to change.", false)
+        this.promptTarget.focus()
+      }
+
+      clearSection() {
+        this.editingSection = null
+        this.transcriptTarget.querySelectorAll("[data-section-row]").forEach((row) => row.classList.remove("bc-section-active"))
+        this.setStatus("", false)
+      }
+
+      // Find the target section index: explicit "section N" in the prompt, else a selected row.
+      targetSectionIndex(prompt) {
+        const m = String(prompt || "").match(/section\s+(\d+)/i)
+        if (m) return Math.max(0, Number(m[1]) - 1)
+        return this.editingSection
+      }
+
+      // Parse the model's reply into a design. Tries JSON first (in case a provider still
+      // returns {reply, spec|store|html}), then the simple marked-text format (REPLY:/BG:/H1:/H5:/P:/BUTTON:/LIST:)
+      // which reasoning models produce far more reliably than JSON.
+      parseDesign(text) {
+        if (!text) return null
+        const cleaned = String(text).replace(/```json|```/g, "")
+        const starts = []
+        for (let i = 0; i < cleaned.length; i++) if (cleaned[i] === "{") starts.push(i)
+        for (const start of starts) {
+          let depth = 0
+          for (let i = start; i < cleaned.length; i++) {
+            if (cleaned[i] === "{") depth++
+            else if (cleaned[i] === "}") {
+              depth--
+              if (depth === 0) {
+                try {
+                  const obj = JSON.parse(cleaned.slice(start, i + 1))
+                  if (obj && (
+                    typeof obj.html === "string" ||
+                    (obj.spec && obj.spec.elementLists) ||
+                    (obj.store && obj.store.elementLists) ||
+                    typeof obj.reply === "string"
+                  )) return obj
+                } catch { /* try next */ }
+                break
+              }
+            }
+          }
+        }
+        return this.parseDesignText(text)
+      }
+
+      // The marked-text design format the model replies with. Returns {reply, spec, customCss, customJs}.
+      // Supports CSS: and JS: blocks (page-level custom code) after the design sections.
+      parseDesignText(text) {
+        let reply = ""
+        let customCss = ""
+        let customJs = ""
+        const sections = []
+        let current = null
+        let mode = "design"
+        const startSection = (bg) => {
+          current = { bg: bg || null, elements: [] }
+          sections.push(current)
+        }
+        const push = (name, template, content, align) => {
+          if (!current) startSection(null)
+          current.elements.push({ name, template, text: content, ...(align ? { align } : {}) })
+        }
+
+        String(text || "").split("\n").forEach((rawLine) => {
+          const line = rawLine.trim()
+          if (!line && mode !== "css" && mode !== "js") return
+          if (/^REPLY:/i.test(line)) { reply = line.replace(/^REPLY:/i, "").trim(); return }
+          if (/^CSS:/i.test(line)) { mode = "css"; return }
+          if (/^JS:/i.test(line)) { mode = "js"; return }
+          if (/^BG:/i.test(line)) { mode = "design"; startSection(line.replace(/^BG:/i, "").trim()); return }
+          if (mode === "css") { customCss += rawLine + "\n"; return }
+          if (mode === "js") { customJs += rawLine + "\n"; return }
+          const m = line.match(/^(H5|H1|P|BUTTON|LIST|IMG|DIVIDER):\s*(.*)$/i)
+          if (!m) return
+          const type = m[1].toUpperCase()
+          const content = m[2].trim()
+          switch (type) {
+            case "H5": push("H5Element", "H5", content); break
+            case "H1": push("H1Element", "H1", content); break
+            case "P": push("PElement", "P", content, "left"); break
+            case "BUTTON": push("ButtonElement", "Button", content); break
+            case "LIST": push("ListElement", "List", content.split("|").map((s) => s.trim()).join("\n"), "left"); break
+            case "IMG": push("ImageElement", "Image", content); break
+            case "DIVIDER": push("DividerElement", "Divider", ""); break
+          }
+        })
+
+        const spec = sections.length ? { elementLists: sections } : null
+        return { reply, spec, customCss: customCss.trim(), customJs: customJs.trim() }
+      }
+
+      wrapPreview(html) {
+        return '<!doctype html><html><head><meta charset="utf-8">' +
+          '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">' +
+          '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">' +
+          '<link rel="stylesheet" href="/assets/copilot_design.css">' +
+          '<style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>' +
+          "</head><body>" + html + "</body></html>"
+      }
+
+      // ---- transcript helpers ----------------------------------------------------
+
+      addUserMessage(text) {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="bc-user"><div>' + esc(text) + "</div></div>")
+        this.scrollTranscript()
+      }
+
+      beginThinking() {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div data-builder-copilot-target="thinking" class="bc-thinking"><div class="bc-thinking-dot"></div>' +
+          '<div class="bc-thinking-body"><div class="bc-thinking-label">Designing</div>' +
+          '<div class="bc-thinking-text"></div></div></div>')
+        this.scrollTranscript()
+      }
+
+      appendThinking(delta) {
+        const el = this.transcriptTarget.querySelector("[data-builder-copilot-target='thinking']")
+        if (!el) return
+        const body = el.querySelector(".bc-thinking-text")
+        if (body) { body.textContent += delta; this.scrollTranscript() }
+      }
+
+      endThinking() {
+        this.transcriptTarget.querySelector("[data-builder-copilot-target='thinking']")?.remove()
+      }
+
+      addAssistantMessage(text) {
+        if (!text) return
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="bc-bubble">' + esc(text) + "</div>")
+        this.scrollTranscript()
+      }
+
+      addError(text) {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="bc-error">' + esc(text) + "</div>")
+        this.scrollTranscript()
+      }
+
+      logAction(text) {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="bc-log"><span class="bc-log-arrow">↳</span><span>' + esc(text) + "</span></div>")
+        this.scrollTranscript()
+      }
+
+      scrollTranscript() {
+        this.transcriptTarget.scrollTop = this.transcriptTarget.scrollHeight
+      }
+
+      setStatus(text, busy) {
+        this.statusTarget.textContent = text
+        this.statusDotTarget.classList.toggle("hidden", !busy)
+      }
+    }
+
+    application.register("builder-copilot", BuilderCopilotController)
+  </script>
+</div>

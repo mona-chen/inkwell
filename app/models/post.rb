@@ -5,6 +5,7 @@ class Post < ApplicationRecord
   belongs_to :site
   belongs_to :author, class_name: "User"
   has_many :comments, dependent: :destroy
+  belongs_to :featured_image, class_name: "MediaItem", optional: true
 
   extend FriendlyId
   friendly_id :title, use: :slugged
@@ -12,6 +13,7 @@ class Post < ApplicationRecord
   validates :title, presence: true
 
   scope :published, -> { where(status: "published").where("published_at <= ?", Time.current) }
+  scope :scheduled, -> { where(status: "scheduled").where("scheduled_for > ?", Time.current) }
   scope :recent, -> { order(published_at: :desc) }
 
   before_save :set_published_at, if: -> { status_changed? && status == "published" }
@@ -30,6 +32,19 @@ class Post < ApplicationRecord
   # What the editor should show: the in-progress draft if one exists, else the live content.
   def editing_blocks
     draft_content || content || []
+  end
+
+  # Rough reading time based on visible text (~200 wpm).
+  def reading_time
+    text = content_blocks.map { |b| b.dig("data", "text").to_s }.join(" ")
+    words = text.scan(/\S+/).size
+    minutes = (words / 200.0).ceil
+    minutes < 1 ? 1 : minutes
+  end
+
+  # Featured image URL: explicit featured_image (media library) or the first image block.
+  def featured_image_url
+    featured_image&.url || content_blocks.find { |b| b["type"] == "image" }&.dig("data", "url")
   end
 
   # Commit the working copy to the live content and publish. Creating a revision first captures

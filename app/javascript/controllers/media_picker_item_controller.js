@@ -6,8 +6,19 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   select(event) {
     const el = event.currentTarget
-    document.dispatchEvent(new CustomEvent("inkwell:media-select", {
-      detail: { url: el.dataset.url, id: el.dataset.id, alt: el.dataset.alt }
-    }))
+    // The frame id scopes the selection to the picker dialog it happened in, so multiple
+    // pickers on the page (image blocks, featured image, logo) never fill each other.
+    const detail = {
+      url: el.dataset.url,
+      id: el.dataset.id,
+      alt: el.dataset.alt,
+      frame: el.closest("turbo-frame")?.id
+    }
+    // If running inside the Ink Builder's iframe, post the selection to the parent window.
+    if (window.self !== window.top) {
+      window.parent.postMessage({ type: "inkwell:media-select", detail }, "*")
+      return
+    }
+    document.dispatchEvent(new CustomEvent("inkwell:media-select", { detail }))
   }
 }

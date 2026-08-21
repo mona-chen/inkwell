@@ -1,41 +1,76 @@
+<%# Gutenberg-style image block. Empty state = upload / media library / paste-URL drop zone.
+    Populated state = large preview with Replace/Remove + revealed alt/caption fields. The
+    chosen value always lands in the hidden data-field="url" input, so the block editor
+    serializes it exactly like before. The picker frame id is unique per block so multiple
+    image blocks on the page never collide. %>
+<% frame_id = "media-picker-frame-#{SecureRandom.hex(4)}" %>
 <div data-block-editor-target="block" data-type="image"
-     data-action="focusin->block-editor#selectBlock"
-     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors"
-     data-controller="media-picker">
+     data-controller="image-block"
+     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
   <%= render "admin/posts/blocks/toolbar" %>
-  <div class="flex gap-4 items-start">
-    <div class="w-32 h-32 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden shrink-0" data-media-picker-target="preview">
-      <% if local_assigns[:data]&.dig("url").present? %>
-        <img src="<%= data["url"] %>" class="w-full h-full object-cover">
-      <% else %>
-        <span class="text-gray-400 text-xs">No image</span>
-      <% end %>
+  <input type="hidden" data-field="url" data-image-block-target="url"
+         data-action="input->block-editor#serialize"
+         value="<%= html_escape(local_assigns[:data]&.dig("url")) %>">
+
+  <%# Empty state: drop zone with upload + media library + paste-URL %>
+  <div data-image-block-target="empty">
+    <div data-image-block-target="dropzone"
+         data-action="dragover->image-block#dragOver dragleave->image-block#dragLeave drop->image-block#drop"
+         class="rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-8 text-center transition-colors hover:border-gray-400">
+      <p class="text-sm font-medium text-gray-700">Drag &amp; drop an image here</p>
+      <div class="mt-4 flex items-center justify-center gap-2">
+        <button type="button" data-action="image-block#pickFile"
+                class="inline-flex items-center gap-1.5 rounded-md bg-gray-900 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-black transition-colors">
+          Upload
+        </button>
+        <button type="button" data-action="image-block#openPicker"
+                class="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors">
+          Media library
+        </button>
+      </div>
+      <div class="mt-4 mx-auto max-w-xs">
+        <input type="text" data-action="change->image-block#applyUrl"
+               placeholder="…or paste an image URL" class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:border-gray-400 focus:outline-none">
+      </div>
     </div>
-    <div class="flex-1 space-y-2">
-      <input data-field="url" data-media-picker-target="urlField" data-action="input->block-editor#serialize" type="text"
-             value="<%= local_assigns[:data]&.dig("url") %>" placeholder="Image URL (or pick from media library)"
-             class="w-full text-sm border rounded px-2 py-1">
-      <button type="button" data-action="media-picker#open" class="text-xs text-gray-900 hover:underline">Choose from media library</button>
-      <input data-field="alt" data-media-picker-target="altField" data-action="input->block-editor#serialize" type="text"
-             value="<%= local_assigns[:data]&.dig("alt") %>" placeholder="Alt text"
-             class="w-full text-sm border rounded px-2 py-1">
-      <input data-field="caption" data-action="input->block-editor#serialize" type="text"
-             value="<%= local_assigns[:data]&.dig("caption") %>" placeholder="Caption (optional)"
-             class="w-full text-sm border rounded px-2 py-1">
+    <input type="file" accept="image/*" class="hidden" data-image-block-target="file"
+           data-action="change->image-block#upload">
+  </div>
+
+  <%# Populated state: large preview + replace/remove + alt/caption %>
+  <div data-image-block-target="populated" class="hidden">
+    <div class="relative overflow-hidden rounded-lg bg-gray-50 border border-gray-200">
+      <img data-image-block-target="preview" src="" alt=""
+           class="mx-auto max-h-96 w-full object-contain">
+    </div>
+    <div class="mt-2 flex items-center gap-2">
+      <button type="button" data-action="image-block#openPicker"
+              class="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors">Replace</button>
+      <button type="button" data-action="image-block#remove"
+              class="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors">Remove</button>
+      <span class="text-xs text-gray-400">Drag &amp; drop to replace</span>
+    </div>
+    <div class="mt-3 space-y-2">
+      <input type="text" data-field="alt" data-image-block-target="alt"
+             data-action="input->block-editor#serialize" placeholder="Alt text (for screen readers)"
+             value="<%= html_escape(local_assigns[:data]&.dig("alt")) %>"
+             class="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none">
+      <input type="text" data-field="caption" data-image-block-target="caption"
+             data-action="input->block-editor#serialize" placeholder="Caption (optional)"
+             value="<%= html_escape(local_assigns[:data]&.dig("caption")) %>"
+             class="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none">
     </div>
   </div>
 
-  <%# Media picker dialog: loads the picker grid in a Turbo Frame %>
-  <dialog data-media-picker-target="dialog" data-action="click->media-picker#backdropClose"
+  <%# Media picker dialog (frame id unique per block so picker events scope correctly) %>
+  <dialog data-image-block-target="dialog" data-action="click->image-block#backdropClose"
           class="m-auto w-[42rem] max-w-full rounded-2xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-black/40">
     <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
       <h3 class="text-sm font-semibold text-gray-900">Media library</h3>
-      <button type="button" data-action="media-picker#close" class="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">
-        ✕
-      </button>
+      <button type="button" data-action="image-block#closePicker" class="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close">✕</button>
     </div>
     <div class="max-h-[60vh] overflow-y-auto">
-      <turbo-frame id="media-picker-frame" data-media-picker-target="frame"
+      <turbo-frame id="<%= frame_id %>" data-image-block-target="frame"
                    data-src="<%= admin_media_path(picker: 1) %>">
         <div class="p-4 text-center text-sm text-gray-400">Loading…</div>
       </turbo-frame>

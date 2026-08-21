@@ -46,4 +46,31 @@ RSpec.describe "Media library", type: :request do
     expect(body).to include("/admin/media/#{item.id}")
     expect(body).not_to include("/admin/media.#{item.id}")
   end
+
+  it "wraps the picker grid in the requesting turbo-frame id (fixes 'Content missing')" do
+    site.media_items.create!(uploaded_by: user, file: { io: StringIO.new("w"), filename: "pick.jpg", content_type: "image/jpeg" })
+
+    get "/admin/media?picker=1", headers: { "Turbo-Frame" => "featured-image-frame" }
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include('<turbo-frame id="featured-image-frame">')
+    expect(response.body).to include('data-controller="media-picker-item"')
+    expect(response.body).not_to include('<turbo-frame id="media-picker-frame">')
+  end
+
+  it "defaults the picker frame to media-picker-frame when Turbo-Frame header is absent" do
+    get "/admin/media?picker=1"
+    expect(response.body).to include('<turbo-frame id="media-picker-frame">')
+  end
+
+  it "returns JSON for direct image-block uploads (url + alt)" do
+    post "/admin/media",
+      params: { file: fixture_file_upload("test.png", "image/png") },
+      headers: { "Accept" => "application/json" }
+
+    expect(response).to have_http_status(:ok)
+    body = JSON.parse(response.body)
+    expect(body["url"]).to be_present
+    expect(body["id"]).to be_present
+    expect(site.media_items.count).to eq(1)
+  end
 end

@@ -5,6 +5,7 @@ class Site < ApplicationRecord
   has_many :terms, dependent: :destroy
   has_many :menus, dependent: :destroy
   has_many :media_items, dependent: :destroy
+  has_many :widgets, dependent: :destroy
   has_many :options, dependent: :destroy
 
   validates :name, :domain, presence: true

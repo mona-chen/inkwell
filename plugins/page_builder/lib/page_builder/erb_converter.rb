@@ -14,17 +14,17 @@ module PageBuilder
     ROOTS = {
       "site" => "Current.site",
       "page" => "@page",
-      "post" => "post",
+      "post" => "post"
     }.freeze
 
     LOOP_SOURCES = {
       "posts" => "Current.site.posts.published",
-      "pages" => "Current.site.pages.published",
+      "pages" => "Current.site.pages.published"
     }.freeze
 
     LOOP_VARS = {
       "posts" => "post",
-      "pages" => "page",
+      "pages" => "page"
     }.freeze
 
     class << self
@@ -51,6 +51,9 @@ module PageBuilder
       out.gsub!(/\{\{\s*page\.([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}/) do
         "<%= #{@document_root}.#{Regexp.last_match(1)} %>"
       end
+      # Embed the record's standard block-editor content at this spot (rendered via
+      # BlockRenderer, page_builder block excluded to avoid recursion).
+      out.gsub!(/\{\{\s*blocks\s*\}\}/, "<%= render_block_content(#{@document_root}) %>")
       out
     end
   end

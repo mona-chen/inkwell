@@ -15,6 +15,7 @@ module Admin
       "cog-6-tooth" => :settings,
       "envelope" => :mail,
       "at-symbol" => :at_sign,
+      "users" => :users,
       "magnifying-glass" => :search,
       "layout" => :layout_dashboard,
       "default" => :circle
@@ -27,20 +28,23 @@ module Admin
           { label: "Posts", path: "/admin/posts", icon: "document-text" },
           { label: "Pages", path: "/admin/pages", icon: "document" },
           { label: "Media", path: "/admin/media", icon: "photo" },
-          { label: "Comments", path: "/admin/comments", icon: "chat-bubble-left" }
+          { label: "Comments", path: "/admin/comments", icon: "chat-bubble-left" },
+          { label: "Categories", path: "/admin/taxonomies", icon: "bars-3" }
         ]
       },
       {
         label: "Design",
         items: [
           { label: "Themes", path: "/admin/themes", icon: "paint-brush" },
-          { label: "Menus", path: "/admin/menus", icon: "bars-3" }
+          { label: "Menus", path: "/admin/menus", icon: "bars-3" },
+          { label: "Widgets", path: "/admin/widgets", icon: "layout" }
         ]
       },
       {
         label: "System",
         items: [
           { label: "Plugins", path: "/admin/plugins", icon: "puzzle-piece" },
+          { label: "Users", path: "/admin/users", icon: "users" },
           { label: "Settings", path: "/admin/settings", icon: "cog-6-tooth" }
         ]
       }

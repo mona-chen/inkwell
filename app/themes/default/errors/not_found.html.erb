@@ -1,0 +1,18 @@
+<%# Themed 404. Rendered by ApplicationController#render_not_found when a post/page/comment
+    lookup misses (bad slug, unpublished), so visitors never see the exception page. Matches
+    the editorial identity of the default theme. %>
+<% content_for :title, "Page not found" %>
+
+<section class="mx-auto max-w-2xl px-5 py-24 text-center sm:px-8 sm:py-32">
+  <p class="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-600">404</p>
+  <h1 class="font-serif-display mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+    This page wandered off.
+  </h1>
+  <p class="mt-5 text-lg leading-relaxed text-gray-600">
+    The link may be broken, the post may have been unpublished, or the page never existed.
+    Either way, what you're looking for isn't here.
+  </p>
+  <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+    <a href="<%= root_path %>" class="btn btn-primary">Back home</a>
+  </div>
+</section>

@@ -1,7 +1,5 @@
 <%# Shared per-block floating toolbar: drag handle + reorder + insert + duplicate + delete.
-    Shown on hover (when nothing is selected) and on selection (block gets `.block-selected`).
-    Hover-reveal is suppressed once a block is selected — see `.editor-has-selection` rules in
-    application.css — so moving toward an open toolbar never trips a neighboring block's. %>
+    Revealed on hover over its block (see .block-toolbar rules in application.css). %>
 <div class="block-toolbar absolute -left-8 top-4 z-50 flex flex-col rounded-lg border border-gray-200 bg-white shadow-sm py-1">
   <button type="button" data-block-editor-target="dragHandle"
           class="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-gray-100 hover:text-gray-900 cursor-grab"

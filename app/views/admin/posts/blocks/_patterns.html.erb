@@ -1,0 +1,11 @@
+<%# Hidden <template> elements for reusable block patterns ("+ Add block" → Patterns). Each
+    pattern is rendered server-side with its default data, so inserting one is exactly like
+    adding several pre-filled blocks at once — the same source-of-truth partials as single
+    blocks, and the controller serializes them into the normal jsonb block array. %>
+<% BlockRenderer.patterns.each do |name, pattern| %>
+  <template id="pattern-template-<%= name %>">
+    <% pattern["blocks"].each do |block| %>
+      <%= render BlockRenderer.editor_partial(block["type"]), data: block["data"] || {} %>
+    <% end %>
+  </template>
+<% end %>

@@ -37,6 +37,7 @@ module Admin
         render_empty
       else
         render_queue
+        render_kaminari_pagination
       end
     end
 
@@ -49,6 +50,19 @@ module Admin
     def render_queue
       div(class: "space-y-4") do
         @comments.each { |comment| render_comment_card(comment) }
+      end
+    end
+
+    def render_kaminari_pagination
+      return unless @comments.respond_to?(:total_pages) && @comments.total_pages > 1
+      div(class: "mt-8 flex items-center justify-center gap-4") do
+        if @comments.prev_page
+          a(href: url_for(page: @comments.prev_page, status: @status), class: "btn btn-sm border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50") { "← Newer" }
+        end
+        span(class: "text-sm text-gray-400") { "Page #{@comments.current_page} of #{@comments.total_pages}" }
+        if @comments.next_page
+          a(href: url_for(page: @comments.next_page, status: @status), class: "btn btn-sm border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50") { "Older →" }
+        end
       end
     end
 

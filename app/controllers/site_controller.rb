@@ -16,6 +16,17 @@ class SiteController < ApplicationController
     render "site/home"
   end
 
+  def feed
+    @posts = Current.site.posts.published.recent.limit(20)
+    render xml: render_to_string(partial: "site/feed", formats: [:xml]), layout: false
+  end
+
+  def sitemap
+    @posts = Current.site.posts.published.order(published_at: :desc)
+    @pages = Current.site.pages.published.ordered
+    render xml: render_to_string(partial: "site/sitemap", formats: [:xml]), layout: false
+  end
+
   private
 
   def activate_theme

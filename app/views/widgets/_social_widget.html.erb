@@ -1,0 +1,10 @@
+<%# social widget — a single link (extend config as needed) %>
+<div class="widget widget-social">
+  <% if widget.title.present? %>
+    <h3 class="text-xs font-semibold uppercase tracking-widest text-gray-400"><%= widget.title %></h3>
+  <% end %>
+  <a href="<%= widget.config["url"] %>" target="_blank" rel="noopener"
+     class="mt-3 inline-flex items-center gap-2 text-sm text-gray-700 transition-colors hover:text-indigo-700">
+    <%= widget.config["label"].presence || widget.title.presence || "Follow" %>
+  </a>
+</div>

@@ -27,24 +27,15 @@
       </div>
 
       <div class="flex items-center gap-3">
+        <span data-block-editor-target="wordCount" class="text-xs text-gray-400">
+          0 words · < 1 min read
+        </span>
         <span data-block-editor-target="saveStatus" class="text-xs text-gray-400">
           <%= page.new_record? ? "New — not saved yet" : "Saved" %>
         </span>
-        <details data-block-editor-target="blockPicker" class="relative">
-          <summary class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-900 text-white text-sm font-medium shadow-sm cursor-pointer hover:bg-black active:scale-[0.98] transition list-none">
-            + Add block
-          </summary>
-          <div class="absolute right-0 z-10 mt-2 grid grid-cols-2 gap-2 p-3 bg-white rounded-lg shadow-lg w-80 border border-gray-200">
-            <% BlockRenderer.registered_types.each do |type| %>
-              <button type="button"
-                      data-action="block-editor#addBlock"
-                      data-block-editor-type-param="<%= type %>"
-                      class="flex flex-col items-center gap-1 p-3 rounded-md border border-gray-200 hover:border-gray-400 hover:bg-gray-50 transition-colors text-sm">
-                <%= type.titleize %>
-              </button>
-            <% end %>
-          </div>
-        </details>
+        <%# Plugin-injected editor controls (e.g. the AI Writer plugin's button + dialog) %>
+        <% BlockRenderer.editor_toolbar_partials.each { |p| concat(render(p, record: page)) } %>
+        <%= render "admin/posts/blocks/picker" %>
       </div>
     </div>
 

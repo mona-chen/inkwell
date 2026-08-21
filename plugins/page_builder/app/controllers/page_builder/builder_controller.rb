@@ -17,15 +17,22 @@ module PageBuilder
     def edit
       @html = builder_block&.dig("data", "html") || ""
       @saved_store = builder_block&.dig("data", "store") || {}
+      @saved_custom_css = builder_block&.dig("data", "custom_css") || ""
+      @saved_custom_js = builder_block&.dig("data", "custom_js") || ""
     end
 
     def save
-      erb = ErbConverter.convert(params[:html].to_s, document_root: @record.is_a?(Page) ? "@page" : "@post")
+      root = @record.is_a?(Page) ? "@page" : "@post"
+      erb = ErbConverter.convert(params[:html].to_s, document_root: root)
       store = params[:store].presence
+      custom_css = ErbConverter.convert(params[:custom_css].to_s, document_root: root)
+      custom_js = ErbConverter.convert(params[:custom_js].to_s, document_root: root)
 
       blocks = @record.content_blocks.dup
       block = { "type" => "page_builder", "data" => { "html" => erb } }
       block["data"]["store"] = store if store
+      block["data"]["custom_css"] = custom_css if custom_css.present?
+      block["data"]["custom_js"] = custom_js if custom_js.present?
       idx = blocks.index { |b| b["type"] == "page_builder" }
       idx ? blocks[idx] = block : blocks << block
       @record.update!(content: blocks)
@@ -60,9 +67,9 @@ module PageBuilder
     def set_record
       @record = if params[:record_type] == "page"
                   Current.site.pages.friendly.find(params[:record_id])
-                else
+      else
                   Current.site.posts.friendly.find(params[:record_id])
-                end
+      end
     end
 
     def builder_block

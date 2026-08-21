@@ -53,6 +53,10 @@ class Page < ApplicationRecord
     super(parse_json_value(value))
   end
 
+  def breadcrumbs
+    parent ? parent.breadcrumbs + [self] : [self]
+  end
+
   private
 
   def parse_json_value(value)
@@ -60,9 +64,5 @@ class Page < ApplicationRecord
     JSON.parse(value)
   rescue JSON::ParserError
     value
-  end
-
-  def breadcrumbs
-    parent ? parent.breadcrumbs + [self] : [self]
   end
 end

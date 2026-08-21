@@ -29,6 +29,7 @@ ActiveRecord::Base.transaction do
     u.site = site
     u.role = editor_role
   end
+  writer.update!(name: "Maya Okafor") unless writer.name == "Maya Okafor"
 
   designer = User.find_or_create_by!(email: "designer@inkwell.test") do |u|
     u.name = "Jonas Berg"
@@ -36,6 +37,7 @@ ActiveRecord::Base.transaction do
     u.site = site
     u.role = editor_role
   end
+  designer.update!(name: "Jonas Berg") unless designer.name == "Jonas Berg"
 
   # Categories
   design = Term.find_or_create_by!(site: site, taxonomy: "category", slug: "design") { |t| t.name = "Design" }
@@ -43,11 +45,17 @@ ActiveRecord::Base.transaction do
   culture = Term.find_or_create_by!(site: site, taxonomy: "category", slug: "culture") { |t| t.name = "Culture" }
   product = Term.find_or_create_by!(site: site, taxonomy: "category", slug: "product") { |t| t.name = "Product" }
 
+  # Tags
+  tags = {}
+  %w[ruby rails design css process].each do |slug|
+    tags[slug] = Term.find_or_create_by!(site: site, taxonomy: "tag", slug: slug) { |t| t.name = slug.humanize }
+  end
+
   # ---- Posts ----
   posts = {
     "crafting-calm-interfaces" => {
       title: "Crafting calm interfaces",
-      author: writer, category: design,
+      author: writer, category: design, tags: %w[design css],
       excerpt: "The quiet details that make a product feel considered — and why restraint is the hardest skill in design.",
       days_ago: 2,
       content: [
@@ -60,7 +68,7 @@ ActiveRecord::Base.transaction do
     },
     "rails-8-in-practice" => {
       title: "Rails 8 in practice: what's worth adopting today",
-      author: writer, category: engineering,
+      author: writer, category: engineering, tags: %w[ruby rails],
       excerpt: "Solid Queue, Kamal, and the move toward boring, defaulted infrastructure — a field report from production.",
       days_ago: 6,
       content: [
@@ -99,7 +107,7 @@ ActiveRecord::Base.transaction do
     },
     "shipping-product-without-drama" => {
       title: "Shipping product without drama",
-      author: writer, category: product,
+      author: writer, category: product, tags: %w[process],
       excerpt: "A playbook for small releases: scope the slice, protect the cadence, and let quality be the definition of done.",
       days_ago: 28,
       content: [
@@ -134,6 +142,7 @@ ActiveRecord::Base.transaction do
     end
     post.update!(published_at: opts[:days_ago].days.ago) if post.persisted?
     post.terms << opts[:category] unless post.terms.include?(opts[:category])
+    (opts[:tags] || []).each { |slug| post.terms << tags[slug] unless post.terms.include?(tags[slug]) }
   end
 
   # ---- Pages ----
@@ -164,12 +173,12 @@ ActiveRecord::Base.transaction do
 
   # ---- Menus ----
   header_menu = site.menus.find_or_create_by!(location: "header") { |m| m.name = "Header" }
-  [["Home", "/", 0], ["About", "/pages/about", 1], ["Contact", "/pages/contact", 2]].each do |label, url, pos|
+  [["Home", "/", 0], ["Posts", "/posts", 1], ["About", "/pages/about", 2], ["Contact", "/pages/contact", 3]].each do |label, url, pos|
     header_menu.menu_items.find_or_create_by!(label: label, url: url) { |i| i.position = pos }
   end
 
   footer_menu = site.menus.find_or_create_by!(location: "footer") { |m| m.name = "Footer" }
-  [["About", "/pages/about", 0], ["Contact", "/pages/contact", 1], ["Home", "/", 2]].each do |label, url, pos|
+  [["Posts", "/posts", 0], ["About", "/pages/about", 1], ["Contact", "/pages/contact", 2], ["Home", "/", 3]].each do |label, url, pos|
     footer_menu.menu_items.find_or_create_by!(label: label, url: url) { |i| i.position = pos }
   end
 

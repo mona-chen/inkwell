@@ -336,8 +336,37 @@ class UIManager {
                 return;
             }
 
+            // Safari (and WebKit generally) will not initiate a drag — no ghost, no dragover —
+            // unless dataTransfer has data set synchronously in dragstart. Set it so drag
+            // works identically in Chrome and Safari, and set an explicit drag image: Safari
+            // renders the source element's computed style for the ghost, and the widget card is
+            // transparent, so a dedicated opaque ghost guarantees it's visible in every browser.
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'copyMove';
+                e.dataTransfer.setData('text/plain', draggableItem.getDragAnchor().textContent || draggableItem.getName() || '');
+                const ghost = this.createDragGhost(draggableItem.getDragAnchor());
+                e.dataTransfer.setDragImage(ghost, 20, 20);
+                setTimeout(() => ghost.remove(), 0);
+            }
+
             this.dragStart(draggableItem);
         });
+    }
+
+    createDragGhost(source) {
+        const ghost = document.createElement('div');
+        const label = source.querySelector('.widget-label');
+        const icon = source.querySelector('.material-symbols-rounded');
+        ghost.style.cssText = [
+            'display:flex;align-items:center;gap:8px;',
+            'padding:8px 14px;border-radius:6px;',
+            'background:#1a1a1a;color:#fff;font-size:13px;font-weight:500;',
+            'font-family:Inter,system-ui,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.3);',
+            'pointer-events:none;white-space:nowrap;'
+        ].join('');
+        ghost.textContent = (label && label.textContent) || source.textContent || 'Block';
+        document.body.appendChild(ghost);
+        return ghost;
     }
 
     removeDraggableItem(object) {

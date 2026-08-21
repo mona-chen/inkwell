@@ -48,6 +48,9 @@ class ImageControl {
                         <button data-control="upload" type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center" title="Upload">
                             <span class="material-symbols-rounded">upload</span>
                         </button>
+                        <button data-control="browse" type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center" title="Browse media library">
+                            <span class="material-symbols-rounded">photo_library</span>
+                        </button>
                         <button data-control="reload" type="button" class="btn btn-outline-secondary btn-sm d-flex align-items-center" title="Replace">
                             <span class="material-symbols-rounded">sync</span>
                         </button>
@@ -114,6 +117,9 @@ class ImageControl {
         // Add event listeners for the buttons
         const uploadBtn = this.getUploadButton();
         if (uploadBtn) uploadBtn.addEventListener('click', () => this.browserAndUpload());
+
+        const browseBtn = this.domNode.querySelector('[data-control="browse"]');
+        if (browseBtn) browseBtn.addEventListener('click', () => this.browseLibrary());
 
         const reloadBtn = this.getReloadButton();
         if (reloadBtn) reloadBtn.addEventListener('click', () => this.render());
@@ -196,6 +202,38 @@ class ImageControl {
             }
         });
         input.click();
+    }
+
+    // Open the Inkwell media library picker and insert the chosen image.
+    browseLibrary() {
+        if (!window.InkwellMediaPicker) {
+            window.InkwellMediaPicker = {
+                onSelect: null,
+                open(callback) {
+                    this.onSelect = callback;
+                    const existing = document.getElementById('inkwell-media-picker-modal');
+                    if (existing) { existing.showModal(); return; }
+                    const dialog = document.createElement('dialog');
+                    dialog.id = 'inkwell-media-picker-modal';
+                    dialog.style.cssText = 'width:min(46rem,95vw);border-radius:1rem;border:1px solid #e5e7eb;padding:0;overflow:hidden;';
+                    dialog.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f3f4f6;padding:0.9rem 1.2rem;">
+                            <strong style="font-size:0.95rem;">Media library</strong>
+                            <button type="button" data-close style="border:0;background:transparent;cursor:pointer;color:#6b7280;font-size:1.1rem;" aria-label="Close">&times;</button>
+                        </div>
+                        <iframe data-frame src="/admin/media?picker=1" style="width:100%;height:60vh;border:0;display:block;"></iframe>`;
+                    dialog.querySelector('[data-close]').addEventListener('click', () => dialog.close());
+                    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+                    document.body.appendChild(dialog);
+                    dialog.showModal();
+                }
+            };
+        }
+        window.InkwellMediaPicker.open((url) => {
+            this.value = url;
+            this.callback.setImage(url);
+            this.render();
+        });
     }
 
     changeMode(mode) {

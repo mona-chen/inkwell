@@ -5,10 +5,14 @@ Rails.application.routes.draw do
   }
 
   root to: "site#home"
+  get "feed.xml", to: "site#feed", defaults: { format: "xml" }
+  get "sitemap.xml", to: "site#sitemap", defaults: { format: "xml" }
 
-  resources :posts, only: [:show], param: :id do
+  resources :posts, only: [:index, :show], param: :id do
     resources :comments, only: [:create]
   end
+  get "tags/:slug", to: "posts#index", as: :tag_posts, slug: /[a-z0-9-]+/
+  get "authors/:slug", to: "authors#show", as: :author, slug: /[a-z0-9-]+/
   resources :pages, only: [:show], param: :id
 
   namespace :admin do
@@ -20,6 +24,7 @@ Rails.application.routes.draw do
         member { post :restore }
       end
     end
+    resources :taxonomies, only: [:index, :create, :update, :destroy]
     resources :pages do
       member { post :publish }
     end
@@ -28,12 +33,22 @@ Rails.application.routes.draw do
     resources :menus do
       resources :menu_items, only: [:create, :update, :destroy]
     end
-    resource :settings, only: [:show, :update]
+    resources :widgets, only: [:index, :create, :update, :destroy]
+    resource :settings, only: [:show, :update] do
+      member { post :purge_cache }
+    end
 
     resources :plugins, only: [:index] do
       member do
         post :activate
         post :deactivate
+      end
+    end
+
+    resources :users, except: [:show] do
+      member do
+        post :deactivate
+        post :reactivate
       end
     end
 

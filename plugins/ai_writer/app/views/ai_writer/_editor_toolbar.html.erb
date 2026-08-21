@@ -1,0 +1,477 @@
+<%# Copilot — a floating chat widget for the block editor (posts and pages) while this
+    plugin is active. `record` is the post/page being edited.
+    It's a normal conversational chat; when the user asks to change the document, the model
+    returns a { reply, actions } JSON plan that the widget streams, then executes against the
+    editor (append / rewrite page / replace range / update / remove). A live page preview
+    re-renders as the document changes.
+    The Stimulus controller is defined inline (module scripts run before DOMContentLoaded, so
+    the data-controller element below connects on first scan) and only imports pinned core
+    modules — no plugin-owned asset pipeline required. The chat window is teleported to
+    <body> so `position: fixed` is always viewport-relative. %>
+<div data-controller="ai-writer" data-ai-writer-context-value="<%= record&.title %>" data-ai-writer-record-type-value="<%= record.class.name.downcase %>">
+  <%# Floating action button %>
+  <button type="button" data-action="ai-writer#open" aria-label="Open Copilot"
+          class="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full bg-gray-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-black active:scale-[0.98] transition">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+    </svg>
+    Copilot
+  </button>
+
+  <%# Chat window %>
+  <div data-ai-writer-target="window"
+       class="hidden fixed bottom-24 right-4 z-[100] w-[380px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-semibold text-gray-900">Copilot</span>
+        <span data-ai-writer-target="statusDot" class="hidden h-2 w-2 rounded-full bg-emerald-500"></span>
+      </div>
+      <div class="flex items-center gap-1">
+        <button type="button" data-action="ai-writer#togglePreview"
+                class="rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900">Preview</button>
+        <button type="button" data-action="ai-writer#close" class="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close Copilot">✕</button>
+      </div>
+    </div>
+
+    <div data-ai-writer-target="chatView" class="flex min-h-0 flex-1 flex-col">
+      <div data-ai-writer-target="transcript" class="flex-1 space-y-3 overflow-y-auto px-4 py-3 text-sm"></div>
+
+      <div class="space-y-2 border-t border-gray-100 px-4 py-3">
+        <div class="flex flex-wrap gap-1">
+          <button type="button" data-ai-writer-target="mode" data-mode="draft" data-action="ai-writer#setMode"
+                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">Draft</button>
+          <button type="button" data-ai-writer-target="mode" data-mode="continue" data-action="ai-writer#setMode"
+                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">Continue</button>
+          <button type="button" data-ai-writer-target="mode" data-mode="rewrite_page" data-action="ai-writer#setMode"
+                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">Rewrite page</button>
+          <button type="button" data-ai-writer-target="mode" data-mode="improve" data-action="ai-writer#setMode"
+                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">Improve</button>
+        </div>
+        <textarea data-ai-writer-target="prompt" rows="2"
+                  data-action="keydown->ai-writer#promptKeydown"
+                  placeholder="Ask Copilot anything — it can draft, rewrite, or edit your page…"
+                  class="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300/40"></textarea>
+        <div class="flex items-center gap-2">
+          <span data-ai-writer-target="status" class="flex-1 text-xs text-gray-400"></span>
+          <button type="button" data-ai-writer-target="send" data-action="ai-writer#send"
+                  class="rounded-md bg-gray-900 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-black disabled:opacity-50 cursor-pointer">
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div data-ai-writer-target="previewView" class="hidden min-h-0 flex-1 bg-[#f6f4ef]">
+      <div class="h-full overflow-y-auto px-6 py-8">
+        <div data-ai-writer-target="preview" class="copilot-preview mx-auto max-w-xl rounded-lg bg-white px-8 py-10 text-gray-800 shadow-sm"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { Controller } from "@hotwired/stimulus"
+    import { application } from "controllers/application"
+    import { parseMarkdown } from "controllers/block_editor_controller"
+
+    // ---- client-side block renderer (mirrors the server's BlockRenderer) ---------
+    function esc(s) {
+      return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+    }
+
+    function inlineText(node) {
+      let t = esc(node.text)
+      const marks = node.marks || []
+      if (marks.some((m) => m.type === "bold")) t = "<strong>" + t + "</strong>"
+      if (marks.some((m) => m.type === "italic")) t = "<em>" + t + "</em>"
+      if (marks.some((m) => m.type === "underline")) t = "<u>" + t + "</u>"
+      if (marks.some((m) => m.type === "strike")) t = "<s>" + t + "</s>"
+      if (marks.some((m) => m.type === "code")) t = "<code>" + t + "</code>"
+      const link = marks.find((m) => m.type === "link")
+      if (link) t = '<a href="' + esc(link.attrs && link.attrs.href || "#") + '">' + t + "</a>"
+      return t
+    }
+
+    function richNodes(nodes) {
+      return (nodes || []).map(inlineText).join("")
+    }
+
+    function richBlock(node) {
+      const inner = richNodes(node.content)
+      switch (node.type) {
+        case "paragraph": return "<p>" + inner + "</p>"
+        case "heading": return "<h" + (node.attrs && node.attrs.level || 2) + ">" + inner + "</h" + (node.attrs && node.attrs.level || 2) + ">"
+        case "bulletList": return "<ul>" + inner + "</ul>"
+        case "orderedList": return "<ol>" + inner + "</ol>"
+        case "listItem": return "<li>" + inner + "</li>"
+        case "blockquote": return "<blockquote>" + inner + "</blockquote>"
+        case "codeBlock": return "<pre><code>" + inner + "</code></pre>"
+        case "horizontalRule": return "<hr>"
+        case "hardBreak": return "<br>"
+        default: return inner
+      }
+    }
+
+    function renderRichText(json) {
+      let doc = json
+      if (typeof json === "string") { try { doc = JSON.parse(json) } catch { return "" } }
+      return (doc && doc.content || []).map(richBlock).join("")
+    }
+
+    function renderBlock(block) {
+      const d = block.data || {}
+      switch (block.type) {
+        case "heading": return "<h" + (d.level || 2) + ">" + esc(d.text) + "</h" + (d.level || 2) + ">"
+        case "paragraph": return "<p>" + esc(d.text).replace(/\n/g, "<br>") + "</p>"
+        case "image":
+          return d.url ? '<figure><img src="' + esc(d.url) + '" alt="' + esc(d.alt) + '">' + (d.caption ? "<figcaption>" + esc(d.caption) + "</figcaption>" : "") + "</figure>" : ""
+        case "quote": return "<blockquote>" + esc(d.text) + (d.attribution ? "<footer>— " + esc(d.attribution) + "</footer>" : "") + "</blockquote>"
+        case "list": {
+          const items = String(d.items || "").split("\n").filter(Boolean).map((i) => "<li>" + esc(i) + "</li>").join("")
+          return d.ordered ? "<ol>" + items + "</ol>" : "<ul>" + items + "</ul>"
+        }
+        case "code": return '<pre><code class="language-' + esc(d.language) + '">' + esc(d.code) + "</code></pre>"
+        case "separator": return "<hr>"
+        case "callout": return '<aside class="callout ' + esc(d.tone || "info") + '">' + esc(d.text) + "</aside>"
+        case "button": return d.label && d.url ? '<a class="btn" href="' + esc(d.url) + '">' + esc(d.label) + "</a>" : ""
+        case "rich_text": return renderRichText(d.json)
+        default: return ""
+      }
+    }
+
+    function renderBlocksHtml(blocks) {
+      return (blocks || []).map(renderBlock).join("")
+    }
+
+    // ---- Copilot controller --------------------------------------------------------
+    class AiWriterController extends Controller {
+      static targets = ["window", "transcript", "prompt", "send", "status", "statusDot", "mode", "chatView", "previewView", "preview"]
+      static values = { context: String, recordType: String }
+
+      connect() {
+        // Move the whole widget to <body> so `position: fixed` is viewport-relative
+        // regardless of any transformed ancestor in the admin shell. Targets stay
+        // descendants of this.element, so Stimulus can still resolve them.
+        if (this.element.parentElement !== document.body) document.body.appendChild(this.element)
+        this.mode = "draft"
+        this.history = []           // prior turns: [{role, content}]
+        this.busy = false
+        this.markActiveModes()
+        this.watchEditor()
+      }
+
+      open(event) {
+        event && event.preventDefault()
+        const closed = this.windowTarget.classList.contains("hidden")
+        this.windowTarget.classList.toggle("hidden", !closed)
+        this.windowTarget.classList.toggle("flex", closed)
+        if (closed) this.promptTarget.focus()
+      }
+
+      close(event) {
+        event && event.preventDefault()
+        this.windowTarget.classList.add("hidden")
+        this.windowTarget.classList.remove("flex")
+      }
+
+      setMode(event) {
+        this.mode = event.currentTarget.dataset.mode
+        this.markActiveModes()
+      }
+
+      markActiveModes() {
+        this.modeTargets.forEach((b) => {
+          b.classList.toggle("bg-gray-900", b.dataset.mode === this.mode)
+          b.classList.toggle("text-white", b.dataset.mode === this.mode)
+        })
+      }
+
+      togglePreview() {
+        const showing = !this.previewViewTarget.classList.contains("hidden")
+        this.chatViewTarget.classList.toggle("hidden", !showing)
+        this.previewViewTarget.classList.toggle("hidden", showing)
+        if (!showing) this.renderPreview()
+      }
+
+      // Realtime preview: reflect every change to the block list (structure + typing).
+      watchEditor() {
+        const list = document.querySelector("[data-block-editor-target='list']")
+        if (!list) return
+        const refresh = () => { clearTimeout(this._previewTimer); this._previewTimer = setTimeout(() => this.renderPreview(), 250) }
+        this._previewObserver = new MutationObserver(refresh)
+        this._previewObserver.observe(list, { childList: true, subtree: true })
+        list.addEventListener("input", refresh)
+        list.addEventListener("change", refresh)
+      }
+
+      editorElement() {
+        const list = document.querySelector("[data-block-editor-target='list']")
+        return list ? list.closest("[data-controller*='block-editor']") : null
+      }
+
+      blockEditor() {
+        const editor = this.editorElement()
+        if (!editor || !window.Stimulus) return null
+        return window.Stimulus.getControllerForElementAndIdentifier(editor, "block-editor")
+      }
+
+      promptKeydown(event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault()
+          this.send()
+        }
+      }
+
+      async send() {
+        if (this.busy) return
+        const prompt = this.promptTarget.value.trim()
+        if (!prompt) return
+        const editor = this.blockEditor()
+        if (!editor) return
+
+        this.busy = true
+        this.sendTarget.disabled = true
+        this.setStatus("Thinking…", false, true)
+
+        const mode = this.mode
+        const blocks = editor.getBlocks()
+        this.addUserMessage(prompt)
+        this.beginThinking()
+
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content
+        try {
+          const resp = await fetch("/plugins/ai_writer/chat", {
+            method: "POST",
+            headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json", "Accept": "text/event-stream" },
+            body: JSON.stringify({ mode, prompt, blocks, context: this.contextValue, history: this.history, env: "blocks", recordType: this.recordTypeValue })
+          })
+          if (!resp.ok) {
+            const j = await resp.json().catch(() => ({}))
+            throw new Error(j.error || "Copilot request failed (" + resp.status + ")")
+          }
+          const { content } = await this.streamResponse(resp)
+          this.handleResponse(content, mode, editor)
+          this.setStatus("", false, false)
+        } catch (e) {
+          this.endThinking()
+          this.addError(e.message)
+          this.setStatus("", false, false)
+        } finally {
+          this.busy = false
+          this.sendTarget.disabled = false
+        }
+      }
+
+      // Read the SSE stream. reasoning_content (the model's thinking) is shown in the
+      // thinking area but kept separate from `content` (the actual reply), so a reasoner's
+      // internal prose never pollutes the JSON plan we parse.
+      async streamResponse(resp) {
+        const reader = resp.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ""
+        let content = ""
+        let reasoning = ""
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split("\n")
+          buffer = lines.pop()
+          for (const line of lines) {
+            const s = line.trim()
+            if (!s.startsWith("data:")) continue
+            const payload = s.slice(5).trim()
+            if (payload === "[DONE]") continue
+            try {
+              const evt = JSON.parse(payload)
+              if (evt.error) throw new Error(evt.error)
+              const delta = evt.choice && evt.choice.delta
+              const c = delta && (delta.content || "")
+              const r = delta && (delta.reasoning_content || "")
+              if (r) { reasoning += r; this.appendThinking(r) }
+              if (c) { content += c; this.appendThinking(c) }
+            } catch { /* skip malformed chunk */ }
+          }
+        }
+        return { content, reasoning }
+      }
+
+      // Turn the model's streamed text into a reply bubble (+ execute any actions).
+      handleResponse(text, mode, editor) {
+        this.endThinking()
+        if (!text || !text.trim()) {
+          this.addError("No response from the model — check the API key and provider in Settings → Copilot.")
+          return
+        }
+        const parsed = this.parseReply(text)
+        if (parsed) {
+          this.addAssistantMessage(parsed.reply || "")
+          if (parsed.actions && parsed.actions.length) this.executeActions(parsed.actions, mode, editor)
+          this.history.push({ role: "user", content: this.promptTarget.value.trim() })
+          this.history.push({ role: "assistant", content: parsed.reply || "" })
+        } else {
+          // Model returned prose — treat as a conversational reply.
+          this.addAssistantMessage(text)
+          this.history.push({ role: "user", content: this.promptTarget.value.trim() })
+          this.history.push({ role: "assistant", content: text })
+        }
+        this.promptTarget.value = ""
+      }
+
+      // Extract the {reply, actions} object from the model's output, tolerating any prose
+      // or code fences around it. Scans every balanced {...} and keeps the first that parses
+      // with a string reply.
+      parseReply(text) {
+        if (!text) return null
+        const cleaned = String(text).replace(/```json|```/g, "")
+        const starts = []
+        for (let i = 0; i < cleaned.length; i++) if (cleaned[i] === "{") starts.push(i)
+        for (const start of starts) {
+          let depth = 0
+          for (let i = start; i < cleaned.length; i++) {
+            if (cleaned[i] === "{") depth++
+            else if (cleaned[i] === "}") {
+              depth--
+              if (depth === 0) {
+                const candidate = cleaned.slice(start, i + 1)
+                try {
+                  const obj = JSON.parse(candidate)
+                  if (obj && typeof obj.reply === "string") return obj
+                } catch { /* try next candidate */ }
+                break
+              }
+            }
+          }
+        }
+        return null
+      }
+
+      executeActions(actions, mode, editor) {
+        const ranRewrite = actions.some((a) => a.op === "rewrite_page")
+        for (const action of actions) {
+          this.logAction(this.describeAction(action))
+          switch (action.op) {
+            case "append_blocks":
+              if (mode === "rewrite_page" && !ranRewrite) editor.replaceAllBlocks(action.blocks || [])
+              else editor.appendBlocks(action.blocks || [])
+              break
+            case "rewrite_page":
+              editor.replaceAllBlocks(action.blocks || [])
+              break
+            case "replace_range":
+              editor.replaceRange(Number(action.start) || 0, Math.max(0, (Number(action.end) || 0) - (Number(action.start) || 0)), action.blocks || [])
+              break
+            case "update_block":
+              editor.updateBlock(Number(action.index) || 0, action.data || {})
+              break
+            case "remove_blocks":
+              editor.removeBlocks(Number(action.start) || 0, Number(action.count) || 1)
+              break
+          }
+        }
+        this.renderPreview()
+      }
+
+      describeAction(action) {
+        const n = (action.blocks || []).length
+        switch (action.op) {
+          case "append_blocks": return "Added " + n + " blocks"
+          case "rewrite_page": return "Rewrote the page with " + n + " blocks"
+          case "replace_range": return "Replaced blocks " + ((action.start || 0) + 1) + "–" + (action.end || 0) + " with " + n
+          case "update_block": return "Updated block " + ((action.index || 0) + 1)
+          case "remove_blocks": return "Removed " + (action.count || 0) + " block(s)"
+          default: return "Ran " + (action.op || "action")
+        }
+      }
+
+      renderPreview() {
+        const editor = this.blockEditor()
+        if (!editor) return
+        this.previewTarget.innerHTML = renderBlocksHtml(editor.getBlocks())
+      }
+
+      // ---- transcript helpers ----------------------------------------------------
+
+      addUserMessage(text) {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="flex justify-end"><div class="max-w-[85%] rounded-xl rounded-br-sm bg-gray-900 px-3 py-2 text-white">' + esc(text) + "</div></div>")
+        this.scrollTranscript()
+      }
+
+      beginThinking() {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div data-ai-writer-target="thinking" class="flex gap-2"><div class="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-gray-900 animate-pulse"></div>' +
+          '<div class="min-w-0 flex-1"><div class="text-[11px] font-medium text-gray-400 uppercase tracking-wide">Thinking</div>' +
+          '<div class="mt-1 max-h-24 overflow-y-auto whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-gray-600"></div></div></div>')
+        this.scrollTranscript()
+      }
+
+      appendThinking(delta) {
+        const el = this.transcriptTarget.querySelector("[data-ai-writer-target='thinking']")
+        if (!el) return
+        const body = el.querySelector("div.font-mono")
+        if (body) { body.textContent += delta; body.scrollTop = body.scrollHeight; this.scrollTranscript() }
+      }
+
+      endThinking() {
+        const el = this.transcriptTarget.querySelector("[data-ai-writer-target='thinking']")
+        if (el) el.remove()
+      }
+
+      addAssistantMessage(text) {
+        if (!text) return
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="max-w-[90%] whitespace-pre-wrap break-words rounded-xl rounded-tl-sm border border-gray-200 bg-gray-50 px-3 py-2 text-gray-800">' + esc(text) + "</div>")
+        this.scrollTranscript()
+      }
+
+      addError(text) {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">' + esc(text) + "</div>")
+        this.scrollTranscript()
+      }
+
+      logAction(text) {
+        this.transcriptTarget.insertAdjacentHTML("beforeend",
+          '<div class="flex items-center gap-2 text-xs text-gray-500"><span class="text-gray-300">↳</span><span>' + esc(text) + "</span></div>")
+        this.scrollTranscript()
+      }
+
+      scrollTranscript() {
+        this.transcriptTarget.scrollTop = this.transcriptTarget.scrollHeight
+      }
+
+      setStatus(text, isError, busy) {
+        this.statusTarget.textContent = text
+        this.statusTarget.classList.toggle("text-red-500", isError)
+        this.statusDotTarget.classList.toggle("hidden", !busy)
+      }
+    }
+
+    application.register("ai-writer", AiWriterController)
+  </script>
+
+  <style>
+    .copilot-preview h1 { font-size: 2rem; font-weight: 700; margin: 0.75rem 0 0.5rem; line-height: 1.15; }
+    .copilot-preview h2 { font-size: 1.5rem; font-weight: 700; margin: 0.75rem 0 0.5rem; }
+    .copilot-preview h3 { font-size: 1.25rem; font-weight: 600; margin: 0.75rem 0 0.4rem; }
+    .copilot-preview h4 { font-size: 1.1rem; font-weight: 600; margin: 0.6rem 0 0.4rem; }
+    .copilot-preview p { margin: 0.6rem 0; line-height: 1.65; }
+    .copilot-preview ul, .copilot-preview ol { margin: 0.6rem 0; padding-left: 1.5rem; }
+    .copilot-preview li { margin: 0.25rem 0; }
+    .copilot-preview blockquote { border-left: 3px solid #d1d5db; padding-left: 1rem; font-style: italic; margin: 0.75rem 0; color: #4b5563; }
+    .copilot-preview blockquote footer { margin-top: 0.25rem; font-style: normal; font-size: 0.8rem; color: #6b7280; }
+    .copilot-preview pre { background: #111; color: #f3f4f6; padding: 0.75rem; border-radius: 0.5rem; overflow-x: auto; font-size: 0.8rem; margin: 0.75rem 0; }
+    .copilot-preview code { background: #f3f4f6; border-radius: 0.25rem; padding: 0.1rem 0.3rem; font-size: 0.85em; }
+    .copilot-preview pre code { background: transparent; padding: 0; }
+    .copilot-preview hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1rem 0; }
+    .copilot-preview img { max-width: 100%; border-radius: 0.5rem; }
+    .copilot-preview figure { margin: 0.75rem 0; }
+    .copilot-preview figcaption { font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem; }
+    .copilot-preview a { color: #4f46e5; text-decoration: underline; }
+    .copilot-preview .callout { border-left: 4px solid #c7d2fe; background: #eef2ff; color: #312e81; padding: 0.6rem 0.75rem; border-radius: 0 0.5rem 0.5rem 0; margin: 0.75rem 0; font-size: 0.9rem; }
+    .copilot-preview .callout.success { border-color: #bbf7d0; background: #f0fdf4; color: #14532d; }
+    .copilot-preview .callout.warning { border-color: #fde68a; background: #fffbeb; color: #78350f; }
+    .copilot-preview .callout.danger { border-color: #fecaca; background: #fef2f2; color: #7f1d1d; }
+    .copilot-preview .btn { display: inline-block; background: #111; color: #fff; border-radius: 9999px; padding: 0.5rem 1rem; font-size: 0.875rem; text-decoration: none; margin: 0.5rem 0; }
+  </style>
+</div>

@@ -1,13 +1,17 @@
 <div data-block-editor-target="block" data-type="list"
-     data-action="focusin->block-editor#selectBlock"
      class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
   <%= render "admin/posts/blocks/toolbar" %>
-  <div class="flex items-center gap-3 mb-2">
-    <label class="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
-      <input type="checkbox" data-field="ordered" data-action="change->block-editor#serialize"
-             <%= "checked" if local_assigns[:data]&.dig("ordered") %> class="rounded border-gray-300 text-gray-900 focus:ring-indigo-500">
-      Numbered
-    </label>
+  <div data-controller="choice-field" class="flex items-center gap-3 mb-2">
+    <input type="checkbox" data-field="ordered" data-choice-field-target="input" class="hidden"
+           <%= "checked" if local_assigns[:data]&.dig("ordered") %>>
+    <div class="choice-field" role="radiogroup" aria-label="List style">
+      <button type="button" data-choice-field-target="button" data-value="false"
+              data-action="choice-field#choose" role="radio" aria-label="Bulleted list"
+              class="choice-btn">• Bulleted</button>
+      <button type="button" data-choice-field-target="button" data-value="true"
+              data-action="choice-field#choose" role="radio" aria-label="Numbered list"
+              class="choice-btn">1. Numbered</button>
+    </div>
   </div>
   <textarea data-field="items" data-action="input->block-editor#onInput keydown->block-editor#onKeydown"
             rows="3" placeholder="One item per line&#10;Like this&#10;And this" 

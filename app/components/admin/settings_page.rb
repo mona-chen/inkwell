@@ -18,6 +18,7 @@ module Admin
 
       render_general_section
       render_homepage_section
+      render_maintenance_section
     end
 
     private
@@ -25,7 +26,7 @@ module Admin
     def render_general_section
       render SettingsSection.new(title: "General", description: "Site-wide settings for #{@site.name}.") do |section|
         section.form do
-          form_with(url: admin_settings_path, method: :patch, builder: NitroKit::FormBuilder) do |form|
+          form_with(url: admin_settings_path, method: :patch, scope: "settings", builder: NitroKit::FormBuilder) do |form|
             form.group do
               form.field(:site_title, value: setting_value("site_title"), label: "Site title")
               form.field(:tagline, value: setting_value("tagline"), label: "Tagline")
@@ -127,7 +128,7 @@ module Admin
         description: "Choose what visitors see at your site's front page."
       ) do |section|
         section.form do
-          form_with(url: admin_settings_path, method: :patch, builder: NitroKit::FormBuilder) do |form|
+          form_with(url: admin_settings_path, method: :patch, scope: "settings", builder: NitroKit::FormBuilder) do |form|
             form.group do
               render NitroKit::RadioButtonGroup.new(
                 legend: "Your homepage displays",
@@ -144,7 +145,7 @@ module Admin
                 :page_on_front,
                 as: :select,
                 label: "Homepage page",
-                options: @pages.map { |p| [p.title, p.id.to_s] },
+                options: @pages.map { |p| [ p.title, p.id.to_s ] },
                 include_blank: "Select a page…"
               )
             end
@@ -152,6 +153,24 @@ module Admin
               form.submit("Save homepage")
             end
           end
+        end
+      end
+    end
+
+    def render_maintenance_section
+      render NitroKit::DangerZone.new(
+        title: "Maintenance",
+        description: "Clear caches and force freshly-compiled assets. Use when edits aren't showing up due to cached styles, fragments, or render output."
+      ) do |zone|
+        zone.confirmation do
+          render ButtonTo.new(
+            "Clear cache & refresh assets",
+            href: purge_cache_admin_settings_path,
+            method: :post,
+            variant: :destructive,
+            icon: :trash,
+            data: { turbo_confirm: "Clear the application cache? Pages will re-render fresh on the next visit." }
+          )
         end
       end
     end

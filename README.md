@@ -12,9 +12,13 @@ built vs. deliberately stubbed in this pass.
 ```
 bundle install
 bin/rails db:setup      # creates db, runs migrations (core + all plugin migrations), seeds demo content
-bin/rails tailwindcss:build
-bin/rails server
+bin/dev                 # runs the Tailwind watcher + Rails server (CSS stays in sync as you edit)
 ```
+
+> `bin/dev` runs the `tailwindcss:watch` process, so any utility classes added to views,
+> ViewComponents, or plugin views (`plugins/*/app/views`) are compiled automatically. If you
+> run `bin/rails server` on its own, styles only reflect the last `bin/rails tailwindcss:build`
+> — new plugin/component markup can appear unstyled or hidden until you rebuild.
 
 Then visit `/` for the public site and `/admin` (login: `admin@inkwell.test` / `password123`,
 seeded in `db/seeds.rb`) for the dashboard.

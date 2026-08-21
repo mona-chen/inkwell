@@ -26,6 +26,14 @@ export default class extends Controller {
     this.dialogTarget.close()
   }
 
+  // Clear the selection (e.g. remove featured image)
+  clear(event) {
+    event.preventDefault()
+    this.urlFieldTarget.value = ""
+    this.urlFieldTarget.dispatchEvent(new Event("input", { bubbles: true }))
+    this.previewTarget.innerHTML = '<span class="text-gray-400 text-xs">None</span>'
+  }
+
   // Close when clicking the dialog backdrop (outside the panel)
   backdropClose(event) {
     if (event.target === this.dialogTarget) this.dialogTarget.close()
@@ -41,10 +49,12 @@ export default class extends Controller {
   }
 
   select(event) {
-    const { url, id, alt } = event.detail || {}
+    const { url, id, alt, frame } = event.detail || {}
     if (!url) return
+    // Ignore selections made in another picker dialog (image blocks etc).
+    if (frame && this.hasFrameTarget && frame !== this.frameTarget.id) return
     // Logo/attachment fields store the media id; image-block url fields store the URL.
-    const wantsId = this.urlFieldTarget.name === "settings[site_logo]"
+    const wantsId = this.urlFieldTarget.name === "settings[site_logo]" || this.urlFieldTarget.name === "post[featured_image_id]"
     this.urlFieldTarget.value = wantsId ? (id || "") : url
     this.urlFieldTarget.dispatchEvent(new Event("input", { bubbles: true })) // triggers block-editor#serialize
     if (this.altFieldTarget && alt) {

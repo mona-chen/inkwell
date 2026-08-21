@@ -4,7 +4,12 @@ module Admin
 
     def index
       @posts = policy_scope(Post).includes(:author)
-      @posts = @posts.where(status: params[:status]) if params[:status].present? && %w[draft published scheduled trashed].include?(params[:status])
+      # Trash is a separate filter: hide trashed posts unless explicitly requested.
+      @posts = if %w[draft published scheduled trashed].include?(params[:status])
+                 @posts.where(status: params[:status])
+      else
+                 @posts.where.not(status: "trashed")
+      end
       @posts = @posts.where("title ILIKE ?", "%#{params[:q]}%") if params[:q].present?
       @posts = @posts.order(updated_at: :desc).page(params[:page])
       render Admin::PostsPage.new(posts: @posts, status: params[:status], q: params[:q])
@@ -15,12 +20,12 @@ module Admin
     end
 
     def create
-      @post = Current.site.posts.build(post_params.except(:category_ids))
+      @post = Current.site.posts.build(post_params.except(:category_ids, :tag_ids))
       @post.author = current_user
       authorize @post
 
       if @post.save
-        @post.term_ids_by_taxonomy = { "category" => post_params[:category_ids] } if post_params[:category_ids]
+        @post.term_ids_by_taxonomy = { "category" => post_params[:category_ids], "tag" => post_params[:tag_ids] }
         redirect_to edit_admin_post_path(@post), notice: "Post created."
       else
         render :new, status: :unprocessable_entity
@@ -33,8 +38,8 @@ module Admin
 
     def update
       authorize @post
-      if @post.update(post_params.except(:category_ids))
-        @post.term_ids_by_taxonomy = { "category" => post_params[:category_ids] } if post_params[:category_ids]
+      if @post.update(post_params.except(:category_ids, :tag_ids))
+        @post.term_ids_by_taxonomy = { "category" => post_params[:category_ids], "tag" => post_params[:tag_ids] }
         Inkwell::Hooks.fire(:post_updated, @post)
         respond_to do |format|
           format.turbo_stream { head :ok }
@@ -73,7 +78,7 @@ module Admin
     end
 
     def post_params
-      params.require(:post).permit(:title, :excerpt, :content, :draft_content, :status, :featured_image_alt, category_ids: [])
+      params.require(:post).permit(:title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_alt, category_ids: [], tag_ids: [])
     end
   end
 end

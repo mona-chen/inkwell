@@ -1,14 +1,20 @@
+<% tone = local_assigns[:data]&.dig("tone").presence || "info" %>
 <div data-block-editor-target="block" data-type="callout"
-     data-action="focusin->block-editor#selectBlock"
      class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
   <%= render "admin/posts/blocks/toolbar" %>
-  <div class="flex items-center gap-3 mb-2">
-    <select data-field="tone" data-action="change->block-editor#serialize" class="text-xs border rounded px-2 py-1">
-      <% %w[info success warning danger].each do |tone| %>
-        <option value="<%= tone %>" <%= "selected" if local_assigns[:data]&.dig("tone") == tone %>>Tone · <%= tone %></option>
+  <div data-controller="choice-field">
+    <input type="hidden" data-field="tone" data-choice-field-target="input" value="<%= tone %>">
+    <div class="choice-field" role="radiogroup" aria-label="Callout tone">
+      <% Blocks::CalloutComponent::TONES.each_key do |t| %>
+        <button type="button" data-choice-field-target="button" data-value="<%= t %>"
+                data-preview-class="tone-<%= t %>" data-action="choice-field#choose"
+                role="radio" aria-label="Tone <%= t %>" title="Tone <%= t %>"
+                class="choice-btn tone-<%= t %>"><%= t %></button>
       <% end %>
-    </select>
+    </div>
+    <div data-choice-field-target="preview" class="callout-preview mt-2 rounded-r-lg border-l-4 p-3 text-sm leading-relaxed">
+      <textarea data-field="text" data-action="input->block-editor#onInput keydown->block-editor#onKeydown" rows="2"
+                placeholder="Callout text" class="w-full border-0 focus:ring-0 resize-none text-sm leading-relaxed p-0 bg-transparent"><%= local_assigns[:data]&.dig("text") %></textarea>
+    </div>
   </div>
-  <textarea data-field="text" data-action="input->block-editor#onInput keydown->block-editor#onKeydown" rows="2"
-            placeholder="Callout text" class="w-full border-0 focus:ring-0 resize-none text-sm leading-relaxed p-0"><%= local_assigns[:data]&.dig("text") %></textarea>
 </div>

@@ -54,11 +54,19 @@ module Admin
     private
 
     def nav_item(nav, item)
-      nav.item(item[:label], href: item[:path], icon: item[:icon], current: current?(item[:path]))
+      attrs = { href: item[:path], icon: item[:icon], current: current?(item[:path]) }
+      if item[:badge]
+        attrs[:badge] = item[:badge]
+        attrs[:badge_color] = :warning
+      end
+      nav.item(item[:label], **attrs)
     end
 
+    # Match the nav item's section: exact path, or any subpath beneath it. e.g. /admin/posts/123
+    # highlights "Posts" (its path is /admin/posts). "/admin" (dashboard) only matches exactly.
     def current?(path)
-      current_path == path
+      return current_path == path if path == "/admin"
+      current_path == path || current_path.start_with?("#{path}/")
     end
 
     def current_path

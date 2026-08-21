@@ -12,5 +12,8 @@
 <template id="block-template-button"><%= render "admin/posts/blocks/button", data: {} %></template>
 <template id="block-template-rich_text"><%= render "admin/posts/blocks/rich_text", data: {} %></template>
 
+<%# Reusable patterns (heading+paragraph, hero, pull quote, …) for the "+ Add block" picker %>
+<%= render "admin/posts/blocks/patterns" %>
+
 <%# Plugins contribute their own block <template> tags here (e.g. the Ink Builder). %>
 <% BlockRenderer.templates_partials.each { |partial| concat(render(partial)) } %>

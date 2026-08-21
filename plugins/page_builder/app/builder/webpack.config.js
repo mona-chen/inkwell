@@ -13,7 +13,7 @@ module.exports = {
     mode: 'development',
     devtool: false,
     optimization: {
-        minimize: true,
+        minimize: false, // minification renames class names, breaking ElementFactory's constructor.name lookup
     },
     module: {
         rules: [

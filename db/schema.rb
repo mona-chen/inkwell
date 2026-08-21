@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_20_143733) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_20_190342) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -206,6 +206,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_143733) do
     t.jsonb "draft_content"
     t.text "excerpt"
     t.string "featured_image_alt"
+    t.bigint "featured_image_id"
     t.jsonb "meta", default: {}, null: false
     t.datetime "published_at"
     t.datetime "scheduled_for"
@@ -216,6 +217,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_143733) do
     t.datetime "updated_at", null: false
     t.index ["author_id"], name: "index_posts_on_author_id"
     t.index ["content"], name: "index_posts_on_content", using: :gin
+    t.index ["featured_image_id"], name: "index_posts_on_featured_image_id"
     t.index ["published_at"], name: "index_posts_on_published_at"
     t.index ["site_id", "slug"], name: "index_posts_on_site_id_and_slug", unique: true
     t.index ["site_id"], name: "index_posts_on_site_id"
@@ -387,6 +389,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_143733) do
     t.datetime "created_at", null: false
     t.datetime "current_sign_in_at"
     t.string "current_sign_in_ip"
+    t.datetime "deactivated_at"
     t.string "email", null: false
     t.string "encrypted_password", default: "", null: false
     t.datetime "last_sign_in_at"
@@ -403,6 +406,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_143733) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
     t.index ["role_id"], name: "index_users_on_role_id"
     t.index ["site_id"], name: "index_users_on_site_id"
+  end
+
+  create_table "widgets", force: :cascade do |t|
+    t.string "area"
+    t.jsonb "config"
+    t.datetime "created_at", null: false
+    t.string "kind"
+    t.integer "position"
+    t.bigint "site_id", null: false
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.index ["site_id"], name: "index_widgets_on_site_id"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -434,4 +449,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_143733) do
   add_foreign_key "terms", "sites"
   add_foreign_key "users", "roles"
   add_foreign_key "users", "sites"
+  add_foreign_key "widgets", "sites"
 end

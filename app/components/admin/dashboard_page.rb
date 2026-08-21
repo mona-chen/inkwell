@@ -7,18 +7,25 @@ module Admin
   class DashboardPage < ApplicationComponent
     def initialize(
       recent_posts:, published_posts:, total_pages:, pending_comments:,
-      media_count:, active_plugins:, draft_posts:, scheduled_posts:, total_posts:, recent_comments:
+      media_count:, active_plugins:, draft_posts:, scheduled_posts:, total_posts:,
+      recent_comments:, spam_comments: 0, total_users: 0, scheduled_queue: [],
+      draft_queue: [], storage_bytes: 0
     )
       @recent_posts = recent_posts
       @published_posts = published_posts
       @total_pages = total_pages
       @pending_comments = pending_comments
+      @spam_comments = spam_comments
       @media_count = media_count
       @active_plugins = active_plugins
       @draft_posts = draft_posts
       @scheduled_posts = scheduled_posts
       @total_posts = total_posts
+      @total_users = total_users
       @recent_comments = recent_comments
+      @scheduled_queue = scheduled_queue
+      @draft_queue = draft_queue
+      @storage_bytes = storage_bytes
     end
 
     def view_template
@@ -26,7 +33,9 @@ module Admin
         render_header
         render_editorial_stats
         render_queue_band
+        render_scheduled_band
         render_lower_grid
+        render_system_status
       end
     end
 
@@ -58,6 +67,53 @@ module Admin
         grid.stat(key: :drafts, label: "Drafts", value: @draft_posts, detail: "in progress")
         grid.stat(key: :scheduled, label: "Scheduled", value: @scheduled_posts, detail: "queued")
         grid.stat(key: :comments, label: "Pending comments", value: @pending_comments, detail: "need review")
+      end
+    end
+
+    def render_scheduled_band
+      return if @scheduled_queue.empty? && @draft_queue.empty?
+      render Grid.new(cols: "1 lg:2", gap: 6) do
+        render Card.new do |card|
+          card.title { "Up next (scheduled)" }
+          card.body do
+            if @scheduled_queue.empty?
+              div(class: "py-6 text-center text-sm text-muted-foreground") { "Nothing scheduled." }
+            else
+              ul(class: "divide-y divide-border") do
+                @scheduled_queue.each do |post|
+                  li(class: "flex items-center gap-3 py-2.5") do
+                    div(class: "min-w-0 flex-1") do
+                      a(href: edit_admin_post_path(post), class: "block truncate text-sm font-medium text-foreground hover:text-primary") { post.title }
+                      span(class: "text-xs text-muted-foreground") { post.scheduled_for&.strftime("%b %-d, %Y at %l:%M%P") }
+                    end
+                    render Badge.new("scheduled", color: :info, size: :xs)
+                  end
+                end
+              end
+            end
+          end
+        end
+
+        render Card.new do |card|
+          card.title { "Drafts in progress" }
+          card.body do
+            if @draft_queue.empty?
+              div(class: "py-6 text-center text-sm text-muted-foreground") { "No drafts." }
+            else
+              ul(class: "divide-y divide-border") do
+                @draft_queue.each do |post|
+                  li(class: "flex items-center gap-3 py-2.5") do
+                    div(class: "min-w-0 flex-1") do
+                      a(href: edit_admin_post_path(post), class: "block truncate text-sm font-medium text-foreground hover:text-primary") { post.title }
+                      span(class: "text-xs text-muted-foreground") { "edited #{time_ago(post.updated_at)}" }
+                    end
+                    render Badge.new("draft", color: :neutral, size: :xs)
+                  end
+                end
+              end
+            end
+          end
+        end
       end
     end
 
@@ -223,6 +279,36 @@ module Admin
           a(href: admin_plugins_path, class: "text-sm font-medium text-primary hover:underline") { "Manage plugins" }
         end
       end
+    end
+
+    def render_system_status
+      render Card.new do |card|
+        card.title { "System" }
+        card.body do
+          Grid(cols: "2 sm:3 lg:5", gap: 4) do
+            stat("Theme", Current.site.active_theme.titleize, icon: :palette)
+            stat("Users", @total_users.to_s, icon: :users)
+            stat("Storage", storage_label, icon: :database)
+            stat("Ruby", RUBY_VERSION, icon: :code)
+            stat("Rails", Rails.version, icon: :zap)
+          end
+        end
+      end
+    end
+
+    def stat(label, value, icon:)
+      div(class: "flex flex-col gap-1 rounded-lg border border-border bg-muted/30 p-3") do
+        div(class: "flex items-center gap-1.5 text-muted-foreground") do
+          render Icon.new(icon, size: :sm)
+          span(class: "text-xs") { label }
+        end
+        span(class: "text-sm font-semibold text-foreground") { value }
+      end
+    end
+
+    def storage_label
+      return "0" if @storage_bytes.to_i.zero?
+      ActiveSupport::NumberHelper.number_to_human_size(@storage_bytes)
     end
 
     def time_ago(t)

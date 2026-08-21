@@ -1,10 +1,49 @@
 <div data-block-editor-target="block" data-type="rich_text"
-     data-action="focusin->block-editor#selectBlock"
      data-controller="rich-text"
      class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
   <%= render "admin/posts/blocks/toolbar" %>
   <input type="hidden" data-rich-text-target="hiddenField" data-field="json"
          data-action="change->block-editor#serialize"
          value="<%= html_escape(local_assigns[:data]&.dig("json")) %>">
+
+  <%# WYSIWYG toolbar %>
+  <div data-rich-text-target="toolbar" class="flex flex-wrap items-center gap-0.5 mb-3 pb-2 border-b border-gray-100 select-none">
+    <div class="flex items-center mr-1">
+      <button type="button" data-command="setParagraph" title="Paragraph (Ctrl+Alt+0)" aria-label="Paragraph"
+              class="rich-text-btn">¶</button>
+      <button type="button" data-command="toggleHeading" data-arg="1" title="Heading 1 (Ctrl+Alt+1)" aria-label="Heading 1"
+              class="rich-text-btn">H1</button>
+      <button type="button" data-command="toggleHeading" data-arg="2" title="Heading 2 (Ctrl+Alt+2)" aria-label="Heading 2"
+              class="rich-text-btn">H2</button>
+      <button type="button" data-command="toggleHeading" data-arg="3" title="Heading 3 (Ctrl+Alt+3)" aria-label="Heading 3"
+              class="rich-text-btn">H3</button>
+    </div>
+    <span class="mx-1 h-4 w-px bg-gray-200"></span>
+    <div class="flex items-center mr-1">
+      <button type="button" data-command="toggleBold" title="Bold (Ctrl+B)" aria-label="Bold" class="rich-text-btn"><strong>B</strong></button>
+      <button type="button" data-command="toggleItalic" title="Italic (Ctrl+I)" aria-label="Italic" class="rich-text-btn"><em>I</em></button>
+      <button type="button" data-command="toggleUnderline" title="Underline (Ctrl+U)" aria-label="Underline" class="rich-text-btn"><u>U</u></button>
+      <button type="button" data-command="toggleStrike" title="Strikethrough" aria-label="Strikethrough" class="rich-text-btn"><s>S</s></button>
+      <button type="button" data-command="toggleCode" title="Inline code" aria-label="Inline code" class="rich-text-btn">`&lt;/&gt;`</button>
+    </div>
+    <span class="mx-1 h-4 w-px bg-gray-200"></span>
+    <div class="flex items-center mr-1">
+      <button type="button" data-command="toggleBulletList" title="Bullet list" aria-label="Bullet list" class="rich-text-btn">• List</button>
+      <button type="button" data-command="toggleOrderedList" title="Numbered list" aria-label="Numbered list" class="rich-text-btn">1. List</button>
+      <button type="button" data-command="toggleBlockquote" title="Quote" aria-label="Quote" class="rich-text-btn">“</button>
+      <button type="button" data-command="toggleCodeBlock" title="Code block" aria-label="Code block" class="rich-text-btn">{ }</button>
+      <button type="button" data-command="setHorizontalRule" title="Divider" aria-label="Divider" class="rich-text-btn">—</button>
+    </div>
+    <span class="mx-1 h-4 w-px bg-gray-200"></span>
+    <div class="flex items-center mr-1">
+      <button type="button" data-command="undo" title="Undo (Ctrl+Z)" aria-label="Undo" class="rich-text-btn">↶</button>
+      <button type="button" data-command="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" class="rich-text-btn">↷</button>
+    </div>
+    <div class="flex items-center mr-1">
+      <button type="button" data-command="toggleLink" title="Insert link" aria-label="Insert link" class="rich-text-btn">Link</button>
+      <button type="button" data-command="unsetLink" title="Remove link" aria-label="Remove link" class="rich-text-btn">Link ✕</button>
+    </div>
+  </div>
+
   <div data-rich-text-target="editor" class="rich-text text-sm leading-relaxed"></div>
 </div>

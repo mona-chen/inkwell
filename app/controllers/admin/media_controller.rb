@@ -9,6 +9,10 @@ module Admin
       @media_items = @media_items.order(created_at: :desc).page(params[:page])
 
       if params[:picker].present?
+        # Turbo Frame navigation sends the requesting frame id in the Turbo-Frame header;
+        # the picker view must wrap its content in that same id or Turbo reports
+        # "Content missing". Default to the block-editor picker frame.
+        @picker_frame = request.headers["Turbo-Frame"] || "media-picker-frame"
         render "admin/media/picker", layout: false
       else
         render Admin::MediaPage.new(media_items: @media_items, type: params[:type], q: params[:q])
@@ -23,8 +27,10 @@ module Admin
         if @media_item.save
           format.turbo_stream # prepends the new item into the grid without a full reload
           format.html { redirect_to admin_media_path, notice: "Uploaded." }
+          format.json { render json: { id: @media_item.id, url: @media_item.url, alt: @media_item.alt_text } }
         else
           format.html { redirect_to admin_media_path, alert: @media_item.errors.full_messages.to_sentence }
+          format.json { render json: { errors: @media_item.errors.full_messages }, status: :unprocessable_entity }
         end
       end
     end

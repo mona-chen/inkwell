@@ -1,0 +1,7 @@
+<%# A widget area: renders each widget in order. The wrapping container is the caller's
+    choice — themes use this partial inside their own <aside>/<div>. %>
+<% widgets.each do |widget| %>
+  <div class="rounded-lg bg-muted/40 p-4">
+    <%= render_widget(widget) %>
+  </div>
+<% end %>

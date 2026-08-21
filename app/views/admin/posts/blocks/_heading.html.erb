@@ -1,15 +1,20 @@
+<% level = local_assigns[:data]&.dig("level").to_i.zero? ? 2 : local_assigns[:data]&.dig("level") %>
 <div data-block-editor-target="block" data-type="heading"
-     data-action="focusin->block-editor#selectBlock"
      class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
   <%= render "admin/posts/blocks/toolbar" %>
-  <div class="flex items-center gap-3">
-    <select data-field="level" data-action="change->block-editor#serialize" class="text-xs border rounded px-2 py-1">
+  <div data-controller="choice-field" class="flex items-center gap-3">
+    <input type="hidden" data-field="level" data-choice-field-target="input" value="<%= level %>">
+    <div class="choice-field shrink-0" role="radiogroup" aria-label="Heading level">
       <% (1..4).each do |lvl| %>
-        <option value="<%= lvl %>" <%= "selected" if local_assigns[:data]&.dig("level").to_i == lvl %>>H<%= lvl %></option>
+        <button type="button" data-choice-field-target="button" data-value="<%= lvl %>"
+                data-preview-class="level-<%= lvl %>" data-action="choice-field#choose"
+                role="radio" aria-label="Heading <%= lvl %>" title="Heading <%= lvl %>"
+                class="choice-btn btn-h<%= lvl %>">H<%= lvl %></button>
       <% end %>
-    </select>
-    <input data-field="text" data-action="input->block-editor#onInput keydown->block-editor#onKeydown" type="text"
+    </div>
+    <input data-field="text" data-choice-field-target="preview"
+           data-action="input->block-editor#onInput keydown->block-editor#onKeydown" type="text"
            value="<%= local_assigns[:data]&.dig("text") %>" placeholder="Heading text"
-           class="flex-1 border-0 focus:ring-0 text-xl font-bold p-0">
+           class="heading-preview flex-1 border-0 focus:ring-0 font-bold p-0">
   </div>
 </div>

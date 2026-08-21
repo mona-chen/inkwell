@@ -1,0 +1,15 @@
+<%# Breadcrumbs: pass `crumbs` as [{ label:, path: }, ...]. Last item is current (unlinked).
+    Theme-agnostic so it works for posts, pages, tags, authors. %>
+<% if crumbs&.any? %>
+  <nav class="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-gray-400" aria-label="Breadcrumb">
+    <%= link_to "Home", root_path, class: "transition-colors hover:text-gray-700" %>
+    <% crumbs.each do |crumb| %>
+      <span class="text-gray-300" aria-hidden="true">/</span>
+      <% if crumb[:path] %>
+        <%= link_to crumb[:label], crumb[:path], class: "transition-colors hover:text-gray-700" %>
+      <% else %>
+        <span class="truncate text-gray-600" aria-current="page"><%= crumb[:label] %></span>
+      <% end %>
+    <% end %>
+  </nav>
+<% end %>

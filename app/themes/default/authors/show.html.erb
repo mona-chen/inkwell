@@ -1,0 +1,72 @@
+<% content_for :title, @author.name %>
+<div class="mx-auto max-w-7xl px-5 sm:px-8">
+  <div class="py-10">
+    <div class="flex items-center gap-6">
+      <span class="flex h-20 w-20 items-center justify-center rounded-full bg-[#1a1a1a] text-3xl font-semibold text-white">
+        <%= @author.name.first.upcase %>
+      </span>
+      <div>
+        <div class="kicker">Author</div>
+        <h1 class="font-serif-display text-4xl font-semibold tracking-tight"><%= @author.name %></h1>
+        <p class="mt-2 max-w-xl text-gray-600">
+          <%= @author.bio.presence || "#{@author.name} writes for #{Current.site.name}." %>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <div>
+      <div class="kicker">Written by <%= @author.name %></div>
+      <h2>Stories</h2>
+    </div>
+    <div class="rule"></div>
+  </div>
+
+  <% if @posts.empty? %>
+    <div class="py-24 text-center">
+      <p class="text-gray-500">No published posts yet.</p>
+    </div>
+  <% else %>
+    <div class="grid grid-cols-1 gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+      <% @posts.each do |post| %>
+        <article class="group flex flex-col">
+          <% img = post.content_blocks.find { |b| b["type"] == "image" } %>
+          <% if img %>
+            <%= link_to post_path(post) do %>
+              <div class="mb-5 aspect-[16/10] w-full overflow-hidden rounded-xl bg-[#f3ede3]">
+                <img src="<%= img.dig("data", "url") %>" alt="" class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]">
+              </div>
+            <% end %>
+          <% end %>
+          <div class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+            <%= post.categories.map(&:name).join(" · ").presence || "Journal" %>
+          </div>
+          <h2 class="font-serif-display mt-2 text-xl font-semibold leading-snug tracking-tight">
+            <%= link_to post.title, post_path(post), class: "transition-colors group-hover:text-indigo-700" %>
+          </h2>
+          <p class="mt-2 line-clamp-3 flex-1 text-sm leading-relaxed text-gray-600">
+            <%= post.excerpt.presence || truncate(post.content_blocks.find { |b| b["type"] == "paragraph" }&.dig("data", "text").to_s, length: 120) %>
+          </p>
+          <div class="mt-5 flex items-center gap-2 text-xs text-gray-400">
+            <span><%= post.published_at&.strftime("%b %-d, %Y") %></span>
+            <span class="text-gray-300">·</span>
+            <span><%= post.reading_time %> min read</span>
+          </div>
+        </article>
+      <% end %>
+    </div>
+
+    <% if @posts.total_pages > 1 %>
+      <div class="mt-16 flex items-center justify-center gap-4">
+        <% if @posts.prev_page %>
+          <%= link_to "← Newer", url_for(page: @posts.prev_page), class: "btn btn-secondary" %>
+        <% end %>
+        <span class="text-sm text-gray-500">Page <%= @posts.current_page %> of <%= @posts.total_pages %></span>
+        <% if @posts.next_page %>
+          <%= link_to "Older →", url_for(page: @posts.next_page), class: "btn btn-secondary" %>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

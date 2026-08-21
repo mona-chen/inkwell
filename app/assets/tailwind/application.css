@@ -54,17 +54,100 @@ html {
 }
 
 /* Block-editor floating toolbar (app/views/admin/posts/blocks/_toolbar.html.erb).
-   Visible on hover only while nothing is selected; once a block is selected the editor
-   container gets `.editor-has-selection` and only the selected block's toolbar shows — so
-   moving toward an open toolbar never reveals a neighboring block's. */
+   Revealed on hover over its block — no persistent "selected" state. */
 .block-toolbar {
   opacity: 0;
 }
-[data-block-editor-target="block"]:hover > .block-toolbar,
-[data-block-editor-target="block"].block-selected > .block-toolbar {
+[data-block-editor-target="block"]:hover > .block-toolbar {
   opacity: 1;
 }
-.editor-has-selection [data-block-editor-target="block"]:not(.block-selected) > .block-toolbar {
-  opacity: 0;
+
+/* Block-editor text fields: drop the native focus outline ("active state" blue ring).
+   The caret marks the active field and the block's own border shows the container, so the
+   outline is pure noise here. Buttons and selects keep their focus indicators for keyboard
+   users. */
+[data-block-editor-target="block"] input:focus,
+[data-block-editor-target="block"] textarea:focus,
+[data-block-editor-target="block"] [contenteditable]:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* TipTap WYSIWYG toolbar (app/views/admin/posts/blocks/_rich_text.html.erb). Plain buttons —
+   no active-state tracking, they just run their command. */
+.rich-text-btn {
+  @apply inline-flex items-center justify-center min-w-7 h-7 px-1.5 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none;
+}
+
+/* Segmented visual selector (choice-field_controller.js) — replaces <select>/<checkbox> in
+   blocks. Each button previews the actual rendered result; the selected one is filled. */
+.choice-field {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--nk-color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+.choice-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--nk-color-muted-foreground);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--nk-color-border);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+.choice-btn:last-child { border-right: 0; }
+.choice-btn:hover { background: var(--nk-color-muted); color: var(--nk-color-foreground); }
+.choice-btn.is-selected { background: var(--nk-color-foreground); color: var(--nk-color-canvas); }
+
+/* Heading level buttons render at their actual heading size (like Gutenberg's heading
+   control). The .heading-preview input restyles to the chosen level on selection. */
+.choice-btn.btn-h1 { font-size: 1.25rem; font-weight: 700; }
+.choice-btn.btn-h2 { font-size: 1.1rem; font-weight: 700; }
+.choice-btn.btn-h3 { font-size: 0.95rem; font-weight: 600; }
+.choice-btn.btn-h4 { font-size: 0.85rem; font-weight: 600; }
+.heading-preview { font-weight: 700; }
+.heading-preview.level-1 { font-size: 2.25rem; }
+.heading-preview.level-2 { font-size: 1.875rem; }
+.heading-preview.level-3 { font-size: 1.5rem; }
+.heading-preview.level-4 { font-size: 1.25rem; }
+
+/* Callout tone buttons keep their tint even when selected (ring marks the choice), and the
+   .callout-preview container re-tints reactively. Palette matches Blocks::CalloutComponent. */
+.choice-btn.tone-info { color: #312e81; background: #eef2ff; }
+.choice-btn.tone-info:hover { background: #e0e7ff; }
+.choice-btn.tone-info.is-selected { box-shadow: inset 0 0 0 1.5px #c7d2fe; background: #e0e7ff; }
+.choice-btn.tone-success { color: #14532d; background: #f0fdf4; }
+.choice-btn.tone-success:hover { background: #dcfce7; }
+.choice-btn.tone-success.is-selected { box-shadow: inset 0 0 0 1.5px #bbf7d0; background: #dcfce7; }
+.choice-btn.tone-warning { color: #78350f; background: #fffbeb; }
+.choice-btn.tone-warning:hover { background: #fef3c7; }
+.choice-btn.tone-warning.is-selected { box-shadow: inset 0 0 0 1.5px #fde68a; background: #fef3c7; }
+.choice-btn.tone-danger { color: #7f1d1d; background: #fef2f2; }
+.choice-btn.tone-danger:hover { background: #fee2e2; }
+.choice-btn.tone-danger.is-selected { box-shadow: inset 0 0 0 1.5px #fecaca; background: #fee2e2; }
+.callout-preview { transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+.callout-preview.tone-info { border-color: #c7d2fe; background: #eef2ff; color: #312e81; }
+.callout-preview.tone-success { border-color: #bbf7d0; background: #f0fdf4; color: #14532d; }
+.callout-preview.tone-warning { border-color: #fde68a; background: #fffbeb; color: #78350f; }
+.callout-preview.tone-danger { border-color: #fecaca; background: #fef2f2; color: #7f1d1d; }
+
+/* Button style buttons preview the two button looks; the label input preview restyles. */
+.choice-btn.style-primary.is-selected { background: #111; }
+.choice-btn.style-secondary.is-selected { background: transparent; color: var(--nk-color-foreground); box-shadow: inset 0 0 0 1.5px var(--nk-color-border); }
+.button-preview.btn-secondary { color: var(--nk-color-muted-foreground); font-weight: 500; }
+
+/* Gutenberg-style image block: emphasize the drop zone while dragging a file over it. */
+[data-image-block-target="dropzone"].dragging {
+  border-color: var(--nk-color-primary);
+  background: var(--nk-color-muted);
 }
 

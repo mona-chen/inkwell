@@ -1,6 +1,134 @@
 import { Controller } from "@hotwired/stimulus"
 import Sortable from "sortablejs"
 
+// ---- Markdown → block parsing -------------------------------------------------
+// The editor stores structured blocks (jsonb), not markdown. Pasting markdown is converted
+// here into the editor's own blocks: headings/lists/quotes/code/separators become their
+// structured blocks; text with inline formatting (bold/italic/code/links) becomes a
+// rich_text block holding the equivalent TipTap JSON, which the server renders safely.
+
+const INLINE_RE = /\*\*([^*\n]+)\*\*|\*([^*\n]+)\*|~~([^~\n]+)~~|`([^`\n]+)`|\[([^\]]+)\]\(([^)\s]+)\)/g
+const HEADING_RE = /^(#{1,4})\s+(.*)$/
+const QUOTE_RE = /^\s*>\s?(.*)$/
+const BULLET_RE = /^\s*[-*+]\s+(.*)$/
+const ORDERED_RE = /^\s*\d+[.)]\s+(.*)$/
+const SEPARATOR_RE = /^\s*(?:---|\*\*\*)\s*$/
+const FENCE_RE = /^```\s*/
+
+function stripInline(text) {
+  return text
+    .replace(/\[([^\]]+)\]\([^)\s]+\)/g, "$1")
+    .replace(/\*\*([^*\n]+)\*\*/g, "$1")
+    .replace(/\*([^*\n]+)\*/g, "$1")
+    .replace(/~~([^~\n]+)~~/g, "$1")
+    .replace(/`([^`\n]+)`/g, "$1")
+}
+
+function hasInline(text) {
+  INLINE_RE.lastIndex = 0
+  return INLINE_RE.test(text)
+}
+
+// Convert a line with inline formatting into a rich_text block's TipTap JSON document.
+function inlineToJson(text) {
+  const nodes = []
+  let last = 0
+  let m
+  INLINE_RE.lastIndex = 0
+  while ((m = INLINE_RE.exec(text))) {
+    if (m.index > last) nodes.push({ type: "text", text: text.slice(last, m.index) })
+    if (m[1] !== undefined) nodes.push({ type: "text", text: m[1], marks: [{ type: "bold" }] })
+    else if (m[2] !== undefined) nodes.push({ type: "text", text: m[2], marks: [{ type: "italic" }] })
+    else if (m[3] !== undefined) nodes.push({ type: "text", text: m[3], marks: [{ type: "strike" }] })
+    else if (m[4] !== undefined) nodes.push({ type: "text", text: m[4], marks: [{ type: "code" }] })
+    else if (m[5] !== undefined) nodes.push({ type: "text", text: m[5], marks: [{ type: "link", attrs: { href: m[6] } }] })
+    last = INLINE_RE.lastIndex
+  }
+  if (last < text.length) nodes.push({ type: "text", text: text.slice(last) })
+  return JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: nodes }] })
+}
+
+function textBlock(line) {
+  return hasInline(line)
+    ? { type: "rich_text", data: { json: inlineToJson(line) } }
+    : { type: "paragraph", data: { text: line } }
+}
+
+// Parse a pasted markdown string into the editor's block array. Returns [] if there's
+// nothing structural (a single bare line → let the browser paste it normally).
+export function parseMarkdown(text) {
+  const lines = text.replace(/\r\n/g, "\n").split("\n")
+  const blocks = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+    if (line.trim() === "") { i += 1; continue }
+
+    // Fenced code block
+    if (FENCE_RE.test(line)) {
+      const code = []
+      i += 1
+      while (i < lines.length && !/^```\s*$/.test(lines[i])) { code.push(lines[i]); i += 1 }
+      i += 1 // closing fence
+      blocks.push({ type: "code", data: { language: "plaintext", code: code.join("\n") } })
+      continue
+    }
+
+    // Heading
+    const h = line.match(HEADING_RE)
+    if (h) {
+      blocks.push({ type: "heading", data: { level: h[1].length, text: stripInline(h[2]) } })
+      i += 1
+      continue
+    }
+
+    // Separator
+    if (SEPARATOR_RE.test(line)) {
+      blocks.push({ type: "separator", data: {} })
+      i += 1
+      continue
+    }
+
+    // Blockquote: consecutive "> " lines
+    if (QUOTE_RE.test(line)) {
+      const quote = []
+      while (i < lines.length && QUOTE_RE.test(lines[i])) { quote.push(lines[i].match(QUOTE_RE)[1]); i += 1 }
+      blocks.push({ type: "quote", data: { text: stripInline(quote.join("\n")), attribution: "" } })
+      continue
+    }
+
+    // Bullet list: consecutive "- / * / +" lines
+    if (BULLET_RE.test(line)) {
+      const items = []
+      while (i < lines.length && BULLET_RE.test(lines[i])) { items.push(lines[i].match(BULLET_RE)[1]); i += 1 }
+      blocks.push({ type: "list", data: { ordered: false, items: items.map(stripInline).join("\n") } })
+      continue
+    }
+
+    // Ordered list: consecutive "1. " lines
+    if (ORDERED_RE.test(line)) {
+      const items = []
+      while (i < lines.length && ORDERED_RE.test(lines[i])) { items.push(lines[i].match(ORDERED_RE)[1]); i += 1 }
+      blocks.push({ type: "list", data: { ordered: true, items: items.map(stripInline).join("\n") } })
+      continue
+    }
+
+    // Paragraph: consecutive non-marker lines, one block per line (matches the editor's
+    // one-paragraph-per-block model; Enter already splits this way).
+    const para = []
+    while (i < lines.length && lines[i].trim() !== "" && !HEADING_RE.test(lines[i]) &&
+           !QUOTE_RE.test(lines[i]) && !BULLET_RE.test(lines[i]) && !ORDERED_RE.test(lines[i]) &&
+           !SEPARATOR_RE.test(lines[i]) && !FENCE_RE.test(lines[i])) {
+      para.push(lines[i])
+      i += 1
+    }
+    para.forEach((l) => blocks.push(textBlock(l)))
+  }
+
+  return blocks
+}
+
 // Drives the post/page block editor. Each block is a <div data-block-editor-target="block">
 // with a data-type attribute and its own inline fields; on any change we serialize the whole
 // list into the hidden `content` field as JSON, matching the jsonb shape the server expects:
@@ -10,7 +138,7 @@ import Sortable from "sortablejs"
 // HTML-soup liability) — every block is structured fields, so what's stored is always valid,
 // renderable data, never partially-typed markup.
 export default class extends Controller {
-  static targets = ["list", "block", "hiddenField", "blockPicker", "emptyState", "slashMenu", "saveStatus", "undoButton", "redoButton"]
+  static targets = ["list", "block", "hiddenField", "blockPicker", "emptyState", "slashMenu", "saveStatus", "undoButton", "redoButton", "wordCount"]
   static values = { types: Array, saveUrl: String, resourceKey: String }
 
   connect() {
@@ -31,42 +159,76 @@ export default class extends Controller {
     this.pushHistory()
     this.serialize(false)
     this.updateHistoryButtons()
-    this.select(null)
-    this.bindOutsideClickDeselect()
+    this.bindPickerOutsideClose()
+    this.bindMarkdownPaste()
   }
 
   disconnect() {
     this.sortable?.destroy()
     this.hideSlashMenu()
     window.removeEventListener("mousedown", this._outsideClickHandler)
+    this.listTarget.removeEventListener("paste", this._pasteHandler)
     if (this.saveTimer) clearTimeout(this.saveTimer)
   }
 
-  // ---- selection -----------------------------------------------------------
+  // Paste markdown into a block field → convert it to the editor's own blocks. Delegated on
+  // the list so every text field is covered. Only takes over when the field is empty (a
+  // fresh block) so we never clobber existing text; rich_text blocks are skipped because
+  // TipTap handles its own paste.
+  bindMarkdownPaste() {
+    this._pasteHandler = (event) => {
+      const field = event.target
+      const block = field.closest("[data-block-editor-target='block']")
+      if (!block || block.dataset.type === "rich_text") return
+      if (field.value?.length) return
 
-  selectBlock(event) {
-    event.stopPropagation()
-    this.select(event.target.closest("[data-block-editor-target='block']"))
+      const text = event.clipboardData?.getData("text/plain") || ""
+      if (!text.trim()) return
+      const blocks = parseMarkdown(text)
+      const structural = blocks.length > 1 || blocks.some((b) => b.type !== "paragraph")
+      if (!structural) return
+
+      event.preventDefault()
+      this.replaceBlockWithBlocks(block, blocks)
+    }
+    this.listTarget.addEventListener("paste", this._pasteHandler)
   }
 
-  select(block) {
-    this.blockTargets.forEach((b) => b.classList.remove("block-selected"))
-    block?.classList.add("block-selected")
-    this.element.classList.toggle("editor-has-selection", !!block)
-  }
+  // ---- picker ---------------------------------------------------------------
 
-  // Clicking anywhere outside the editor deselects the active block so its toolbar hides.
-  bindOutsideClickDeselect() {
+  // Close the "+ Add block" <details> when clicking anywhere outside it, so it never lingers
+  // open after focus moves away. The summary toggle still works natively.
+  bindPickerOutsideClose() {
     this._outsideClickHandler = (e) => {
-      if (!this.element.contains(e.target)) this.select(null)
+      const picker = this.blockPickerTarget
+      if (picker.open && !picker.contains(e.target)) picker.removeAttribute("open")
     }
     window.addEventListener("mousedown", this._outsideClickHandler)
+  }
+
+  closePicker() {
+    this.blockPickerTarget.removeAttribute("open")
+  }
+
+  // Live filter for the picker's search box: hides block/pattern buttons that don't match.
+  filterPicker(event) {
+    const q = event.target.value.trim().toLowerCase()
+    this.blockPickerTarget.querySelectorAll("[data-search-item]").forEach((btn) => {
+      const haystack = `${btn.dataset.searchItem} ${btn.dataset.searchGroup}`.toLowerCase()
+      btn.classList.toggle("hidden", q && !haystack.includes(q))
+    })
   }
 
   // ---- insertion / mutation -------------------------------------------------
 
   addBlock(event) {
     this.insertBlock(event.params.type, null, true)
+    this.closePicker()
+  }
+
+  addPattern(event) {
+    this.insertPattern(event.params.pattern, null, true)
+    this.closePicker()
   }
 
   insertAbove(event) {
@@ -91,8 +253,28 @@ export default class extends Controller {
     }
     this.commit()
     this.toggleEmptyState()
-    this.select(el)
     this.focusBlockField(el)
+  }
+
+  // Insert a whole pattern (a <template> holding several pre-filled blocks) after `after`.
+  insertPattern(name, after, below = true) {
+    const template = document.getElementById(`pattern-template-${name}`)
+    if (!template) return
+
+    const fragment = template.content.cloneNode(true)
+    const first = fragment.firstElementChild
+    const blocks = Array.from(fragment.children)
+    if (!first) return
+
+    if (after) {
+      if (below) after.after(...blocks)
+      else after.before(...blocks)
+    } else {
+      this.listTarget.append(...blocks)
+    }
+    this.commit()
+    this.toggleEmptyState()
+    this.focusBlockField(first)
   }
 
   duplicateBlock(event) {
@@ -100,7 +282,7 @@ export default class extends Controller {
     const copy = block.cloneNode(true)
     block.after(copy)
     this.commit()
-    this.select(copy)
+    this.focusBlockField(copy)
   }
 
   removeBlock(event) {
@@ -110,11 +292,7 @@ export default class extends Controller {
     block.remove()
     this.commit()
     this.toggleEmptyState()
-    const target = prev || next
-    if (target) {
-      this.select(target)
-      this.focusBlockField(target)
-    }
+    if (prev || next) this.focusBlockField(prev || next)
   }
 
   moveUp(event) {
@@ -273,6 +451,7 @@ export default class extends Controller {
   // otherwise deleting a block would leave the stale serialized value behind.
   commit() {
     this.hiddenFieldTarget.value = this.serializeValue()
+    this.updateWordCount()
     const current = this.hiddenFieldTarget.value
     if (this.historyIndex >= 0 && this.history[this.historyIndex] === current) return
     if (this.historyIndex < this.history.length - 1) this.history = this.history.slice(0, this.historyIndex + 1)
@@ -311,20 +490,104 @@ export default class extends Controller {
     const blocks = JSON.parse(json || "[]")
     this.listTarget.innerHTML = ""
     blocks.forEach((block) => {
-      const template = document.getElementById(`block-template-${block.type}`)
-      if (!template) return
-      const el = template.content.cloneNode(true).firstElementChild
-      el.setAttribute("data-type", block.type)
-      el.querySelectorAll("[data-field]").forEach((field) => {
-        const key = field.dataset.field
-        if (field.type === "checkbox") field.checked = !!block.data[key]
-        else field.value = block.data[key] ?? ""
-      })
-      this.listTarget.appendChild(el)
+      const el = this.buildBlockEl(block)
+      if (el) this.listTarget.appendChild(el)
     })
     this.hiddenFieldTarget.value = json
     this.toggleEmptyState()
-    this.select(null)
+  }
+
+  // Materialize a single block element from { type, data } by cloning its template and
+  // filling the data-field inputs. Shared by undo/redo and markdown-paste insertion.
+  buildBlockEl(block) {
+    const template = document.getElementById(`block-template-${block.type}`)
+    if (!template) return null
+    const el = template.content.cloneNode(true).firstElementChild
+    el.setAttribute("data-type", block.type)
+    el.querySelectorAll("[data-field]").forEach((field) => {
+      const key = field.dataset.field
+      if (field.type === "checkbox") field.checked = !!block.data[key]
+      else field.value = block.data[key] ?? ""
+    })
+    return el
+  }
+
+  // Replace one block with a sequence of parsed markdown blocks (in its place), then commit.
+  replaceBlockWithBlocks(block, blocks) {
+    const els = blocks.map((b) => this.buildBlockEl(b)).filter(Boolean)
+    if (!els.length) return
+    els.forEach((el) => block.before(el))
+    block.remove()
+    this.commit()
+    this.toggleEmptyState()
+    this.focusBlockField(els[0])
+  }
+
+  // ---- programmatic mutation API --------------------------------------------
+  // Used by tools like the AI Copilot to read and restructure the document.
+
+  // Current blocks as a {type, data} array (mirrors what the hidden field stores).
+  getBlocks() {
+    return JSON.parse(this.serializeValue() || "[]")
+  }
+
+  // Append blocks (in order) to the end of the document.
+  appendBlocks(blocks) {
+    const els = blocks.map((b) => this.buildBlockEl(b)).filter(Boolean)
+    if (!els.length) return
+    this.listTarget.append(...els)
+    this.commit()
+    this.toggleEmptyState()
+    const last = this.listTarget.lastElementChild
+    if (last) this.focusBlockField(last)
+  }
+
+  // Replace every block with a new set (used for "rewrite the whole page").
+  replaceAllBlocks(blocks) {
+    const els = blocks.map((b) => this.buildBlockEl(b)).filter(Boolean)
+    this.listTarget.innerHTML = ""
+    if (els.length) this.listTarget.append(...els)
+    this.commit()
+    this.toggleEmptyState()
+    if (els[0]) this.focusBlockField(els[0])
+  }
+
+  // Replace blocks in the inclusive-ish range [start, start + count) with new blocks.
+  replaceRange(start, count, blocks) {
+    const nodes = Array.from(this.listTarget.children).filter((el) => el.hasAttribute("data-block-editor-target"))
+    const targets = nodes.slice(start, start + count)
+    const els = blocks.map((b) => this.buildBlockEl(b)).filter(Boolean)
+    targets.forEach((n) => n.remove())
+    const anchor = nodes[start + count] || null
+    if (anchor) anchor.before(...els)
+    else this.listTarget.append(...els)
+    this.commit()
+    this.toggleEmptyState()
+    if (els[0]) this.focusBlockField(els[0])
+  }
+
+  // Remove count blocks starting at start.
+  removeBlocks(start, count) {
+    const nodes = Array.from(this.listTarget.children).filter((el) => el.hasAttribute("data-block-editor-target"))
+    nodes.slice(start, start + count).forEach((n) => n.remove())
+    this.commit()
+    this.toggleEmptyState()
+  }
+
+  // Overwrite a block's data-field values at the given index.
+  updateBlock(index, data) {
+    const nodes = Array.from(this.listTarget.children).filter((el) => el.hasAttribute("data-block-editor-target"))
+    const el = nodes[index]
+    if (!el) return false
+    Object.entries(data || {}).forEach(([key, value]) => {
+      const field = el.querySelector(`[data-field="${key}"]`)
+      if (!field) return
+      if (field.type === "checkbox") field.checked = !!value
+      else field.value = value ?? ""
+      field.dispatchEvent(new Event(field.type === "checkbox" ? "change" : "input", { bubbles: true }))
+    })
+    this.commit()
+    return true
   }
 
   // ---- autosave ------------------------------------------------------------
@@ -363,6 +626,22 @@ export default class extends Controller {
     if (!this.hasSaveStatusTarget) return
     this.saveStatusTarget.textContent = text
     this.saveStatusTarget.classList.toggle("text-red-500", text.startsWith("Save failed"))
+  }
+
+  // Live word count + reading time (~200 wpm), shown in the editor toolbar.
+  updateWordCount() {
+    if (!this.hasWordCountTarget) return
+    const words = this.blockTargets.reduce((sum, el) => {
+      el.querySelectorAll("[data-field]").forEach((f) => {
+        // Skip hidden serialized fields (e.g. page_builder ERB) — count real text only.
+        if (f.type === "textarea" || f.type === "text") {
+          sum += (f.value || "").trim().split(/\s+/).filter(Boolean).length
+        }
+      })
+      return sum
+    }, 0)
+    const minutes = Math.max(1, Math.ceil(words / 200))
+    this.wordCountTarget.textContent = `${words.toLocaleString()} words · ${minutes} min read`
   }
 
   // ---- helpers -------------------------------------------------------------

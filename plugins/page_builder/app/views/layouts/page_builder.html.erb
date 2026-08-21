@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <%= csrf_meta_tags %>
+  <%= javascript_importmap_tags %>
   <title>Ink Builder — Inkwell</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,6 +17,27 @@
   <script src="/page_builder_assets/builder.js"></script>
 
   <link href="/page_builder_theme/demo.css" rel="stylesheet" />
+  <%= stylesheet_link_tag "copilot_design", "data-turbo-track": "reload" %>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+  <style>
+    .code-editor-container { flex: 1; min-width: 0; height: calc(100vh - 155px); }
+    .code-editor-container .CodeMirror {
+      flex: 1 1 auto; height: auto; min-height: 0; border: 0; border-radius: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px; line-height: 1.6; background: #0f172a;
+    }
+    .code-editor-container .CodeMirror-scroll { background: #0f172a; }
+    .code-editor-container .CodeMirror-gutters { background: #0f172a; border-right: 1px solid #1e293b; }
+    .code-editor-container .CodeMirror-linenumber { color: #475569; }
+  </style>
 </head>
 <body>
   <!-- Loading Overlay -->
@@ -88,13 +110,14 @@
   </nav>
 
   <div class="d-flex">
+    <div data-smenu-container="design" style="flex: 1; min-width: 0;">
+      <div class="d-flex">
     <div class="content-wrapper mx-4 my-5 d-flex justify-content-center">
       <div class="spin-loader"></div>
       <div id="MainContainer" class="content-container"></div>
     </div>
 
     <div class="builder-sidebar">
-      <div data-smenu-container="design">
         <div id="Sidebar">
           <div class="builder-sidebar-tabs px-3 py-2 rounded-0 d-flex bg-light border-bottom">
             <div class="tab-item active" data-tab="widgets">
@@ -106,13 +129,44 @@
             <div class="tab-item" data-tab="styles">
               <span class="material-symbols-rounded">palette</span>
             </div>
+            <div class="tab-item" data-tab="code">
+              <span class="material-symbols-rounded">code</span>
+            </div>
           </div>
           <div>
             <div id="WidgetsContainer" data-tab-container="widgets" style="display: block;"></div>
             <div id="SettingsContainer" data-tab-container="controls" style="display: none;"></div>
             <div data-tab-container="styles" style="display: none;"></div>
+            <div data-tab-container="code" style="display: none;" class="p-3">
+              <label class="form-label fw-semibold mb-1">Custom CSS</label>
+              <textarea id="customCss" rows="8" class="form-control font-monospace"
+                        placeholder="/* page-level CSS, preserved on save */&#10;.hero { background: linear-gradient(135deg,#0f172a,#1e293b); }"></textarea>
+              <label class="form-label fw-semibold mt-3 mb-1">Custom JS</label>
+              <textarea id="customJs" rows="6" class="form-control font-monospace"
+                        placeholder="// page-level JS, runs on the page"></textarea>
+            </div>
           </div>
         </div>
+    </div>
+      </div>
+    </div>
+
+    <div data-smenu-container="code" class="code-editor-container" style="display: none;">
+      <div class="d-flex flex-column h-100 bg-white">
+        <div class="d-flex align-items-center px-3 py-2 border-bottom bg-light gap-2">
+          <span class="fw-semibold me-2">Page source</span>
+          <div class="btn-group btn-group-sm" role="group">
+            <button type="button" class="btn btn-primary code-file-tab" data-code-file="html">HTML</button>
+            <button type="button" class="btn btn-light code-file-tab" data-code-file="css">CSS</button>
+            <button type="button" class="btn btn-light code-file-tab" data-code-file="js">JS</button>
+          </div>
+          <span class="text-muted small d-none d-xl-inline">Styles always live in the CSS file, scripts in the JS file — the builder reads them as one source.</span>
+          <button type="button" onclick="applyCodeSource(true)" class="btn btn-sm btn-primary ms-auto">Apply &amp; Save</button>
+          <button type="button" onclick="applyCodeSource(false)" class="btn btn-sm btn-outline-secondary">Apply only</button>
+        </div>
+        <textarea id="codeFileHtml" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="html"></textarea>
+        <textarea id="codeFileCss" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="css" style="display: none;"></textarea>
+        <textarea id="codeFileJs" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="js" style="display: none;"></textarea>
       </div>
     </div>
 
@@ -135,6 +189,12 @@
           </div>
           <div class="d-block text-center smenu-item-label">Design</div>
         </div>
+        <div data-smenu="code" class="smenu-item p-2 my-3">
+          <div class="d-flex align-items-center justify-content-center w-100">
+            <span class="material-symbols-rounded smenu-item-icon rounded-2 p-1 mb-1">code</span>
+          </div>
+          <div class="d-block text-center smenu-item-label">Code</div>
+        </div>
       </div>
     </div>
   </div>
@@ -142,6 +202,12 @@
   <script>
     var savedStore = <%= @saved_store.to_json.html_safe %>;
     var recordType = <%= params[:record_type].to_json.html_safe %>;
+    var savedCustomCss = <%= @saved_custom_css.to_json.html_safe %>;
+    var savedCustomJs = <%= @saved_custom_js.to_json.html_safe %>;
+    document.addEventListener('DOMContentLoaded', function () {
+      if (document.getElementById('customCss') && savedCustomCss) document.getElementById('customCss').value = savedCustomCss;
+      if (document.getElementById('customJs') && savedCustomJs) document.getElementById('customJs').value = savedCustomJs;
+    });
     var recordId = <%= params[:record_id].to_json.html_safe %>;
     var themeUrl = '/page_builder_theme';
 
@@ -172,6 +238,39 @@
       sidebarTabManager.addTab(document.querySelector('[data-tab="widgets"]'), document.querySelector('[data-tab-container="widgets"]'));
       sidebarTabManager.addTab(document.querySelector('[data-tab="controls"]'), document.querySelector('[data-tab-container="controls"]'));
       sidebarTabManager.addTab(document.querySelector('[data-tab="styles"]'), document.querySelector('[data-tab-container="styles"]'));
+      sidebarTabManager.addTab(document.querySelector('[data-tab="code"]'), document.querySelector('[data-tab-container="code"]'));
+
+      // The builder's native sidebar mode switch (Design / Code). window.smenu is the
+      // builder's own TabsManager instance — it opens [data-smenu-container] for the
+      // active [data-smenu] rail item, exactly like the demo expects.
+      window.smenu = new TabsManager();
+      smenu.addTab(document.querySelector('[data-smenu="design"]'), document.querySelector('[data-smenu-container="design"]'));
+      smenu.addTab(document.querySelector('[data-smenu="code"]'), document.querySelector('[data-smenu-container="code"]'));
+      smenu.openTab(document.querySelector('[data-smenu="design"]'));
+
+      document.querySelectorAll('.smenu-item').forEach(function (item) {
+        item.addEventListener('click', function () {
+          enterBuilderMode(item.getAttribute('data-smenu'));
+        });
+      });
+
+      initCodeMirrors();
+
+      document.querySelectorAll('.code-file-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          var file = tab.getAttribute('data-code-file');
+          document.querySelectorAll('.code-file-tab').forEach(function (t) { t.classList.remove('btn-primary'); t.classList.add('btn-light'); });
+          tab.classList.add('btn-primary'); tab.classList.remove('btn-light');
+          document.querySelectorAll('.code-editor-textarea').forEach(function (ta) {
+            var f = ta.getAttribute('data-code-editor-for');
+            var visible = f === file;
+            var cm = codeMirrors[f];
+            if (cm) cm.display.wrapper.style.display = visible ? '' : 'none';
+            else ta.style.display = visible ? '' : 'none';
+            if (visible && cm) cm.refresh();
+          });
+        });
+      });
 
       switchToDesktopMode();
     });
@@ -179,6 +278,8 @@
     function saveToInkwell() {
       var html = builder.getHtml();
       var store = builder.getData();
+      var customCss = document.getElementById('customCss').value;
+      var customJs = document.getElementById('customJs').value;
       var btn = document.getElementById('btn-save');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Saving...';
@@ -190,7 +291,7 @@
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ html: html, store: store, record_type: recordType, record_id: recordId })
+        body: JSON.stringify({ html: html, store: store, custom_css: customCss, custom_js: customJs, record_type: recordType, record_id: recordId })
       }).then(function (r) { return r.json(); }).then(function () {
         btn.disabled = false;
         btn.innerHTML = '<span class="material-symbols-rounded me-2">save</span><span>Save</span>';
@@ -205,14 +306,120 @@
       builder.clear();
     }
 
-    function toggleDesignMode() {
-      if (builder.getMode() == 'design') {
-        builder.setMode('preview');
-        document.getElementById('toggleButton').innerHTML = '<span class="d-flex align-items-center"><span class="material-symbols-rounded">visibility_off</span></span>';
-      } else {
-        builder.setMode('design');
-        document.getElementById('toggleButton').innerHTML = '<span class="d-flex align-items-center"><span class="material-symbols-rounded">visibility</span></span>';
+    // Builder modes. The toolbar eye icon is the original Design / Preview toggle; the
+    // right-sidebar smenu (Design / Code) is the Design ⇄ Code switch.
+    var codeEditorsSynced = false;
+    var codeMirrors = {};
+    function initCodeMirrors() {
+      if (typeof CodeMirror === 'undefined') return;
+      var files = { html: 'xml', css: 'css', js: 'javascript' };
+      Object.keys(files).forEach(function (file) {
+        var ta = document.getElementById('codeFile' + (file === 'html' ? 'Html' : file.charAt(0).toUpperCase() + file.slice(1)));
+        if (!ta || ta.getAttribute('data-cm-inited')) return;
+        ta.setAttribute('data-cm-inited', '1');
+        codeMirrors[file] = CodeMirror.fromTextArea(ta, {
+          mode: files[file],
+          theme: 'material-darker',
+          lineNumbers: true,
+          lineWrapping: true,
+          autoCloseBrackets: true,
+          matchBrackets: true,
+          styleActiveLine: true,
+          spellcheck: false,
+          viewportMargin: Infinity
+        });
+      });
+    }
+    function codeFileValue(file) {
+      var cm = codeMirrors[file];
+      if (cm) return cm.getValue();
+      var ta = document.getElementById('codeFile' + (file === 'html' ? 'Html' : file.charAt(0).toUpperCase() + file.slice(1)));
+      return ta ? ta.value : '';
+    }
+    function setCodeFileValue(file, value) {
+      var cm = codeMirrors[file];
+      if (cm) cm.setValue(value);
+      else {
+        var ta = document.getElementById('codeFile' + (file === 'html' ? 'Html' : file.charAt(0).toUpperCase() + file.slice(1)));
+        if (ta) ta.value = value;
       }
+    }
+
+    function toggleDesignMode() {
+      enterBuilderMode(builder.getMode() == 'design' ? 'preview' : 'design');
+    }
+    function enterBuilderMode(mode) {
+      if (mode === 'code') {
+        builder.setMode('preview');
+        syncCodeEditors();
+        activateSmenu('code');
+        Object.keys(codeMirrors).forEach(function (f) { codeMirrors[f].refresh(); });
+      } else if (mode === 'design') {
+        applyCodeSource(false);
+        activateSmenu('design');
+        builder.setMode('design');
+      } else {
+        applyCodeSource(false);
+        activateSmenu('design');
+        builder.setMode('preview');
+      }
+      var btn = document.getElementById('toggleButton');
+      if (btn) {
+        var icon = builder.getMode() == 'design' ? 'visibility_off' : 'visibility';
+        btn.innerHTML = '<span class="d-flex align-items-center"><span class="material-symbols-rounded">' + icon + '</span></span>';
+      }
+    }
+    function activateSmenu(name) {
+      if (window.smenu) {
+        var tab = document.querySelector('[data-smenu="' + name + '"]');
+        if (tab) window.smenu.openTab(tab);
+      }
+    }
+    function canvasDoc() {
+      if (!window.builder) return null;
+      return builder.iframeDoc || (builder.iframe && builder.iframe.contentDocument) || null;
+    }
+    function syncCodeEditors() {
+      var doc = canvasDoc();
+      var html = '';
+      if (builder.getHtml) {
+        // Page source = the canvas body, cleaned of framework head/theme artifacts so the
+        // HTML file stays structural. Styles belong in the CSS file, scripts in the JS file.
+        var full = builder.getHtml();
+        var m = full.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        html = m ? m[1] : full;
+      } else {
+        html = doc && doc.body ? doc.body.innerHTML : '';
+      }
+      setCodeFileValue('html', html);
+      setCodeFileValue('css', document.getElementById('customCss').value);
+      setCodeFileValue('js', document.getElementById('customJs').value);
+      codeEditorsSynced = true;
+    }
+    function applyCodeSource(save) {
+      if (!codeEditorsSynced) return;
+      var html = codeFileValue('html');
+      var css = codeFileValue('css');
+      var js = codeFileValue('js');
+
+      // Prohibit inline <style>/<script>: hoist every style block into the CSS file and
+      // every script block into the JS file, so the builder keeps one clean source.
+      var styleParts = [];
+      html = html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, function (_, body) { styleParts.push(body); return ''; });
+      var scriptParts = [];
+      html = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, function (_, body) { scriptParts.push(body); return ''; });
+      if (styleParts.length) css = (css.trim() ? css.trim() + '\n\n' : '') + styleParts.join('\n');
+      if (scriptParts.length) js = (js.trim() ? js.trim() + '\n\n' : '') + scriptParts.join('\n');
+      setCodeFileValue('css', css);
+      setCodeFileValue('js', js);
+      document.getElementById('customCss').value = css;
+      document.getElementById('customJs').value = js;
+
+      var doc = canvasDoc();
+      var m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if (doc && doc.body) doc.body.innerHTML = m ? m[1] : html;
+      if (typeof applyCustomCode === 'function') applyCustomCode();
+      if (save) saveToInkwell();
     }
 
     function switchToMobileMode() {
@@ -242,9 +449,78 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.9.2/umd/popper.min.js" integrity="sha512-2rNj2KJ+D8s1ceNasTIex6z4HWyOnEYLVC3FigGOmyQCZc2eBXKgOxQmo3oKLHyfcj53uz4QMsRCWNbLd32Q1g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
+
+  <%# Realtime custom code: inject the Code tab's CSS/JS into the builder canvas iframe as it's
+      typed, so the design updates live. Re-injected after Copilot (or the builder) re-renders. %>
+  <script>
+    function applyCustomCode() {
+      if (!window.builder) return;
+      var doc = builder.iframeDoc || (builder.iframe && builder.iframe.contentDocument);
+      if (!doc || !doc.head || !doc.body) return;
+
+      // Ensure the Copilot design system is loaded inside the canvas iframe (the iframe is a
+      // separate document, so it doesn't inherit the parent's stylesheets). Copy the digested
+      // URL from the parent link.
+      var parentLink = document.querySelector('link[href*="copilot_design"]');
+      if (parentLink) {
+        var cd = doc.getElementById('__copilot_design_css');
+        if (!cd) { cd = doc.createElement('link'); cd.id = '__copilot_design_css'; cd.rel = 'stylesheet'; doc.head.appendChild(cd); }
+        if (cd.href !== parentLink.href) cd.href = parentLink.href;
+      }
+
+      var css = document.getElementById('customCss') ? document.getElementById('customCss').value : '';
+      var styleEl = doc.getElementById('__copilot_custom_css');
+      if (css) {
+        if (!styleEl) { styleEl = doc.createElement('style'); styleEl.id = '__copilot_custom_css'; doc.head.appendChild(styleEl); }
+        styleEl.textContent = css;
+      } else if (styleEl) { styleEl.remove(); }
+
+      var js = document.getElementById('customJs') ? document.getElementById('customJs').value : '';
+      var old = doc.getElementById('__copilot_custom_js');
+      if (old) old.remove();
+      if (js) {
+        var script = doc.createElement('script');
+        script.id = '__copilot_custom_js';
+        script.textContent = 'try {\n' + js + '\n} catch (e) { console.error("Custom JS error:", e) }';
+        doc.body.appendChild(script);
+      }
+    }
+    window.applyCustomCode = applyCustomCode;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var cssInput = document.getElementById('customCss'), jsInput = document.getElementById('customJs');
+      var debounce = null;
+      function onChange() { clearTimeout(debounce); debounce = setTimeout(applyCustomCode, 200); }
+      if (cssInput) cssInput.addEventListener('input', onChange);
+      if (jsInput) jsInput.addEventListener('input', onChange);
+
+      // Apply once the builder has initialized its canvas iframe.
+      var t = setInterval(function () {
+        if (window.builder && (window.builder.iframeDoc || (window.builder.iframe && window.builder.iframe.contentDocument))) {
+          clearInterval(t);
+          applyCustomCode();
+        }
+      }, 500);
+    });
+
+  </script>
   <script>
     var tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
     var tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
   </script>
+  <script>
+    // Media gallery picker: the library iframe posts selections up to us; forward to the
+    // pending InkwellMediaPicker callback so Builder.js image controls can insert from the gallery.
+    window.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'inkwell:media-select' && window.InkwellMediaPicker && window.InkwellMediaPicker.onSelect) {
+        window.InkwellMediaPicker.onSelect(e.data.detail.url);
+      }
+    });
+  </script>
+
+  <%# Copilot (AI Writer plugin) — floating design assistant for the builder, when active %>
+  <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
+    <%= render "ai_writer/builder_copilot" %>
+  <% end %>
 </body>
 </html>

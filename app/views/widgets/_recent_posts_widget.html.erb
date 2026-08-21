@@ -1,0 +1,11 @@
+<%# recent posts widget — the site's latest published posts %>
+<div class="widget widget-recent-posts">
+  <h3 class="text-xs font-semibold uppercase tracking-widest text-gray-400">Latest posts</h3>
+  <ul class="mt-3 space-y-2">
+    <% WidgetsHelper.recent_posts(site, (widget.config["count"] || 5).to_i).each do |post| %>
+      <li>
+        <%= link_to post.title, post_path(post), class: "text-sm text-gray-700 transition-colors hover:text-indigo-700" %>
+      </li>
+    <% end %>
+  </ul>
+</div>
