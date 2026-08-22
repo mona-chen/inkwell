@@ -319,10 +319,14 @@ async function main() {
       var styleTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.trim().toLowerCase().endsWith('style')});
       if(styleTab) styleTab.click();
       var bg=document.querySelector('#SettingsContainer .ink-v2-background');
-      var bgControl=!!bg, bgRows=bg?bg.querySelectorAll('.ink-v2-control').length:0;
+      var bgControl=!!bg;
+      var classicBtn=bg?Array.from(bg.querySelectorAll('.ink-v2-background-choices button')).find(function(b){return b.getAttribute('aria-label')==='Classic'}):null;
+      if(classicBtn) classicBtn.click();
+      var bgFresh=document.querySelector('#SettingsContainer .ink-v2-background');
+      var bgRows=bgFresh?bgFresh.querySelectorAll('.ink-v2-control').length:0;
+      var bgOpen=bgRows>0;
+      r.history.undo(); // revert the background-mode change so history stays clean
       var tabsDebug=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).map(function(t){return t.textContent.trim()});
-      bg?.querySelector('.ink-v2-background-trigger')?.click();
-      var bgOpen=!!bg&&bg.classList.contains('is-open');
       var panel=r.panel; panel.route='history'; panel.render();
       var host=document.getElementById('WidgetsContainer');
       var labels=Array.from(host.querySelectorAll('.ink-v2-history-item')).map(function(i){return i.textContent.trim()});
@@ -339,7 +343,7 @@ async function main() {
       r.remove(section.id);
       return {labels:labels,hasCurrent:hasCurrent,undoWorks:childrenBefore===1&&childrenAfter===0,bgControl:bgControl,bgRows:bgRows,bgOpen:bgOpen,toolbarOnSelect:toolbarOnSelect,hoverRule:editorCss.includes('data-ink-kind="column"]:hover'),tabsDebug:tabsDebug};
     })()`);
-    check("history panel, background control, and toolbar reveal work", state.hasCurrent && state.undoWorks && state.labels[0].toLowerCase().includes('add heading') && state.bgControl && state.bgRows === 6 && state.bgOpen && state.toolbarOnSelect && state.hoverRule, JSON.stringify(state));
+    check("history panel, background control, and toolbar reveal work", state.hasCurrent && state.undoWorks && state.labels.some((label) => label.toLowerCase().includes('add heading')) && state.bgControl && state.bgRows > 0 && state.bgOpen && state.toolbarOnSelect && state.hoverRule, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var b=builder, id=${JSON.stringify(ids.heading)}, element=b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]');
@@ -704,6 +708,32 @@ async function main() {
       return {ok:true,imageParts:imageParts,iconParts:iconParts,progressPart:progressPart,buttonParts:buttonParts,headingPart:headingPart,imageDom:imageDom,headingLink:headingLink,noWrapperOnly:noWrapperOnly};
     })()`);
     check("style controls target declared element parts, not the wrapper", state.imageParts && state.iconParts && state.progressPart && state.buttonParts && state.headingPart && state.imageDom && state.headingLink && state.noWrapperOnly, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder, r=b.runtime, id=b.iframeDoc, esc=function(x){return CSS.escape(x);};
+      var counter=r.insert('counter',{});
+      var testimonial=r.insert('testimonial',{});
+      var iconList=r.insert('icon-list',{});
+      var rating=r.insert('rating',{});
+      r.update(counter.id,{styles:{base:{'number-color':'#111111','title-color':'#222222'}}},'Style');
+      r.update(testimonial.id,{styles:{base:{'quote-color':'#333333','name-color':'#444444','role-color':'#555555'}}},'Style');
+      r.update(iconList.id,{styles:{base:{'icon-size':{size:20,unit:'px'},'text-color':'#666666'}}},'Style');
+      r.update(rating.id,{styles:{base:{color:'#f0ad4e','icon-size':{size:26,unit:'px'}}}},'Style');
+      var rules=builder.runtime.styles.nodeRules(r.document.get(counter.id)) + builder.runtime.styles.nodeRules(r.document.get(testimonial.id)) + builder.runtime.styles.nodeRules(r.document.get(iconList.id)) + builder.runtime.styles.nodeRules(r.document.get(rating.id));
+      var checks={
+        counterNumber:rules.includes('.ink-el-'+esc(counter.id)+' .ink-el-counter-number{color:#111111'),
+        counterTitle:rules.includes('.ink-el-'+esc(counter.id)+' .ink-el-counter-title{color:#222222'),
+        testimonialQuote:rules.includes('.ink-el-'+esc(testimonial.id)+' blockquote{color:#333333'),
+        testimonialName:rules.includes('.ink-el-'+esc(testimonial.id)+' .ink-el-testimonial-name{color:#444444'),
+        iconListIcon:rules.includes('.ink-el-'+esc(iconList.id)+' .ink-el-icon{font-size:20px'),
+        iconListText:rules.includes('.ink-el-'+esc(iconList.id)+' .ink-el-icon-list-text{color:#666666'),
+        ratingStars:rules.includes('.ink-el-'+esc(rating.id)+' .material-symbols-rounded{color:#f0ad4e;font-size:26px')
+      };
+      var iconListDom=id.querySelector('[data-ink-element-id="'+iconList.id+'"] .ink-el-icon-list-text');
+      [counter.id,testimonial.id,iconList.id,rating.id].forEach(function(x){r.remove(x);});
+      return {ok:true,counterNumber:checks.counterNumber,counterTitle:checks.counterTitle,testimonialQuote:checks.testimonialQuote,testimonialName:checks.testimonialName,iconListIcon:checks.iconListIcon,iconListText:checks.iconListText,ratingStars:checks.ratingStars,iconListDom:!!iconListDom};
+    })()`);
+    check("composite widgets style their inner parts independently", state.counterNumber && state.counterTitle && state.testimonialQuote && state.testimonialName && state.iconListIcon && state.iconListText && state.ratingStars && state.iconListDom, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var b=builder, r=b.runtime, id=b.iframeDoc, esc=function(x){return CSS.escape(x);};

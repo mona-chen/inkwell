@@ -191,14 +191,23 @@ export default function registerInkElements(registry) {
     register(registry, {
         type: 'icon-list', title: 'Icon List', icon: 'format_list_bulleted',
         defaults: { settings: { items: [{ icon: 'check', text: 'First item', url: '' }, { icon: 'check', text: 'Second item', url: '' }] }, styles: { base: {} } },
-        controls: [items('items', [textField('text', 'Text'), textField('icon', 'Icon'), textField('url', 'URL')]), typographyControls, ...spacing],
+        selectors: { root: '&', icon: '.ink-el-icon', text: '.ink-el-icon-list-text', item: 'li' },
+        controls: [
+            items('items', [textField('text', 'Text'), textField('icon', 'Icon'), textField('url', 'URL')]),
+            typographyControls,
+            { tab: 'style', target: 'styles', section: 'Icon', name: 'icon-color', type: 'color', label: 'Icon color', property: 'color', part: 'icon' },
+            { tab: 'style', target: 'styles', section: 'Icon', name: 'icon-size', type: 'size', label: 'Icon size', units: ['px', 'em', 'rem'], property: 'font-size', part: 'icon' },
+            { tab: 'style', target: 'styles', section: 'Text', name: 'text-color', type: 'color', label: 'Text color', property: 'color', part: 'text' },
+            ...spacing,
+        ],
         render: ({ domDocument }, node) => {
             const root = make(domDocument, 'ul', 'ink-el-icon-list');
             (node.settings.items || []).forEach((item) => {
                 const li = make(domDocument, 'li');
+                const textEl = make(domDocument, 'span', 'ink-el-icon-list-text', item.text);
                 const itemUrl = url(item.url);
-                if (itemUrl) { const link = make(domDocument, 'a'); link.href = itemUrl; link.append(icon(domDocument, item.icon), document.createTextNode(item.text)); li.appendChild(link); }
-                else li.append(icon(domDocument, item.icon), document.createTextNode(item.text));
+                if (itemUrl) { const link = make(domDocument, 'a'); link.href = itemUrl; link.append(icon(domDocument, item.icon), textEl); li.appendChild(link); }
+                else li.append(icon(domDocument, item.icon), textEl);
                 root.append(li);
             });
             return root;
@@ -207,12 +216,16 @@ export default function registerInkElements(registry) {
     register(registry, {
         type: 'counter', title: 'Counter', icon: 'pin',
         defaults: { settings: { number: '100', prefix: '', suffix: '+', title: 'Projects' }, styles: { base: {} } },
+        selectors: { root: '&', number: '.ink-el-counter-number', title: '.ink-el-counter-title' },
         controls: [
             { tab: 'content', section: 'Counter', name: 'number', type: 'text', label: 'Number' },
             { tab: 'content', section: 'Counter', name: 'prefix', type: 'text', label: 'Prefix' },
             { tab: 'content', section: 'Counter', name: 'suffix', type: 'text', label: 'Suffix' },
             { tab: 'content', section: 'Counter', name: 'title', type: 'text', label: 'Title' },
-            typographyControls, ...spacing,
+            typographyControls,
+            { tab: 'style', target: 'styles', section: 'Number', name: 'number-color', type: 'color', label: 'Number color', property: 'color', part: 'number' },
+            { tab: 'style', target: 'styles', section: 'Title', name: 'title-color', type: 'color', label: 'Title color', property: 'color', part: 'title' },
+            ...spacing,
         ],
         render: ({ domDocument }, node) => {
             const root = make(domDocument, 'div', 'ink-el-counter');
@@ -248,9 +261,12 @@ export default function registerInkElements(registry) {
     register(registry, {
         type: 'rating', title: 'Rating', icon: 'star_rate',
         defaults: { settings: { rating: 4, scale: 5, label: 'Rating' }, styles: { base: {} } },
+        selectors: { root: '&', icon: '.material-symbols-rounded' },
         controls: [
             { tab: 'content', section: 'Rating', name: 'rating', type: 'slider', label: 'Rating', min: 0, max: 5, step: 0.5 },
             { tab: 'content', section: 'Rating', name: 'label', type: 'text', label: 'Accessible label' },
+            { tab: 'style', target: 'styles', section: 'Rating', name: 'color', type: 'color', label: 'Star color', part: 'icon' },
+            { tab: 'style', target: 'styles', section: 'Rating', name: 'icon-size', type: 'size', label: 'Star size', units: ['px', 'em', 'rem'], property: 'font-size', part: 'icon' },
             ...spacing,
         ],
         render: ({ domDocument }, node) => {
@@ -268,12 +284,18 @@ export default function registerInkElements(registry) {
     register(registry, {
         type: 'testimonial', title: 'Testimonial', icon: 'format_quote',
         defaults: { settings: { quote: 'It just works, and our team loves it.', name: 'Alex Morgan', role: 'Founder', avatar: '' }, styles: { base: {} } },
+        selectors: { root: '&', quote: 'blockquote', name: '.ink-el-testimonial-name', role: '.ink-el-testimonial-role', avatar: '.ink-el-avatar' },
         controls: [
             { tab: 'content', section: 'Testimonial', name: 'quote', type: 'textarea', label: 'Quote' },
             { tab: 'content', section: 'Testimonial', name: 'name', type: 'text', label: 'Name' },
             { tab: 'content', section: 'Testimonial', name: 'role', type: 'text', label: 'Role' },
             { tab: 'content', section: 'Testimonial', name: 'avatar', type: 'media', label: 'Avatar' },
-            typographyControls, ...spacing,
+            typographyControls,
+            { tab: 'style', target: 'styles', section: 'Text', name: 'quote-color', type: 'color', label: 'Quote color', property: 'color', part: 'quote' },
+            { tab: 'style', target: 'styles', section: 'Text', name: 'name-color', type: 'color', label: 'Name color', property: 'color', part: 'name' },
+            { tab: 'style', target: 'styles', section: 'Text', name: 'role-color', type: 'color', label: 'Role color', property: 'color', part: 'role' },
+            { tab: 'style', target: 'styles', section: 'Media', name: 'avatar-radius', type: 'size', label: 'Avatar radius', units: ['px', '%'], property: 'border-radius', part: 'avatar' },
+            ...spacing,
         ],
         render: ({ domDocument }, node) => {
             const root = make(domDocument, 'figure', 'ink-el-testimonial');
@@ -288,7 +310,13 @@ export default function registerInkElements(registry) {
     register(registry, {
         type: 'tabs', title: 'Tabs', icon: 'tab',
         defaults: { settings: { items: [{ title: 'Tab 1', content: 'First tab content.' }, { title: 'Tab 2', content: 'Second tab content.' }] }, styles: { base: {} } },
-        controls: [items('items', [textField('title', 'Title'), textField('content', 'Content', 'textarea')]), ...spacing],
+        selectors: { root: '&', title: '.ink-el-tabs-nav button', panel: '.ink-el-tab-panel' },
+        controls: [
+            items('items', [textField('title', 'Title'), textField('content', 'Content', 'textarea')]),
+            { tab: 'style', target: 'styles', section: 'Title', name: 'title-color', type: 'color', label: 'Title color', property: 'color', part: 'title' },
+            { tab: 'style', target: 'styles', section: 'Panel', name: 'panel-color', type: 'color', label: 'Content color', property: 'color', part: 'panel' },
+            ...spacing,
+        ],
         render: ({ domDocument }, node) => {
             const root = make(domDocument, 'div', 'ink-el-tabs');
             const nav = make(domDocument, 'div', 'ink-el-tabs-nav'); nav.setAttribute('role', 'tablist');
@@ -313,7 +341,13 @@ export default function registerInkElements(registry) {
         title: type === 'accordion' ? 'Accordion' : 'Toggle',
         icon: type === 'accordion' ? 'vertical_align_center' : 'toggle_on',
         defaults: { settings: { items: [{ title: 'Can I customize it?', content: 'Everything is configurable.' }, { title: 'Is it responsive?', content: 'Yes, each layout control supports device overrides.' }] }, styles: { base: {} } },
-        controls: [items('items', [textField('title', 'Title'), textField('content', 'Content', 'textarea')]), ...spacing],
+        selectors: { root: '&', title: 'summary', content: 'details > div' },
+        controls: [
+            items('items', [textField('title', 'Title'), textField('content', 'Content', 'textarea')]),
+            { tab: 'style', target: 'styles', section: 'Title', name: 'title-color', type: 'color', label: 'Title color', property: 'color', part: 'title' },
+            { tab: 'style', target: 'styles', section: 'Content', name: 'content-color', type: 'color', label: 'Content color', property: 'color', part: 'content' },
+            ...spacing,
+        ],
         render: ({ domDocument }, node) => {
             const root = make(domDocument, 'div', 'ink-el-accordion');
             (node.settings.items || []).forEach((item, index) => {
@@ -327,10 +361,13 @@ export default function registerInkElements(registry) {
     register(registry, {
         type: 'alert', title: 'Alert', icon: 'info',
         defaults: { settings: { title: 'Notice', message: 'This is an important message.', type: 'info' }, styles: { base: {} } },
+        selectors: { root: '&', icon: '> .material-symbols-rounded', title: 'strong', message: 'span' },
         controls: [
             { tab: 'content', section: 'Alert', name: 'title', type: 'text', label: 'Title' },
             { tab: 'content', section: 'Alert', name: 'message', type: 'textarea', label: 'Message' },
             { tab: 'content', section: 'Alert', name: 'type', type: 'select', label: 'Type', options: ['info', 'success', 'warning', 'danger'] },
+            { tab: 'style', target: 'styles', section: 'Text', name: 'title-color', type: 'color', label: 'Title color', property: 'color', part: 'title' },
+            { tab: 'style', target: 'styles', section: 'Text', name: 'message-color', type: 'color', label: 'Message color', property: 'color', part: 'message' },
             ...spacing,
         ],
         render: ({ domDocument }, node) => {
