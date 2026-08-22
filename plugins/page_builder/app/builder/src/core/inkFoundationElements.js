@@ -1,9 +1,88 @@
+import { elementorShapeMarkup } from './elementorShapes.js';
+
 const text = (domDocument, tag, className, value) => {
     const element = domDocument.createElement(tag);
     if (className) element.className = className;
     element.textContent = value;
     return element;
 };
+import { renderIcon } from './icons.js';
+
+function renderShapeDivider(domDocument, side, settings = {}) {
+    const value = settings[`shapeDivider${side[0].toUpperCase()}${side.slice(1)}`];
+    const markup = value?.type && elementorShapeMarkup(value.type, value.invert);
+    if (!markup) return null;
+    const shape = domDocument.createElement('div'); shape.className = `ink-el-shape-divider ink-el-shape-divider-${side}`;
+    shape.style.setProperty('--ink-shape-color', value.color || '#ffffff');
+    shape.style.setProperty('--ink-shape-width', `${Number(value.width) || 100}%`);
+    shape.style.setProperty('--ink-shape-height', `${Number(value.height) || 100}px`);
+    if (value.flip) shape.classList.add('is-flipped');
+    shape.dataset.negative = value.invert ? 'true' : 'false';
+    if (value.front) shape.classList.add('is-front');
+    shape.innerHTML = markup;
+    shape.querySelector('svg')?.setAttribute('aria-hidden', 'true');
+    return shape;
+}
+
+const youtubeId = (url = '') => url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/)?.[1];
+const vimeoId = (url = '') => url.match(/vimeo\.com\/(?:video\/)?(\d+)/)?.[1];
+
+function renderBackgroundMedia(domDocument, node) {
+    const base = node.styles?.desktop?.base || node.styles?.base || {};
+    const mode = base['--ink-background-type'];
+    if (mode === 'video') {
+        const value = node.settings.backgroundVideo || {
+            url: node.settings.backgroundVideoUrl,
+            start: node.settings.backgroundVideoStart,
+            end: node.settings.backgroundVideoEnd,
+            playOnce: node.settings.backgroundVideoPlayOnce,
+            playOnMobile: node.settings.backgroundVideoPlayOnMobile,
+            privacy: node.settings.backgroundVideoPrivacy,
+            fallback: typeof node.settings.backgroundVideoFallback === 'object' ? node.settings.backgroundVideoFallback?.url : node.settings.backgroundVideoFallback,
+        };
+        if (!value.url && !value.fallback) return null;
+        const layer = domDocument.createElement('div'); layer.className = 'ink-el-background-media ink-el-background-video';
+        if (value.fallback) layer.style.backgroundImage = `url("${String(value.fallback).replaceAll('"', '\\"')}")`;
+        const yt = youtubeId(value.url); const vm = vimeoId(value.url);
+        if (yt || vm) {
+            const iframe = domDocument.createElement('iframe'); iframe.title = 'Background video'; iframe.tabIndex = -1; iframe.setAttribute('aria-hidden', 'true'); iframe.allow = 'autoplay; fullscreen';
+            iframe.src = yt
+                ? `https://${value.privacy ? 'www.youtube-nocookie.com' : 'www.youtube.com'}/embed/${yt}?autoplay=1&mute=1&controls=0&playsinline=1&loop=${value.playOnce ? 0 : 1}&playlist=${yt}&start=${Number(value.start) || 0}${value.end ? `&end=${Number(value.end)}` : ''}`
+                : `https://player.vimeo.com/video/${vm}?background=1&autoplay=1&muted=1&loop=${value.playOnce ? 0 : 1}`;
+            layer.appendChild(iframe);
+        } else if (value.url) {
+            const video = domDocument.createElement('video'); video.autoplay = true; video.muted = true; video.playsInline = true; video.loop = !value.playOnce; video.tabIndex = -1; video.setAttribute('aria-hidden', 'true');
+            const start = Number(value.start) || 0; const end = Number(value.end) || 0; video.src = `${value.url}${start || end ? `#t=${start}${end ? `,${end}` : ''}` : ''}`; layer.appendChild(video);
+        }
+        if (value.playOnMobile === false) layer.classList.add('is-desktop-only');
+        return layer;
+    }
+    if (mode === 'slideshow') {
+        const value = node.settings.backgroundSlideshow || {
+            images: node.settings.backgroundSlideshowImages,
+            loop: node.settings.backgroundSlideshowLoop !== false,
+            duration: node.settings.backgroundSlideshowDuration,
+            transition: node.settings.backgroundSlideshowTransition,
+            transitionDuration: node.settings.backgroundSlideshowTransitionDuration,
+            size: node.settings.backgroundSlideshowSize,
+            position: node.settings.backgroundSlideshowPosition,
+            lazyload: node.settings.backgroundSlideshowLazyload,
+            kenBurns: node.settings.backgroundSlideshowKenBurns,
+            zoomDirection: node.settings.backgroundSlideshowZoomDirection,
+        }; const images = Array.isArray(value.images) ? value.images : [];
+        if (!images.length) return null;
+        const layer = domDocument.createElement('div'); layer.className = `ink-el-background-media ink-el-background-slideshow is-${value.transition || 'fade'}`;
+        layer.dataset.duration = String(Math.max(250, Number(value.duration) || 5000)); layer.dataset.loop = String(value.loop !== false); layer.style.setProperty('--ink-slide-transition', `${Math.max(0, Number(value.transitionDuration) || 500)}ms`);
+        images.forEach((image, index) => {
+            const url = typeof image === 'string' ? image : image?.url; if (!url) return;
+            const slide = domDocument.createElement('div'); slide.className = `ink-el-background-slide${index === 0 ? ' is-active' : ''}`;
+            const imageElement = domDocument.createElement('img'); imageElement.src = url; imageElement.alt = ''; imageElement.loading = value.lazyload ? 'lazy' : 'eager'; imageElement.decoding = 'async'; imageElement.style.objectFit = value.size === 'contain' ? 'contain' : value.size === 'auto' ? 'none' : 'cover'; imageElement.style.objectPosition = value.position || 'center center';
+            if (value.kenBurns) imageElement.classList.add('has-ken-burns', value.zoomDirection === 'out' ? 'is-zoom-out' : 'is-zoom-in'); slide.appendChild(imageElement); layer.appendChild(slide);
+        });
+        return layer;
+    }
+    return null;
+}
 
 // Ink-style shell: boxed (inner content limited to the site content width) or full-width.
 // The inner wrapper is the drop target for child elements.
@@ -12,8 +91,15 @@ function renderShell(domDocument, node, rootClass, tag = 'div') {
     root.className = rootClass;
     const layout = node.settings.layout || 'boxed';
     root.classList.add(`is-${layout}`);
+    const overlay = domDocument.createElement('div'); overlay.className = `${rootClass}-overlay`; overlay.setAttribute('aria-hidden', 'true');
     const inner = domDocument.createElement('div'); inner.className = `${rootClass}-inner`; inner.dataset.inkChildren = '';
-    root.appendChild(inner);
+    const topShape = renderShapeDivider(domDocument, 'top', node.settings);
+    const bottomShape = renderShapeDivider(domDocument, 'bottom', node.settings);
+    const backgroundMedia = renderBackgroundMedia(domDocument, node);
+    if (topShape) root.appendChild(topShape);
+    if (backgroundMedia) root.appendChild(backgroundMedia);
+    root.append(overlay, inner);
+    if (bottomShape) root.appendChild(bottomShape);
     return root;
 }
 
@@ -72,10 +158,17 @@ const advancedControls = [
 ];
 
 const surfaceControls = [
-    { tab: 'style', target: 'styles', section: 'Background', name: 'background', type: 'background', label: 'Background' },
-    { tab: 'style', target: 'styles', section: 'Border', name: 'border', type: 'border', label: 'Border' },
-    { tab: 'style', target: 'styles', section: 'Border', name: 'border-radius', type: 'dimensions', label: 'Radius', units: ['px', 'rem', '%'], responsive: true },
-    { tab: 'style', target: 'styles', section: 'Effects', name: 'box-shadow', type: 'box-shadow', label: 'Box shadow' },
+    { tab: 'style', target: 'styles', section: 'Background', name: 'background', type: 'background', label: 'Background', states: ['base', 'hover'] },
+    { tab: 'style', target: 'styles', section: 'Border', name: 'border', type: 'border', label: 'Border Type', states: ['base', 'hover'] },
+    { tab: 'style', target: 'styles', section: 'Border', name: 'border-radius', type: 'dimensions', label: 'Border Radius', units: ['px', '%', 'em', 'rem'], responsive: true, states: ['base', 'hover'] },
+    { tab: 'style', target: 'styles', section: 'Border', name: 'box-shadow', type: 'box-shadow', label: 'Box Shadow', states: ['base', 'hover'] },
+];
+
+const containerSurfaceControls = [
+    surfaceControls[0],
+    { tab: 'style', target: 'styles', section: 'Background Overlay', name: 'background-overlay', type: 'background', label: 'Background Overlay', part: 'overlay', states: ['base', 'hover'] },
+    ...surfaceControls.slice(1),
+    { tab: 'style', target: 'settings', section: 'Shape Divider', name: 'shape-divider', type: 'shape-divider', label: 'Shape Divider' },
 ];
 
 // Single typography popover (Ink) writing to the element's style bucket.
@@ -89,7 +182,7 @@ export default function registerInkFoundationElements(registry) {
         defaults: { settings: { tag: 'div', layout: 'boxed' }, styles: { base: { display: 'flex', 'flex-direction': 'column', width: '100%', padding: { top: 10, right: 10, bottom: 10, left: 10, unit: 'px' }, gap: { row: 20, column: 20, unit: 'px' } } }, children: [] },
         tabLabels: { content: 'Layout' },
         tabIcons: { content: 'view_column' },
-        selectors: { root: '&', inner: '.ink-el-container-inner' },
+        selectors: { root: '&', inner: '.ink-el-container-inner', overlay: '.ink-el-container-overlay' },
         styleMap: {
             display: { part: 'inner' },
             'flex-direction': { part: 'inner' },
@@ -103,10 +196,24 @@ export default function registerInkFoundationElements(registry) {
             'grid-auto-flow': { part: 'inner' },
             'justify-items': { part: 'inner' },
             'boxed-width': { part: 'inner', property: 'max-width' },
+            '--ink-background-type': () => ({}),
+            '--ink-overlay-background-type': () => ({}),
+            'overlay-background-color': { part: 'overlay', property: 'background-color' },
+            'overlay-background-image': { part: 'overlay', property: 'background-image' },
+            'overlay-background-size': { part: 'overlay', property: 'background-size' },
+            'overlay-background-position': { part: 'overlay', property: 'background-position' },
+            'overlay-background-repeat': { part: 'overlay', property: 'background-repeat' },
+            'overlay-background-attachment': { part: 'overlay', property: 'background-attachment' },
+            'overlay-opacity': { part: 'overlay', property: 'opacity' },
+            'overlay-mix-blend-mode': { part: 'overlay', property: 'mix-blend-mode' },
+            'overlay-filter': { part: 'overlay', property: 'filter' },
+            'background-transition-duration': { property: '--ink-background-transition', transform: (value) => `${Number(value?.size ?? value) || 0}s` },
+            'overlay-transition-duration': { part: 'overlay', property: '--ink-overlay-transition', transform: (value) => `${Number(value?.size ?? value) || 0}s` },
+            'border-transition-duration': { property: '--ink-border-transition', transform: (value) => `${Number(value?.size ?? value) || 0}s` },
         },
         controls: [
             ...containerLayoutControls,
-            ...surfaceControls,
+            ...containerSurfaceControls,
             ...advancedControls.filter((control) => !['width', 'min-height', 'overflow'].includes(control.name)),
         ],
         render: ({ domDocument }, node) => renderShell(domDocument, node, 'ink-el-container', 'div'),
@@ -200,7 +307,7 @@ export default function registerInkFoundationElements(registry) {
             el.href = node.settings.url || '#'; el.target = node.settings.target || '_self';
             const label = domDocument.createElement('span'); label.className = 'ink-el-button-text'; label.textContent = node.settings.text || '';
             if (node.settings.icon) {
-                const iconEl = domDocument.createElement('span'); iconEl.className = 'ink-el-button-icon'; iconEl.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${node.settings.icon}</span>`;
+                const iconEl = domDocument.createElement('span'); iconEl.className = 'ink-el-button-icon'; iconEl.appendChild(renderIcon(domDocument, node.settings.icon));
                 if (node.settings.iconPosition === 'after') { iconEl.classList.add('is-after'); el.appendChild(label); el.appendChild(iconEl); }
                 else { el.appendChild(iconEl); el.appendChild(label); }
             } else {

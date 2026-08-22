@@ -1,9 +1,7 @@
 const el = (document, tag, className, text) => {
-    const node = document.createElement(tag);
-    if (className) node.className = className;
-    if (text != null) node.textContent = text;
-    return node;
+    const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node;
 };
+import { renderIcon } from './icons.js';
 
 const files = [
     { name: 'bitcoin.pdf', body: 'Bitcoin is a cryptocurrency invented in 2008 by an unknown person or group using the name Satoshi Nakamoto.' },
@@ -71,7 +69,7 @@ function renderBentoCard(document, feature) {
     if (feature.visual === 'notifications') visual.appendChild(renderNotifications(document, notifications));
     if (feature.visual === 'beam') visual.appendChild(renderBeam(document));
     if (feature.visual === 'calendar') visual.appendChild(renderCalendar(document));
-    const copy = el(document, 'div', 'ink-magic-bento-copy'); copy.append(el(document, 'span', 'material-symbols-rounded ink-magic-bento-icon', feature.icon), el(document, 'h3', '', feature.name), el(document, 'p', '', feature.description));
+    const copy = el(document, 'div', 'ink-magic-bento-copy'); copy.append(renderIcon(document, feature.icon, 'ink-magic-bento-icon'), el(document, 'h3', '', feature.name), el(document, 'p', '', feature.description));
     const link = el(document, 'a', 'ink-magic-bento-link', `${feature.cta || 'Learn more'}  →`); link.href = feature.href || '#'; copy.appendChild(link); card.append(visual, copy); return card;
 }
 

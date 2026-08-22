@@ -1,5 +1,6 @@
 const STATE_PSEUDOS = { hover: 'hover', focus: 'focus', active: 'active' };
 const DEVICE_WIDTHS = { desktop: null, tablet: 'tablet', mobile: 'mobile' };
+import { usedFonts, fontImportUrl } from './fonts.js';
 
 export default class StyleEngine {
     constructor({ registry, responsive, events } = {}) {
@@ -116,6 +117,10 @@ export default class StyleEngine {
         const visit = (node) => { css += this.nodeRules(node); (node.children || []).forEach(visit); };
         document.data.children.forEach(visit);
         css += document.data.settings.customCss || '';
+        // Google Fonts: @import must be the first rules in the stylesheet so the font survives
+        // published output (the body keeps this style tag; the head is dropped).
+        const fonts = usedFonts(document);
+        if (fonts.length) css = fonts.map((family) => `@import url('${fontImportUrl(family)}');`).join('') + css;
         return css;
     }
 
@@ -123,6 +128,18 @@ export default class StyleEngine {
         let style = targetDocument.getElementById('ink-builder-v2-styles');
         if (!style) { style = targetDocument.createElement('style'); style.id = 'ink-builder-v2-styles'; targetDocument.head.appendChild(style); }
         style.textContent = this.compile(document);
+        // Load used Google Fonts into the editor iframe so live editing shows them immediately.
+        const fonts = usedFonts(document);
+        const existing = targetDocument.querySelectorAll('link[data-ink-google-font]');
+        const loaded = new Set();
+        existing.forEach((link) => { loaded.add(link.dataset.inkFont); link.remove(); });
+        fonts.forEach((family) => {
+            if (loaded.has(family)) return;
+            const link = targetDocument.createElement('link');
+            link.rel = 'stylesheet'; link.dataset.inkGoogleFont = ''; link.dataset.inkFont = family;
+            link.href = fontImportUrl(family);
+            targetDocument.head.appendChild(link);
+        });
         return style;
     }
 }

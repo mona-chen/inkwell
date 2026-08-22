@@ -70,7 +70,7 @@ Primary references:
 | text, textarea, number, date-time, code | Ported |
 | select, select2, font, animation, exit-animation, hover-animation | Ported |
 | choose, visual-choice, structure | Ported; choose renders icon glyphs for icon options; structure renders presets and reconciles columns |
-| typography | Ported as a single popover (font family, size, weight, style, transform, decoration, line-height, letter-spacing) |
+| typography | Ported as a single popover (font family via curated Google Fonts, size, weight, style, transform, decoration, line-height, letter-spacing); Google Fonts are @import'd into compiled CSS so they ship with published pages |
 | heading size presets | Ported (`ink-size-*`: small 15 / medium 19 / large 29 / xl 39 / xxl 59 px) |
 | color | Ported with document-global palette and alpha UI |
 | switcher | Ported |
@@ -80,7 +80,7 @@ Primary references:
 | heading, divider, hidden, raw-html, notice, alert, button | Ported |
 | URL | Ported with target, nofollow, and custom attributes |
 | media | Ported with preview, upload, library selection, and removal |
-| icon, icons | Ported with visual grid and custom icon value |
+| icon, icons | Ported with Material Symbols plus the Phosphor and Lucide SVG libraries (library tabs, inline SVG rendering, `lucide:name`/`phosphor:name` value format); Material names stay migration-safe |
 | gallery | Ported with thumbnails, incremental selection, removal, and clear |
 | repeater | Ported with add, edit, duplicate, remove, and reorder actions |
 | box-shadow, text-shadow | Ported with structured panel UI and CSS serialization |

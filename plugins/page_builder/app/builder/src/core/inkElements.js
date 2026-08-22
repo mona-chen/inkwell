@@ -1,7 +1,8 @@
 const make = (document, tag, className = '', text = null) => {
     const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node;
 };
-const icon = (document, name, className = '') => make(document, 'span', `material-symbols-rounded ${className}`, name || 'star');
+import { renderIcon } from './icons.js';
+const icon = (document, name, className = '') => renderIcon(document, name, className);
 const url = (value) => typeof value === 'object' ? value.url : value;
 
 const spacing = [
@@ -449,8 +450,8 @@ export default function registerInkElements(registry) {
             root.appendChild(track);
             const navigation = node.settings.navigation || 'arrows';
             if (navigation === 'arrows' || navigation === 'both') {
-                const prev = make(domDocument, 'button', 'ink-el-carousel-nav is-prev'); prev.type = 'button'; prev.setAttribute('aria-label', 'Previous slide'); prev.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">chevron_left</span>';
-                const next = make(domDocument, 'button', 'ink-el-carousel-nav is-next'); next.type = 'button'; next.setAttribute('aria-label', 'Next slide'); next.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">chevron_right</span>';
+                const prev = make(domDocument, 'button', 'ink-el-carousel-nav is-prev'); prev.type = 'button'; prev.setAttribute('aria-label', 'Previous slide'); prev.appendChild(renderIcon(domDocument, 'chevron_left', 'ink-carousel-icon'));
+                const next = make(domDocument, 'button', 'ink-el-carousel-nav is-next'); next.type = 'button'; next.setAttribute('aria-label', 'Next slide'); next.appendChild(renderIcon(domDocument, 'chevron_right', 'ink-carousel-icon'));
                 root.append(prev, next);
             }
             if (navigation === 'dots' || navigation === 'both') {

@@ -2,6 +2,10 @@
 // the editor iframe and, hoisted into the body, in published output — it must never rely on
 // editor chrome or Bootstrap.
 
+// Multi-library icons: Phosphor/Lucide inline SVGs size like Material glyphs (1em of the
+// surrounding font-size) and inherit the current color.
+.ink-icon-svg { width: 1em; height: 1em; flex: none; vertical-align: middle; }
+
 .ink-el-section { position: relative; width: 100%; }
 .ink-el-section-inner {
   width: 100%;
@@ -13,8 +17,79 @@
 .ink-el-section.is-full .ink-el-section-inner,
 .ink-el-section.is-stretched .ink-el-section-inner { max-width: none; }
 
-.ink-el-container { position: relative; display: flex; width: 100%; flex-direction: column; }
+.ink-el-container {
+  position: relative;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  isolation: isolate;
+  transition:
+    background-color var(--ink-background-transition, 0s) ease,
+    background-image var(--ink-background-transition, 0s) ease,
+    border-color var(--ink-border-transition, 0s) ease,
+    border-width var(--ink-border-transition, 0s) ease,
+    border-radius var(--ink-border-transition, 0s) ease,
+    box-shadow var(--ink-border-transition, 0s) ease;
+}
+.ink-el-background-media {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background-position: center;
+  background-size: cover;
+  pointer-events: none;
+}
+.ink-el-background-video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ink-el-background-video iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 177.78vh;
+  min-width: 100%;
+  height: 56.25vw;
+  min-height: 100%;
+  border: 0;
+  transform: translate(-50%, -50%);
+}
+.ink-el-background-slide {
+  position: absolute;
+  inset: -1px;
+  opacity: 0;
+  overflow: hidden;
+  transition: opacity var(--ink-slide-transition, 500ms) ease, transform var(--ink-slide-transition, 500ms) ease;
+}
+.ink-el-background-slide > img { display: block; width: 100%; height: 100%; }
+.ink-el-background-slide.is-active { z-index: 1; opacity: 1; transform: translate(0); }
+.ink-el-background-slideshow.is-slide_right .ink-el-background-slide { transform: translateX(-8%); }
+.ink-el-background-slideshow.is-slide_left .ink-el-background-slide { transform: translateX(8%); }
+.ink-el-background-slideshow.is-slide_up .ink-el-background-slide { transform: translateY(8%); }
+.ink-el-background-slideshow.is-slide_down .ink-el-background-slide { transform: translateY(-8%); }
+.ink-el-background-slide.is-active > img.has-ken-burns { animation-duration: var(--ink-slide-duration, 5000ms); animation-timing-function: ease-in-out; animation-fill-mode: both; }
+.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-in { animation-name: ink-ken-burns-in; }
+.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-out { animation-name: ink-ken-burns-out; }
+@keyframes ink-ken-burns-in { from { transform: scale(1); } to { transform: scale(1.15); } }
+@keyframes ink-ken-burns-out { from { transform: scale(1.15); } to { transform: scale(1); } }
+.ink-el-container-overlay {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition:
+    opacity var(--ink-overlay-transition, 0s) ease,
+    filter var(--ink-overlay-transition, 0s) ease,
+    background-color var(--ink-overlay-transition, 0s) ease,
+    background-image var(--ink-overlay-transition, 0s) ease;
+}
 .ink-el-container-inner {
+  position: relative;
+  z-index: 2;
   min-width: 0;
   min-height: 0;
   flex: 1 1 auto;
@@ -25,6 +100,14 @@
   flex-direction: column;
 }
 .ink-el-container.is-full .ink-el-container-inner { max-width: none; }
+.ink-el-shape-divider { position: absolute; z-index: 0; left: 0; width: 100%; overflow: hidden; line-height: 0; pointer-events: none; }
+.ink-el-shape-divider-top { top: 0; }
+.ink-el-shape-divider-bottom { bottom: 0; }
+.ink-el-shape-divider svg { position: relative; left: 50%; display: block; width: var(--ink-shape-width, 100%); height: var(--ink-shape-height, 100px); transform: translateX(-50%); fill: var(--ink-shape-color, #fff); }
+.ink-el-shape-divider-top svg { transform: translateX(-50%) rotate(180deg); }
+.ink-el-shape-divider.is-flipped svg { transform: translateX(-50%) rotateY(180deg); }
+.ink-el-shape-divider-top.is-flipped svg { transform: translateX(-50%) rotate(180deg) rotateY(180deg); }
+.ink-el-shape-divider.is-front { z-index: 3; }
 
 // Column structure — Elementor's width-percentage model. Desktop uses nowrap so the flex gap
 // is absorbed by shrink; mobile flips to wrap/100%.
@@ -49,6 +132,7 @@
 .ink-el-columns.is-25-50-25 > .ink-el-column:not(:nth-child(2)) { flex: 1 1 25%; }
 
 @media (max-width: 767px) {
+  .ink-el-background-video.is-desktop-only { display: none; }
   .ink-el-columns { flex-wrap: wrap; }
   .ink-el-columns.is-50-50 > .ink-el-column,
   .ink-el-columns.is-33-33-33 > .ink-el-column,

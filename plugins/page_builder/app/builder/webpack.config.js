@@ -32,6 +32,13 @@ module.exports = {
                 type: 'asset/source',
             },
             {
+                // Elementor's source SVG shape-divider assets are compiled into the builder
+                // bundle so canvas and published markup remain self-contained.
+                test: /\.svg$/,
+                resourceQuery: /raw/,
+                type: 'asset/source',
+            },
+            {
                 // SCSS split by domain (WordPress/Elementor style). Two consumers:
                 //  - ?asString imports compile to a raw CSS string (canvas styles injected into the iframe)
                 //  - the editor stylesheet is extracted to dist/builder.css via MiniCssExtractPlugin

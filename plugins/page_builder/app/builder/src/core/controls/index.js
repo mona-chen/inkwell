@@ -6,6 +6,9 @@
 
 import { pickMedia, uploadMedia } from '../MediaPicker.js';
 import { RichTextAdapter } from '../RichTextAdapter.js';
+import { iconNames, iconValue, resolveIcon, renderIcon, libraryTitle } from '../icons.js';
+import { GOOGLE_FONTS } from '../fonts.js';
+import { ELEMENTOR_SHAPES } from '../elementorShapes.js';
 
 const labelFor = (option) => typeof option === 'object' ? option.label : String(option).replace(/-/g, ' ');
 const valueFor = (option) => typeof option === 'object' ? option.value : option;
@@ -16,7 +19,7 @@ const valueFor = (option) => typeof option === 'object' ? option.value : option;
 
 export function switcher(panel, control, node, value, row) {
     const wrapper = document.createElement('label'); wrapper.className = 'ink-v2-switch';
-    const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = value === true || value === control.returnValue || value === 'yes';
+    const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = (value === '' || value === undefined) && control.default !== undefined ? !!control.default : value === true || value === control.returnValue || value === 'yes';
     const track = document.createElement('span'); track.dataset.on = control.onLabel || 'Yes'; track.dataset.off = control.offLabel || 'No';
     checkbox.addEventListener('change', () => panel.setValue(control, node, checkbox.checked ? (control.returnValue ?? true) : (control.offValue ?? false)));
     wrapper.append(checkbox, track); row.appendChild(wrapper); return row;
@@ -172,10 +175,30 @@ export function url(panel, control, node, value, row) {
 }
 
 export function icon(panel, control, node, value, row) {
-    const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-icons';
-    const options = control.options || ['star', 'favorite', 'home', 'person', 'settings', 'search', 'check', 'close', 'arrow_forward', 'play_arrow', 'mail', 'phone'];
-    options.forEach((option) => { const iconName = valueFor(option); const button = document.createElement('button'); button.type = 'button'; button.title = labelFor(option); button.className = value === iconName ? 'is-active' : ''; button.innerHTML = `<span class="material-symbols-rounded">${iconName}</span>`; button.addEventListener('click', () => panel.setValue(control, node, iconName)); wrapper.appendChild(button); });
-    const custom = document.createElement('input'); custom.type = 'text'; custom.placeholder = 'Icon name or SVG'; custom.value = value || ''; custom.addEventListener('change', () => panel.setValue(control, node, custom.value)); row.append(wrapper, custom); return row;
+    row.classList.add('ink-v2-icons');
+    const resolved = resolveIcon(value);
+    const libraries = ['material', 'phosphor', 'lucide'];
+    const tabs = document.createElement('div'); tabs.className = 'ink-v2-icon-libs';
+    let active = libraries.includes(resolved.library) ? resolved.library : 'material';
+    const grid = document.createElement('div'); grid.className = 'ink-v2-icon-grid';
+    const draw = () => {
+        grid.replaceChildren();
+        iconNames(active).forEach((name) => {
+            const button = document.createElement('button'); button.type = 'button'; button.title = name; button.className = resolved.library === active && resolved.name === name ? 'is-active' : '';
+            button.setAttribute('aria-label', name);
+            button.appendChild(renderIcon(document, iconValue(active, name)));
+            button.addEventListener('click', () => panel.setValue(control, node, iconValue(active, name)));
+            grid.appendChild(button);
+        });
+    };
+    libraries.forEach((library) => {
+        const tab = document.createElement('button'); tab.type = 'button'; tab.textContent = libraryTitle(library); tab.className = library === active ? 'is-active' : '';
+        tab.addEventListener('click', () => { active = library; tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('is-active', b === tab)); draw(); });
+        tabs.appendChild(tab);
+    });
+    draw();
+    const custom = document.createElement('input'); custom.type = 'text'; custom.placeholder = 'Icon name (material) or lucide:name'; custom.value = typeof value === 'string' ? value : ''; custom.addEventListener('change', () => panel.setValue(control, node, custom.value));
+    row.append(tabs, grid, custom); return row;
 }
 
 /* ------------------------------------------------------------------ *
@@ -221,6 +244,9 @@ export function border(panel, control, node, value, row) {
         nested.appendChild(panel.renderControl({ ...control, name: 'border-color', type: 'color', label: 'Border Color' }, node));
         wrapper.appendChild(nested);
     }
+    if (control.state === 'hover') {
+        wrapper.appendChild(panel.renderControl({ ...control, state: 'base', name: 'border-transition-duration', type: 'slider', label: 'Transition Duration', min: 0, max: 3, step: 0.1, default: 0.3 }, node));
+    }
     row.appendChild(wrapper); return row;
 }
 
@@ -262,10 +288,12 @@ export function background(panel, control, node, value, row) {
     const typeRow = document.createElement('div'); typeRow.className = 'ink-v2-background-type';
     const label = document.createElement('span'); label.textContent = 'Background Type';
     const choices = document.createElement('div'); choices.className = 'ink-v2-background-choices';
-    [
+    const backgroundChoices = [
         ['classic', 'brush', 'Classic'],
         ['gradient', 'gradient', 'Gradient'],
-    ].forEach(([choiceValue, iconName, title]) => {
+    ];
+    if (!overlay && (control.state || 'base') === 'base') backgroundChoices.push(['video', 'video_library', 'Video'], ['slideshow', 'slideshow', 'Slideshow']);
+    backgroundChoices.forEach(([choiceValue, iconName, title]) => {
         const button = document.createElement('button'); button.type = 'button'; button.title = title; button.setAttribute('aria-label', title); button.setAttribute('aria-pressed', mode === choiceValue ? 'true' : 'false'); button.classList.toggle('is-active', mode === choiceValue);
         button.innerHTML = `<span class="material-symbols-rounded">${iconName}</span>`;
         button.addEventListener('click', () => panel.setValue(modeControl, node, mode === choiceValue ? '' : choiceValue));
@@ -273,6 +301,7 @@ export function background(panel, control, node, value, row) {
     });
     typeRow.append(label, choices); wrapper.appendChild(typeRow);
     const sub = (partial) => panel.renderControl({ tab: control.tab, target: control.target, section: control.section, state: control.state, part: control.part, ...partial }, node);
+    const settingSub = (partial) => panel.renderControl({ tab: control.tab, target: 'settings', section: control.section, ...partial }, node);
     if (mode === 'classic') {
         wrapper.appendChild(sub({ name: `${prefix}background-color`, type: 'color', label: 'Color' }));
         wrapper.appendChild(sub({ name: `${prefix}background-image`, type: 'media', label: 'Image' }));
@@ -284,11 +313,34 @@ export function background(panel, control, node, value, row) {
         }
     } else if (mode === 'gradient') {
         wrapper.appendChild(sub({ name: `${prefix}background-image`, type: 'gradient', label: 'Gradient' }));
+    } else if (!overlay && mode === 'video') {
+        wrapper.appendChild(settingSub({ name: 'backgroundVideoUrl', type: 'url', label: 'Video Link', description: 'YouTube, Vimeo, or a direct MP4/WebM URL.' }));
+        wrapper.appendChild(settingSub({ name: 'backgroundVideoStart', type: 'number', label: 'Start Time (seconds)', default: 0 }));
+        wrapper.appendChild(settingSub({ name: 'backgroundVideoEnd', type: 'number', label: 'End Time (seconds)' }));
+        wrapper.appendChild(settingSub({ name: 'backgroundVideoPlayOnce', type: 'switcher', label: 'Play Once' }));
+        wrapper.appendChild(settingSub({ name: 'backgroundVideoPlayOnMobile', type: 'switcher', label: 'Play On Mobile', default: true }));
+        wrapper.appendChild(settingSub({ name: 'backgroundVideoPrivacy', type: 'switcher', label: 'Privacy Mode', description: 'Uses youtube-nocookie.com for YouTube backgrounds.' }));
+        wrapper.appendChild(settingSub({ name: 'backgroundVideoFallback', type: 'media', label: 'Background Fallback', accept: 'image/*' }));
+    } else if (!overlay && mode === 'slideshow') {
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowImages', type: 'gallery', label: 'Images' }));
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowLoop', type: 'switcher', label: 'Infinite Loop', default: true }));
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowDuration', type: 'number', label: 'Duration (ms)', default: 5000 }));
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowTransition', type: 'select', label: 'Transition', default: 'fade', options: [
+            { value: 'fade', label: 'Fade' }, { value: 'slide_right', label: 'Slide Right' }, { value: 'slide_left', label: 'Slide Left' }, { value: 'slide_up', label: 'Slide Up' }, { value: 'slide_down', label: 'Slide Down' },
+        ] }));
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowTransitionDuration', type: 'number', label: 'Transition Duration (ms)', default: 500 }));
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowSize', type: 'select', label: 'Background Size', default: 'cover', options: ['auto', 'cover', 'contain'] }));
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowPosition', type: 'select', label: 'Background Position', default: 'center center', options: ['center center', 'center top', 'center bottom', 'left top', 'left center', 'left bottom', 'right top', 'right center', 'right bottom'] }));
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowLazyload', type: 'switcher', label: 'Lazy Load' }));
+        wrapper.appendChild(settingSub({ name: 'backgroundSlideshowKenBurns', type: 'switcher', label: 'Ken Burns Effect' }));
+        if (node.settings.backgroundSlideshowKenBurns) wrapper.appendChild(settingSub({ name: 'backgroundSlideshowZoomDirection', type: 'select', label: 'Zoom Direction', default: 'in', options: [{ value: 'in', label: 'In' }, { value: 'out', label: 'Out' }] }));
     }
     if (overlay && mode) {
         wrapper.appendChild(sub({ name: 'overlay-opacity', type: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.01, default: 0.5, responsive: true }));
+        wrapper.appendChild(sub({ name: 'overlay-filter', type: 'css-filters', label: 'CSS Filters' }));
         wrapper.appendChild(sub({ name: 'overlay-mix-blend-mode', type: 'select', label: 'Blend Mode', options: [{ value: '', label: 'Normal' }, 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'saturation', 'color', 'luminosity'] }));
     }
+    if (mode && control.state === 'hover') wrapper.appendChild(sub({ name: overlay ? 'overlay-transition-duration' : 'background-transition-duration', state: 'base', type: 'slider', label: 'Transition Duration', min: 0, max: 3, step: 0.1, default: 0.3 }));
     row.appendChild(wrapper); return row;
 }
 
@@ -306,14 +358,15 @@ export function shapeDivider(panel, control, node, value, row) {
     const dividerValue = node.settings[settingName] && typeof node.settings[settingName] === 'object' ? node.settings[settingName] : {};
     const update = (patch) => panel.runtime.update(node.id, { settings: { [settingName]: { ...dividerValue, ...patch } } }, `Change ${side} shape divider`);
     const field = (labelText, input) => { const fieldRow = document.createElement('label'); fieldRow.className = 'ink-v2-shape-field'; const label = document.createElement('span'); label.textContent = labelText; fieldRow.append(label, input); wrapper.appendChild(fieldRow); return input; };
-    const type = document.createElement('select'); [['', 'None'], ['tilt', 'Tilt'], ['waves', 'Waves'], ['triangle', 'Triangle']].forEach(([key, label]) => type.add(new Option(label, key))); type.value = dividerValue.type || ''; type.addEventListener('change', () => update({ type: type.value })); field('Type', type);
+    const type = document.createElement('select'); type.add(new Option('None', '')); Object.entries(ELEMENTOR_SHAPES).forEach(([key, shape]) => type.add(new Option(shape.title, key))); type.value = dividerValue.type || ''; type.addEventListener('change', () => update({ type: type.value })); field('Type', type);
     if (dividerValue.type) {
+        const shapeMeta = ELEMENTOR_SHAPES[dividerValue.type] || {};
         const colorInput = document.createElement('input'); colorInput.type = 'color'; colorInput.value = /^#[0-9a-f]{6}$/i.test(dividerValue.color || '') ? dividerValue.color : '#ffffff'; colorInput.addEventListener('change', () => update({ color: colorInput.value })); field('Color', colorInput);
-        [['Width', 'width', 100, 300, 100, '%'], ['Height', 'height', 0, 500, 100, 'px']].forEach(([labelText, key, min, max, fallback, unit]) => {
+        [...(shapeMeta.heightOnly ? [] : [['Width', 'width', 100, 300, 100, '%']]), ['Height', 'height', 0, 500, 100, 'px']].forEach(([labelText, key, min, max, fallback, unit]) => {
             const group = document.createElement('div'); group.className = 'ink-v2-shape-range'; const range = document.createElement('input'); range.type = 'range'; range.min = min; range.max = max; range.value = dividerValue[key] ?? fallback; const number = document.createElement('input'); number.type = 'number'; number.min = min; number.max = max; number.value = range.value; const suffix = document.createElement('span'); suffix.textContent = unit;
             range.addEventListener('input', () => { number.value = range.value; }); const commit = (source) => { range.value = source.value; number.value = source.value; update({ [key]: Number(source.value) }); }; range.addEventListener('change', () => commit(range)); number.addEventListener('change', () => commit(number)); group.append(range, number, suffix); field(labelText, group);
         });
-        [['Flip', 'flip'], ['Invert', 'invert'], ['Bring to Front', 'front']].forEach(([labelText, key]) => {
+        [...(shapeMeta.flip ? [['Flip', 'flip']] : []), ...(shapeMeta.negative ? [['Invert', 'invert']] : []), ['Bring to Front', 'front']].forEach(([labelText, key]) => {
             const switcher = document.createElement('label'); switcher.className = 'ink-v2-switch'; const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = !!dividerValue[key]; const track = document.createElement('span'); track.dataset.on = 'Yes'; track.dataset.off = 'No'; checkbox.addEventListener('change', () => update({ [key]: checkbox.checked })); switcher.append(checkbox, track); field(labelText, switcher);
         });
     }
@@ -326,7 +379,7 @@ export function typography(panel, control, node, value, row) {
     trigger.innerHTML = '<span class="material-symbols-rounded">text_fields</span><span>Typography</span>';
     const body = document.createElement('div'); body.className = 'ink-v2-background-body';
     const sub = (partial) => panel.renderControl({ tab: control.tab, target: control.target, section: control.section, ...partial }, node);
-    body.appendChild(sub({ name: 'font-family', type: 'font', label: 'Font family', options: ['inherit', 'Inter', 'Roboto', 'Arial', 'Georgia', 'Times New Roman', 'monospace'] }));
+    body.appendChild(sub({ name: 'font-family', type: 'font', label: 'Font family', options: ['inherit', 'system-ui, sans-serif', ...GOOGLE_FONTS.map((font) => font.value)] }));
     body.appendChild(sub({ name: 'font-size', type: 'size', label: 'Size', units: ['px', 'rem', 'em'], responsive: true }));
     body.appendChild(sub({ name: 'font-weight', type: 'select', label: 'Weight', options: ['100', '200', '300', '400', '500', '600', '700', '800', '900'] }));
     body.appendChild(sub({ name: 'font-style', type: 'select', label: 'Style', options: ['normal', 'italic', 'oblique'] }));

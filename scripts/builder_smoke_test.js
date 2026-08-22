@@ -278,6 +278,25 @@ async function main() {
     })()`);
     check("Text Editor runs TipTap and stores canonical JSON with legacy fallback", state.mounted && state.legacyCanvas && state.canonicalCanvas && state.active && state.toggles, JSON.stringify(state));
 
+    state = await client.evaluate(`(function(){
+      var b=builder, r=b.runtime, id=b.iframeDoc;
+      var lucide=r.insert('icon',{}, {settings:{icon:'lucide:home'}});
+      var phosphor=r.insert('icon',{}, {settings:{icon:'phosphor:house'}});
+      var material=r.insert('icon',{}, {settings:{icon:'star'}});
+      var lucideSvg=id.querySelector('[data-ink-element-id="'+lucide.id+'"].ink-icon-svg[viewBox="0 0 24 24"]');
+      var phosphorSvg=id.querySelector('[data-ink-element-id="'+phosphor.id+'"].ink-icon-svg[viewBox="0 0 256 256"]');
+      var materialSpan=id.querySelector('[data-ink-element-id="'+material.id+'"] span.material-symbols-rounded');
+      // Google Fonts: setting a curated font-family emits @import in compiled CSS + a canvas link.
+      var heading=r.insert('heading',{}, {settings:{text:'Fonts'}});
+      r.update(heading.id,{styles:{base:{'font-family':'Montserrat'}}},'Style');
+      var css=builder.runtime.styles.compile(r.document);
+      var fontImport=css.startsWith("@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@") && css.includes('font-family:Montserrat');
+      var link=id.querySelector('link[data-ink-google-font][data-ink-font="Montserrat"]');
+      [lucide.id,phosphor.id,material.id,heading.id].forEach(function(x){r.remove(x);});
+      return {ok:true,lucideSvg:!!lucideSvg,phosphorSvg:!!phosphorSvg,materialSpan:!!materialSpan,fontImport:fontImport,fontLink:!!link};
+    })()`);
+    check("icon libraries (Phosphor/Lucide/Material) and Google Fonts integrate", state.lucideSvg && state.phosphorSvg && state.materialSpan && state.fontImport && state.fontLink, JSON.stringify(state));
+
 
     state = await client.evaluate(`(function(){
       var r=builder.runtime;
