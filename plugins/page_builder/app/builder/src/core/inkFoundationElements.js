@@ -79,6 +79,7 @@ export default function registerInkFoundationElements(registry) {
     registry.register({
         type: 'heading', title: 'Heading', icon: 'title', category: 'Basic', inlineEditable: 'text',
         defaults: { settings: { text: 'Heading', tag: 'h2', size: '', link: '' }, styles: { base: {} } },
+        selectors: { root: '&', link: '.ink-el-heading-link' },
         controls: [
             { tab: 'content', section: 'Content', name: 'text', type: 'text', label: 'Title' },
             { tab: 'content', section: 'Content', name: 'tag', type: 'select', label: 'HTML tag', options: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'span', 'p'] },
@@ -90,6 +91,7 @@ export default function registerInkFoundationElements(registry) {
             { tab: 'style', target: 'styles', section: 'Typography', name: 'text-shadow', type: 'text-shadow', label: 'Text shadow' },
             { tab: 'style', target: 'styles', section: 'Typography', name: '-webkit-text-stroke', type: 'text-stroke', label: 'Text stroke' },
             { tab: 'style', target: 'styles', section: 'Typography', name: 'mix-blend-mode', type: 'select', label: 'Blend mode', options: ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'difference', 'exclusion'] },
+            { tab: 'style', target: 'styles', section: 'Link', name: 'link-color', type: 'color', label: 'Link color', states: true, property: 'color', part: 'link' },
             ...advancedControls,
             { tab: 'advanced', section: 'Custom attributes', name: 'cssId', type: 'text', label: 'CSS ID' },
             { tab: 'advanced', section: 'Custom attributes', name: 'cssClasses', type: 'text', label: 'CSS classes' },
@@ -99,9 +101,11 @@ export default function registerInkFoundationElements(registry) {
             if (node.settings.size) element.classList.add(`ink-size-${node.settings.size}`);
             if (node.settings.cssId) element.id = node.settings.cssId;
             if (node.settings.cssClasses) element.classList.add(...String(node.settings.cssClasses).trim().split(/\s+/));
-            const link = node.settings.link && typeof node.settings.link === 'object' ? node.settings.link.url : node.settings.link;
-            if (link) {
-                const anchor = domDocument.createElement('a'); anchor.href = link;
+            const link = node.settings.link && typeof node.settings.link === 'object' ? node.settings.link : node.settings.link ? { url: node.settings.link } : null;
+            if (link && link.url) {
+                const anchor = domDocument.createElement('a'); anchor.href = link.url; anchor.className = 'ink-el-heading-link';
+                if (link.target) anchor.target = link.target;
+                if (link.nofollow) anchor.setAttribute('rel', 'nofollow');
                 anchor.textContent = node.settings.text || '';
                 element.textContent = '';
                 element.appendChild(anchor);
@@ -124,6 +128,8 @@ export default function registerInkFoundationElements(registry) {
     registry.register({
         type: 'button', title: 'Button', icon: 'smart_button', category: 'Basic',
         defaults: { settings: { text: 'Click here', url: '#', target: '_self', size: 'sm', icon: '', iconPosition: 'before', align: '' }, styles: { base: {} } },
+        selectors: { root: '&', text: '.ink-el-button-text', icon: '.ink-el-button-icon' },
+        styleMap: { 'icon-gap': { property: '--ink-icon-gap', transform: (value) => `${Number(value.size) || 0}${value.unit || 'px'}` } },
         controls: [
             { tab: 'content', section: 'Content', name: 'text', type: 'text', label: 'Text' },
             { tab: 'content', section: 'Content', name: 'url', type: 'url', label: 'Link' },
@@ -132,13 +138,15 @@ export default function registerInkFoundationElements(registry) {
             { tab: 'content', section: 'Layout', name: 'icon', type: 'text', label: 'Icon' },
             { tab: 'content', section: 'Layout', name: 'iconPosition', type: 'choose', label: 'Icon position', options: [{ value: 'before', label: 'Before' }, { value: 'after', label: 'After' }], condition: { icon: '__not_empty__' } },
             { tab: 'content', section: 'Layout', name: 'align', type: 'choose', label: 'Alignment', options: [{ value: '', icon: 'format_align_left', label: 'Left' }, { value: 'center', icon: 'format_align_center', label: 'Center' }, { value: 'right', icon: 'format_align_right', label: 'Right' }] },
-            { tab: 'style', target: 'styles', section: 'Button', name: 'color', type: 'color', label: 'Text color', states: true },
+            { tab: 'style', target: 'styles', section: 'Button', name: 'color', type: 'color', label: 'Text color', states: true, part: 'text' },
             { tab: 'style', target: 'styles', section: 'Button', name: 'background-color', type: 'color', label: 'Background', states: true },
             { tab: 'style', target: 'styles', section: 'Button', name: 'border-radius', type: 'size', label: 'Border radius', units: ['px', 'rem'] },
             { tab: 'style', target: 'styles', section: 'Button', name: 'padding', type: 'dimensions', label: 'Inner padding', units: ['px', 'em', 'rem'], responsive: true },
             { tab: 'style', target: 'styles', section: 'Button', name: 'border', type: 'border', label: 'Border', states: true },
             { tab: 'style', target: 'styles', section: 'Button', name: 'box-shadow', type: 'box-shadow', label: 'Box shadow', states: true },
-            typographyControls,
+            { tab: 'style', target: 'styles', section: 'Icon', name: 'icon-size', type: 'size', label: 'Icon size', units: ['px', 'em', 'rem'], property: 'font-size', part: 'icon' },
+            { tab: 'style', target: 'styles', section: 'Icon', name: 'icon-gap', type: 'size', label: 'Icon spacing', units: ['px', 'em', 'rem'] },
+            { ...typographyControls, part: 'text' },
             ...advancedControls,
             { tab: 'advanced', section: 'Custom attributes', name: 'cssId', type: 'text', label: 'CSS ID' },
             { tab: 'advanced', section: 'Custom attributes', name: 'cssClasses', type: 'text', label: 'CSS classes' },
@@ -150,12 +158,13 @@ export default function registerInkFoundationElements(registry) {
             if (node.settings.size) el.classList.add(`is-size-${node.settings.size}`);
             if (node.settings.align) el.classList.add(`is-align-${node.settings.align}`);
             el.href = node.settings.url || '#'; el.target = node.settings.target || '_self';
+            const label = domDocument.createElement('span'); label.className = 'ink-el-button-text'; label.textContent = node.settings.text || '';
             if (node.settings.icon) {
                 const iconEl = domDocument.createElement('span'); iconEl.className = 'ink-el-button-icon'; iconEl.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${node.settings.icon}</span>`;
-                if (node.settings.iconPosition === 'after') { el.appendChild(domDocument.createTextNode(node.settings.text || '')); el.appendChild(iconEl); }
-                else { el.appendChild(iconEl); el.appendChild(domDocument.createTextNode(node.settings.text || '')); }
+                if (node.settings.iconPosition === 'after') { iconEl.classList.add('is-after'); el.appendChild(label); el.appendChild(iconEl); }
+                else { el.appendChild(iconEl); el.appendChild(label); }
             } else {
-                el.textContent = node.settings.text || '';
+                el.appendChild(label);
             }
             return el;
         },
@@ -163,17 +172,19 @@ export default function registerInkFoundationElements(registry) {
     registry.register({
         type: 'image', title: 'Image', icon: 'image', category: 'Basic',
         defaults: { settings: { src: '', alt: '', link: '', caption: '', align: '' }, styles: { base: { 'max-width': '100%', height: 'auto' } } },
+        selectors: { root: '&', figure: '.ink-el-image-figure', image: '.ink-el-image', link: '.ink-el-image-link', caption: 'figcaption' },
         controls: [
             { tab: 'content', section: 'Image', name: 'src', type: 'media', label: 'Image' },
             { tab: 'content', section: 'Image', name: 'alt', type: 'text', label: 'Alternative text' },
             { tab: 'content', section: 'Image', name: 'link', type: 'url', label: 'Link' },
             { tab: 'content', section: 'Image', name: 'caption', type: 'text', label: 'Caption' },
             { tab: 'content', section: 'Image', name: 'align', type: 'choose', label: 'Alignment', options: [{ value: '', icon: 'format_align_left', label: 'Left' }, { value: 'center', icon: 'format_align_center', label: 'Center' }, { value: 'right', icon: 'format_align_right', label: 'Right' }] },
-            { tab: 'style', section: 'Image', name: 'object-fit', type: 'select', label: 'Object fit', options: ['cover', 'contain', 'fill', 'none'] },
-            { tab: 'style', target: 'styles', section: 'Image', name: 'object-position', type: 'select', label: 'Object position', options: ['center', 'top', 'bottom', 'left', 'right'] },
-            { tab: 'style', target: 'styles', section: 'Image', name: 'filter', type: 'css-filters', label: 'CSS filters', states: true },
-            { tab: 'style', target: 'styles', section: 'Image', name: 'border', type: 'border', label: 'Border', states: true },
-            { tab: 'style', target: 'styles', section: 'Image', name: 'border-radius', type: 'dimensions', label: 'Radius', units: ['px', 'rem', '%'], responsive: true },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'object-fit', type: 'select', label: 'Object fit', options: ['cover', 'contain', 'fill', 'none'], part: 'image' },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'object-position', type: 'select', label: 'Object position', options: ['center', 'top', 'bottom', 'left', 'right'], part: 'image' },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'filter', type: 'css-filters', label: 'CSS filters', states: true, part: 'image' },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'border', type: 'border', label: 'Border', states: true, part: 'image' },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'border-radius', type: 'dimensions', label: 'Radius', units: ['px', 'rem', '%'], responsive: true, part: 'image' },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'caption-color', type: 'color', label: 'Caption color', property: 'color', part: 'caption' },
             ...advancedControls,
             { tab: 'advanced', section: 'Custom attributes', name: 'cssId', type: 'text', label: 'CSS ID' },
             { tab: 'advanced', section: 'Custom attributes', name: 'cssClasses', type: 'text', label: 'CSS classes' },

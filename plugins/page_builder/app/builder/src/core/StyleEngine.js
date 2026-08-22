@@ -9,8 +9,29 @@ export default class StyleEngine {
 
     selector(id, suffix = '') { return `.ink-el-${CSS.escape(id)}${suffix}`; }
 
+    // Cached map of controlName -> { part, property } for each element type (built from element controls).
+    controlMeta(definition) {
+        if (!this._metaCache) this._metaCache = new Map();
+        if (this._metaCache.has(definition.type)) return this._metaCache.get(definition.type);
+        const meta = new Map();
+        for (const control of definition.controls || []) {
+            if (control.part || control.property) meta.set(control.name, { part: control.part || 'root', property: control.property || control.name });
+        }
+        this._metaCache.set(definition.type, meta);
+        return meta;
+    }
+
+    // Resolve a named element part to a descendant selector suffix ('' for the root).
+    // Returns null when the part is not declared — the style control is dropped with a warning.
+    partSelector(definition, part) {
+        if (!part || part === 'root') return '';
+        const selector = (definition.selectors || {})[part];
+        if (!selector) { console.error(`[Ink Builder] element "${definition.type}" has no part selector for "${part}"; style dropped`); return null; }
+        return ` ${selector}`;
+    }
+
     value(value) {
-        if (value && typeof value === 'object' && ('brightness' in value || 'contrast' in value || 'saturate' in value)) return `blur(${Number(value.blur) || 0}px) brightness(${Number(value.brightness) || 100}%) contrast(${Number(value.contrast) || 100}%) saturate(${Number(value.saturate) || 100}%) hue-rotate(${Number(value.hue) || 0}deg)`;
+        if (value && typeof value === 'object' && ['blur', 'brightness', 'contrast', 'saturate', 'hue'].some((key) => key in value)) return `blur(${Number(value.blur) || 0}px) brightness(${Number(value.brightness) || 100}%) contrast(${Number(value.contrast) || 100}%) saturate(${Number(value.saturate) || 100}%) hue-rotate(${Number(value.hue) || 0}deg)`;
         if (value && typeof value === 'object' && 'strokeWidth' in value) return `${Number(value.strokeWidth) || 0}${value.unit || 'px'} ${value.color || 'currentColor'}`;
         if (value && typeof value === 'object' && 'size' in value) return `${value.size}${Object.hasOwn(value, 'unit') ? value.unit : 'px'}`;
         if (value && typeof value === 'object' && ['top', 'right', 'bottom', 'left'].some((side) => side in value)) {
@@ -41,22 +62,29 @@ export default class StyleEngine {
     nodeRules(node) {
         const definition = this.registry.get(node.type);
         const map = definition.styleMap || {};
+        const meta = this.controlMeta(definition);
         // bucket -> selector (default '') -> property:value map
         const buckets = { base: new Map(), tablet: new Map(), mobile: new Map(), hover: new Map(), focus: new Map(), active: new Map() };
         Object.entries(node.styles || {}).forEach(([bucket, settings]) => {
             if (!buckets[bucket]) return;
             Object.entries(settings || {}).forEach(([key, value]) => {
                 if (value === undefined || value === null || value === '') return;
-                const descriptor = map[key] || { property: key };
-                const selector = descriptor.selector || '';
-                const target = buckets[bucket].get(selector) || {};
+                const descriptor = map[key] || {};
+                const control = meta.get(key) || {};
+                let suffix = descriptor.selector;
+                if (suffix === undefined) {
+                    const part = descriptor.part || control.part || 'root';
+                    suffix = this.partSelector(definition, part);
+                    if (suffix === null) return; // declared part has no selector target
+                }
+                const target = buckets[bucket].get(suffix) || {};
                 if (typeof descriptor === 'function') {
                     const extra = descriptor(value, node) || {};
-                    Object.assign(buckets[bucket].get(selector) || target, extra);
+                    Object.assign(buckets[bucket].get(suffix) || target, extra);
                 } else {
-                    target[descriptor.property || key] = typeof descriptor.transform === 'function' ? descriptor.transform(value, node) : value;
+                    target[descriptor.property || control.property || key] = typeof descriptor.transform === 'function' ? descriptor.transform(value, node) : value;
                 }
-                buckets[bucket].set(selector, target);
+                buckets[bucket].set(suffix, target);
             });
         });
         let css = '';

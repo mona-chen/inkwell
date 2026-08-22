@@ -88,7 +88,7 @@ Primary references:
 | css-filters, text-stroke | Ported |
 | Normal/Hover/Focus states | Ported for state-capable controls (state switcher threads into value buckets) |
 | Conditions | Ported with AND/OR/not, multi-value arrays, and `__not_empty__` |
-| {{WRAPPER}}-style descendant selectors | Ported via `styleMap` `selector` descriptors in StyleEngine |
+| {{WRAPPER}}-style descendant selectors | Ported via `styleMap` `selector` descriptors AND the element part/selector contract: every element may declare `selectors` (named parts → CSS hooks) and style controls declare the `part` + CSS `property` they affect; StyleEngine emits `.ink-el-<id> <part>` rules and drops/validates unknown parts at registration |
 | WYSIWYG | Ported with a formatting toolbar and live active states |
 | popover-toggle | Ported |
 | tabs, section | Ported with collapsible control sections |
@@ -128,9 +128,19 @@ in the editor and on the published page with zero external JS.
 
 - Composite widgets now ship self-contained interactive behavior (tabs/carousel/lightbox);
   remaining composite parity is per-widget polish (e.g. gallery captions, carousel effects).
+- The element part/selector contract is established and applied to image, heading, button,
+  icon-box/image-box, and progress; the other 35 element schemas still default style controls
+  to the root wrapper and need their part selectors migrated.
+- Values are stored as flat buckets (base/tablet/mobile/hover/focus/active); the Elementor
+  device × state combination (e.g. hover on tablet) and unset/inherited semantics are not yet
+  represented. Control definitions need a `property`/`part` audit (some names don't map to CSS).
+- Container/Div are functional but not full flex/grid group-control parity; legacy
+  Section/Columns share the same style pipeline.
+- Control renderers still live in `PanelManager` (841+ lines); extraction into independent
+  control modules with parity fixtures is pending.
+- WYSIWYG still uses `document.execCommand` internally; the shared TipTap adapter (JSON
+  document + sanitized HTML + Ruby allowlist) is the intended replacement.
 - Magic UI visual parity intentionally deferred until the foundation is verified.
-- WYSIWYG still uses `document.execCommand` internally (the only cross-browser inline
-  formatting API; Elementor's own toolbar backend does the same).
 
 ## Core element inventory
 

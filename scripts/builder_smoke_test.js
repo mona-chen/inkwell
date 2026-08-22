@@ -228,6 +228,7 @@ async function main() {
 
     state = await client.evaluate(`(function(){
       var r=builder.runtime;
+      window.__registryBaseline = r.elements.list().length;
       r.elements.register({type:'control-lab',title:'Control lab',category:'Test',icon:'tune',defaults:{settings:{media:'',gallery:[],items:[{title:'First'}],url:{url:'#'},icon:'star',rich:'<p>Text</p>',enabled:true,amount:25},styles:{base:{shadow:{x:0,y:4,blur:12,spread:0,color:'#000000'},border:{width:1,style:'solid',color:'#000000'}}}},controls:[
         {tab:'content',section:'Controls',name:'media',type:'media',label:'Media'},
         {tab:'content',section:'Controls',name:'gallery',type:'gallery',label:'Gallery'},
@@ -244,9 +245,17 @@ async function main() {
       var lab=r.insert('control-lab'); r.selection.select(lab.id);
       var panel=document.getElementById('SettingsContainer');
       var result={media:!!panel.querySelector('.ink-v2-media'),gallery:!!panel.querySelector('.ink-v2-gallery'),repeater:!!panel.querySelector('.ink-v2-repeater'),url:!!panel.querySelector('.ink-v2-url'),icons:!!panel.querySelector('.ink-v2-icons'),wysiwyg:!!panel.querySelector('.ink-v2-wysiwyg'),switcher:!!panel.querySelector('.ink-v2-switch'),slider:!!panel.querySelector('.ink-v2-slider'),shadow:!!panel.querySelector('.ink-v2-shadow'),border:!!panel.querySelector('.ink-v2-border'),popover:!!panel.querySelector('.ink-v2-popover')};
-      r.remove(lab.id); r.selection.select(${JSON.stringify(ids.heading)}); return result;
+      r.remove(lab.id);
+      r.elements.unregister('control-lab'); // restore the registry — no synthetic types leak
+      r.selection.select(${JSON.stringify(ids.heading)}); return result;
     })()`);
-    check("advanced Ink control families render through schemas", Object.values(state).every(Boolean), JSON.stringify(state));
+    check("control renderers are reachable from schema controls", Object.values(state).every(Boolean), JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime;
+      return { baseline: window.__registryBaseline, count: r.elements.list().length, hasLab: r.elements.has('control-lab') };
+    })()`);
+    check("registry is not polluted by synthetic test elements", state.count === state.baseline && !state.hasLab, JSON.stringify(state));
 
     // Media picker: opens a dialog, loads the standalone picker page (bounded tiles), and
     // posts the selection back to the canvas.
@@ -276,7 +285,9 @@ async function main() {
     }
     state = await client.evaluate(`(function(){
       var r=builder.runtime; var img=r.document.get(window.__imgId);
-      return {selected:window.__mediaUrl, src:img?img.settings.src:null, dialogClosed:!document.getElementById('inkwell-media-picker-modal')?.open};
+      var result={selected:window.__mediaUrl, src:img?img.settings.src:null, dialogClosed:!document.getElementById('inkwell-media-picker-modal')?.open};
+      if (window.__imgId) r.remove(window.__imgId);
+      return result;
     })()`);
     check("media picker opens, bounds tiles, and returns the selection", pickerOpened === true && picker.items > 0 && picker.bounded && state.selected && state.src === state.selected && state.dialogClosed, JSON.stringify({ state, picker }));
 
@@ -638,6 +649,40 @@ async function main() {
       return result;
     })()`);
     check("primitive widgets expose Elementor-style controls and markup", state.buttonSize && state.buttonAlign && state.buttonIcon && state.headingLink && state.imageFigure && state.imageCaption && state.imageLinked && state.iconRotate === "rotate(45deg)" && state.dividerAlign && state.statesSwitcher, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder, r=b.runtime, id=b.iframeDoc;
+      var img=r.insert('image',{}, {settings:{src:'https://example.com/x.jpg',caption:'Cap'}});
+      var iconBox=r.insert('icon-box',{}, {settings:{icon:'star'}});
+      var progress=r.insert('progress',{}, {settings:{value:60}});
+      var btn=r.insert('button',{}, {settings:{icon:'arrow_forward',text:'Go'}});
+      var heading=r.insert('heading',{}, {settings:{link:{url:'https://ex.com',nofollow:true}}});
+      var css=id.getElementById('ink-builder-v2-styles').textContent;
+      r.update(img.id,{styles:{base:{filter:{blur:2,brightness:90,contrast:110,saturate:80,hue:5},'object-fit':'cover','border-radius':{top:8,right:8,bottom:8,left:8,unit:'px',linked:true}}}},'Style');
+      r.update(iconBox.id,{styles:{base:{'font-size':{size:48,unit:'px'}}}},'Style');
+      r.update(progress.id,{styles:{base:{color:'#ff0000'}}},'Style');
+      r.update(btn.id,{styles:{base:{color:'#123456','icon-size':{size:24,unit:'px'},'icon-gap':{size:10,unit:'px'}},hover:{color:'#654321'}}},'Style');
+      r.update(heading.id,{styles:{base:{'link-color':'#00ff00'}}},'Style');
+      var css2=id.getElementById('ink-builder-v2-styles').textContent;
+      var esc=function(x){return CSS.escape(x);};
+      var ruleText=function(needle){var start=css2.indexOf(needle); if(start===-1) return ''; var end=css2.indexOf('}',start); return css2.slice(start, end===-1?start+200:end);};
+      var imgRule=ruleText('.ink-el-'+esc(img.id)+' .ink-el-image{');
+      var imageParts=imgRule.includes('filter:blur(2px)') && imgRule.includes('object-fit:cover') && imgRule.includes('border-radius:8px 8px 8px 8px');
+      var iconParts=ruleText('.ink-el-'+esc(iconBox.id)+' .ink-el-icon{').includes('font-size:48px');
+      var progressPart=ruleText('.ink-el-'+esc(progress.id)+' .ink-el-progress-value{').includes('color:#ff0000');
+      var btnTextRule=ruleText('.ink-el-'+esc(btn.id)+' .ink-el-button-text{');
+      var btnHoverRule=ruleText('.ink-el-'+esc(btn.id)+':hover .ink-el-button-text{');
+      var btnIconRule=ruleText('.ink-el-'+esc(btn.id)+' .ink-el-button-icon{');
+      var btnGapRule=ruleText('.ink-el-'+esc(btn.id)+'{');
+      var buttonParts=btnTextRule.includes('color:#123456') && btnHoverRule.includes('color:#654321') && btnIconRule.includes('font-size:24px') && btnGapRule.includes('--ink-icon-gap:10px');
+      var headingPart=ruleText('.ink-el-'+esc(heading.id)+' .ink-el-heading-link{').includes('color:#00ff00');
+      var imageDom=!!id.querySelector('[data-ink-element-id="'+img.id+'"] .ink-el-image');
+      var headingLink=!!id.querySelector('[data-ink-element-id="'+heading.id+'"] .ink-el-heading-link[rel="nofollow"]');
+      var noWrapperOnly=!css2.includes('.ink-el-'+esc(progress.id)+'{color:#ff0000');
+      [img.id,iconBox.id,progress.id,btn.id,heading.id].forEach(function(x){r.remove(x);});
+      return {ok:true,imageParts:imageParts,iconParts:iconParts,progressPart:progressPart,buttonParts:buttonParts,headingPart:headingPart,imageDom:imageDom,headingLink:headingLink,noWrapperOnly:noWrapperOnly};
+    })()`);
+    check("style controls target declared element parts, not the wrapper", state.imageParts && state.iconParts && state.progressPart && state.buttonParts && state.headingPart && state.imageDom && state.headingLink && state.noWrapperOnly, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var b=builder, r=b.runtime;

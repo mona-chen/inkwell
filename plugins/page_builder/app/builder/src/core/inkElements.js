@@ -149,17 +149,20 @@ export default function registerInkElements(registry) {
         },
     });
     ['icon-box', 'image-box'].forEach((type) => register(registry, {
-        type,
+        type: type === 'icon-box' ? 'icon-box' : 'image-box',
         title: type === 'icon-box' ? 'Icon Box' : 'Image Box',
         icon: type === 'icon-box' ? 'featured_play_list' : 'image',
         defaults: { settings: { title: 'Feature title', description: 'A short description that explains this feature.', icon: 'auto_awesome', image: '', url: '' }, styles: { base: {} } },
+        selectors: { root: '&', icon: '.ink-el-icon', media: 'img', title: '.ink-el-box-title', description: '.ink-el-box-desc', link: '.ink-el-box-link' },
         controls: [
             ...(type === 'icon-box' ? [{ tab: 'content', section: 'Content', name: 'icon', type: 'icon', label: 'Icon' }] : [{ tab: 'content', section: 'Content', name: 'image', type: 'media', label: 'Image' }]),
             { tab: 'content', section: 'Content', name: 'title', type: 'text', label: 'Title' },
             { tab: 'content', section: 'Content', name: 'description', type: 'textarea', label: 'Description' },
             { tab: 'content', section: 'Content', name: 'url', type: 'url', label: 'Link' },
-            { tab: 'style', target: 'styles', section: 'Icon', name: 'color', type: 'color', label: 'Icon color' },
-            { tab: 'style', target: 'styles', section: 'Icon', name: 'font-size', type: 'size', label: 'Icon size', units: ['px', 'rem'], responsive: true },
+            { tab: 'style', target: 'styles', section: 'Icon', name: 'color', type: 'color', label: 'Icon color', part: 'icon' },
+            { tab: 'style', target: 'styles', section: 'Icon', name: 'font-size', type: 'size', label: 'Icon size', units: ['px', 'rem'], responsive: true, part: 'icon' },
+            { tab: 'style', target: 'styles', section: 'Title', name: 'title-color', type: 'color', label: 'Title color', property: 'color', part: 'title' },
+            { tab: 'style', target: 'styles', section: 'Description', name: 'description-color', type: 'color', label: 'Description color', property: 'color', part: 'description' },
             ...spacing,
         ],
         render: ({ domDocument }, node) => {
@@ -221,10 +224,11 @@ export default function registerInkElements(registry) {
     register(registry, {
         type: 'progress', title: 'Progress Bar', icon: 'linear_scale',
         defaults: { settings: { title: 'Progress', value: 75 }, styles: { base: {} } },
+        selectors: { root: '&', track: '.ink-el-progress-track', bar: '.ink-el-progress-value' },
         controls: [
             { tab: 'content', section: 'Progress', name: 'title', type: 'text', label: 'Title' },
             { tab: 'content', section: 'Progress', name: 'value', type: 'slider', label: 'Value', min: 0, max: 100 },
-            { tab: 'style', target: 'styles', section: 'Progress', name: 'color', type: 'color', label: 'Bar color' },
+            { tab: 'style', target: 'styles', section: 'Progress', name: 'color', type: 'color', label: 'Bar color', part: 'bar' },
             ...spacing,
         ],
         render: ({ domDocument }, node) => {

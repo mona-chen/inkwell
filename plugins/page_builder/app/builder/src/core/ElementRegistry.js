@@ -10,6 +10,13 @@ export default class ElementRegistry {
         if (this.definitions.has(definition.type)) {
             throw new Error(`Element type already registered: ${definition.type}`);
         }
+        // Every style control that targets a named part must resolve to a declared selector.
+        const selectors = definition.selectors || {};
+        for (const control of definition.controls || []) {
+            if (control.part && control.part !== 'root' && !selectors[control.part]) {
+                throw new TypeError(`Element "${definition.type}" control "${control.name}" targets unknown part "${control.part}" — declare it in selectors.`);
+            }
+        }
         this.definitions.set(definition.type, Object.freeze({
             title: definition.type,
             icon: 'widgets',
