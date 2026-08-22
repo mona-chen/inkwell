@@ -235,6 +235,14 @@
 .ink-v2-history-item.is-current .material-symbols-rounded { color: var(--ink-editor-accent-bright); }
 .ink-v2-history-empty { padding: 24px 12px; color: var(--ink-editor-faint); font-size: 12px; text-align: center; }
 
+.ink-v2-site-part-action { display:flex; width:calc(100% - 24px); min-height:48px; gap:9px; align-items:center; margin:0 12px 8px; padding:7px 9px; border:1px solid var(--ink-editor-border); border-radius:3px; background:var(--ink-editor-surface); color:var(--ink-editor-text); text-align:left; cursor:pointer; }
+.ink-v2-site-part-action:hover { border-color:var(--ink-editor-muted); }
+.ink-v2-site-part-action:disabled { opacity:.48; cursor:default; }
+.ink-v2-site-part-action > .material-symbols-rounded { flex:none; color:var(--ink-editor-muted); font-size:18px; }
+.ink-v2-site-part-action > span:nth-child(2) { display:flex; min-width:0; flex:1; flex-direction:column; gap:2px; }
+.ink-v2-site-part-action strong { font-size:11px; }
+.ink-v2-site-part-action small { overflow:hidden; color:var(--ink-editor-faint); font-size:9px; text-overflow:ellipsis; white-space:nowrap; }
+
 // Sidebar code tab.
 .ink-sidebar-code { display: grid; gap: 6px; padding: 12px; }
 .ink-sidebar-code label { color: var(--ink-editor-muted); font-size: 12px; font-weight: 600; }

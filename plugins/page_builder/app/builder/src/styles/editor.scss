@@ -4,9 +4,21 @@
 @use "tokens";
 @use "editor/appbar";
 @use "editor/workspace";
+@use "editor/code";
 @use "editor/panel";
 @use "editor/controls";
 @use "editor/structure";
 @use "editor/overlays";
 @use "editor/responsive";
 @use "editor/loader";
+
+// All editor icons are hydrated to inline Lucide SVGs. The historical wrapper class remains
+// as a compatibility hook for existing sizing rules, but no font glyph is displayed.
+.material-symbols-rounded:has(> .ink-lucide-icon) {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.ink-lucide-icon { width: 1em; height: 1em; overflow: visible; }

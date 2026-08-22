@@ -1,8 +1,6 @@
 <% content_for :full_bleed, true %>
-<% content_for :hide_chrome %>
+<% content_for :hide_chrome, true %>
 <% content_for :title, page.title %>
 <article class="min-h-[100dvh]">
-  <div class="prose-content mx-auto max-w-4xl px-5 py-16 text-[17px] leading-[1.85] text-[#2a2a2a] sm:px-8 sm:py-24">
-    <%= BlockRenderer.render(page.content_blocks, self) %>
-  </div>
+  <%= BlockRenderer.render(page.content_blocks, self) %>
 </article>

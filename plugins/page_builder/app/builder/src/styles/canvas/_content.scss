@@ -19,6 +19,39 @@
 .ink-el-accordion summary::-webkit-details-marker { display: none; }
 .ink-el-accordion details > div { padding: 0 0 1rem; line-height: 1.6; }
 
+// Native timeline accordion. Imported Framer markup receives the data hooks at mount time,
+// while newly-created builder elements use the semantic .ink-el-* structure below.
+.ink-el-timeline-accordion { display: grid; gap: 1rem; }
+.ink-el-timeline-item {
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: #111;
+  color: #fff;
+  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease;
+}
+.ink-el-timeline-question {
+  display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1.35rem 1.5rem; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer;
+}
+.ink-el-timeline-copy, .ink-el-timeline-eyebrow, .ink-el-timeline-title { display: block; }
+.ink-el-timeline-eyebrow { margin-bottom: .35rem; color: #a970ff; font-size: .75rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.ink-el-timeline-title { font-size: clamp(1rem, 2vw, 1.35rem); }
+.ink-el-timeline-glyph { font-size: 1.6rem; font-weight: 300; transition: transform var(--ink-timeline-duration, 280ms) ease; }
+.ink-el-timeline-content { padding: 0 1.5rem 1.5rem; color: #aaa; line-height: 1.65; }
+.ink-el-timeline-item:not(.is-open) > .ink-el-timeline-content { display: none; }
+.ink-el-timeline-item.is-open .ink-el-timeline-glyph { transform: rotate(45deg); }
+
+.ink-imported-element[data-framer-name="Timeline Wrapper"] [data-ink-timeline-item] {
+  overflow: hidden !important;
+  height: auto !important;
+  min-height: 0 !important;
+  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease !important;
+}
+.ink-imported-element[data-framer-name="Timeline Wrapper"] [data-ink-timeline-item]:not(.is-open) [data-ink-timeline-content] {
+  display: none !important;
+}
+.ink-imported-element[data-framer-name="Timeline Wrapper"] [data-ink-timeline-question] { cursor: pointer; }
+
 .ink-el-alert { display: flex; gap: .75rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--alert-color) 35%, transparent); border-radius: 3px; background: color-mix(in srgb, var(--alert-color) 8%, white); }
 .ink-el-alert > .material-symbols-rounded { flex: none; color: var(--alert-color); }
 .ink-el-alert strong, .ink-el-alert span { display: block; }

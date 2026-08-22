@@ -6,11 +6,16 @@
 import TabsManager from './includes/TabsManager.js';
 import EditorRuntime from './core/EditorRuntime.js';
 import BuilderV2 from './core/BuilderV2.js';
+import { formatCode } from './core/CodeFormatter.js';
+import { installLucideIcons } from './core/editorIcons.js';
 
 // Editor chrome stylesheet — SCSS partials compiled by webpack into dist/builder.css.
 import './styles/editor.scss';
+
+installLucideIcons(document);
 
 // Globals the Rails layout relies on.
 window.TabsManager = TabsManager;
 window.InkEditorRuntime = EditorRuntime;
 window.InkBuilderV2 = BuilderV2;
+window.InkCodeFormatter = { format: formatCode };

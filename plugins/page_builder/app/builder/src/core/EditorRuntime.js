@@ -45,6 +45,8 @@ export default class EditorRuntime {
     registerControls() {
         const controls = this.controls;
         controls.register('media', controlsModule.media);
+        controls.register('imported-background', controlsModule.importedBackground);
+        controls.register('motion', controlsModule.motion);
         controls.register('gallery', controlsModule.gallery);
         controls.register('repeater', controlsModule.repeater);
         controls.register('box-shadow', controlsModule.shadow);

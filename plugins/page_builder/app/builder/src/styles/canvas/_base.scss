@@ -99,6 +99,7 @@
   display: flex;
   flex-direction: column;
 }
+.ink-el-container-inner > * { min-width: 0; max-width: 100%; }
 .ink-el-container.is-full .ink-el-container-inner { max-width: none; }
 .ink-el-shape-divider { position: absolute; z-index: 0; left: 0; width: 100%; overflow: hidden; line-height: 0; pointer-events: none; }
 .ink-el-shape-divider-top { top: 0; }

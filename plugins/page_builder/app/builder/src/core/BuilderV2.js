@@ -4,6 +4,8 @@ import ViewportManager from './ViewportManager.js';
 import NavigatorManager from './NavigatorManager.js';
 import FinderManager from './FinderManager.js';
 import { createCopilotTools } from './CopilotTools.js';
+import ImportedSiteEditor from './ImportedSiteEditor.js';
+import { installLucideIcons } from './editorIcons.js';
 import inkCanvasCss from '../styles/canvas.scss?asString';
 import inkMagicCss from '../styles/canvas-magic.scss?asString';
 
@@ -36,6 +38,14 @@ body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="column"]>.in
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{background:#e6a1ef}
 body.ink-builder-design .ink-editor-toolbar button{display:flex;width:28px;height:24px;align-items:center;justify-content:center;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;pointer-events:auto}
 body.ink-builder-design .ink-editor-toolbar button:hover{background:rgba(0,0,0,.18)}body.ink-builder-design .ink-editor-toolbar .material-symbols-rounded{font-size:15px}
+body.ink-builder-design .ink-editor-toolbar .ink-canvas-action-icon{display:block;width:15px;height:15px;stroke:currentColor}
+/* Imported/native nodes keep their authored DOM pristine. Their editor chrome is portalled to
+   the iframe body, so selection and actions behave like ordinary elements without becoming
+   extra children that break captured :first-child/direct-child selectors. */
+body.ink-builder-design .ink-imported-floating-chrome{position:fixed;z-index:9992;display:block;border:2px solid var(--ink-editor-accent,#93003c);pointer-events:none}
+body.ink-builder-design .ink-imported-floating-chrome.is-container{border-color:#e6a1ef}
+body.ink-builder-design .ink-imported-floating-chrome>.ink-editor-toolbar{top:-24px;right:0;opacity:1;pointer-events:auto;background:var(--ink-editor-accent,#93003c)}
+body.ink-builder-design .ink-imported-floating-chrome.is-container>.ink-editor-toolbar{left:50%;right:auto;padding-inline:8px;transform:translateX(-50%);background:#e6a1ef;color:#17191c;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 100%,0 100%)}
 
 /* Empty canvas/container insertion surface — Elementor's full-width dashed area */
 body.ink-builder-design .ink-editor-empty,body.ink-builder-design .ink-editor-root-empty{position:relative;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;border:2px dashed #b7bcc7;background:rgba(255,255,255,.4);color:#a4afb7}
@@ -72,6 +82,7 @@ body.ink-builder-design .ink-el-column-percent{position:fixed;z-index:9999;paddi
 
 /* Drag & drop indicators */
 body.ink-builder-design .ink-element[data-ink-drop-position="inside"]{box-shadow:0 0 0 2px var(--ink-editor-accent,#93003c)}
+body.ink-builder-design .ink-imported-element[data-ink-drop-position="inside"]{outline:2px solid var(--ink-editor-accent,#93003c);outline-offset:-2px}
 body.ink-builder-design .ink-element[data-ink-drop-position="inside"].ink-el-columns>*,body.ink-builder-design .ink-el-columns[data-ink-drop-position="inside"]{box-shadow:none}
 body.ink-builder-design [data-ink-drop-position="before"]{box-shadow:inset 0 4px 0 0 var(--ink-editor-accent,#93003c)}
 body.ink-builder-design [data-ink-drop-position="before"][data-ink-drop-axis="row"]{box-shadow:inset 4px 0 0 0 var(--ink-editor-accent,#93003c)}
@@ -109,14 +120,18 @@ export default class BuilderV2 {
         this.iframeDoc = null;
         this.runtime = null;
         this.pendingDevice = 'desktop';
+        this.siteParts = options.siteParts || {};
         this.customCode = new CustomCodeManager(this, { css: options.customCss || '', js: options.customJs || '' });
         this.onKeyDown = this.onKeyDown.bind(this);
     }
 
     async load(data = {}, _themeUrl, callback) {
         this.initIframe();
-        const store = data?.version === 2 ? data : { version: 2, type: 'page', settings: { title: 'Blank' }, children: [] };
+        const sourceStore = data?.version === 2 ? data : { version: 2, type: 'page', settings: { title: 'Blank' }, children: [] };
+        const store = this.hydrateSiteParts(sourceStore);
         this.runtime = new EditorRuntime(store);
+        this.runtime.siteParts = this.siteParts;
+        this.bindSitePartSync();
         this.runtime.assetUploadHandler = this.assetUploadHandler;
         this.runtime.mount(this.canvasRoot, { panel: this.widgetsContainer, settingsPanel: this.settingsContainer });
         const documentTitle = document.querySelector('.ink-appbar-document-name');
@@ -131,6 +146,7 @@ export default class BuilderV2 {
         };
         this.finder = new FinderManager(this.runtime).mount();
         this.copilotTools = createCopilotTools(this.runtime, this);
+        this.importedSiteEditor = new ImportedSiteEditor(this.runtime, this, this.settingsContainer);
         this.customCode.injectEffectStyles(document);
         this.customCode.inject();
         this.save = typeof window.saveToInkwell === 'function' ? window.saveToInkwell.bind(window) : null;
@@ -150,6 +166,9 @@ export default class BuilderV2 {
         this.iframeDoc.open();
         this.iframeDoc.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded"><style id="ink-canvas-base">${CANVAS_BASE_CSS}</style><style id="ink-canvas-styles">${inkCanvasCss}</style><style id="ink-magic-canvas-styles">${inkMagicCss}</style><style id="ink-editor-canvas-styles">${EDITOR_CANVAS_CSS}</style></head><body><main class="ink-canvas-root" data-ink-canvas-root></main></body></html>`);
         this.iframeDoc.close();
+        this.canvasIconObserver = installLucideIcons(this.iframeDoc, {
+            filter: (icon) => Boolean(icon.closest('.ink-editor-toolbar, .ink-editor-context-menu, .ink-editor-empty, .ink-empty-action, .ink-empty-back, .ink-lightbox')),
+        });
         this.viewport = new ViewportManager(this).mount(this.mainContainer);
         this.canvasRoot = this.iframeDoc.querySelector('[data-ink-canvas-root]');
         this.canvasRoot.addEventListener('click', (event) => { if (event.target === this.canvasRoot) this.runtime?.selection.clear(); });
@@ -281,17 +300,157 @@ export default class BuilderV2 {
     }
     applyDeviceWidth(device) { this.iframe.style.width = '100%'; this.viewport?.setDevice(device); }
 
-    setMode(mode) { this.mode = mode === 'design' ? 'design' : 'preview'; this.iframeDoc.body.classList.toggle('ink-builder-design', this.mode === 'design'); }
+    setMode(mode) {
+        const previous = this.mode;
+        this.mode = mode === 'design' ? 'design' : 'preview';
+        this.iframeDoc.body.classList.toggle('ink-builder-design', this.mode === 'design');
+        // Custom/imported runtime code is a preview/publish capability. Framework hydration in
+        // Design mode can replace builder-owned nodes and silently remove IDs/listeners. Repaint
+        // from the store when returning from Preview, then keep only CSS active while editing.
+        if (this.mode === 'design' && previous === 'preview') this.runtime?.canvas?.render();
+        this.customCode?.inject(this.iframeDoc, { executeJs: this.mode === 'preview' });
+        this.iframeDoc.querySelectorAll('.ink-el-site-snapshot').forEach((frame) => frame.contentWindow?.postMessage({ type: 'ink-site-mode', design: this.mode === 'design' }, '*'));
+    }
     getMode() { return this.mode; }
     applyMode() { this.setMode(this.mode); }
     applyCustomCode() { this.customCode.inject(); }
 
-    getData() { return this.runtime.serialize(); }
+    cloneData(value) { return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
 
-    getHtml() {
+    cloneSitePartInstance(part, reference = {}) {
+        const instanceId = reference.id || crypto.randomUUID();
+        const cloneNode = (source, root = false) => {
+            const node = this.cloneData(source);
+            const sourceId = source._sitePartSourceId || source.id || crypto.randomUUID();
+            node.id = root ? instanceId : crypto.randomUUID();
+            node._sitePartSourceId = sourceId;
+            node._sitePartInstanceId = instanceId;
+            node.children = (source.children || []).map((child) => cloneNode(child));
+            return node;
+        };
+        const node = cloneNode(part, true);
+        node.type = 'site-part';
+        node.settings = { ...(part.settings || {}), ...(reference.settings || {}), partKey: reference.settings?.partKey || part.settings?.partKey };
+        return node;
+    }
+
+    canonicalSitePart(instance) {
+        const canonicalize = (source) => {
+            const node = this.cloneData(source);
+            node.id = source._sitePartSourceId || source.id || crypto.randomUUID();
+            delete node._sitePartSourceId;
+            delete node._sitePartInstanceId;
+            node.children = (source.children || []).map(canonicalize);
+            return node;
+        };
+        return canonicalize(instance);
+    }
+
+    hydrateSiteParts(store) {
+        const result = this.cloneData(store);
+        const hydrate = (source) => {
+            let node = source;
+            if (source?.type === 'site-part') {
+                const key = source.settings?.partKey;
+                const part = key && this.siteParts?.[key];
+                if (part) return this.cloneSitePartInstance(part, source);
+            }
+            node.children = (node.children || []).map(hydrate);
+            return node;
+        };
+        result.children = (result.children || []).map(hydrate);
+        return result;
+    }
+
+    bindSitePartSync() {
+        this.pendingSitePartSync = new Map();
+        const contextFor = ({ id, node, parentId } = {}) => {
+            const candidate = (id && this.runtime.document.get(id)) || (parentId && this.runtime.document.get(parentId)) || node;
+            if (!candidate) return null;
+            const path = candidate.id && this.runtime.document.get(candidate.id) ? this.runtime.document.pathTo(candidate.id) : [];
+            const root = [...path].reverse().find((item) => item.type === 'site-part');
+            const instanceId = root?.id || candidate._sitePartInstanceId;
+            let instanceRoot = null;
+            if (!root && instanceId) {
+                const find = (nodes) => {
+                    for (const item of nodes) { if (item.type === 'site-part' && item.id === instanceId) return item; const nested = find(item.children || []); if (nested) return nested; }
+                    return null;
+                };
+                instanceRoot = find(this.runtime.document.data.children || []);
+            }
+            const key = root?.settings?.partKey || instanceRoot?.settings?.partKey || candidate.settings?.partKey;
+            return key && instanceId ? { key, instanceId } : null;
+        };
+        const queue = (payload) => {
+            const context = contextFor(payload);
+            if (!context) return;
+            this.pendingSitePartSync.set(context.key, context.instanceId);
+            if (this.sitePartSyncQueued) return;
+            this.sitePartSyncQueued = true;
+            queueMicrotask(() => {
+                this.sitePartSyncQueued = false;
+                const pending = [...this.pendingSitePartSync.entries()];
+                this.pendingSitePartSync.clear();
+                pending.forEach(([key, instanceId]) => this.syncSitePartInstances(key, instanceId));
+            });
+        };
+        ['document:update', 'document:insert', 'document:remove', 'document:move'].forEach((event) => this.runtime.events.on(event, queue));
+    }
+
+    syncSitePartInstances(key, sourceInstanceId) {
+        const roots = [];
+        const collect = (nodes) => nodes.forEach((node) => { if (node.type === 'site-part' && node.settings?.partKey === key) roots.push(node); (node.children || []).forEach((child) => collect([child])); });
+        collect(this.runtime.document.data.children || []);
+        const source = roots.find((node) => node.id === sourceInstanceId) || roots[0];
+        if (!source) return;
+        const stampSource = (node) => {
+            node._sitePartSourceId ||= node.id;
+            node._sitePartInstanceId = source.id;
+            (node.children || []).forEach(stampSource);
+        };
+        stampSource(source);
+        const canonical = this.canonicalSitePart(source);
+        this.siteParts[key] = canonical;
+        this.runtime.siteParts = this.siteParts;
+        const replace = (nodes) => nodes.forEach((node, index) => {
+            if (node.type === 'site-part' && node.settings?.partKey === key && node.id !== source.id) {
+                nodes[index] = this.cloneSitePartInstance(canonical, { id: node.id, settings: node.settings });
+                return;
+            }
+            replace(node.children || []);
+        });
+        replace(this.runtime.document.data.children || []);
+        this.runtime.document.reindex();
+        this.runtime.events.emit('document:replace', this.runtime.document.serialize());
+    }
+
+    getSiteParts() {
+        const parts = {};
+        const visit = (node) => {
+            if (node.type === 'site-part' && node.settings?.partKey && !parts[node.settings.partKey]) {
+                parts[node.settings.partKey] = this.cloneData(this.siteParts[node.settings.partKey] || this.canonicalSitePart(node));
+            }
+            (node.children || []).forEach(visit);
+        };
+        (this.runtime?.serialize()?.children || []).forEach(visit);
+        return parts;
+    }
+
+    getData() {
+        const data = this.runtime.serialize();
+        const dehydrate = (node) => {
+            if (node.type === 'site-part') return { id: node.id, type: 'site-part', settings: { partKey: node.settings?.partKey }, styles: {}, children: [] };
+            return { ...node, children: (node.children || []).map(dehydrate) };
+        };
+        data.children = (data.children || []).map(dehydrate);
+        return data;
+    }
+
+    exportClone() {
         this.runtime.styles.mount(this.iframeDoc, this.runtime.document);
-        this.customCode.inject();
+        this.customCode.inject(this.iframeDoc, { executeJs: false });
         const clone = this.iframeDoc.documentElement.cloneNode(true);
+        this.customCode.injectIntoClone(clone);
         clone.querySelector('#ink-editor-canvas-styles')?.remove();
         clone.querySelectorAll('[data-ink-editor-only]').forEach((element) => element.remove());
         clone.querySelectorAll('[data-ink-hidden]').forEach((element) => element.remove());
@@ -299,12 +458,30 @@ export default class BuilderV2 {
             element.removeAttribute('data-ink-element-id'); element.removeAttribute('data-ink-element-type'); element.removeAttribute('data-ink-children'); element.removeAttribute('data-ink-drop-position');
             element.removeAttribute('data-ink-layout'); element.removeAttribute('data-ink-structure'); element.removeAttribute('draggable'); element.removeAttribute('contenteditable'); element.removeAttribute('data-ink-inline-editing'); element.classList.remove('ink-is-selected');
         });
+        clone.querySelector('[data-ink-canvas-root]')?.removeAttribute('data-ink-canvas-root');
+        clone.querySelector('body')?.classList.remove('ink-builder-design');
+        return clone;
+    }
+
+    // Structural source is intentionally different from publish HTML. The v2 store owns
+    // structure; this view is a clean, inspectable projection with no builder/runtime styles,
+    // scripts, editor markers, or document wrapper mixed into the HTML file.
+    getSourceHtml() {
+        const clone = this.exportClone();
+        const root = clone.querySelector('.ink-canvas-root');
+        if (!root) return '';
+        root.querySelectorAll('style,script,[data-ink-publish-styles],[data-ink-custom-style],[data-ink-custom-script]').forEach((element) => element.remove());
+        return root.innerHTML.trim();
+    }
+
+    getHtml() {
+        const clone = this.exportClone();
         // The saved HTML is a full document, but the public page renders only the <body>
         // (see PageBuilder::BuilderBlockComponent). Hoist the builder's canvas CSS — base
         // resets, the widget vocabulary, and the per-element scoped rules — into the body so a
         // published page stays fully styled after the head is dropped.
         const body = clone.querySelector('body');
-        const root = clone.querySelector('[data-ink-canvas-root]');
+        const root = clone.querySelector('.ink-canvas-root');
         if (body && root) {
             const holder = this.iframeDoc.createElement('div');
             holder.dataset.inkPublishStyles = '';
@@ -314,10 +491,8 @@ export default class BuilderV2 {
                 .forEach((style) => holder.appendChild(style));
             root.prepend(holder);
         }
-        clone.querySelector('[data-ink-canvas-root]')?.removeAttribute('data-ink-canvas-root');
-        clone.querySelector('body')?.classList.remove('ink-builder-design');
         return '<!doctype html>' + clone.outerHTML;
     }
 
-    destroy() { document.removeEventListener('keydown', this.onKeyDown); this.finder?.destroy(); this.navigator?.destroy(); this.runtime?.contextMenu?.destroy(); this.runtime?.canvas.destroy(); this.runtime?.panel?.destroy(); this.runtime?.settingsPanel?.destroy(); this.mainContainer.replaceChildren(); }
+    destroy() { document.removeEventListener('keydown', this.onKeyDown); this.canvasIconObserver?.disconnect(); this.finder?.destroy(); this.navigator?.destroy(); this.runtime?.contextMenu?.destroy(); this.runtime?.canvas.destroy(); this.runtime?.panel?.destroy(); this.runtime?.settingsPanel?.destroy(); this.mainContainer.replaceChildren(); }
 }

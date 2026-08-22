@@ -155,6 +155,7 @@ const advancedControls = [
     { tab: 'advanced', target: 'styles', section: 'Flex item', name: 'flex-shrink', type: 'number', label: 'Shrink', responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Effects', name: 'opacity', type: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.05, responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Effects', name: 'filter', type: 'css-filters', label: 'CSS filters' },
+    { tab: 'advanced', target: 'settings', section: 'Motion', name: 'motion', type: 'motion', label: 'Animation', description: 'Native keyframes run in Preview and published pages; Design mode stays stable and editable.' },
 ];
 
 const surfaceControls = [
@@ -166,6 +167,7 @@ const surfaceControls = [
 
 const containerSurfaceControls = [
     surfaceControls[0],
+    { tab: 'style', target: 'settings', section: 'Background', name: 'importedBackgroundImageId', type: 'imported-background', label: 'Imported background image', condition: { importedBackgroundImageId: '__not_empty__' }, description: 'Changes the original imported artwork while preserving its mask, blend mode, placement, and responsive layout.' },
     { tab: 'style', target: 'styles', section: 'Background Overlay', name: 'background-overlay', type: 'background', label: 'Background Overlay', part: 'overlay', states: ['base', 'hover'] },
     ...surfaceControls.slice(1),
     { tab: 'style', target: 'settings', section: 'Shape Divider', name: 'shape-divider', type: 'shape-divider', label: 'Shape Divider' },

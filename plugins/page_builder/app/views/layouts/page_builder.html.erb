@@ -13,8 +13,10 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
 
-  <link href="/page_builder_assets/builder.css" rel="stylesheet" />
-  <script src="/page_builder_assets/builder.js"></script>
+  <% builder_css_version = File.mtime(Rails.root.join("public/page_builder_assets/builder.css")).to_i rescue 1 %>
+  <% builder_js_version = File.mtime(Rails.root.join("public/page_builder_assets/builder.js")).to_i rescue 1 %>
+  <link href="/page_builder_assets/builder.css?v=<%= builder_css_version %>" rel="stylesheet" />
+  <script src="/page_builder_assets/builder.js?v=<%= builder_js_version %>"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
@@ -24,17 +26,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
-  <style>
-    .code-editor-container { flex: 1; min-width: 0; height: calc(100vh - 155px); }
-    .code-editor-container .CodeMirror {
-      flex: 1 1 auto; height: auto; min-height: 0; border: 0; border-radius: 0;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 13px; line-height: 1.6; background: #0f172a;
-    }
-    .code-editor-container .CodeMirror-scroll { background: #0f172a; }
-    .code-editor-container .CodeMirror-gutters { background: #0f172a; border-right: 1px solid #1e293b; }
-    .code-editor-container .CodeMirror-linenumber { color: #475569; }
-  </style>
 </head>
 <body>
   <!-- Loading Overlay -->
@@ -68,7 +59,8 @@
       <button type="button" class="ink-appbar-action" data-panel="site" title="Site settings" aria-label="Site settings"><span class="material-symbols-rounded">tune</span></button>
     </div>
     <div class="ink-appbar-center" role="group" aria-label="Page and responsive preview">
-      <button type="button" class="ink-appbar-document" data-panel="site" title="Page settings" aria-label="Page settings"><span class="ink-appbar-document-name">Blank</span><span class="material-symbols-rounded">expand_more</span></button>
+      <button type="button" id="pageSwitcherButton" class="ink-appbar-document" title="Pages" aria-label="Open pages"><span class="ink-appbar-document-name">Blank</span><span class="material-symbols-rounded">expand_more</span></button>
+      <div id="pageSwitcher" class="ink-page-switcher" hidden></div>
       <span class="ink-appbar-divider"></span>
       <button id="desktopModeButton" onclick="switchToDesktopMode()" type="button" class="builder-mode-button active" title="Desktop"><span class="material-symbols-rounded">desktop_windows</span></button>
       <button id="tabletModeButton" onclick="switchToTabletMode()" type="button" class="builder-mode-button" title="Tablet"><span class="material-symbols-rounded">tablet</span></button>
@@ -86,6 +78,10 @@
       <div class="ink-appbar-menu" data-menu hidden>
         <button type="button" data-smenu="design" onclick="enterBuilderMode('design')"><span class="material-symbols-rounded">design_services</span><span>Design</span></button>
         <button type="button" data-smenu="code" onclick="enterBuilderMode('code')"><span class="material-symbols-rounded">code</span><span>Code editor</span></button>
+        <button type="button" onclick="saveDraftToInkwell()"><span class="material-symbols-rounded">save</span><span>Save draft</span></button>
+        <button type="button" onclick="previewDraftPage()"><span class="material-symbols-rounded">preview</span><span>Preview page</span></button>
+        <button id="visitPageButton" type="button" onclick="visitPublishedPage()"<%= " hidden" unless @record.status == "published" %>><span class="material-symbols-rounded">open_in_new</span><span>Visit page</span></button>
+        <button type="button" onclick="openCaptureImporter()"><span class="material-symbols-rounded">language</span><span>Import captured site</span></button>
         <button type="button" onclick="builder?.toggleHotkeys?.()"><span class="material-symbols-rounded">help</span><span>Keyboard shortcuts</span></button>
         <button type="button" onclick="toggleTheme()"><span class="material-symbols-rounded" id="themeModeIcon">dark_mode</span><span id="themeModeLabel">Light mode</span></button>
         <button type="button" onclick="clearPage()"><span class="material-symbols-rounded">delete_sweep</span><span>Clear page</span></button>
@@ -99,6 +95,7 @@
       <main class="ink-canvas-stage">
         <div class="spin-loader"></div>
         <div id="MainContainer" class="content-container"></div>
+        <section id="PagesCanvas" class="ink-pages-canvas" aria-label="All pages" hidden></section>
       </main>
 
       <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
@@ -133,24 +130,50 @@
     </div>
 
     <div data-smenu-container="code" class="code-editor-container" style="display: none;">
-      <div class="d-flex flex-column h-100 bg-white">
-        <div class="d-flex align-items-center px-3 py-2 border-bottom bg-light gap-2">
-          <span class="fw-semibold me-2">Page source</span>
-          <div class="btn-group btn-group-sm" role="group">
-            <button type="button" class="btn btn-primary code-file-tab" data-code-file="html">HTML</button>
-            <button type="button" class="btn btn-light code-file-tab" data-code-file="css">CSS</button>
-            <button type="button" class="btn btn-light code-file-tab" data-code-file="js">JS</button>
+      <div class="ink-code-workspace">
+        <div class="ink-code-toolbar">
+          <span class="ink-code-title"><span class="material-symbols-rounded">code</span><span>Page source</span></span>
+          <p class="ink-code-help">HTML mirrors native builder elements. Page CSS and JavaScript remain editable, live, and publish with this page.</p>
+          <div class="ink-code-actions">
+            <button type="button" onclick="formatActiveCodeFile()" class="ink-code-button"><span class="material-symbols-rounded">format_align_left</span> Format</button>
+            <button type="button" onclick="applyCodeSource(false)" class="ink-code-button">Apply</button>
+            <button type="button" onclick="applyCodeSource(true)" class="ink-code-button is-primary">Apply &amp; Save</button>
           </div>
-          <span class="text-muted small d-none d-xl-inline">Styles always live in the CSS file, scripts in the JS file — the builder reads them as one source.</span>
-          <button type="button" onclick="applyCodeSource(true)" class="btn btn-sm btn-primary ms-auto">Apply &amp; Save</button>
-          <button type="button" onclick="applyCodeSource(false)" class="btn btn-sm btn-outline-secondary">Apply only</button>
         </div>
-        <textarea id="codeFileHtml" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="html"></textarea>
-        <textarea id="codeFileCss" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="css" style="display: none;"></textarea>
-        <textarea id="codeFileJs" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="js" style="display: none;"></textarea>
+        <div class="ink-code-body">
+          <aside class="ink-code-explorer" aria-label="Page files">
+            <header><span>Explorer</span><span class="material-symbols-rounded">more_horiz</span></header>
+            <div class="ink-code-folder"><span class="material-symbols-rounded">expand_more</span><strong>PAGE</strong></div>
+            <button type="button" class="ink-code-file is-active" data-code-file="html"><span class="ink-file-badge is-html">&lt;&gt;</span><span>page.html</span><i data-dirty-for="html"></i></button>
+            <button type="button" class="ink-code-file" data-code-file="css"><span class="ink-file-badge is-css">#</span><span>page.css</span><i data-dirty-for="css"></i></button>
+            <button type="button" class="ink-code-file" data-code-file="js"><span class="ink-file-badge is-js">JS</span><span>page.js</span><i data-dirty-for="js"></i></button>
+          </aside>
+          <main class="ink-code-main">
+            <div class="ink-code-tabs" role="tablist" aria-label="Open source files">
+              <button type="button" class="ink-code-tab code-file-tab is-active" data-code-file="html" role="tab" aria-selected="true"><span class="ink-file-badge is-html">&lt;&gt;</span> page.html</button>
+              <button type="button" class="ink-code-tab code-file-tab" data-code-file="css" role="tab" aria-selected="false"><span class="ink-file-badge is-css">#</span> page.css</button>
+              <button type="button" class="ink-code-tab code-file-tab" data-code-file="js" role="tab" aria-selected="false"><span class="ink-file-badge is-js">JS</span> page.js</button>
+            </div>
+            <div class="ink-code-status" data-code-guidance><strong>HTML is generated from the editable element tree.</strong> Edit structure on canvas; use CSS and JS for custom behavior.</div>
+            <textarea id="codeFileHtml" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="html"></textarea>
+            <textarea id="codeFileCss" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="css" style="display: none;"></textarea>
+            <textarea id="codeFileJs" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="js" style="display: none;"></textarea>
+            <footer class="ink-code-footer"><span data-code-position>Ln 1, Col 1</span><span>Spaces: 2</span><span>UTF-8</span><span data-code-language>HTML</span></footer>
+          </main>
+        </div>
       </div>
     </div>
   </div>
+
+  <dialog id="captureImporter" class="ink-capture-dialog" aria-labelledby="captureImporterTitle">
+    <header>
+      <div><span class="ink-pages-eyebrow">Native website import</span><h2 id="captureImporterTitle">Captured sites</h2></div>
+      <button type="button" data-close-capture aria-label="Close"><span class="material-symbols-rounded">close</span></button>
+    </header>
+    <p>Choose an authorized capture. Its visual structure, copy, media, CSS, and safe motion are converted to editable builder elements. Raw site scripts are never executed.</p>
+    <div class="ink-capture-list" data-capture-list><span class="ink-capture-empty">Loading captures…</span></div>
+    <footer><span data-capture-status>Select a capture to inspect it.</span><button type="button" class="ink-code-button is-primary" data-import-capture disabled>Import as current page</button></footer>
+  </dialog>
 
 
   <script>
@@ -158,6 +181,7 @@
     var recordType = <%= params[:record_type].to_json.html_safe %>;
     var savedCustomCss = <%= @saved_custom_css.to_json.html_safe %>;
     var savedCustomJs = <%= @saved_custom_js.to_json.html_safe %>;
+    var savedSiteParts = <%= (@site_parts || {}).to_json.html_safe %>;
     var savedHtmlBody = <%= @saved_html_body.to_json.html_safe %>;
     var htmlDesign = <%= @html_design.to_json.html_safe %>;
     document.addEventListener('DOMContentLoaded', function () {
@@ -165,6 +189,9 @@
       if (document.getElementById('customJs') && savedCustomJs) document.getElementById('customJs').value = savedCustomJs;
     });
     var recordId = <%= params[:record_id].to_json.html_safe %>;
+    var recordTitle = <%= @record.title.to_json.html_safe %>;
+    var publicPageUrl = <%= (@record.status == "published" ? (@record.is_a?(Page) ? "/pages/#{@record.slug}" : "/posts/#{@record.slug}") : nil).to_json.html_safe %>;
+    var previewPageUrl = <%= "/builder/#{@record.is_a?(Page) ? 'page' : 'post'}/#{@record.id}/preview".to_json.html_safe %>;
     var themeUrl = '/page_builder_theme';
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -177,6 +204,7 @@
         carousel: false,
         customCss: savedCustomCss,
         customJs: savedCustomJs,
+        siteParts: savedSiteParts,
       });
 
       var hasStore = savedStore && savedStore.version === 2;
@@ -184,6 +212,8 @@
 
       loadPromise.then(function (store) {
         builder.load(store, themeUrl, () => {
+          var documentName = document.querySelector('.ink-appbar-document-name');
+          if (documentName && recordTitle) documentName.textContent = recordTitle;
           document.querySelector('.spin-loader').remove();
           hidePageLoader();
           if (typeof applyCustomCode === 'function') applyCustomCode();
@@ -212,6 +242,7 @@
         });
         document.addEventListener('click', function () { menuPanel.hidden = true; menuButton.classList.remove('is-active'); });
       }
+      initPageWorkspace();
 
       // The builder's native sidebar mode switch (Design / Code). window.smenu is the
       // builder's own TabsManager instance — it opens [data-smenu-container] for the
@@ -229,56 +260,211 @@
 
       initCodeMirrors();
 
-      document.querySelectorAll('.code-file-tab').forEach(function (tab) {
+      document.querySelectorAll('[data-code-file]').forEach(function (tab) {
         tab.addEventListener('click', function () {
-          var file = tab.getAttribute('data-code-file');
-          document.querySelectorAll('.code-file-tab').forEach(function (t) { t.classList.remove('btn-primary'); t.classList.add('btn-light'); });
-          tab.classList.add('btn-primary'); tab.classList.remove('btn-light');
-          document.querySelectorAll('.code-editor-textarea').forEach(function (ta) {
-            var f = ta.getAttribute('data-code-editor-for');
-            var visible = f === file;
-            var cm = codeMirrors[f];
-            if (cm) cm.display.wrapper.style.display = visible ? '' : 'none';
-            else ta.style.display = visible ? '' : 'none';
-            if (visible && cm) cm.refresh();
-          });
+          openCodeFile(tab.getAttribute('data-code-file'));
         });
       });
 
       switchToDesktopMode();
     });
 
-    function saveToInkwell() {
+    function persistBuilderDocument(publish) {
       var html = builder.getHtml();
       var store = builder.getData();
       var customCss = builder.customCode ? builder.customCode.getCss() : '';
       var customJs = builder.customCode ? builder.customCode.getJs() : '';
-      var btn = document.getElementById('btn-save');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Saving...';
-
-      fetch('/builder/save', {
+      return fetch('/builder/save', {
         method: 'POST',
         headers: {
           'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ html: html, store: store, custom_css: customCss, custom_js: customJs, record_type: recordType, record_id: recordId })
-      }).then(function (r) { return r.json(); }).then(function () {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-rounded">publish</span><span>Publish</span>';
-        try { localStorage.setItem('inkwell_pb_' + recordType + '_' + recordId, Date.now()); } catch (e) {}
-      }).catch(function () {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-rounded">publish</span><span>Publish</span>';
+        body: JSON.stringify({ html: html, store: store, site_parts: builder.getSiteParts ? builder.getSiteParts() : {}, custom_css: customCss, custom_js: customJs, record_type: recordType, record_id: recordId, publish: Boolean(publish) })
+      }).then(function (response) {
+        return response.json().then(function (payload) {
+          if (!response.ok || !payload.ok) throw new Error(payload.error || 'Publishing failed');
+          return payload;
+        });
       });
+    }
+
+    function saveToInkwell() {
+      var btn = document.getElementById('btn-save');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Publishing...';
+
+      persistBuilderDocument(true).then(function (payload) {
+        publicPageUrl = payload.public_url || publicPageUrl;
+        previewPageUrl = payload.preview_url || previewPageUrl;
+        var visitButton = document.getElementById('visitPageButton');
+        if (visitButton && publicPageUrl) visitButton.hidden = false;
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-rounded">check</span><span>Published</span>';
+        setTimeout(function () { btn.innerHTML = '<span class="material-symbols-rounded">publish</span><span>Publish</span>'; }, 1400);
+        try { localStorage.setItem('inkwell_pb_' + recordType + '_' + recordId, Date.now()); } catch (e) {}
+      }).catch(function (error) {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-rounded">error</span><span>Retry publish</span>';
+        console.error(error);
+      });
+    }
+
+    function saveDraftToInkwell() {
+      persistBuilderDocument(false).then(function (payload) {
+        previewPageUrl = payload.preview_url || previewPageUrl;
+      }).catch(function (error) { console.error(error); });
+    }
+
+    function previewDraftPage() {
+      var previewWindow = window.open('about:blank', '_blank');
+      persistBuilderDocument(false).then(function (payload) {
+        previewPageUrl = payload.preview_url || previewPageUrl;
+        if (previewWindow) previewWindow.location.replace(previewPageUrl);
+        else window.location.assign(previewPageUrl);
+      }).catch(function (error) {
+        if (previewWindow) previewWindow.close();
+        console.error(error);
+      });
+    }
+
+    function visitPublishedPage() {
+      if (!publicPageUrl) return;
+      window.open(publicPageUrl, '_blank', 'noopener');
     }
 
     function clearPage() {
       builder.clear();
       if (typeof applyCustomCode === 'function') applyCustomCode();
     }
+
+    var pageWorkspaceData = null;
+    function escapePageText(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function (character) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]; });
+    }
+    function initPageWorkspace() {
+      var button = document.getElementById('pageSwitcherButton');
+      var switcher = document.getElementById('pageSwitcher');
+      if (!button || !switcher) return;
+      if (recordType !== 'page') { button.addEventListener('click', function () { builder?.openPanelScreen?.('site'); }); return; }
+      button.addEventListener('click', function (event) {
+        event.stopPropagation();
+        switcher.hidden = !switcher.hidden;
+        button.classList.toggle('is-active', !switcher.hidden);
+        if (!switcher.hidden) loadPageWorkspace();
+      });
+      switcher.addEventListener('click', function (event) { event.stopPropagation(); });
+      document.addEventListener('click', function () { switcher.hidden = true; button.classList.remove('is-active'); });
+    }
+    function loadPageWorkspace() {
+      var switcher = document.getElementById('pageSwitcher');
+      if (pageWorkspaceData) { renderPageSwitcher(); return Promise.resolve(pageWorkspaceData); }
+      switcher.innerHTML = '<div class="ink-page-switcher-loading">Loading pages…</div>';
+      return fetch('/builder/workspace/pages', { headers: { 'Accept': 'application/json' } })
+        .then(function (response) { if (!response.ok) throw new Error('Could not load pages'); return response.json(); })
+        .then(function (payload) { pageWorkspaceData = payload; renderPageSwitcher(); return payload; })
+        .catch(function (error) { switcher.innerHTML = '<div class="ink-page-switcher-loading">' + escapePageText(error.message) + '</div>'; });
+    }
+    function renderPageSwitcher() {
+      var switcher = document.getElementById('pageSwitcher');
+      var pages = pageWorkspaceData && pageWorkspaceData.pages || [];
+      switcher.innerHTML = '<header><strong>Pages</strong><a href="/admin/pages/new">New page</a></header>' +
+        '<button type="button" class="ink-page-overview-action" data-pages-overview><span class="material-symbols-rounded">dashboard</span><span><strong>All-pages canvas</strong><small>See every page together</small></span></button>' +
+        '<div class="ink-page-switcher-list">' + pages.map(function (page) {
+          var current = String(page.id) === String(recordId);
+          return '<a href="' + escapePageText(page.builder_url) + '" class="' + (current ? 'is-current' : '') + '"><span class="material-symbols-rounded">' + (current ? 'radio_button_checked' : 'description') + '</span><span><strong>' + escapePageText(page.title) + '</strong><small>' + escapePageText(page.status) + ' · ' + escapePageText(page.template) + '</small></span></a>';
+        }).join('') + '</div>';
+      switcher.querySelector('[data-pages-overview]')?.addEventListener('click', showPagesCanvas);
+    }
+    function showPagesCanvas() {
+      loadPageWorkspace().then(function (payload) {
+        if (!payload) return;
+        var canvas = document.getElementById('PagesCanvas');
+        var main = document.getElementById('MainContainer');
+        canvas.replaceChildren();
+        var header = document.createElement('header');
+        header.innerHTML = '<div><span class="ink-pages-eyebrow">Website</span><h1>All pages</h1><p>Review the whole site spatially. Select a page to continue editing it.</p></div><button type="button" data-close-pages><span class="material-symbols-rounded">close</span>Current page</button>';
+        canvas.appendChild(header);
+        var grid = document.createElement('div'); grid.className = 'ink-pages-grid';
+        (payload.pages || []).forEach(function (page) {
+          var card = document.createElement('a'); card.className = 'ink-page-card' + (String(page.id) === String(recordId) ? ' is-current' : ''); card.href = page.builder_url;
+          var frame = document.createElement('iframe'); frame.title = page.title + ' preview'; frame.tabIndex = -1; frame.setAttribute('sandbox', ''); frame.srcdoc = page.preview_html || '<!doctype html><html><body style="font:16px system-ui;display:grid;min-height:100vh;place-items:center;color:#777">No builder design yet</body></html>';
+          var caption = document.createElement('div'); caption.innerHTML = '<span><strong>' + escapePageText(page.title) + '</strong><small>' + escapePageText(page.status) + ' · ' + escapePageText(page.template) + '</small></span><span class="material-symbols-rounded">arrow_forward</span>';
+          card.append(frame, caption); grid.appendChild(card);
+        });
+        canvas.appendChild(grid);
+        main.hidden = true; canvas.hidden = false;
+        document.body.classList.add('ink-pages-mode');
+        header.querySelector('[data-close-pages]').addEventListener('click', function () { canvas.hidden = true; main.hidden = false; document.body.classList.remove('ink-pages-mode'); });
+        document.getElementById('pageSwitcher').hidden = true;
+      });
+    }
+
+    var selectedCaptureId = null;
+    var selectedCaptureKind = 'page';
+    function openCaptureImporter() {
+      var dialog = document.getElementById('captureImporter');
+      var menu = document.querySelector('[data-menu]');
+      if (menu) menu.hidden = true;
+      selectedCaptureId = null;
+      dialog.querySelector('[data-import-capture]').disabled = true;
+      dialog.querySelector('[data-capture-status]').textContent = 'Select a capture to inspect it.';
+      dialog.showModal();
+      var list = dialog.querySelector('[data-capture-list]');
+      list.innerHTML = '<span class="ink-capture-empty">Loading captures…</span>';
+      fetch('/builder/workspace/captures', { headers: { 'Accept': 'application/json' } })
+        .then(function (response) { if (!response.ok) throw new Error('Could not load captured sites'); return response.json(); })
+        .then(function (payload) {
+          var captures = payload.captures || [];
+          list.innerHTML = captures.length ? captures.map(function (capture) {
+            return '<button type="button" data-capture-id="' + escapePageText(capture.id) + '" data-capture-kind="' + escapePageText(capture.kind || 'page') + '"><span class="material-symbols-rounded">public</span><span><strong>' + escapePageText(capture.source || capture.id) + '</strong><small>' + escapePageText(capture.pages || 1) + ' page' + (Number(capture.pages || 1) === 1 ? '' : 's') + ' · ' + escapePageText(capture.native_sections || 0) + ' native sections · ' + escapePageText(capture.captured_nodes || 0) + ' sampled nodes</small></span><span class="material-symbols-rounded">chevron_right</span></button>';
+          }).join('') : '<span class="ink-capture-empty">No mapped captures yet. Run the capture and map commands first.</span>';
+          list.querySelectorAll('[data-capture-id]').forEach(function (button) {
+            button.addEventListener('click', function () {
+              selectedCaptureId = button.getAttribute('data-capture-id');
+              selectedCaptureKind = button.getAttribute('data-capture-kind') || 'page';
+              list.querySelectorAll('button').forEach(function (item) { item.classList.toggle('is-selected', item === button); });
+              dialog.querySelector('[data-import-capture]').disabled = false;
+              dialog.querySelector('[data-capture-status]').textContent = selectedCaptureKind === 'site' ? 'Ready to create every captured route as an editable draft page.' : 'Ready to import “' + selectedCaptureId + '”. The change is undoable.';
+              dialog.querySelector('[data-import-capture]').textContent = selectedCaptureKind === 'site' ? 'Import complete site' : 'Import as current page';
+            });
+          });
+        })
+        .catch(function (error) { list.innerHTML = '<span class="ink-capture-empty">' + escapePageText(error.message) + '</span>'; });
+    }
+    function importSelectedCapture() {
+      if (!selectedCaptureId || !window.builder?.copilotTools) return;
+      var confirmation = selectedCaptureKind === 'site' ? 'Create every captured route as a separate editable draft page? Existing pages will not be overwritten.' : 'Replace the current canvas with this captured-page composition? You can undo the import before saving.';
+      if (!window.confirm(confirmation)) return;
+      var dialog = document.getElementById('captureImporter');
+      var button = dialog.querySelector('[data-import-capture]');
+      button.disabled = true; button.textContent = 'Importing…';
+      if (selectedCaptureKind === 'site') {
+        fetch('/builder/workspace/captures/' + encodeURIComponent(selectedCaptureId) + '/import', {
+          method: 'POST',
+          headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' }
+        }).then(function (response) { return response.json().then(function (payload) { if (!response.ok) throw new Error(payload.error || 'Site import failed'); return payload; }); })
+          .then(function (payload) { window.location.assign(payload.first_builder_url); })
+          .catch(function (error) { dialog.querySelector('[data-capture-status]').textContent = error.message; button.disabled = false; button.textContent = 'Import complete site'; });
+        return;
+      }
+      fetch('/builder/workspace/captures/' + encodeURIComponent(selectedCaptureId), { headers: { 'Accept': 'application/json' } })
+        .then(function (response) { if (!response.ok) throw new Error('Could not load capture payload'); return response.json(); })
+        .then(function (payload) {
+          var result = JSON.parse(builder.copilotTools.apply('replace_page', payload));
+          if (!result.ok) throw new Error(result.error || 'Import failed');
+          if (typeof applyCustomCode === 'function') applyCustomCode();
+          enterBuilderMode('design'); switchToDesktopMode(); dialog.close();
+        })
+        .catch(function (error) { dialog.querySelector('[data-capture-status]').textContent = error.message; })
+        .finally(function () { button.disabled = false; button.textContent = 'Import as current page'; });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      var dialog = document.getElementById('captureImporter');
+      dialog?.querySelector('[data-close-capture]')?.addEventListener('click', function () { dialog.close(); });
+      dialog?.querySelector('[data-import-capture]')?.addEventListener('click', importSelectedCapture);
+    });
 
     // Editor chrome theme (dark default / light). Persisted per user; the canvas/page
     // typography is never affected — only the chrome tokens switch palettes.
@@ -304,6 +490,8 @@
     // right-sidebar smenu (Design / Code) is the Design ⇄ Code switch.
     var codeEditorsSynced = false;
     var codeMirrors = {};
+    var activeCodeFile = 'html';
+    var codeEditorSyncing = false;
     function initCodeMirrors() {
       if (typeof CodeMirror === 'undefined') return;
       var files = { html: 'xml', css: 'css', js: 'javascript' };
@@ -320,10 +508,47 @@
           matchBrackets: true,
           styleActiveLine: true,
           spellcheck: false,
-          viewportMargin: Infinity
+          viewportMargin: 30,
+          extraKeys: {
+            'Cmd-S': function () { applyCodeSource(true); },
+            'Ctrl-S': function () { applyCodeSource(true); },
+            'Shift-Alt-F': function () { formatActiveCodeFile(); }
+          }
         });
+        if (file === 'html') codeMirrors[file].setOption('readOnly', 'nocursor');
+        codeMirrors[file].on('change', function () { if (!codeEditorSyncing) markCodeFileDirty(file, true); updateCodeStatus(file); });
+        codeMirrors[file].on('cursorActivity', function () { updateCodeStatus(file); });
       });
     }
+    function openCodeFile(file) {
+      activeCodeFile = file;
+      document.querySelectorAll('[data-code-file]').forEach(function (item) {
+        var active = item.getAttribute('data-code-file') === file;
+        item.classList.toggle('is-active', active);
+        if (item.getAttribute('role') === 'tab') item.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('.code-editor-textarea').forEach(function (ta) {
+        var f = ta.getAttribute('data-code-editor-for'); var visible = f === file; var cm = codeMirrors[f];
+        if (cm) cm.display.wrapper.style.display = visible ? '' : 'none'; else ta.style.display = visible ? '' : 'none';
+        if (visible && cm) { cm.refresh(); if (file !== 'html') cm.focus(); }
+      });
+      var guidance = document.querySelector('[data-code-guidance]');
+      if (guidance) guidance.innerHTML = file === 'html' ? '<strong>Generated, read-only HTML.</strong> Edit structure on canvas; selectors and scripts belong in their own files.' : file === 'css' ? '<strong>Page-scoped CSS.</strong> Prefer .ink-canvas-root and element classes so styles remain portable.' : '<strong>Page JavaScript.</strong> Keep initialization idempotent and respect reduced motion.';
+      updateCodeStatus(file);
+    }
+    function markCodeFileDirty(file, dirty) { var marker = document.querySelector('[data-dirty-for="' + file + '"]'); if (marker) marker.classList.toggle('is-dirty', dirty); }
+    function updateCodeStatus(file) {
+      var cm = codeMirrors[file]; if (!cm) return;
+      var cursor = cm.getCursor(); var position = document.querySelector('[data-code-position]'); var language = document.querySelector('[data-code-language]');
+      if (position) position.textContent = 'Ln ' + (cursor.line + 1) + ', Col ' + (cursor.ch + 1);
+      if (language) language.textContent = ({ html: 'HTML', css: 'CSS', js: 'JavaScript' })[file] + ' · ' + cm.lineCount() + ' lines';
+    }
+    async function formatCodeFile(file) {
+      if (!window.InkCodeFormatter) return;
+      var formatted = await window.InkCodeFormatter.format(file, codeFileValue(file));
+      codeEditorSyncing = true; setCodeFileValue(file, formatted); codeEditorSyncing = false; updateCodeStatus(file);
+    }
+    function formatActiveCodeFile() { return formatCodeFile(activeCodeFile).then(function () { markCodeFileDirty(activeCodeFile, activeCodeFile !== 'html'); }); }
     function codeFileValue(file) {
       var cm = codeMirrors[file];
       if (cm) return cm.getValue();
@@ -373,28 +598,43 @@
       if (!window.builder) return null;
       return builder.iframeDoc || (builder.iframe && builder.iframe.contentDocument) || null;
     }
+    function importedSnapshotNode() {
+      var children = window.builder?.runtime?.document?.data?.children || [];
+      return children.length === 1 && children[0].type === 'site-snapshot' ? children[0] : null;
+    }
     function syncCodeEditors() {
       var doc = canvasDoc();
       var html = '';
-      if (builder.getHtml) {
-        // Page source = the canvas body, cleaned of framework head/theme artifacts so the
-        // HTML file stays structural. Styles belong in the CSS file, scripts in the JS file.
+      var snapshot = importedSnapshotNode();
+      if (snapshot) {
+        html = snapshot.settings.documentHtml || '';
+      } else if (builder.getSourceHtml) {
+        html = builder.getSourceHtml();
+      } else if (builder.getHtml) {
         var full = builder.getHtml();
         var m = full.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
         html = m ? m[1] : full;
       } else {
         html = doc && doc.body ? doc.body.innerHTML : '';
       }
+      codeEditorSyncing = true;
       setCodeFileValue('html', html);
-      setCodeFileValue('css', document.getElementById('customCss').value);
-      setCodeFileValue('js', document.getElementById('customJs').value);
+      setCodeFileValue('css', snapshot ? (snapshot.settings.stylesheetText || '') : document.getElementById('customCss').value);
+      setCodeFileValue('js', snapshot ? (snapshot.settings.pageScript || '') : document.getElementById('customJs').value);
+      if (codeMirrors.html) codeMirrors.html.setOption('readOnly', snapshot ? false : 'nocursor');
+      codeEditorSyncing = false;
       codeEditorsSynced = true;
+      Promise.all(['html', 'css', 'js'].map(formatCodeFile)).then(function () {
+        ['html', 'css', 'js'].forEach(function (file) { markCodeFileDirty(file, false); });
+        openCodeFile(activeCodeFile);
+      });
     }
     function applyCodeSource(save) {
       if (!codeEditorsSynced) return;
       var html = codeFileValue('html');
       var css = codeFileValue('css');
       var js = codeFileValue('js');
+      var snapshot = importedSnapshotNode();
 
       // Prohibit inline <style>/<script>: hoist every style block into the CSS file and
       // every script block into the JS file, so the builder keeps one clean source. The
@@ -411,8 +651,16 @@
       if (scriptParts.length) js = (js.trim() ? js.trim() + ';\n\n' : '') + scriptParts.join(';\n');
       setCodeFileValue('css', css);
       setCodeFileValue('js', js);
+      if (snapshot) {
+        builder.runtime.update(snapshot.id, { settings: { documentHtml: html, stylesheetText: css, pageScript: js } }, 'Edit imported source files');
+        markCodeFileDirty('html', false); markCodeFileDirty('css', false); markCodeFileDirty('js', false);
+        if (save) saveToInkwell();
+        return;
+      }
       document.getElementById('customCss').value = css;
       document.getElementById('customJs').value = js;
+      markCodeFileDirty('css', false);
+      markCodeFileDirty('js', false);
 
       // V2 HTML is generated from the recursive document tree. The Code workspace remains the
       // source for page CSS/JS, but arbitrary HTML is no longer pushed into a detached email-era

@@ -1,6 +1,7 @@
 class Post < ApplicationRecord
   include Termable
   include Revisable
+  include BuilderPayloadPreserving
 
   belongs_to :site
   belongs_to :author, class_name: "User"
@@ -69,7 +70,7 @@ class Post < ApplicationRecord
     with_lock do
       @skip_revision = true
       revisions.create!(user: Current.user || author, title_snapshot: title, content_snapshot: content || [])
-      update!(content: draft_content || [], draft_content: nil, status: "published")
+      update!(content: publishable_draft_content, draft_content: nil, status: "published")
     ensure
       @skip_revision = false
     end

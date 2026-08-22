@@ -18,6 +18,15 @@ class Site < ApplicationRecord
     options.find_or_initialize_by(key: key).update!(value: { "value" => value })
   end
 
+  def builder_site_parts
+    setting("builder_site_parts", {}).presence || {}
+  end
+
+  def set_builder_site_parts!(parts)
+    allowed = parts.to_h.slice("header", "footer")
+    set_setting!("builder_site_parts", allowed)
+  end
+
   # Homepage configuration — mirrors WordPress "Settings → Reading".
   #   show_on_front: "posts" (latest posts) or "page" (a chosen static page)
   #   page_on_front: the Page id to render as the homepage when show_on_front is "page"

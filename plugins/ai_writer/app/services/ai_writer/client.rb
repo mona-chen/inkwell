@@ -243,48 +243,52 @@ module AiWriter
         end
 
         raw = +""
-        response.read_body do |chunk|
-          raw << chunk
-          chunk.each_line do |line|
-            next unless line.start_with?("data:")
+        buffer = +""
+        process_sse_line = lambda do |line|
+          next unless line.start_with?("data:")
 
-            data = line[5..].strip
-            next if data == "[DONE]"
+          data = line[5..].strip
+          next if data.blank? || data == "[DONE]"
 
-            parsed = JSON.parse(data) rescue next
-            delta = parsed.dig("choices", 0, "delta") || {}
-            block.call({ reasoning_content: delta["reasoning_content"] }) if delta["reasoning_content"]
-            if delta["content"]
-              content << delta["content"]
-              block.call({ content: delta["content"] })
+          parsed = JSON.parse(data) rescue next
+          delta = parsed.dig("choices", 0, "delta") || {}
+          block.call({ reasoning_content: delta["reasoning_content"] }) if delta["reasoning_content"]
+          if delta["content"]
+            content << delta["content"]
+            block.call({ content: delta["content"] })
+          end
+          next unless delta["tool_calls"]
+
+          tool_calls ||= { entries: [], by_id: {}, by_index: {} }
+          delta["tool_calls"].each do |tc|
+            entry = if tc["id"] && tool_calls[:by_id][tc["id"]]
+              tool_calls[:by_id][tc["id"]]
+            elsif !tc["index"].nil? && tool_calls[:by_index][tc["index"]]
+              tool_calls[:by_index][tc["index"]]
+            else
+              created = { "id" => nil, "function" => { "name" => nil, "arguments" => +"" } }
+              tool_calls[:entries] << created
+              created
             end
-            next unless delta["tool_calls"]
-
-            tool_calls ||= { entries: [], by_id: {}, by_index: {} }
-            delta["tool_calls"].each do |tc|
-              entry = nil
-              if tc["id"] && tool_calls[:by_id][tc["id"]]
-                entry = tool_calls[:by_id][tc["id"]]
-              elsif tc["index"] && tool_calls[:by_index][tc["index"]]
-                entry = tool_calls[:by_index][tc["index"]]
-              else
-                entry = { "id" => nil, "function" => { "name" => nil, "arguments" => +"" } }
-                tool_calls[:entries] << entry
-              end
-              if tc["id"]
-                tool_calls[:by_id][tc["id"]] = entry
-                entry["id"] ||= tc["id"]
-              end
-              if tc["index"]
-                tool_calls[:by_index][tc["index"]] = entry
-              end
-              next unless tc["function"]
-
-              entry["function"]["name"] ||= tc["function"]["name"]
-              entry["function"]["arguments"] << tc["function"]["arguments"].to_s
+            if tc["id"]
+              tool_calls[:by_id][tc["id"]] = entry
+              entry["id"] ||= tc["id"]
             end
+            tool_calls[:by_index][tc["index"]] = entry unless tc["index"].nil?
+            next unless tc["function"]
+
+            entry["function"]["name"] ||= tc["function"]["name"]
+            entry["function"]["arguments"] << tc["function"]["arguments"].to_s
           end
         end
+        response.read_body do |chunk|
+          raw << chunk
+          buffer << chunk
+          while (newline = buffer.index("\n"))
+            process_sse_line.call(buffer.slice!(0, newline + 1).delete_suffix("\n").delete_suffix("\r"))
+          end
+        end
+        process_sse_line.call(buffer) if buffer.present?
 
         # Non-streaming fallback (provider ignores stream:true).
         if raw.present? && !raw.include?("data:")

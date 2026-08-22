@@ -40,7 +40,7 @@ export default class DragDropManager {
         });
 
         // ---- Canvas element move drags (inside the iframe) ----
-        this.canvas.addEventListener('dragstart', (event) => {
+        this.iframeDoc.addEventListener('dragstart', (event) => {
             // Resize handles are pointer-driven; never start a move drag from them.
             if (event.target.closest('.ink-el-column-resize')) return;
             const item = event.target.closest('[data-ink-element-id]');

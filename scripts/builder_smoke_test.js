@@ -142,7 +142,7 @@ async function main() {
     check("builder loads the v2 runtime", state.title === "Ink Builder — Inkwell" && state.v2 && state.ready, JSON.stringify(state));
     check("legacy v1 data starts as a clean v2 document", state.version === 2 && state.childCount === 0 && state.legacyAbsent, JSON.stringify(state));
     check("empty canvas exposes a real drop surface", state.emptyHelper === true);
-    check("element library is registry-driven", state.elements === 40, `${state.elements} elements`);
+    check("element library is registry-driven", state.elements >= 54, `${state.elements} elements`);
     check("canvas has no Bootstrap dependency", state.noBootstrap === true);
     state = await client.evaluate(`(function(){
       var r=builder.runtime;
@@ -211,6 +211,31 @@ async function main() {
     check("dimension values compile to CSS shorthand", state.dimensions === true, JSON.stringify(state));
     check("selection opens schema-driven controls", state.controls > 0, `${state.controls} controls`);
     check("canvas renders Ink element overlays", state.overlays === 3, `${state.overlays} overlays`);
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, canvas=builder.iframeDoc;
+      var timeline=r.insert('timeline-accordion',{}, {settings:{behavior:'single',defaultOpen:0,transitionDuration:120,items:[
+        {eyebrow:'ONE',title:'First milestone',content:'First details'},
+        {eyebrow:'TWO',title:'Second milestone',content:'Second details'}
+      ]}});
+      var root=canvas.querySelector('[data-ink-element-id="'+timeline.id+'"]');
+      var items=Array.from(root.querySelectorAll('.ink-el-timeline-item'));
+      items[1].querySelector('.ink-el-timeline-question').click();
+      var toolbar=root.querySelector('.ink-editor-toolbar');
+      var controls=r.elements.get('timeline-accordion').controls;
+      var result={
+        native:items.length===2,
+        single:!items[0].classList.contains('is-open')&&items[1].classList.contains('is-open'),
+        accessible:items[1].querySelector('.ink-el-timeline-question').getAttribute('aria-expanded')==='true',
+        configurable:controls.some(function(c){return c.name==='items'&&c.type==='repeater'})&&controls.some(function(c){return c.name==='behavior'}),
+        toolbarButtons:toolbar.querySelectorAll('button').length===5,
+        toolbarIcons:toolbar.querySelectorAll('button svg.ink-canvas-action-icon').length===5,
+        published:builder.getHtml().includes('ink-el-timeline-accordion')&&builder.getHtml().includes('Timeline accordion')
+      };
+      r.remove(timeline.id); return result;
+    })()`);
+    check("timeline accordion is native, editable, interactive, and publishable", state.native && state.single && state.accessible && state.configurable && state.published, JSON.stringify(state));
+    check("every canvas action uses an explicit Lucide SVG", state.toolbarButtons && state.toolbarIcons, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var b=builder,r=b.runtime;
@@ -285,7 +310,7 @@ async function main() {
       var material=r.insert('icon',{}, {settings:{icon:'star'}});
       var lucideSvg=id.querySelector('[data-ink-element-id="'+lucide.id+'"].ink-icon-svg[viewBox="0 0 24 24"]');
       var phosphorSvg=id.querySelector('[data-ink-element-id="'+phosphor.id+'"].ink-icon-svg[viewBox="0 0 256 256"]');
-      var materialSpan=id.querySelector('[data-ink-element-id="'+material.id+'"] span.material-symbols-rounded');
+      var materialLucide=id.querySelector('[data-ink-element-id="'+material.id+'"] svg.ink-icon-svg');
       // Google Fonts: setting a curated font-family emits @import in compiled CSS + a canvas link.
       var heading=r.insert('heading',{}, {settings:{text:'Fonts'}});
       r.update(heading.id,{styles:{base:{'font-family':'Montserrat'}}},'Style');
@@ -305,17 +330,18 @@ async function main() {
       var lucideButtons=document.querySelectorAll('.ink-v2-icon-grid button').length;
       var fullGrid=lucideButtons===2034;
       [lucide.id,phosphor.id,material.id,heading.id,iconBox.id].forEach(function(x){r.remove(x);});
-      return {ok:true,lucideSvg:!!lucideSvg,phosphorSvg:!!phosphorSvg,materialSpan:!!materialSpan,fontImport:fontImport,fontLink:!!link,fullSets:fullSets,fullGrid:fullGrid,lucideButtons:lucideButtons};
+      return {ok:true,lucideSvg:!!lucideSvg,phosphorSvg:!!phosphorSvg,materialLucide:!!materialLucide,fontImport:fontImport,fontLink:!!link,fullSets:fullSets,fullGrid:fullGrid,lucideButtons:lucideButtons};
     })()`);
-    check("icon libraries (Phosphor/Lucide/Material) and Google Fonts integrate", state.lucideSvg && state.phosphorSvg && state.materialSpan && state.fontImport && state.fontLink && state.fullSets, JSON.stringify(state));
+    check("icon libraries normalize legacy names to SVGs and Google Fonts integrate", state.lucideSvg && state.phosphorSvg && state.materialLucide && state.fontImport && state.fontLink && state.fullSets, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var b=builder, r=b.runtime, tools=b.copilotTools;
-      var exposed=!!tools && typeof tools.apply==='function' && typeof tools.index==='function' && tools.TOOLS.length>=11;
+      var exposed=!!tools && typeof tools.apply==='function' && typeof tools.index==='function' && typeof tools.isMutation==='function' && tools.TOOLS.length>=18 && tools.TOOLS.some(function(tool){return tool.name==='compose_landing_page';});
       var beforeStore=r.serialize();
+      var beforeCss=b.customCode.getCss(), beforeJs=b.customCode.getJs();
       var container=r.insert('container',{});
       var containerIndex=r.document.data.children.findIndex(function(n){return n.id===container.id;});
-      var inserted=tools.apply('insert_element',{path:String(containerIndex),type:'heading',settings:{text:'AI heading'}});
+      var inserted=JSON.parse(tools.apply('insert_element',{path:String(containerIndex),type:'heading',settings:{text:'AI heading'}}));
       var headingNode=r.document.get(container.id).children.find(function(n){return n.type==='heading';});
       var styled=tools.apply('set_styles',{path:String(containerIndex)+'.0',styles:{desktop:{base:{color:'#123456'}}}});
       var cssColor=headingNode && headingNode.styles.desktop.base.color==='#123456';
@@ -323,19 +349,38 @@ async function main() {
       var gone=!r.document.get(container.id).children.some(function(n){return n.type==='heading';});
       var undid=tools.apply('undo');
       var restored=r.document.get(container.id).children.some(function(n){return n.type==='heading';});
-      var cssBefore=b.customCode.getCss();
       var cssEdited=tools.apply('css_edit',{selector:':root',property:'--ink-color-primary',value:'#ff0000'});
-      var cssChanged=b.customCode.getCss()!==cssBefore && b.customCode.getCss().includes('#ff0000');
+      var cssChanged=b.customCode.getCss()!==beforeCss && b.customCode.getCss().includes('#ff0000');
       var readback=tools.apply('read_design').includes('[0]');
       var containerEl=b.iframeDoc.querySelector('[data-ink-element-id="'+container.id+'"]');
       var canvasShows=!!containerEl && !!containerEl.querySelector('[data-ink-element-type="heading"]');
-      // Restore exactly (the tools test must not disturb later coordinate-based tests).
+      // Atomic page composition validates the recursive tree, custom code, rendered audit, and
+      // single-step undo contract used by whole-page Copilot requests.
       r.document.replace(beforeStore);
-      b.customCode.update(cssBefore, b.customCode.getJs());
+      b.customCode.update(beforeCss, beforeJs);
+      var composed=JSON.parse(tools.apply('replace_page',{children:[
+        {type:'container',settings:{cssClasses:'smoke-hero'},children:[{type:'heading',settings:{text:'Atomic design',tag:'h1'}},{type:'paragraph',settings:{text:'A complete editable page.'}},{type:'button',settings:{text:'Start',url:'#start'}}]},
+        {type:'container',children:[{type:'heading',settings:{text:'Proof',tag:'h2'}},{type:'paragraph',settings:{text:'Every node is builder native.'}}]},
+        {type:'container',children:[{type:'heading',settings:{text:'Ready',tag:'h2'}},{type:'button',settings:{text:'Continue',url:'#continue'}}]}
+      ],customCss:'.ink-canvas-root .smoke-hero{min-height:50vh}',customJs:''}));
+      var audit=JSON.parse(tools.apply('audit_design'));
+      tools.apply('undo');
+      var atomicUndo=JSON.stringify(r.serialize())===JSON.stringify(beforeStore) && b.customCode.getCss()===beforeCss && b.customCode.getJs()===beforeJs;
+      var landing=JSON.parse(tools.apply('compose_landing_page',{
+        siteName:'Mara Vale',hero:{headline:'Products with a point of view.',body:'Independent product design for ambitious teams.'},
+        projects:[{title:'Atlas',summary:'A clearer planning system.',outcome:'Faster confident decisions'},{title:'Fieldwork',summary:'A trusted service journey.',outcome:'Less friction at every step'}],
+        proof:{heading:'Close to the work.',body:'Senior thinking from discovery to ship.'},process:{heading:'Clarity is a process.',body:'Evidence guides every move.'},closing:{headline:'Make the next version matter.',body:'Bring the hard problem.'}
+      }));
+      var landingAudit=JSON.parse(tools.apply('audit_design'));
+      var stepsInner=b.iframeDoc.querySelector('.cp-steps > .ink-el-container-inner');
+      var projectGridInner=b.iframeDoc.querySelector('.cp-project-grid > .ink-el-container-inner');
+      var landingHooks=!!b.iframeDoc.querySelector('.cp-hero .cp-display') && b.customCode.getCss().includes('.cp-project-grid') && document.getElementById('customCss').value===b.customCode.getCss() && b.iframeDoc.defaultView.getComputedStyle(stepsInner).display==='grid' && b.iframeDoc.defaultView.getComputedStyle(projectGridInner).display==='grid';
+      tools.apply('undo');
+      var landingUndo=JSON.stringify(r.serialize())===JSON.stringify(beforeStore) && b.customCode.getCss()===beforeCss;
       var clean=r.serialize().children.length===beforeStore.children.length;
-      return {ok:true,exposed:exposed,inserted:String(inserted).startsWith('ok'),headingExists:!!headingNode,styled:styled==='ok'&&cssColor,remove:removed==='ok'&&gone,undoRestores:undid==='ok'&&restored,cssEdit:cssEdited==='ok'&&cssChanged,readback:readback,canvasShows:canvasShows,clean:clean};
+      return {ok:true,exposed:exposed,inserted:inserted.ok===true,headingExists:!!headingNode,styled:styled==='ok'&&cssColor,remove:removed==='ok'&&gone,undoRestores:undid==='ok'&&restored,cssEdit:JSON.parse(cssEdited).ok===true&&cssChanged,readback:readback,canvasShows:canvasShows,composed:composed.ok===true&&composed.nodes===10,audit:audit.summary.h1s===1&&audit.summary.actions>=2,atomicUndo:atomicUndo,landing:landing.ok===true&&landing.nodes>30,landingAudit:landingAudit.summary.h1s===1&&landingAudit.summary.actions>=3,landingHooks:landingHooks,landingUndo:landingUndo,clean:clean};
     })()`);
-    check("Copilot client tools edit the live v2 store through history", state.exposed && state.inserted && state.headingExists && state.styled && state.remove && state.undoRestores && state.cssEdit && state.readback && state.canvasShows && state.clean, JSON.stringify(state));
+    check("Copilot client tools compose and audit the live v2 store through history", state.exposed && state.inserted && state.headingExists && state.styled && state.remove && state.undoRestores && state.cssEdit && state.readback && state.canvasShows && state.composed && state.audit && state.atomicUndo && state.landing && state.landingAudit && state.landingHooks && state.landingUndo && state.clean, JSON.stringify(state));
 
 
     state = await client.evaluate(`(function(){
@@ -743,6 +788,26 @@ async function main() {
     check("primitive widgets expose Elementor-style controls and markup", state.buttonSize && state.buttonAlign && state.buttonIcon && state.headingLink && state.imageFigure && state.imageCaption && state.imageLinked && state.iconRotate === "rotate(45deg)" && state.dividerAlign && state.statesSwitcher, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
+      var b=builder, r=b.runtime, ns='http://www.w3.org/2000/svg';
+      var gradient=r.create('svg-linear-gradient',{settings:{importedDom:true,importedTag:'linearGradient',importedNamespace:ns,importedAttributes:{id:'paint'}}});
+      var defs=r.create('svg-defs',{settings:{importedDom:true,importedTag:'defs',importedNamespace:ns,importedAttributes:{}},children:[gradient]});
+      var path=r.create('svg-path',{settings:{importedDom:true,importedTag:'path',importedNamespace:ns,importedAttributes:{d:'M0 0h10v10z',fill:'url(#paint)'}}});
+      var svg=r.insert('svg',{}, {settings:{importedDom:true,importedTag:'svg',importedNamespace:ns,importedAttributes:{viewBox:'0 0 10 10'},viewBox:'0 0 10 10'},children:[defs,path]});
+      var d=b.iframeDoc, svgEl=d.querySelector('[data-ink-element-id="'+svg.id+'"]'), gradientEl=d.querySelector('[data-ink-element-id="'+gradient.id+'"]'), pathEl=d.querySelector('[data-ink-element-id="'+path.id+'"]');
+      pathEl.dispatchEvent(new d.defaultView.MouseEvent('click',{bubbles:true,cancelable:true}));
+      var result={
+        svgNamespace:svgEl?.namespaceURI===ns,
+        gradientCase:gradientEl?.tagName==='linearGradient',
+        pathNamespace:pathEl?.namespaceURI===ns,
+        rootSelected:r.selection.selectedId===svg.id,
+        geometryHidden:!document.querySelector('[data-ink-element-type="svg-path"]'),
+        vectorPublic:!!document.querySelector('[data-ink-element-type="svg"]')
+      };
+      r.remove(svg.id); return result;
+    })()`);
+    check("SVG imports preserve namespaces/case and edit as one vector widget", state.svgNamespace && state.gradientCase && state.pathNamespace && state.rootSelected && state.geometryHidden && state.vectorPublic, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
       var b=builder, r=b.runtime, id=b.iframeDoc;
       var img=r.insert('image',{}, {settings:{src:'https://example.com/x.jpg',caption:'Cap'}});
       var iconBox=r.insert('icon-box',{}, {settings:{icon:'star'}});
@@ -868,21 +933,50 @@ async function main() {
     check("preview mode removes all editor-only UI", state.overlays > 0 && state.hidden, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,d=b.iframeDoc;
+      var link=r.insert('link',{}, {settings:{text:'Design link',url:'#ink-smoke-link'}});
+      var el=d.querySelector('[data-ink-element-id="'+link.id+'"]');
+      var designAllowed=el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
+      b.setMode('preview');
+      el=d.querySelector('[data-ink-element-id="'+link.id+'"]');
+      var previewAllowed=el.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}));
+      b.setMode('design'); r.remove(link.id);
+      return {designPrevented:designAllowed===false,previewAllowed:previewAllowed===true};
+    })()`);
+    check("links select without navigating in Design and navigate in Preview", state.designPrevented && state.previewAllowed, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
       document.getElementById('customCss').value='body{--smoke-color:#0ea5e9}';
       document.getElementById('customJs').value='window.__inkSmoke=true';
       applyCustomCode();
       var doc=builder.iframeDoc;
-      var injected=doc.getElementById('pb-custom-css')?.textContent.includes('--smoke-color') && doc.defaultView.__inkSmoke === true;
+      var cssInDesign=doc.getElementById('pb-custom-css')?.textContent.includes('--smoke-color');
+      var jsBlockedInDesign=!doc.getElementById('pb-custom-js') && doc.defaultView.__inkSmoke !== true;
       enterBuilderMode('code');
       var codeOpen=document.querySelector('[data-smenu="code"]').classList.contains('active') && !!window.codeMirrors.html;
       enterBuilderMode('design');
       var design=builder.getMode()==='design';
       toggleDesignMode(); var preview=builder.getMode()==='preview';
+      var jsInPreview=!!doc.getElementById('pb-custom-js') && doc.defaultView.__inkSmoke === true;
       toggleDesignMode();
-      return {injected:injected,codeOpen:codeOpen,design:design,preview:preview};
+      var jsRemovedOnDesign=!doc.getElementById('pb-custom-js');
+      return {cssInDesign:cssInDesign,jsBlockedInDesign:jsBlockedInDesign,jsInPreview:jsInPreview,jsRemovedOnDesign:jsRemovedOnDesign,codeOpen:codeOpen,design:design,preview:preview};
     })()`);
-    check("custom CSS and JS inject live", state.injected === true);
+    check("custom CSS stays live while custom JS is preview-only", state.cssInDesign && state.jsBlockedInDesign && state.jsInPreview && state.jsRemovedOnDesign, JSON.stringify(state));
     check("Code and Design/Preview modes work", state.codeOpen && state.design && state.preview, JSON.stringify(state));
+
+    await client.evaluate(`(function(){
+      document.getElementById('customJs').value='import { value } from "data:text/javascript,export%20const%20value%3D%22module-ok%22"; window.__inkModuleSmoke=value';
+      applyCustomCode(); builder.setMode('preview'); return true;
+    })()`);
+    await wait(700);
+    state = await client.evaluate(`(function(){
+      var script=builder.iframeDoc.getElementById('pb-custom-js');
+      var result={module:script?.type==='module',executed:builder.iframeDoc.defaultView.__inkModuleSmoke==='module-ok'};
+      builder.setMode('design'); document.getElementById('customJs').value='window.__inkSmoke=true'; applyCustomCode();
+      return result;
+    })()`);
+    check("Code workspace executes ES-module imports in Preview/publish", state.module && state.executed, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var html=builder.getHtml();

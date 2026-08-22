@@ -1,5 +1,6 @@
 class Page < ApplicationRecord
   include Termable
+  include BuilderPayloadPreserving
 
   # Page layout — mirrors Elementor's Page Layout setting. `template` is the persisted
   # column (kept for compatibility); these are the documented options with copy shown in
@@ -57,7 +58,7 @@ class Page < ApplicationRecord
 
   def publish_draft!
     with_lock do
-      update!(content: draft_content || [], draft_content: nil, status: "published")
+      update!(content: publishable_draft_content, draft_content: nil, status: "published")
     end
   end
 

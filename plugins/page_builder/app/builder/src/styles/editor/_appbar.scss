@@ -64,6 +64,35 @@
 }
 .ink-appbar-document .material-symbols-rounded { font-size: 16px; color: var(--ink-editor-faint); }
 
+.ink-page-switcher {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 5px);
+  left: 50%;
+  display: flex;
+  width: 330px;
+  max-height: min(580px, calc(100vh - 70px));
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ink-editor-border);
+  border-radius: 7px;
+  background: var(--ink-editor-panel);
+  box-shadow: var(--ink-editor-shadow);
+  transform: translateX(-50%);
+}
+.ink-page-switcher[hidden] { display: none; }
+.ink-page-switcher > header { display: flex; min-height: 42px; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--ink-editor-border); font-size: 12px; }
+.ink-page-switcher > header a { color: var(--ink-editor-accent-bright); text-decoration: none; }
+.ink-page-switcher-loading { padding: 22px; color: var(--ink-editor-muted); font-size: 12px; text-align: center; }
+.ink-page-overview-action, .ink-page-switcher-list a { display: flex; min-height: 52px; gap: 10px; align-items: center; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--ink-editor-border); background: transparent; color: var(--ink-editor-text); text-align: left; text-decoration: none; cursor: pointer; }
+.ink-page-overview-action { width: 100%; }
+.ink-page-overview-action:hover, .ink-page-switcher-list a:hover, .ink-page-switcher-list a.is-current { background: var(--ink-editor-surface); }
+.ink-page-overview-action > span:nth-child(2), .ink-page-switcher-list a > span:nth-child(2) { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.ink-page-switcher strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.ink-page-switcher small { color: var(--ink-editor-faint); font-size: 10px; text-transform: capitalize; }
+.ink-page-switcher .material-symbols-rounded { flex: none; color: var(--ink-editor-muted); font-size: 18px; }
+.ink-page-switcher-list { overflow: auto; }
+
 .ink-appbar-divider { width: 1px; height: 20px; margin: 0 8px; background: var(--ink-editor-border); }
 
 .builder-mode-button { width: 34px; padding: 0 !important; }

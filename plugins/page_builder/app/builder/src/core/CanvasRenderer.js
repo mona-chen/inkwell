@@ -1,3 +1,5 @@
+import { renderIcon } from './icons.js';
+
 // Inline widget-behavior runtime. Emitted once per canvas render inside the canvas root so it
 // ships in published output (getHtml clones the body). Uses event delegation on the iframe's
 // document, so widgets added/replaced later are covered automatically. Keep this script free of
@@ -33,6 +35,37 @@ const WIDGET_RUNTIME = `
     else if (event.key === 'Home') { next = 0; }
     else if (event.key === 'End') { next = buttons.length - 1; }
     buttons[next].focus(); activateTab(nav, next);
+  });
+
+  /* Timeline accordion — shared by native widgets and losslessly imported timelines. */
+  function setTimelineOpen (item, open) {
+    var question = item.querySelector('[data-ink-timeline-question], .ink-el-timeline-question');
+    var content = item.querySelector('[data-ink-timeline-content], .ink-el-timeline-content');
+    item.classList.toggle('is-open', open);
+    if (question) { question.setAttribute('aria-expanded', String(open)); }
+    if (content) { content.setAttribute('aria-hidden', String(!open)); }
+  }
+  function activateTimelineItem (item) {
+    var root = closest(item, '.ink-el-timeline-accordion, [data-framer-name="Timeline Wrapper"]');
+    if (!root) { return; }
+    var opening = !item.classList.contains('is-open');
+    if (opening && root.getAttribute('data-ink-timeline-behavior') !== 'multiple') {
+      root.querySelectorAll('[data-ink-timeline-item], .ink-el-timeline-item').forEach(function (candidate) { if (candidate !== item) { setTimelineOpen(candidate, false); } });
+    }
+    setTimelineOpen(item, opening);
+  }
+  on('click', '[data-ink-timeline-question], .ink-el-timeline-question', function (event, question) {
+    if (document.body.classList.contains('ink-builder-design')) { return; }
+    event.preventDefault();
+    var item = closest(question, '[data-ink-timeline-item], .ink-el-timeline-item');
+    if (item) { activateTimelineItem(item); }
+  });
+  on('keydown', '[data-ink-timeline-question], .ink-el-timeline-question', function (event, question) {
+    if (document.body.classList.contains('ink-builder-design')) { return; }
+    if (event.key !== 'Enter' && event.key !== ' ') { return; }
+    event.preventDefault();
+    var item = closest(question, '[data-ink-timeline-item], .ink-el-timeline-item');
+    if (item) { activateTimelineItem(item); }
   });
 
   /* Carousel */
@@ -154,6 +187,7 @@ export default class CanvasRenderer {
         this.instances = new Map();
         this.root = null;
         this.unsubscribers = [];
+        this.importedDocumentAttributes = { body: {}, html: {} };
     }
 
     mount(root) {
@@ -165,30 +199,63 @@ export default class CanvasRenderer {
         this.unsubscribers.push(this.events.on('document:update', ({ id }) => this.renderNode(id)));
         this.unsubscribers.push(this.events.on('document:settings', () => this.styles.mount(this.root.ownerDocument, this.document)));
         this.unsubscribers.push(this.events.on('document:replace', () => this.render()));
+        this.unsubscribers.push(this.events.on('selection:change', () => this.updateImportedChrome()));
+        this.root.ownerDocument.defaultView.addEventListener('scroll', () => this.updateImportedChrome(), true);
+        this.root.ownerDocument.defaultView.addEventListener('resize', () => this.updateImportedChrome());
         this.render();
         return this;
     }
 
     create(node) {
         const definition = this.registry.get(node.type);
-        const element = definition.render({ document: this.document, domDocument: this.root.ownerDocument, selection: this.selection }, node);
+        const imported = !!node.settings.importedDom;
+        const element = imported ? this.createImportedElement(node) : definition.render({ document: this.document, domDocument: this.root.ownerDocument, selection: this.selection }, node);
         if (!(element instanceof this.root.ownerDocument.defaultView.Element)) throw new Error(`${node.type}.render() must return a DOM Element.`);
         const kind = definition.kind || (definition.acceptsChildren ? (node.type === 'section' ? 'section' : node.type === 'column' ? 'column' : 'container') : 'widget');
-        element.classList.add('ink-element', `ink-el-${node.id}`);
+        // Losslessly imported DOM nodes must retain their authored class contract and child
+        // structure. They still receive a stable style hook and builder metadata, but editor
+        // wrappers/handles are kept outside their markup so selectors such as :first-child,
+        // :empty, and direct-child rules continue to match exactly.
+        element.classList.add(`ink-el-${node.id}`);
+        if (definition.preserveMarkup || imported) element.classList.add('ink-imported-element');
+        else element.classList.add('ink-element');
+        // CSS hooks are a universal element contract. Registry renderers may provide their own
+        // classes, but authors and Copilot must be able to target every element consistently.
+        String(node.settings.cssClasses || '').split(/\s+/).filter((name) => /^[a-zA-Z_][\w-]*$/.test(name)).forEach((name) => element.classList.add(name));
+        const cssId = String(node.settings.cssId || '').trim();
+        if (/^[a-zA-Z_][\w:.-]*$/.test(cssId)) element.id = cssId;
         element.dataset.inkElementId = node.id;
         element.dataset.inkElementType = node.type;
         element.dataset.inkKind = kind;
         element.draggable = !node.settings.locked;
         if (node.settings.hidden) element.dataset.inkHidden = '1';
         if (node.settings.locked) element.dataset.inkLocked = '1';
-        element.addEventListener('click', (event) => { event.stopPropagation(); this.selection.select(node.id, { additive: event.shiftKey || event.metaKey || event.ctrlKey }); });
+        element.addEventListener('click', (event) => {
+            // Design mode is an editing surface. A nested paragraph/span often receives the
+            // click before its authored anchor, so guard from the actual target upward instead
+            // of relying on the anchor's own listener. Preview keeps normal navigation/forms.
+            if (this.root.ownerDocument.body.classList.contains('ink-builder-design') && event.target.closest('a, area, form, button[type="submit"], input[type="submit"]')) event.preventDefault();
+            event.stopPropagation();
+            let selectionId = node.id;
+            // Treat an inline SVG as one vector widget during normal page editing. Its native
+            // geometry stays in the store for lossless rendering, but paths/filters should not
+            // steal clicks unless the author explicitly enables vector-geometry editing.
+            if (element.namespaceURI === 'http://www.w3.org/2000/svg' && node.type !== 'svg') {
+                const svg = element.closest('svg[data-ink-element-id]');
+                const svgNode = svg?.dataset.inkElementId && this.document.get(svg.dataset.inkElementId);
+                if (svgNode && !svgNode.settings.vectorEditing) selectionId = svgNode.id;
+            }
+            this.selection.select(selectionId, { additive: event.shiftKey || event.metaKey || event.ctrlKey });
+        });
         element.addEventListener('pointerenter', () => this.selection.hover(node.id));
         element.addEventListener('pointerleave', () => this.selection.hover(null));
         if (definition.inlineEditable && !node.settings.locked) element.addEventListener('dblclick', (event) => this.startInlineEditing(event, element, node, definition));
         const childrenRoot = element.querySelector('[data-ink-children]') || element;
-        (node.children || []).forEach((child) => childrenRoot.appendChild(this.create(child)));
-        if (!node.children?.length && definition.acceptsChildren) childrenRoot.appendChild(this.emptyView(node, kind));
-        element.appendChild(this.overlay(node, kind));
+        if (imported) this.appendImportedChildren(element, node);
+        else if (definition.appendChildren) definition.appendChildren({ element, childrenRoot, node, create: (child) => this.create(child), domDocument: this.root.ownerDocument });
+        else (node.children || []).forEach((child) => childrenRoot.appendChild(this.create(child)));
+        if (!node.children?.length && definition.acceptsChildren && !definition.preserveMarkup && !imported) childrenRoot.appendChild(this.emptyView(node, kind));
+        if (!definition.preserveMarkup && !imported) element.appendChild(this.overlay(node, kind));
         if (node.type === 'columns') this.attachColumnResizes(element);
         const instance = { element, definition, node };
         this.instances.set(node.id, instance);
@@ -196,8 +263,49 @@ export default class CanvasRenderer {
         return element;
     }
 
+    createImportedElement(node) {
+        const doc = this.root.ownerDocument;
+        const requested = String(node.settings.importedTag || node.settings.tag || 'div');
+        const namespace = String(node.settings.importedNamespace || node.settings.namespace || 'http://www.w3.org/1999/xhtml');
+        const lowerTag = requested.toLowerCase();
+        const svgNames = { lineargradient: 'linearGradient', radialgradient: 'radialGradient', clippath: 'clipPath', textpath: 'textPath', fecolormatrix: 'feColorMatrix', feblend: 'feBlend', feflood: 'feFlood', feoffset: 'feOffset', fegaussianblur: 'feGaussianBlur', fecomposite: 'feComposite', feimage: 'feImage' };
+        const qualifiedTag = namespace === 'http://www.w3.org/2000/svg' ? (svgNames[lowerTag] || requested) : lowerTag;
+        const tag = /^[a-z][a-z0-9-]*$/i.test(qualifiedTag) && !['html', 'head', 'body', 'script', 'style', 'link', 'meta', 'base'].includes(lowerTag) ? qualifiedTag : 'div';
+        const element = namespace === 'http://www.w3.org/1999/xhtml' ? doc.createElement(tag) : doc.createElementNS(namespace, tag);
+        let attributes = node.settings.importedAttributes || node.settings.attributesJson || {};
+        if (typeof attributes === 'string') { try { attributes = JSON.parse(attributes); } catch (_) { attributes = {}; } }
+        if (node.type === 'button') attributes.href = node.settings.url ?? attributes.href;
+        const sourceValue = (value) => value && typeof value === 'object' ? value.url : value;
+        if (node.type === 'image') { attributes.src = sourceValue(node.settings.src) ?? attributes.src; attributes.alt = node.settings.alt ?? attributes.alt; }
+        if (node.type === 'video' || node.type === 'audio') attributes.src = sourceValue(node.settings.src) ?? attributes.src;
+        if (namespace === 'http://www.w3.org/2000/svg') {
+            ['viewBox', 'preserveAspectRatio', 'width', 'height', 'fill', 'stroke', 'role', 'aria-label', 'href'].forEach((name) => {
+                if (node.settings[name] != null && node.settings[name] !== '') attributes[name] = node.settings[name];
+            });
+        }
+        Object.entries(attributes || {}).forEach(([name, value]) => {
+            if (!name || /^on/i.test(name) || name.toLowerCase() === 'srcdoc' || value == null) return;
+            try {
+                if (name === 'xlink:href') element.setAttributeNS('http://www.w3.org/1999/xlink', name, String(value));
+                else element.setAttribute(name, String(value));
+            } catch (_) {}
+        });
+        return element;
+    }
+
+    appendImportedChildren(element, node) {
+        const doc = this.root.ownerDocument;
+        let segments = node.settings.importedTextSegments || node.settings.textSegments || [];
+        if (typeof segments === 'string') { try { segments = JSON.parse(segments); } catch (_) { segments = [segments]; } }
+        if (!(node.children || []).length && ['heading', 'paragraph', 'button'].includes(node.type) && node.settings.text != null) segments = [node.settings.text];
+        const appendText = (value) => { if (value != null && value !== '') element.appendChild(doc.createTextNode(String(value))); };
+        appendText(segments[0]);
+        (node.children || []).forEach((child, index) => { element.appendChild(this.create(child)); appendText(segments[index + 1]); });
+    }
+
     render() {
         if (!this.root) return;
+        this.applyImportedDocumentAttributes();
         this.instances.forEach(({ definition, element, node }) => definition.unmount?.({ element, node }));
         this.instances.clear();
         this.root.replaceChildren(...this.document.data.children.map((node) => this.create(node)));
@@ -205,6 +313,59 @@ export default class CanvasRenderer {
         else this.root.appendChild(this.widgetRuntime());
         this.styles.mount(this.root.ownerDocument, this.document);
         this.events.emit('canvas:render', { root: this.root });
+        requestAnimationFrame(() => this.updateImportedChrome());
+    }
+
+    updateImportedChrome() {
+        if (!this.root) return;
+        const doc = this.root.ownerDocument;
+        const id = this.selection.selectedId || [...(this.selection.selectedIds || [])].at(-1);
+        const target = id ? this.root.querySelector(`[data-ink-element-id="${CSS.escape(id)}"].ink-imported-element`) : null;
+        this.importedChrome?.remove();
+        this.importedChrome = null;
+        if (!target || !doc.body.classList.contains('ink-builder-design')) return;
+        const node = this.document.get(id);
+        if (!node) return;
+        const rect = target.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const kind = target.dataset.inkKind || 'widget';
+        const chrome = doc.createElement('div');
+        chrome.className = `ink-imported-floating-chrome is-${kind}`;
+        chrome.dataset.inkEditorOnly = '';
+        chrome.dataset.inkElementId = id;
+        chrome.style.cssText = `left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height}px`;
+        const toolbar = doc.createElement('div'); toolbar.className = 'ink-editor-toolbar';
+        const labels = { drag_indicator: 'Move', edit: 'Edit', add: 'Add element', content_copy: 'Duplicate', delete: 'Delete' };
+        this.actionsFor(kind).forEach((action) => {
+            const icon = kind === 'container' && action === 'delete' ? 'close' : action;
+            const button = this.actionButton(icon, labels[action], action, id);
+            if (node.settings.locked) button.disabled = true;
+            toolbar.appendChild(button);
+        });
+        chrome.appendChild(toolbar);
+        doc.body.appendChild(chrome);
+        this.importedChrome = chrome;
+    }
+
+    applyImportedDocumentAttributes() {
+        const doc = this.root.ownerDocument;
+        const next = {
+            body: this.document.data.settings?.importedBodyAttributes || {},
+            html: this.document.data.settings?.importedHtmlAttributes || {},
+        };
+        [['body', doc.body], ['html', doc.documentElement]].forEach(([bucket, target]) => {
+            const previous = this.importedDocumentAttributes[bucket] || {};
+            Object.entries(previous).forEach(([name, value]) => {
+                if (name === 'class') String(value).split(/\s+/).filter(Boolean).forEach((token) => target.classList.remove(token));
+                else if (target.getAttribute(name) === String(value)) target.removeAttribute(name);
+            });
+            Object.entries(next[bucket] || {}).forEach(([name, value]) => {
+                if (value == null || /^on/i.test(name)) return;
+                if (name === 'class') String(value).split(/\s+/).filter(Boolean).forEach((token) => target.classList.add(token));
+                else target.setAttribute(name, String(value));
+            });
+        });
+        this.importedDocumentAttributes = { body: { ...next.body }, html: { ...next.html } };
     }
 
     widgetRuntime() {
@@ -218,9 +379,12 @@ export default class CanvasRenderer {
     actionButton(icon, label, action, id) {
         const button = this.root.ownerDocument.createElement('button');
         button.type = 'button'; button.title = label; button.dataset.inkAction = action;
-        if (action === 'edit' && icon === 'drag_indicator') button.draggable = true;
+        if (action === 'drag_indicator') button.draggable = true;
         button.setAttribute('aria-label', label);
-        button.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${icon}</span>`;
+        const lucideIcons = { drag_indicator: 'grip-vertical', edit: 'pencil', add: 'plus', content_copy: 'copy', delete: 'trash-2' };
+        const glyph = renderIcon(button.ownerDocument, `lucide:${lucideIcons[action] || icon}`, 'ink-canvas-action-icon');
+        glyph.setAttribute('aria-hidden', 'true');
+        button.appendChild(glyph);
         button.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.events.emit('element:action', { action, id }); });
         return button;
     }
@@ -230,7 +394,7 @@ export default class CanvasRenderer {
     //   column      -> move / edit / duplicate / delete (plus resize handles)
     //   container*  -> move / edit / add / duplicate / delete
     actionsFor(kind) {
-        if (kind === 'container') return ['add', 'drag_indicator', 'delete'];
+        if (kind === 'container') return ['drag_indicator', 'edit', 'add', 'content_copy', 'delete'];
         if (kind === 'section') return ['drag_indicator', 'edit', 'add', 'content_copy', 'delete'];
         return ['drag_indicator', 'edit', 'content_copy', 'delete'];
     }

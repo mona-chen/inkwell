@@ -2,8 +2,8 @@
     whole HTML canvas is Copilot's playground: it designs elegant, builder-native stores (real
     elements the Ink Builder can load and edit), using the {{ site.name }} / {{ loop posts:3 }}
     dynamic tokens. Rendered by the page_builder layout while this plugin is active.
-    NOTE: the builder page uses Bootstrap, not the app's Tailwind — so all widget styling is
-    self-contained scoped CSS (bc-*) below. %>
+    This is a specialized editor integration with its own scoped bc-* hooks; it inherits the
+    builder's editor tokens and does not style the published canvas. %>
 <div data-controller="builder-copilot"
      data-builder-copilot-context-value="<%= @record&.title %>"
      data-builder-copilot-site-value="<%= Current.site.name %>"
@@ -24,7 +24,7 @@
           <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9z"/></svg>
         </span>
         <span class="bc-title">Copilot</span>
-        <span class="bc-badge">Page builder</span>
+        <span class="bc-badge">Design agent</span>
         <span data-builder-copilot-target="statusDot" class="bc-dot hidden"></span>
       </div>
       <button type="button" data-action="builder-copilot#close" class="bc-icon-btn" aria-label="Close Copilot">
@@ -33,7 +33,22 @@
     </div>
 
     <div data-builder-copilot-target="chatView" class="bc-chat">
-      <div data-builder-copilot-target="transcript" class="bc-transcript"></div>
+      <div data-builder-copilot-target="transcript" class="bc-transcript" role="log" aria-live="polite" aria-label="Copilot conversation">
+        <div class="bc-empty" data-copilot-empty>
+          <span class="bc-empty-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3 14 9l6 2-6 2-2 6-2-6-6-2 6-2 2-6Z"/><path d="m18.5 3 .6 1.9L21 5.5l-1.9.6-.6 1.9-.6-1.9-1.9-.6 1.9-.6.6-1.9Z"/></svg>
+          </span>
+          <div class="bc-empty-copy">
+            <strong>What are we building?</strong>
+            <span>Describe the product, audience, desired action, and visual mood. Copilot will compose editable sections, responsive styles, and purposeful motion.</span>
+          </div>
+          <div class="bc-suggestions" aria-label="Example prompts">
+            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Design a premium landing page for a collaborative writing workspace for editorial teams. Make it warm, tactile, confident, and conversion-focused.">Editorial SaaS launch</button>
+            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Create a cinematic portfolio for an independent product designer. Use bold editorial typography, case-study proof, restrained motion, and a clear project inquiry CTA.">Designer portfolio</button>
+            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Build a distinctive waitlist page for a privacy-first personal finance app. Convey trust without generic fintech blue, explain the value clearly, and end with a strong signup CTA.">Product waitlist</button>
+          </div>
+        </div>
+      </div>
 
       <div data-builder-copilot-target="designView" class="bc-design hidden">
         <div class="bc-design-head">
@@ -164,6 +179,18 @@
     }
     /* Right-side dock: the Copilot fills the #CopilotDock panel in the builder workspace. */
     .bc-window.bc-docked {
+      --bc-bg: var(--ink-editor-panel, #202124);
+      --bc-surface: var(--ink-editor-surface, #27292c);
+      --bc-surface-2: var(--ink-editor-dropdown, #303236);
+      --bc-border: var(--ink-editor-border, #3b3d42);
+      --bc-border-strong: var(--ink-editor-faint, #5f6368);
+      --bc-text: var(--ink-editor-text, #f1f3f4);
+      --bc-muted: var(--ink-editor-muted, #b4b8be);
+      --bc-faint: var(--ink-editor-faint, #8a9099);
+      --bc-accent: var(--ink-editor-accent-bright, #e5498d);
+      --bc-accent-2: var(--ink-editor-accent, #b0004b);
+      --bc-accent-soft: rgba(229, 73, 141, .13);
+      --bc-accent-ink: var(--ink-editor-accent-bright, #ff76b1);
       position: static;
       width: 100%;
       height: 100%;
@@ -174,7 +201,7 @@
       box-shadow: none;
     }
     .bc-window.bc-docked .bc-accent-bar { display: none; }
-    .bc-window.bc-docked .bc-header { background: var(--ink-editor-panel, #fcfcfe); border-bottom-color: var(--ink-editor-border, var(--bc-border)); }
+    .bc-window.bc-docked .bc-header { background: var(--bc-bg); border-bottom-color: var(--bc-border); }
 
     .bc-accent-bar { height: 3px; flex: none; background: linear-gradient(90deg, var(--bc-accent), var(--bc-accent-2)); }
 
@@ -185,7 +212,7 @@
       flex: none;
       padding: 11px 14px 11px 16px;
       border-bottom: 1px solid var(--bc-border);
-      background: #fcfcfe;
+      background: var(--bc-bg);
     }
     .bc-header-left { display: flex; align-items: center; gap: 9px; min-width: 0; }
     .bc-logo {
@@ -235,22 +262,66 @@
     .bc-chat { display: flex; flex-direction: column; min-height: 0; flex: 1; }
     .bc-transcript {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
       padding: 14px 16px;
       display: flex;
       flex-direction: column;
       gap: 12px;
-      background: #fff;
+      background: var(--bc-bg);
       scrollbar-width: thin;
       scrollbar-color: var(--bc-border-strong) transparent;
     }
+
+    .bc-empty {
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+      padding: 22px 2px;
+      color: var(--bc-text);
+    }
+    .bc-empty-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--bc-border);
+      border-radius: 13px;
+      color: var(--bc-accent);
+      background: var(--bc-surface);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+    }
+    .bc-empty-mark svg { width: 23px; height: 23px; }
+    .bc-empty-copy { display: flex; flex-direction: column; gap: 6px; }
+    .bc-empty-copy strong { font-size: 17px; line-height: 1.2; letter-spacing: -.025em; }
+    .bc-empty-copy span { max-width: 34ch; color: var(--bc-muted); font-size: 12.5px; line-height: 1.55; }
+    .bc-suggestions { display: flex; flex-direction: column; gap: 7px; }
+    .bc-suggestions button {
+      display: flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 8px 11px;
+      border: 1px solid var(--bc-border);
+      border-radius: 9px;
+      background: var(--bc-surface);
+      color: var(--bc-text);
+      font: 600 12px/1.25 inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color .14s ease, background .14s ease, transform .14s ease;
+    }
+    .bc-suggestions button::after { content: "→"; margin-left: auto; color: var(--bc-faint); font-size: 15px; }
+    .bc-suggestions button:hover { border-color: var(--bc-accent); background: var(--bc-accent-soft); transform: translateX(2px); }
+    .bc-suggestions button:focus-visible { outline: 2px solid var(--bc-accent); outline-offset: 2px; }
 
     /* user / assistant bubbles */
     .bc-user { display: flex; justify-content: flex-end; }
     .bc-user > div {
       max-width: 84%;
       border-radius: 14px 14px 4px 14px;
-      background: var(--bc-text);
+      background: linear-gradient(135deg, var(--bc-accent), var(--bc-accent-2));
       color: #fff;
       padding: 9px 13px;
       white-space: pre-wrap;
@@ -346,7 +417,7 @@
       align-self: stretch;
       border: 1px solid var(--bc-border);
       border-radius: 12px;
-      background: #fff;
+      background: var(--bc-surface);
       padding: 10px 12px;
     }
     .bc-plan-title { font-size: 12px; font-weight: 700; color: var(--bc-text); margin-bottom: 8px; }
@@ -382,7 +453,7 @@
       flex: none;
       border-top: 1px solid var(--bc-border);
       padding: 10px 16px 12px;
-      background: linear-gradient(180deg, #fcfcfe, #fff);
+      background: var(--bc-surface);
     }
     .bc-design-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
     .bc-design-label {
@@ -398,7 +469,7 @@
     .bc-design-label svg { color: var(--bc-accent); }
     .bc-design-actions { display: flex; gap: 6px; }
     .bc-design-hint { font-size: 11px; color: var(--bc-faint); margin-top: 8px; }
-    .bc-btn-ghost { background: #fff; color: var(--bc-text); border: 1px solid var(--bc-border-strong); }
+    .bc-btn-ghost { background: var(--bc-bg); color: var(--bc-text); border: 1px solid var(--bc-border-strong); }
     .bc-btn-ghost:hover { background: var(--bc-surface-2); }
 
     .bc-checkpoints { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
@@ -408,7 +479,7 @@
       gap: 6px;
       max-width: 100%;
       border: 1px solid var(--bc-border);
-      background: #fff;
+      background: var(--bc-bg);
       color: var(--bc-muted);
       border-radius: 9999px;
       padding: 3px 10px 3px 4px;
@@ -444,7 +515,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      background: #fcfcfe;
+      background: var(--bc-bg);
     }
     .bc-brand-row { display: flex; align-items: center; gap: 8px; }
     .bc-brand-label { font-size: 10.5px; font-weight: 700; color: var(--bc-faint); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
@@ -454,7 +525,7 @@
       appearance: none;
       border: 1px solid var(--bc-border);
       border-radius: 8px;
-      background: #fff;
+      background: var(--bc-surface);
       color: var(--bc-text);
       font-size: 12.5px;
       font-family: inherit;
@@ -488,7 +559,7 @@
       transition: all .14s ease;
     }
     .bc-mode:hover { color: var(--bc-text); }
-    .bc-mode-active { background: #fff; color: var(--bc-text); box-shadow: 0 1px 4px rgba(15, 23, 42, .12); }
+    .bc-mode-active { background: var(--bc-bg); color: var(--bc-text); box-shadow: 0 1px 4px rgba(0, 0, 0, .18); }
     .bc-prompt {
       width: 100%;
       resize: none;
@@ -498,12 +569,13 @@
       font-size: 13.5px;
       font-family: inherit;
       color: var(--bc-text);
+      background: var(--bc-surface);
       outline: none;
       transition: border-color .12s ease, box-shadow .12s ease;
     }
     .bc-prompt:focus { border-color: var(--bc-accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, .14); }
     .bc-prompt::placeholder { color: var(--bc-faint); }
-    .bc-input-row { display: flex; align-items: center; gap: 8px; }
+    .bc-input-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .bc-status { flex: 1; font-size: 12px; color: var(--bc-faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bc-btn {
       display: inline-flex;
@@ -522,6 +594,11 @@
     .bc-btn-accent { background: var(--bc-text); color: #fff; }
     .bc-btn-accent:hover:not(:disabled) { background: #1e293b; }
     .bc-btn-send {
+      flex: none;
+      min-width: 100px;
+      min-height: 36px;
+      justify-content: center;
+      white-space: nowrap;
       background: linear-gradient(135deg, var(--bc-accent), var(--bc-accent-2));
       color: #fff;
       padding: 8px 14px;
@@ -707,7 +784,7 @@
     }
 
     class BuilderCopilotController extends Controller {
-      static targets = ["window", "transcript", "prompt", "send", "status", "statusDot", "mode", "designView", "apply", "undoCheckpoint", "checkpoints", "brand"]
+      static targets = ["fab", "window", "transcript", "prompt", "send", "status", "statusDot", "mode", "designView", "apply", "undoCheckpoint", "checkpoints", "brand"]
       static values = { context: String, site: String, recordId: String, recordType: String }
 
       connect() {
@@ -728,6 +805,8 @@
         this.mode = "design"
         this.history = []
         this.busy = false
+        this.abortController = null
+        this.requestTimer = null
         this.design = ""
         this.designHtml = ""
         this.pendingSpec = null
@@ -750,6 +829,8 @@
       }
 
       disconnect() {
+        this.abortController?.abort()
+        clearTimeout(this.requestTimer)
         if (this.copilotButton && this._copilotToggle) this.copilotButton.removeEventListener("click", this._copilotToggle)
         if (this.transcriptTarget && this._sectionClick) this.transcriptTarget.removeEventListener("click", this._sectionClick)
         if (this.checkpointsTarget && this._checkpointClick) this.checkpointsTarget.removeEventListener("click", this._checkpointClick)
@@ -797,6 +878,12 @@
         if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); this.send() }
       }
 
+      useSuggestion(event) {
+        event.preventDefault()
+        this.promptTarget.value = event.currentTarget.dataset.prompt || ""
+        this.promptTarget.focus()
+      }
+
       currentHtml() {
         try { return (window.builder && window.builder.getHtml) ? window.builder.getHtml() : "" } catch { return "" }
       }
@@ -806,11 +893,21 @@
       }
 
       async send() {
-        if (this.busy) return
+        if (this.busy) {
+          this.stopReason = "cancelled"
+          this.abortController?.abort()
+          return
+        }
         const prompt = this.promptTarget.value.trim()
         if (!prompt) return
         this.busy = true
-        this.sendTarget.disabled = true
+        this.stopReason = null
+        this.abortController = new AbortController()
+        this.setSendRunning(true)
+        this.requestTimer = setTimeout(() => {
+          this.stopReason = "timeout"
+          this.abortController?.abort()
+        }, 180000)
         this.setStatus("Thinking…", true)
 
         const editIndex = this.targetSectionIndex(prompt)
@@ -826,14 +923,18 @@
         // Client-driven loop: the AI edits the LIVE v2 store through builder.copilotTools.
         if (window.builder && window.builder.copilotTools) {
           try {
-            await this.clientSend(prompt)
+            await this.clientSend(prompt, this.abortController.signal)
           } catch (e) {
             this.endThinking()
-            this.addError(e.message)
+            if (e.name === "AbortError") this.addAssistantMessage(this.stopReason === "timeout" ? "The provider took too long, so I stopped this run safely. Try a more focused request or run it again." : "Generation stopped. No incomplete tool payload was applied.")
+            else this.addError(e.message)
           } finally {
+            clearTimeout(this.requestTimer)
+            this.requestTimer = null
+            this.abortController = null
             this.setStatus("", false)
             this.busy = false
-            this.sendTarget.disabled = false
+            this.setSendRunning(false)
           }
           return
         }
@@ -841,6 +942,7 @@
           const resp = await fetch("/plugins/ai_writer/chat", {
             method: "POST",
             headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json", "Accept": "text/event-stream" },
+            signal: this.abortController.signal,
             body: JSON.stringify({
               mode: this.mode, prompt, html: this.currentHtml(), store: this.currentStore(),
               context: this.contextValue, site: this.siteValue, recordType: this.recordTypeValue,
@@ -857,12 +959,24 @@
           this.setStatus("", false)
         } catch (e) {
           this.endThinking()
-          this.addError(e.message)
+          if (e.name === "AbortError") this.addAssistantMessage(this.stopReason === "timeout" ? "The provider took too long, so I stopped this run safely. Try a more focused request or run it again." : "Generation stopped.")
+          else this.addError(e.message)
           this.setStatus("", false)
         } finally {
+          clearTimeout(this.requestTimer)
+          this.requestTimer = null
+          this.abortController = null
           this.busy = false
-          this.sendTarget.disabled = false
+          this.setSendRunning(false)
         }
+      }
+
+      setSendRunning(running) {
+        const label = this.sendTarget.querySelector("span")
+        if (label) label.textContent = running ? "Stop" : "Generate"
+        this.sendTarget.setAttribute("aria-label", running ? "Stop generation" : "Generate")
+        this.sendTarget.classList.toggle("is-stopping", running)
+        this.sendTarget.disabled = false
       }
 
       // Read the SSE stream. reasoning_content (the model's thinking) is shown in the
@@ -888,21 +1002,20 @@
             if (!s.startsWith("data:")) continue
             const payload = s.slice(5).trim()
             if (payload === "[DONE]") continue
-            try {
-              const evt = JSON.parse(payload)
-              if (evt.error) throw new Error(evt.error)
-              const delta = evt.choice && evt.choice.delta
-              const c = delta && (delta.content || "")
-              const r = delta && (delta.reasoning_content || "")
-              if (r) { reasoning += r; this.appendThinking(r) }
-              if (c) { content += c; this.appendThinking(c) }
-              if (evt.tool) this.appendToolTurn(evt.tool.name, evt.tool.args)
-              if (evt.tools) tools = evt.tools
-              if (evt.design && evt.design.elementLists) {
-                design = evt.design
-                this.applyDesignLive(evt.design)
-              }
-            } catch { /* skip */ }
+            let evt
+            try { evt = JSON.parse(payload) } catch { continue }
+            if (evt.error) throw new Error(evt.error)
+            const delta = evt.choice && evt.choice.delta
+            const c = delta && (delta.content || "")
+            const r = delta && (delta.reasoning_content || "")
+            if (r) reasoning += r
+            if (c) content += c
+            if (evt.tool) this.appendToolTurn(evt.tool.name, evt.tool.args)
+            if (evt.tools) tools = evt.tools
+            if (evt.design && evt.design.elementLists) {
+              design = evt.design
+              this.applyDesignLive(evt.design)
+            }
           }
         }
         return { content, reasoning, design, tools }
@@ -911,10 +1024,11 @@
       // Client-driven Copilot loop: the server relays the model's tool calls; this widget
       // executes them against the LIVE v2 store via builder.copilotTools (each edit morphs the
       // canvas and is undoable), then posts the results back to resume the loop.
-      async clientSend(prompt) {
+      async clientSend(prompt, signal) {
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content
         const tools = window.builder.copilotTools.TOOLS
-        let content = ""
+        let finalContent = ""
+        let lastContent = ""
         let changed = false
         let url = "/plugins/ai_writer/chat"
         let body = {
@@ -924,25 +1038,32 @@
           tools: JSON.stringify(tools)
         }
         try {
-          for (let round = 0; round < 40; round++) {
+          for (let round = 0; round < 16; round++) {
             const resp = await fetch(url, {
               method: "POST",
               headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json", "Accept": "text/event-stream" },
+              signal: signal,
               body: JSON.stringify(body)
             })
             if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || "Copilot failed (" + resp.status + ")") }
             const streamed = await this.streamResponse(resp)
-            content += streamed.content || ""
-            if (!streamed.tools || !streamed.tools.calls || !streamed.tools.calls.length) break
-            changed = true
-            const results = streamed.tools.calls.map((call) => ({ id: call.id, content: this.executeTool(call.name, call.arguments) }))
+            lastContent = streamed.content || lastContent
+            if (!streamed.tools || !streamed.tools.calls || !streamed.tools.calls.length) {
+              finalContent = streamed.content || lastContent
+              break
+            }
+            const results = streamed.tools.calls.map((call) => {
+              const execution = this.executeTool(call.name, call.arguments)
+              if (execution.mutated) changed = true
+              return { id: call.id, content: execution.content }
+            })
             url = "/plugins/ai_writer/tool_result"
-            body = { session_id: streamed.tools.session_id, results, tools: JSON.stringify(tools) }
+            body = { session_id: streamed.tools.session_id, results }
           }
-          this.handleClientReply(content, changed)
+          this.handleClientReply(finalContent || lastContent, changed)
         } catch (e) {
           this.endThinking()
-          this.addError(e.message)
+          throw e
         }
       }
 
@@ -950,8 +1071,8 @@
         try {
           const out = window.builder.copilotTools.apply(name, args || {})
           this.appendToolTurn(name, args)
-          return String(out)
-        } catch (e) { return "tool error: " + e.message }
+          return { content: String(out), mutated: window.builder.copilotTools.isMutation(name) }
+        } catch (e) { return { content: "tool error: " + e.message, mutated: false } }
       }
 
       // Client-tools path: edits already morphed the canvas live; checkpoint the v2 store only
@@ -1515,6 +1636,7 @@
       // ---- transcript helpers ----------------------------------------------------
 
       addUserMessage(text) {
+        this.transcriptTarget.querySelector("[data-copilot-empty]")?.remove()
         this.transcriptTarget.insertAdjacentHTML("beforeend",
           '<div class="bc-user"><div>' + esc(text) + "</div></div>")
         this.scrollTranscript()
@@ -1535,8 +1657,7 @@
         if (body) { body.textContent += delta; this.scrollTranscript() }
       }
 
-      // Show a tool call the AI just made, subtly, inside the thinking area (e.g. "↳ add_section
-      // after=1 bg=#eef2ff"). The design updates stream alongside via applyDesignLive.
+      // Show concise progress labels without leaking arguments, generated copy, or reasoning.
       appendToolTurn(name, args) {
         const el = this.transcriptTarget.querySelector("[data-builder-copilot-target='thinking']")
         this._toolTurns = this._toolTurns || []
@@ -1544,14 +1665,22 @@
         if (!el) return
         const body = el.querySelector(".bc-thinking-text")
         if (!body) return
-        let summary = ""
-        if (args && typeof args === "object") {
-          summary = Object.keys(args).slice(0, 4).map((k) => {
-            const v = String(args[k] || "")
-            return k + "=" + (v.length > 24 ? v.slice(0, 24) + "…" : v)
-          }).join(" ")
+        const labels = {
+          get_capabilities: "Studying available elements",
+          read_design: "Reading the current page",
+          read_element: "Inspecting an element",
+          read_custom_code: "Reviewing page effects",
+          compose_landing_page: "Composing the art-directed page",
+          replace_page: "Composing the full page",
+          append_tree: "Adding the new section",
+          audit_design: "Checking the rendered result",
+          set_styles: "Refining responsive styles",
+          update_element: "Refining content",
+          set_custom_css: "Applying the art direction",
+          set_custom_js: "Adding progressive interaction",
+          css_edit: "Polishing visual details"
         }
-        body.textContent += "\n↳ " + name + (summary ? " " + summary : "")
+        body.textContent += (body.textContent ? "\n" : "") + (labels[name] || "Refining the design")
         this.scrollTranscript()
       }
 
@@ -1559,13 +1688,12 @@
         const box = this.transcriptTarget.querySelector("[data-builder-copilot-target='thinking']")
         if (!box) return
         const text = (box.querySelector(".bc-thinking-text") || {}).textContent || ""
-        // Keep a subtle, collapsed record of what the AI did (reasoning snippet + tool calls)
-        // instead of silently removing the whole trace.
+        // Keep a subtle completion record without exposing hidden reasoning or tool payloads.
         if (text.trim()) {
           this.transcriptTarget.insertAdjacentHTML("beforeend",
-            '<div class="bc-log"><span class="bc-log-arrow">↳</span><span>AI worked through ' +
-            (this._toolTurns && this._toolTurns.length ? this._toolTurns.length + " step(s): " + this._toolTurns.map((t) => t.name).join(", ") : "the request") +
-            (text.length > 140 ? ' — ' + esc(text.trim().slice(0, 140)) + "…" : "") + "</span></div>")
+            '<div class="bc-log"><span class="bc-log-arrow">✓</span><span>' +
+            (this._toolTurns && this._toolTurns.length ? "Completed " + this._toolTurns.length + " design step" + (this._toolTurns.length === 1 ? "" : "s") : "Design pass complete") +
+            "</span></div>")
           this.scrollTranscript()
         }
         box.remove()
@@ -1580,8 +1708,14 @@
       }
 
       addError(text) {
+        let message = String(text || "Copilot could not complete the request.")
+        if (/deserialize|tools\[\d+\]|missing field [`']type/i.test(message)) {
+          message = "The AI provider rejected the design-tool connection. Please retry; if it continues, check that the configured provider supports OpenAI-compatible function tools."
+        } else if (message.length > 280 || /\{\s*["']error/i.test(message)) {
+          message = "Copilot could not complete this design request. Please retry, or use a more focused prompt if the provider continues to fail."
+        }
         this.transcriptTarget.insertAdjacentHTML("beforeend",
-          '<div class="bc-error">' + esc(text) + "</div>")
+          '<div class="bc-error" role="alert">' + esc(message) + "</div>")
         this.scrollTranscript()
       }
 

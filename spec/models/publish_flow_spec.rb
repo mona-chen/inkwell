@@ -30,4 +30,26 @@ RSpec.describe "Publish flow" do
     expect(post.content.first.dig("data", "text")).to eq("v2")
     expect(post.revisions.count).to eq(revisions_before + 1)
   end
+
+  it "preserves the complete builder payload when the classic editor publishes" do
+    builder_data = {
+      "html" => "<main>Rendered design</main>",
+      "store" => { "version" => 2, "children" => [{ "id" => "hero", "type" => "container" }] },
+      "custom_css" => ".hero { color: rebeccapurple; }",
+      "custom_js" => "document.documentElement.dataset.motion = 'ready'"
+    }
+    post.update!(
+      content: [{ "type" => "page_builder", "data" => builder_data }],
+      draft_content: [
+        { "type" => "heading", "data" => { "text" => "Classic content" } },
+        { "type" => "page_builder", "data" => { "html" => "<main>Stale projection</main>" } }
+      ]
+    )
+
+    post.publish_draft!
+    post.reload
+
+    expect(post.content.first.dig("data", "text")).to eq("Classic content")
+    expect(post.content.second.fetch("data")).to eq(builder_data)
+  end
 end

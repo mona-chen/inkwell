@@ -10,6 +10,7 @@ module AiWriter
     # is fine for this app; entries expire and are pruned lazily.
     CLIENT_SESSIONS = {}
     SESSION_TTL = 600
+    MAX_CLIENT_ROUNDS = 16
 
     def self.prune_sessions
       now = Time.now
@@ -84,7 +85,13 @@ module AiWriter
       if params[:clientTools]
         self.class.prune_sessions
         session_id = SecureRandom.hex(8)
-        CLIENT_SESSIONS[session_id] = { messages: [ { role: "user", content: client_build_prompt } ], created_at: Time.now }
+        CLIENT_SESSIONS[session_id] = {
+          messages: [ { role: "user", content: client_build_prompt } ],
+          system: client_system_prompt,
+          tools: parse_client_tools,
+          rounds: 0,
+          created_at: Time.now
+        }
         run_client_round(client, session_id, [])
         return
       end
@@ -163,6 +170,9 @@ module AiWriter
       end
 
       stream_done
+    rescue ActionController::Live::ClientDisconnected, IOError
+      # The editor may cancel or navigate during a slow provider stream. Closing the browser
+      # connection is an expected control flow, not an application error.
     rescue AiWriter::Client::Error => e
       stream_json(error: e.message)
     ensure
@@ -507,6 +517,8 @@ module AiWriter
       end
       response.headers["Content-Type"] = "text/event-stream"
       run_client_round(client, params[:session_id].to_s, Array(params[:results]))
+    rescue ActionController::Live::ClientDisconnected, IOError
+      CLIENT_SESSIONS.delete(params[:session_id].to_s)
     rescue AiWriter::Client::Error => e
       stream_json(error: e.message)
     ensure
@@ -525,16 +537,28 @@ module AiWriter
         return
       end
       session[:created_at] = Time.now
+      session[:rounds] = session.fetch(:rounds, 0) + 1
+      if session[:rounds] > MAX_CLIENT_ROUNDS
+        CLIENT_SESSIONS.delete(session_id)
+        stream_json(error: "Copilot reached the design-round limit. The applied changes are safe; send a focused follow-up to continue.")
+        stream_done
+        return
+      end
       results.each do |result|
         session[:messages] << { role: "tool", tool_call_id: result["id"].to_s, content: result["content"].to_s }
       end
-      tools = Array(params[:tools]).map { |t| t.is_a?(String) ? JSON.parse(t) : t }
-      assistant = client.stream_round(session[:messages], system: client_system_prompt, tools: tools) do |piece|
+      assistant = client.stream_round(session[:messages], system: session[:system], tools: session[:tools]) do |piece|
         stream_json(choice: { delta: piece }) unless piece[:tool_calls]
       end
       session[:messages] << assistant
       if assistant[:tool_calls]&.any?
-        calls = assistant[:tool_calls].map { |c| { "id" => c["id"], "name" => c.dig("function", "name"), "arguments" => c.dig("function", "arguments") } }
+        calls = assistant[:tool_calls].map do |call|
+          arguments = call.dig("function", "arguments")
+          arguments = JSON.parse(arguments) if arguments.is_a?(String)
+          { "id" => call["id"], "name" => call.dig("function", "name"), "arguments" => arguments || {} }
+        rescue JSON::ParserError
+          { "id" => call["id"], "name" => call.dig("function", "name"), "arguments" => {} }
+        end
         stream_json(tools: { session_id: session_id, calls: calls })
       else
         CLIENT_SESSIONS.delete(session_id)
@@ -546,47 +570,108 @@ module AiWriter
       parts = []
       parts << "Page title: #{params[:context]}" if params[:context].to_s.present?
       parts << "Site name: #{params[:site]}" if params[:site].to_s.present?
-      parts << "Mode: #{params[:mode]}"
+      parts << "Task mode: #{params[:mode]}"
+      parts << "Requested design language: #{params[:brand]}" if params[:brand].to_s.present?
       parts << "Current design (numbered tree — target elements by their [path] or id):\n#{params[:designIndex].to_s}"
+      history = Array(params[:history]).last(6).filter_map do |entry|
+        next unless entry.respond_to?(:[])
+        role = entry[:role] || entry["role"]
+        content = entry[:content] || entry["content"]
+        "#{role}: #{content.to_s[0, 500]}" if role.present? && content.present?
+      end
+      parts << "Recent conversation:\n#{history.join("\n")}" if history.any?
       parts << "User request: #{params[:prompt]}"
       parts.join("\n\n")
     end
 
     def client_system_prompt
-      <<~PROMPT
-        You are Copilot, a design assistant inside Inkwell's visual Page Builder. The user's page
-        design is LIVE in the browser and you control it with tools that act directly on the
-        editable elements. Tools are the ONLY way to change the design — never answer a build or
-        edit request with prose alone.
+      prompt = <<~PROMPT
+        You are Inkwell Copilot: an expert product designer, art director, conversion copywriter,
+        interaction designer, and front-end engineer embedded in a professional visual page
+        builder. The page is LIVE in the browser. Tools are the only way to change it. Every
+        visible result must remain a real, editable builder tree; custom CSS and JavaScript are
+        an enhancement layer, never a substitute for editable content.
 
-        WORKFLOW (always follow for any design/build/edit/rewrite request):
-        - Step 1 — call read_design to see the current structure and target elements by their
-          [path] (e.g. 0.1) or id. Do not guess the structure.
-        - Step 2 — make the changes with tools. Build structure with containers (path = the
-          container to insert inside; omit path to add at the page root) and fill with real,
-          specific copy for the page's topic (from the page title/site in the request) — never
-          lorem ipsum and never invent a hardcoded topic.
-        - insert_element adds a builder element: type is a real element (container, heading,
-          paragraph, button, image, icon, divider, spacer, icon-list, counter, progress, rating,
-          testimonial, tabs, accordion, toggle, alert, video, map, gallery, carousel,
-          social-icons, text-editor, ...). Pass settings (text, tag, link, ...) and styles.
-        - update_element / set_styles edit copy and styling (set_styles uses CSS-style properties
-          under desktop/base, tablet, mobile; e.g. color, font-size {size,unit}, margin, padding,
-          background-color).
-        - move_element / remove_element / duplicate_element restructure.
-        - set_custom_css / css_edit manage the page design tokens (e.g.
-          css_edit(':root', '--ink-color-primary', '#5e6ad2')).
-        - undo/redo step through changes.
-        - read_element / read_styles inspect before changing.
+        OPERATING CONTRACT
+        1. For any build, rewrite, or add-section request, call get_capabilities first. Never
+           invent element types or setting names. For a surgical edit, call read_design and
+           read_element/read_custom_code as needed. In design/rewrite mode the current tree is
+           already in the user message; do not spend another round reading it.
+        2. For a standard marketing, product, portfolio, service, or waitlist page, call
+           compose_landing_page immediately after capability discovery. Fill its compact creative
+           blueprint with original, specific copy and a deliberate palette. It expands to native
+           editable builder primitives and responsive CSS. Use low-level replace_page only for a
+           genuinely non-standard composition. Never build a page through dozens of insert calls.
+           In add_section mode use append_tree once.
+        3. After the canvas renders, call audit_design. Correct every error and meaningful
+           warning with precise tools, then audit again. Do not claim completion without a final
+           audit. Tool errors are feedback: correct the payload and continue.
+        4. Finish with one concise sentence naming what was built. Do not expose implementation
+           chatter, JSON, tool names, or a design critique to the user.
 
-        For a whole-page build: insert a container, then fill it (heading, paragraph, button,
-        image, icon-list, etc.) with a clear hierarchy — hero, features, CTA. Set a coherent
-        palette once via css_edit on the :root tokens. Compose an elegant, on-topic page.
+        QUALITY BAR — THE OUTPUT MUST LOOK ART-DIRECTED, NOT AI-GENERIC
+        - Start from the product, audience, promise, and desired action. Write specific credible
+          copy; no lorem ipsum or vague "revolutionize your workflow" language. Never invent
+          numeric outcomes, client names, dates, years of experience, availability, testimonials,
+          or customer logos. When facts are unknown, use honest qualitative proof, describe the
+          kind of engagement without naming a fake client, and leave clearly editable labels.
+        - Establish one visual concept with a restrained palette, type scale, spacing rhythm,
+          border/radius language, and image/motion strategy. Avoid default blue-purple gradients,
+          bland white cards, equal-width card monotony, and gratuitous glassmorphism.
+        - Compose 5–7 purposeful sections for a landing page: navigation/identity when useful,
+          a decisive hero, concrete product proof or visual demonstration, differentiated
+          benefits, trust/proof, objection handling, and a closing CTA/footer. Vary density and
+          silhouette; use asymmetry, editorial whitespace, bento layouts, or full-bleed moments
+          only when they support the concept.
+        - Use exactly one H1. Keep body copy readable (normally 16–20px), lines around 55–75
+          characters, touch targets at least 44px, visible focus styles, semantic links/buttons,
+          useful alt text, and sufficient contrast.
+        - Design desktop, tablet, and mobile deliberately. Mobile must stack cleanly with sane
+          edge padding, no fixed widths, no horizontal overflow, and type/spacing that scale.
+        - Prefer container/section primitives for structure and native heading, paragraph,
+          button, image, icon, list, testimonial, accordion, tabs, video, and data elements for
+          content. Use Magic elements as accents or demonstrations, not as wallpaper.
 
-        When the user asks to change part of the CURRENT design, use precise tool edits — never
-        redesign the whole page. Keep working with tools until the page genuinely matches the
-        request, then reply in ONE short line confirming what you changed.
+        CUSTOM CSS / JS
+        - Give important nodes memorable CSS classes through their cssClasses setting and scope
+          page CSS under .ink-canvas-root. Use CSS custom properties for the page palette and
+          clamp() for fluid display type and spacing. Preserve the builder's editor overlays.
+        - Motion must honor prefers-reduced-motion and should clarify hierarchy. JavaScript must
+          be idempotent, scoped to the current canvas, resilient when rerun, and dependency-free
+          unless the request truly needs an available browser API. Shaders/WebGL/canvas effects
+          are welcome when conceptually justified, with a graceful CSS fallback and no blocked
+          interaction or unreadable text.
+        - Never fetch unknown remote scripts, use eval, overwrite the builder runtime, or make
+          page content depend on JavaScript. CSS and JS must also work in published output.
+
+        MODE DISCIPLINE
+        - design/rewrite: replace the whole page only when that is what the mode/request means.
+        - add_section: preserve the current page and append one complete, coherent section.
+        - targeted requests: preserve unrelated work and use path/id edits.
       PROMPT
+      prompt += "\n\nThe user selected the #{params[:brand]} design language. Interpret its recognizable principles without copying trademarks or proprietary assets." if params[:brand].to_s.present?
+      # Browser-owned tools are the complete callable surface for client mode. MCP research
+      # tools execute only in the server-owned agent path; advertising them here makes the
+      # model issue calls the browser cannot fulfil and stalls an otherwise valid design run.
+      prompt
+    end
+
+    def parse_client_tools
+      raw = params[:tools]
+      parsed = raw.is_a?(String) ? JSON.parse(raw) : raw
+      Array(parsed).filter_map do |tool|
+        next unless tool.respond_to?(:[]) && tool["name"].to_s.match?(/\A[a-z][a-z0-9_]*\z/)
+        {
+          type: "function",
+          function: {
+            name: tool["name"],
+            description: tool["description"].to_s[0, 1000],
+            parameters: tool["parameters"].presence || { type: "object", properties: {} }
+          }
+        }
+      end
+    rescue JSON::ParserError
+      []
     end
 
     # MCP design-research tools (DesignMD). Enabled via Settings → Copilot; the URL and bearer

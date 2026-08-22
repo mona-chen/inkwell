@@ -25,6 +25,31 @@ export function switcher(panel, control, node, value, row) {
     wrapper.append(checkbox, track); row.appendChild(wrapper); return row;
 }
 
+export function motion(panel, control, node, value, row) {
+    const current = value && typeof value === 'object' ? value : {};
+    const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-motion-control';
+    const field = (labelText, input) => { const label = document.createElement('label'); label.textContent = labelText; label.appendChild(input); wrapper.appendChild(label); return input; };
+    const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.checked = current.enabled !== false;
+    const trigger = document.createElement('select'); ['load', 'hover'].forEach((name) => trigger.add(new Option(name, name))); trigger.value = current.trigger || 'load';
+    const duration = document.createElement('input'); duration.type = 'number'; duration.min = '1'; duration.step = '50'; duration.value = current.duration || 800;
+    const delay = document.createElement('input'); delay.type = 'number'; delay.step = '50'; delay.value = current.delay || 0;
+    const easing = document.createElement('select'); ['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier(.16,1,.3,1)'].forEach((name) => easing.add(new Option(name, name))); easing.value = current.easing || 'ease';
+    const iterations = document.createElement('input'); iterations.type = 'text'; iterations.value = current.iterations ?? 1; iterations.placeholder = '1 or infinite';
+    const direction = document.createElement('select'); ['normal', 'reverse', 'alternate', 'alternate-reverse'].forEach((name) => direction.add(new Option(name, name))); direction.value = current.direction || 'normal';
+    const keyframes = document.createElement('textarea'); keyframes.className = 'ink-v2-code'; keyframes.rows = 8; keyframes.spellcheck = false; keyframes.value = JSON.stringify(current.keyframes || [{ offset: 0, opacity: 0, transform: 'translateY(24px)' }, { offset: 1, opacity: 1, transform: 'translateY(0)' }], null, 2);
+    field('Enabled', enabled); field('Trigger', trigger); field('Duration (ms)', duration); field('Delay (ms)', delay); field('Easing', easing); field('Iterations', iterations); field('Direction', direction); field('Keyframes', keyframes);
+    const status = document.createElement('small'); status.className = 'ink-v2-control-description'; wrapper.appendChild(status);
+    const commit = () => {
+        let parsed;
+        try { parsed = JSON.parse(keyframes.value); if (!Array.isArray(parsed) || parsed.length < 2) throw new Error('Use at least two keyframes'); }
+        catch (error) { status.textContent = error.message; keyframes.setAttribute('aria-invalid', 'true'); return; }
+        keyframes.removeAttribute('aria-invalid'); status.textContent = '';
+        panel.setValue(control, node, { enabled: enabled.checked, trigger: trigger.value, duration: Math.max(1, Number(duration.value) || 800), delay: Number(delay.value) || 0, easing: easing.value, iterations: iterations.value === 'infinite' ? 'infinite' : Math.max(1, Number(iterations.value) || 1), direction: direction.value, keyframes: parsed });
+    };
+    [enabled, trigger, duration, delay, easing, iterations, direction, keyframes].forEach((input) => input.addEventListener('change', commit));
+    row.appendChild(wrapper); return row;
+}
+
 export function slider(panel, control, node, value, row) {
     const host = document.createElement('div'); host.className = 'ink-v2-slider';
     const range = document.createElement('input'); range.type = 'range'; range.min = control.min ?? 0; range.max = control.max ?? 100; range.step = control.step ?? 1;
@@ -135,6 +160,36 @@ export function media(panel, control, node, value, row) {
     const library = document.createElement('button'); library.type = 'button'; library.textContent = 'Choose'; library.addEventListener('click', () => pickMedia((next) => panel.setValue(control, node, mediaValue(value, next))));
     const upload = document.createElement('button'); upload.type = 'button'; upload.textContent = 'Upload'; upload.addEventListener('click', () => uploadMedia(panel.runtime.assetUploadHandler, control.accept, (next) => panel.setValue(control, node, mediaValue(value, next))));
     const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.disabled = !url; remove.addEventListener('click', () => panel.setValue(control, node, mediaValue(value, '')));
+    actions.append(library, upload, remove); wrapper.append(preview, actions); row.appendChild(wrapper); return row;
+}
+
+// Imported sites often implement a section background as a positioned image layer rather
+// than CSS background-image. This control edits that native image node from the owning
+// section, preserving the captured wrapper, mask, blend mode, and positioning rules.
+export function importedBackground(panel, control, node, value, row) {
+    const imageNode = panel.runtime.document.get(value);
+    const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-media';
+    const current = imageNode?.settings?.src || imageNode?.settings?.importedAttributes?.src || '';
+    const currentUrl = typeof current === 'object' ? current.url || '' : current;
+    const preview = document.createElement('div'); preview.className = 'ink-v2-media-preview';
+    if (currentUrl) { const image = document.createElement('img'); image.src = currentUrl; image.alt = ''; preview.appendChild(image); }
+    else preview.innerHTML = '<span>Imported image unavailable</span>';
+
+    const replace = (next) => {
+        if (!imageNode) return;
+        const attributes = { ...(imageNode.settings.importedAttributes || {}) };
+        if (next) attributes.src = next; else delete attributes.src;
+        // Responsive candidates from the captured site would otherwise keep winning over
+        // the newly selected source in the browser's image selection algorithm.
+        delete attributes.srcset;
+        delete attributes.sizes;
+        panel.runtime.update(imageNode.id, { settings: { src: next, importedAttributes: attributes } }, 'Change imported background image');
+    };
+
+    const actions = document.createElement('div'); actions.className = 'ink-v2-media-actions';
+    const library = document.createElement('button'); library.type = 'button'; library.textContent = 'Choose'; library.disabled = !imageNode; library.addEventListener('click', () => pickMedia(replace));
+    const upload = document.createElement('button'); upload.type = 'button'; upload.textContent = 'Upload'; upload.disabled = !imageNode; upload.addEventListener('click', () => uploadMedia(panel.runtime.assetUploadHandler, 'image/*', replace));
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove'; remove.disabled = !imageNode || !currentUrl; remove.addEventListener('click', () => replace(''));
     actions.append(library, upload, remove); wrapper.append(preview, actions); row.appendChild(wrapper); return row;
 }
 

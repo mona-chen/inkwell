@@ -104,6 +104,29 @@ export default class StyleEngine {
         return css;
     }
 
+    motionRules(node) {
+        const motion = node.settings?.motion;
+        if (!motion || motion.enabled === false || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return '';
+        const safeId = String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_');
+        const name = `ink-motion-${safeId}`;
+        const allowed = new Set(['transform', 'opacity', 'filter', 'clip-path', 'background-color', 'color']);
+        const frames = motion.keyframes.map((frame, index) => {
+            const offset = Number.isFinite(Number(frame.offset)) ? Math.max(0, Math.min(1, Number(frame.offset))) : index / Math.max(1, motion.keyframes.length - 1);
+            const declarations = Object.entries(frame)
+                .filter(([property, value]) => property !== 'offset' && allowed.has(property) && value !== null && value !== undefined && value !== '')
+                .map(([property, value]) => `${property}:${String(value).replace(/[{}]/g, '')};`).join('');
+            return `${Math.round(offset * 10000) / 100}%{${declarations}}`;
+        }).join('');
+        if (!frames) return '';
+        const duration = Math.max(1, Number(motion.duration) || 800);
+        const delay = Number(motion.delay) || 0;
+        const iterations = motion.iterations === 'infinite' ? 'infinite' : Math.max(1, Number(motion.iterations) || 1);
+        const easing = /^[a-z-]+$|^cubic-bezier\([\d.,\s-]+\)$|^steps\([\d,\s-]+\)$/i.test(String(motion.easing || '')) ? motion.easing : 'ease';
+        const direction = ['normal', 'reverse', 'alternate', 'alternate-reverse'].includes(motion.direction) ? motion.direction : 'normal';
+        const target = `${this.selector(node.id)}${motion.trigger === 'hover' ? ':hover' : ''}`;
+        return `@keyframes ${name}{${frames}}body:not(.ink-builder-design) ${target}{animation:${name} ${duration}ms ${easing} ${delay}ms ${iterations} ${direction} both;transform-style:preserve-3d}@media(prefers-reduced-motion:reduce){${this.selector(node.id)}{animation:none!important}}`;
+    }
+
     compile(document) {
         const settings = document.data.settings || {};
         const theme = settings.theme || {};
@@ -114,7 +137,7 @@ export default class StyleEngine {
         const typography = { fontFamily: 'Inter,ui-sans-serif,system-ui,sans-serif', baseSize: 16, lineHeight: 1.5, ...(theme.typography || {}) };
         const spacing = { contentWidth: 1140, pageGutter: 10, sectionGap: 0, ...(theme.spacing || {}) };
         let css = `:root{--ink-color-primary:${colors.primary};--ink-color-secondary:${colors.secondary};--ink-color-text:${colors.text};--ink-color-accent:${colors.accent};--ink-content-width:${Number(spacing.contentWidth) || 1140}px;--ink-page-gutter:${Number(spacing.pageGutter) || 0}px;--ink-section-gap:${Number(spacing.sectionGap) || 0}px}body{background:${settings.backgroundColor || '#ffffff'};color:var(--ink-color-text);font-family:${typography.fontFamily};font-size:${Number(typography.baseSize) || 16}px;line-height:${Number(typography.lineHeight) || 1.5}}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter)}`;
-        const visit = (node) => { css += this.nodeRules(node); (node.children || []).forEach(visit); };
+        const visit = (node) => { css += this.nodeRules(node); css += this.motionRules(node); (node.children || []).forEach(visit); };
         document.data.children.forEach(visit);
         css += document.data.settings.customCss || '';
         // Google Fonts: @import must be the first rules in the stylesheet so the font survives

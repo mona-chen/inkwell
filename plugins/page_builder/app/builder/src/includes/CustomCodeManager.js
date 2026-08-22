@@ -52,7 +52,7 @@ class CustomCodeManager {
         if (fxEl.textContent !== DESIGN_KIT_CSS) fxEl.textContent = DESIGN_KIT_CSS;
     }
 
-    inject(doc) {
+    inject(doc, { executeJs = this.builder?.getMode?.() !== 'design' } = {}) {
         doc = doc || (this.builder.iframeDoc || (this.builder.iframe && this.builder.iframe.contentDocument));
         if (!doc || !doc.head || !doc.body) return;
 
@@ -68,20 +68,47 @@ class CustomCodeManager {
         }
 
         // Page custom JS.
+        try { doc.defaultView?.__inkCustomCodeCleanup?.(); } catch (error) { console.warn('Custom JS cleanup error:', error); }
+        if (doc.defaultView) doc.defaultView.__inkCustomCodeCleanup = null;
         const old = doc.getElementById('pb-custom-js');
         if (old) old.remove();
-        if (this.js) {
-            const script = doc.createElement('script');
-            script.id = 'pb-custom-js';
+        if (this.js && executeJs) doc.body.appendChild(this.createScript(doc));
+    }
+
+    createScript(doc) {
+        const script = doc.createElement('script');
+        script.id = 'pb-custom-js';
+        // The Code workspace is a real JS source file. Detect static ESM syntax so authors can
+        // import Motion/Three/etc directly; classic scripts retain the friendly runtime guard.
+        // Module errors surface through the browser's normal module diagnostics.
+        if (/^\s*(?:import\s+(?:[\s\S]*?\s+from\s+)?["']|export\s+)/m.test(this.js)) {
+            script.type = 'module';
+            script.textContent = this.js;
+        } else {
             script.textContent = 'try {\n' + this.js + '\n} catch (e) { console.error("Custom JS error:", e && e.stack ? e.stack : e) }';
-            doc.body.appendChild(script);
         }
+        return script;
+    }
+
+    injectIntoClone(documentElement) {
+        const body = documentElement?.querySelector?.('body');
+        if (!body || !this.js) return;
+        body.querySelector('#pb-custom-js')?.remove();
+        body.appendChild(this.createScript(documentElement.ownerDocument));
     }
 
     // The layout's live-edit hook: update the working copy and re-inject into the canvas.
     update(css, js) {
         this.setCss(css);
         this.setJs(js);
+        // The visual Code workspace mirrors these hidden source fields. Keep them in lockstep
+        // with browser/tool mutations so opening Code never replaces a live Copilot stylesheet
+        // with stale empty textarea values.
+        const hostDocument = this.builder?.iframe?.ownerDocument || document;
+        const cssInput = hostDocument?.getElementById('customCss');
+        const jsInput = hostDocument?.getElementById('customJs');
+        if (cssInput && cssInput.value !== this.css) cssInput.value = this.css;
+        if (jsInput && jsInput.value !== this.js) jsInput.value = this.js;
         this.inject();
     }
 }

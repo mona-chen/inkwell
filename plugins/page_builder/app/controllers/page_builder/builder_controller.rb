@@ -2,7 +2,7 @@ module PageBuilder
   class BuilderController < ::ApplicationController
     before_action :authenticate_user!
     before_action :require_admin_access!
-    before_action :set_record, except: %i[index upload_asset]
+    before_action :set_record, except: %i[index upload_asset workspace_pages workspace_captures workspace_capture import_workspace_capture]
     layout :resolve_layout
 
     # Builder.js uploads via a raw FormData fetch (no Rails CSRF header) from an already
@@ -20,10 +20,101 @@ module PageBuilder
       @saved_custom_css = builder_block&.dig("data", "custom_css") || ""
       @saved_custom_js = builder_block&.dig("data", "custom_js") || ""
       @saved_html_body = @html.to_s[/<body[^>]*>(.*?)<\/body>/m, 1].presence || @html.to_s
+      @site_parts = Current.site.builder_site_parts
       # Builder v2 intentionally starts from its normalized recursive store. The email-era
       # elementLists model and HTML-to-store reconstruction are not compatibility constraints.
       @saved_store = {} unless @saved_store["version"] == 2
       @html_design = false
+    end
+
+    def preview
+      ThemeManager.activate_for_request!(self, Current.site.active_theme, preview: true)
+      template = @record.is_a?(Page) ? "pages/#{@record.template}" : "posts/show"
+      locals = @record.is_a?(Page) ? { page: @record } : { post: @record }
+      render template: template, locals: locals, layout: "application"
+    rescue ActionView::MissingTemplate
+      fallback = @record.is_a?(Page) ? "pages/default" : "posts/show"
+      render fallback, locals: locals, layout: "application"
+    end
+
+    def workspace_pages
+      pages = Current.site.pages.ordered.includes(:author).map do |page|
+        block = page.content_blocks.find { |item| item["type"] == "page_builder" }
+        {
+          id: page.id,
+          title: page.title,
+          slug: page.slug,
+          status: page.status,
+          template: page.template,
+          updated_at: page.updated_at.iso8601,
+          builder_url: "/builder/page/#{page.id}",
+          public_url: page.status == "published" ? "/pages/#{page.slug}" : nil,
+          preview_html: block&.dig("data", "html").to_s
+        }
+      end
+      render json: { pages: pages }
+    end
+
+    # Captures are deliberately read from a server-owned directory and addressed by a strict
+    # slug. The browser never submits an arbitrary filesystem path, and copied scripts are not
+    # returned: only the reviewed, native builder payload produced by map-site-capture.js is.
+    def workspace_captures
+      captures = Dir.children(site_captures_root).filter_map do |capture_id|
+        next unless valid_capture_id?(capture_id)
+
+        directory = site_captures_root.join(capture_id)
+        manifest_path = directory.join("manifest.json")
+        next unless directory.directory? && manifest_path.file?
+
+        manifest = JSON.parse(manifest_path.read)
+        payload_path = directory.join(manifest["format"] == "ink-site-capture-v2" ? "site-builder-payload.json" : "builder-payload.json")
+        next unless payload_path.file?
+
+        payload = JSON.parse(payload_path.read)
+        report = payload.fetch("importReport", {})
+        {
+          id: capture_id,
+          source: manifest["source"],
+          captured_at: manifest["capturedAt"] || manifest["captured_at"],
+          kind: payload["format"] == "ink-builder-site-import-v1" ? "site" : "page",
+          pages: report["mappedPages"] || 1,
+          native_sections: report["nativeSections"] || payload.fetch("pages", []).sum { |page| page.dig("payload", "importReport", "nativeSections").to_i },
+          captured_nodes: report["capturedNodes"] || payload.fetch("pages", []).sum { |page| page.dig("payload", "importReport", "capturedNodes").to_i }
+        }
+      rescue JSON::ParserError
+        nil
+      end
+      render json: { captures: captures.sort_by { |capture| capture[:id] } }
+    end
+
+    def workspace_capture
+      return render json: { error: "Invalid capture" }, status: :bad_request unless valid_capture_id?(params[:capture_id])
+
+      directory = site_captures_root.join(params[:capture_id])
+      payload_path = directory.join("site-builder-payload.json")
+      payload_path = directory.join("builder-payload.json") unless payload_path.file?
+      return render json: { error: "Capture not found" }, status: :not_found unless payload_path.file?
+
+      render json: JSON.parse(payload_path.read)
+    rescue JSON::ParserError
+      render json: { error: "Capture payload is invalid" }, status: :unprocessable_entity
+    end
+
+    def import_workspace_capture
+      return render json: { error: "Invalid capture" }, status: :bad_request unless valid_capture_id?(params[:capture_id])
+
+      payload_path = site_captures_root.join(params[:capture_id], "site-builder-payload.json")
+      return render json: { error: "Mapped site capture not found" }, status: :not_found unless payload_path.file?
+
+      site_payload = JSON.parse(payload_path.read)
+      return render json: { error: "Unsupported site payload" }, status: :unprocessable_entity unless site_payload["format"] == "ink-builder-site-import-v1"
+
+      imported = import_captured_pages!(site_payload, params[:capture_id])
+      render json: { ok: true, pages: imported, first_builder_url: imported.first&.fetch(:builder_url) }
+    rescue JSON::ParserError
+      render json: { error: "Site payload is invalid" }, status: :unprocessable_entity
+    rescue ActiveRecord::RecordInvalid => error
+      render json: { error: error.record.errors.full_messages.to_sentence }, status: :unprocessable_entity
     end
 
     def save
@@ -32,6 +123,13 @@ module PageBuilder
       store = params[:store].presence
       custom_css = ErbConverter.convert(params[:custom_css].to_s, document_root: root)
       custom_js = ErbConverter.convert(params[:custom_js].to_s, document_root: root)
+      if params[:site_parts].present?
+        site_parts = params[:site_parts].respond_to?(:to_unsafe_h) ? params[:site_parts].to_unsafe_h : params[:site_parts].to_h
+        # A page only submits the global parts it currently references. Merge those edited
+        # canonical trees into the site registry; never erase an unrelated footer simply
+        # because the current page only uses a header (or vice versa).
+        Current.site.set_builder_site_parts!(Current.site.builder_site_parts.merge(site_parts.slice("header", "footer")))
+      end
 
       blocks = @record.content_blocks.dup
       block = { "type" => "page_builder", "data" => { "html" => erb } }
@@ -40,9 +138,20 @@ module PageBuilder
       block["data"]["custom_js"] = custom_js if custom_js.present?
       idx = blocks.index { |b| b["type"] == "page_builder" }
       idx ? blocks[idx] = block : blocks << block
-      @record.update!(content: blocks)
+      attributes = { content: blocks }
+      if ActiveModel::Type::Boolean.new.cast(params[:publish])
+        attributes[:status] = "published"
+        attributes[:draft_content] = nil if @record.has_attribute?(:draft_content)
+      end
+      @record.update!(attributes)
 
-      render json: { ok: true, erb_length: erb.length }
+      render json: {
+        ok: true,
+        erb_length: erb.length,
+        status: @record.status,
+        public_url: public_record_url,
+        preview_url: preview_record_url
+      }
     end
 
     # Builder.js assetUploadHandler: accepts a multipart file upload, stores it in the
@@ -62,7 +171,10 @@ module PageBuilder
     private
 
     def resolve_layout
-      action_name == "index" ? "admin" : "page_builder"
+      return "admin" if action_name == "index"
+      return "application" if action_name == "preview"
+
+      "page_builder"
     end
 
     def require_admin_access!
@@ -79,6 +191,153 @@ module PageBuilder
 
     def builder_block
       @record.content_blocks.find { |b| b["type"] == "page_builder" }
+    end
+
+    def public_record_url
+      return unless @record.status == "published"
+
+      @record.is_a?(Page) ? "/pages/#{@record.slug}" : "/posts/#{@record.slug}"
+    end
+
+    def preview_record_url
+      "/builder/#{@record.is_a?(Page) ? 'page' : 'post'}/#{@record.id}/preview"
+    end
+
+    def site_captures_root
+      Rails.root.join("tmp", "site-captures")
+    end
+
+    def valid_capture_id?(capture_id)
+      capture_id.to_s.match?(/\A[a-z0-9][a-z0-9_-]*\z/i)
+    end
+
+    def import_captured_pages!(site_payload, capture_id)
+      pages = site_payload.fetch("pages")
+      existing_by_source = Current.site.pages.where("meta ->> 'import_capture' = ?", capture_id).index_by { |page| page.meta["import_source"] }
+      reserved_slugs = Current.site.pages.pluck(:slug).to_set
+      desired_slugs = pages.to_h do |page|
+        existing = existing_by_source[page["source"]]
+        slug = existing&.slug || unique_import_slug(page.fetch("slug"), reserved_slugs)
+        reserved_slugs << slug
+        [page.fetch("slug"), slug]
+      end
+      by_source = {}
+
+      Page.transaction do
+        site_parts = site_payload.fetch("siteParts", {}).deep_dup
+        site_parts.each_value { |node| rewrite_import_links!([node], desired_slugs) }
+        Current.site.set_builder_site_parts!(site_parts.transform_values { |node| materialize_import_node(node) }) if site_parts.present?
+        pages.each_with_index do |page_payload, index|
+          payload = page_payload.fetch("payload").deep_dup
+          rewrite_import_links!(payload.fetch("children"), desired_slugs)
+          store = {
+            "version" => 2,
+            "type" => "page",
+            "settings" => payload.fetch("settings", {}).merge("title" => page_payload.fetch("title")),
+            "children" => payload.fetch("children").map { |node| materialize_import_node(node) }
+          }
+          block = {
+            "type" => "page_builder",
+            "data" => {
+              # The recursive store is the source of truth for editing. Keep the mapped body as
+              # an immediate first render so an imported draft/published page is never blank
+              # before its first builder save; the next save replaces this with renderer output.
+              "html" => ErbConverter.convert(rewrite_import_html_links(payload["initialHtml"].to_s, desired_slugs), document_root: "@page"),
+              "store" => store,
+              "custom_css" => payload["customCss"].to_s,
+              "custom_js" => payload["customJs"].to_s
+            }
+          }
+          page = existing_by_source[page_payload["source"]] || Current.site.pages.build(author: current_user)
+          page.assign_attributes(
+            author: current_user,
+            title: page_payload.fetch("title"),
+            slug: desired_slugs.fetch(page_payload.fetch("slug")),
+            status: "draft",
+            template: "landing",
+            hide_title: true,
+            menu_order: index,
+            content: [block],
+            meta: { "import_source" => page_payload["source"], "import_capture" => capture_id }
+          )
+          page.save!
+          by_source[page_payload["source"]] = page
+        end
+        pages.each do |page_payload|
+          page = by_source[page_payload["source"]]
+          parent = by_source[page_payload["parentSource"]]
+          page.update!(parent: parent) if parent && page.parent_id != parent.id
+        end
+      end
+
+      pages.map do |page_payload|
+        page = by_source.fetch(page_payload["source"])
+        { id: page.id, title: page.title, slug: page.slug, source: page_payload["source"], builder_url: "/builder/page/#{page.id}" }
+      end
+    end
+
+    def unique_import_slug(desired, reserved = Set.new)
+      base = desired.to_s.parameterize.presence || "imported-page"
+      candidate = base
+      suffix = 2
+      while reserved.include?(candidate) || Current.site.pages.exists?(slug: candidate)
+        candidate = "#{base}-#{suffix}"
+        suffix += 1
+      end
+      candidate
+    end
+
+    def rewrite_import_links!(nodes, slugs)
+      Array(nodes).each do |node|
+        url = node.dig("settings", "url")
+        if url.to_s.start_with?("/pages/")
+          desired = url.delete_prefix("/pages/")
+          node["settings"]["url"] = "/pages/#{slugs.fetch(desired, desired)}"
+        end
+        rewrite_import_links!(node["children"], slugs)
+      end
+    end
+
+    def rewrite_import_html_links(html, slugs)
+      slugs.reduce(html.to_s) do |result, (desired, actual)|
+        result.gsub(%r{(?<=["'])/pages/#{Regexp.escape(desired)}(?=(?:[?#][^"']*)?["'])}, "/pages/#{actual}")
+      end
+    end
+
+    def materialize_import_node(node)
+      materialized = {
+        "id" => SecureRandom.uuid,
+        "type" => node.fetch("type"),
+        "settings" => node.fetch("settings", {}).deep_dup,
+        "styles" => node.fetch("styles", {}),
+        "children" => Array(node["children"]).map { |child| materialize_import_node(child) }
+      }
+
+      bind_imported_background!(materialized)
+      materialized
+    end
+
+    def bind_imported_background!(node)
+      return unless node["type"] == "container"
+
+      layer = Array(node["children"]).find do |child|
+        child.dig("settings", "importedLabel").to_s.match?(/background(?: image)?/i)
+      end
+      image = imported_descendant(layer, "image")
+      return unless image
+
+      node["settings"]["importedBackgroundImageId"] = image.fetch("id")
+    end
+
+    def imported_descendant(node, type)
+      return unless node
+      return node if node["type"] == type
+
+      Array(node["children"]).each do |child|
+        match = imported_descendant(child, type)
+        return match if match
+      end
+      nil
     end
   end
 end

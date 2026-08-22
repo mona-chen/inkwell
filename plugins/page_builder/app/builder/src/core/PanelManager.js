@@ -86,6 +86,34 @@ export default class PanelManager {
         const page = section('Page');
         field(page, 'Page title', settings.title, 'text', (value) => this.runtime.updateDocumentSettings({ title: value }, 'Change page title'));
         field(page, 'Canvas background', settings.backgroundColor || '#ffffff', 'color', (value) => this.runtime.updateDocumentSettings({ backgroundColor: value }, 'Change canvas background'));
+        const siteParts = section('Site parts');
+        const findPart = (key) => {
+            let match = null;
+            const visit = (node) => { if (!match && node.type === 'site-part' && node.settings?.partKey === key) match = node; (node.children || []).forEach(visit); };
+            this.runtime.document.data.children.forEach(visit);
+            return match;
+        };
+        ['header', 'footer'].forEach((key) => {
+            const part = findPart(key);
+            const canonical = this.runtime.siteParts?.[key];
+            const button = document.createElement('button'); button.type = 'button'; button.className = 'ink-v2-site-part-action';
+            const status = part ? 'Global · editing updates every assigned page' : canonical ? 'Available globally · add to this page' : 'Create global part';
+            button.innerHTML = `<span class="material-symbols-rounded">${key === 'header' ? 'web_asset' : 'bottom_panel'}</span><span><strong>${key[0].toUpperCase()}${key.slice(1)}</strong><small>${status}</small></span><span class="material-symbols-rounded">${part ? 'edit' : 'add'}</span>`;
+            // Imported global parts use a display:contents scoping wrapper. Select their first
+            // editable child so the canvas can draw a useful outline and expose its native
+            // background/layout controls immediately.
+            button.addEventListener('click', () => {
+                if (part) { this.runtime.selection.select(part.children?.[0]?.id || part.id); return; }
+                const overrides = canonical
+                    ? { settings: structuredClone(canonical.settings || { partKey: key }), styles: structuredClone(canonical.styles || {}), children: structuredClone(canonical.children || []) }
+                    : { settings: { partKey: key }, children: [] };
+                const inserted = this.runtime.insert('site-part', { index: key === 'header' ? 0 : this.runtime.document.data.children.length }, overrides);
+                this.runtime.siteParts[key] = structuredClone(inserted);
+                this.runtime.selection.select(inserted.children?.[0]?.id || inserted.id);
+                this.render();
+            });
+            siteParts.appendChild(button);
+        });
         const colors = section('Global colors');
         [['primary', '#6ec1e4'], ['secondary', '#54595f'], ['text', '#7a7a7a'], ['accent', '#61ce70']].forEach(([name, fallback]) => field(colors, name[0].toUpperCase() + name.slice(1), theme.colors?.[name] || fallback, 'color', (value) => this.updateTheme('colors', name, value)));
         const typography = section('Global typography');
@@ -151,7 +179,7 @@ export default class PanelManager {
         const groups = document.createElement('div');
         const draw = (query = '') => {
             groups.replaceChildren();
-            const definitions = this.runtime.elements.list().filter((definition) => `${definition.title} ${definition.keywords.join(' ')}`.toLowerCase().includes(query.toLowerCase()));
+            const definitions = this.runtime.elements.list().filter((definition) => !definition.internal && `${definition.title} ${definition.keywords.join(' ')}`.toLowerCase().includes(query.toLowerCase()));
             const categorized = Map.groupBy ? Map.groupBy(definitions, (definition) => definition.category) : definitions.reduce((map, definition) => map.set(definition.category, [...(map.get(definition.category) || []), definition]), new Map());
             categorized.forEach((items, category) => {
                 const section = document.createElement('details'); section.className = 'ink-v2-library-section'; section.open = true;
