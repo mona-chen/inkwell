@@ -29,7 +29,7 @@ Primary references:
 | Real cross-document drag & drop | Ported; blank-root, empty-container, before/after, reparent, and cancellation paths covered by real pointer tests |
 | Column resize | Ported; per-column handles with live percentage feedback that commits real column structures |
 | Context menu: edit/copy/paste/duplicate/delete | Ported |
-| Recursive Structure panel and selection sync | Ported as a floating "Structure" panel toggled from the top bar |
+| Recursive Structure panel and selection sync | Ported as a floating "Structure" panel toggled from the top bar; recursive tree with connector lines, expand/collapse persistence, before/after/inside drag reorder/reparent, visibility/lock toggles, context menu (duplicate/copy/paste/rename/delete), hover + scroll-into-view sync, keyboard nav, dock/position/size persistence |
 | Undo/redo command history | Ported; History routed screen with jump-to-state |
 | Inline text editing | Ported for text-bearing elements with history support |
 | Canvas zoom, custom width/height, resize handles | Ported |
@@ -109,8 +109,6 @@ Primary references:
 
 ## Remaining gaps (honest)
 
-- Navigator: recursive connectors, expand/collapse persistence, drag reorder/reparent,
-  visibility/lock, context menu, keyboard nav, dock persistence not yet complete.
 - Composite widgets (tabs/accordion/gallery/carousel/social) parity is partial.
 - Magic UI visual parity intentionally deferred until the foundation is verified.
 - WYSIWYG still uses `document.execCommand` internally (the only cross-browser inline

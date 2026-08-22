@@ -83,6 +83,14 @@ body.ink-builder-design .ink-editor-context-menu button:hover{background:#f1f3f5
 body.ink-builder-design .ink-editor-inline-toolbar{position:absolute;z-index:9996;display:flex;top:calc(100% + 2px);left:0;padding:2px;border-radius:3px;background:#26292c;color:#fff;pointer-events:auto;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 body.ink-builder-design .ink-editor-inline-toolbar button{display:flex;width:26px;height:26px;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:#fff;font-size:12px;cursor:pointer}
 body.ink-builder-design .ink-editor-inline-toolbar button:hover{background:rgba(255,255,255,.15)}
+
+/* Hidden + locked element states (Phase 4 navigator toggles) */
+body.ink-builder-design .ink-element[data-ink-hidden]{opacity:.4}
+body.ink-builder-design .ink-element[data-ink-hidden]>.ink-editor-overlay{box-shadow:inset 0 0 0 1px dashed #6d7882}
+body.ink-builder-design .ink-element[data-ink-hidden]>.ink-editor-overlay::after{content:"hidden";position:absolute;top:2px;left:2px;padding:1px 5px;border-radius:2px;background:rgba(84,89,95,.85);color:#fff;font:9px Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px}
+body.ink-builder-design .ink-editor-overlay.is-locked{background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.04) 0 6px,transparent 6px 12px)}
+body.ink-builder-design .ink-editor-overlay.is-locked::after{content:"lock";font-family:"Material Symbols Rounded";position:absolute;right:2px;bottom:2px;font-size:15px;color:#6d7882}
+body.ink-builder-design .ink-element[data-ink-locked]{cursor:not-allowed}
 `;
 
 export default class BuilderV2 {
@@ -266,6 +274,7 @@ export default class BuilderV2 {
         const clone = this.iframeDoc.documentElement.cloneNode(true);
         clone.querySelector('#ink-editor-canvas-styles')?.remove();
         clone.querySelectorAll('[data-ink-editor-only]').forEach((element) => element.remove());
+        clone.querySelectorAll('[data-ink-hidden]').forEach((element) => element.remove());
         clone.querySelectorAll('[data-ink-element-id],[data-ink-element-type],[data-ink-children],[data-ink-drop-position]').forEach((element) => {
             element.removeAttribute('data-ink-element-id'); element.removeAttribute('data-ink-element-type'); element.removeAttribute('data-ink-children'); element.removeAttribute('data-ink-drop-position');
             element.removeAttribute('data-ink-layout'); element.removeAttribute('data-ink-structure'); element.removeAttribute('draggable'); element.removeAttribute('contenteditable'); element.removeAttribute('data-ink-inline-editing'); element.classList.remove('ink-is-selected');

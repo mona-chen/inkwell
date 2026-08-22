@@ -32,11 +32,13 @@ export default class CanvasRenderer {
         element.dataset.inkElementId = node.id;
         element.dataset.inkElementType = node.type;
         element.dataset.inkKind = kind;
-        element.draggable = true;
+        element.draggable = !node.settings.locked;
+        if (node.settings.hidden) element.dataset.inkHidden = '1';
+        if (node.settings.locked) element.dataset.inkLocked = '1';
         element.addEventListener('click', (event) => { event.stopPropagation(); this.selection.select(node.id, { additive: event.shiftKey || event.metaKey || event.ctrlKey }); });
         element.addEventListener('pointerenter', () => this.selection.hover(node.id));
         element.addEventListener('pointerleave', () => this.selection.hover(null));
-        if (definition.inlineEditable) element.addEventListener('dblclick', (event) => this.startInlineEditing(event, element, node, definition));
+        if (definition.inlineEditable && !node.settings.locked) element.addEventListener('dblclick', (event) => this.startInlineEditing(event, element, node, definition));
         const childrenRoot = element.querySelector('[data-ink-children]') || element;
         (node.children || []).forEach((child) => childrenRoot.appendChild(this.create(child)));
         if (!node.children?.length && definition.acceptsChildren) childrenRoot.appendChild(this.emptyView(node, kind));
@@ -80,9 +82,15 @@ export default class CanvasRenderer {
     overlay(node, kind) {
         const doc = this.root.ownerDocument;
         const overlay = doc.createElement('div'); overlay.className = 'ink-editor-overlay'; overlay.dataset.inkEditorOnly = ''; overlay.contentEditable = 'false';
+        if (node.settings.locked) overlay.classList.add('is-locked');
+        if (node.settings.hidden) overlay.classList.add('is-hidden');
         const toolbar = doc.createElement('div'); toolbar.className = 'ink-editor-toolbar';
         const labels = { drag_indicator: 'Move', edit: 'Edit', add: 'Add element', content_copy: 'Duplicate', delete: 'Delete' };
-        this.actionsFor(kind).forEach((action) => toolbar.appendChild(this.actionButton(action, labels[action], action, node.id)));
+        this.actionsFor(kind).forEach((action) => {
+            const button = this.actionButton(action, labels[action], action, node.id);
+            if (node.settings.locked) button.disabled = true;
+            toolbar.appendChild(button);
+        });
         overlay.appendChild(toolbar);
         return overlay;
     }

@@ -12,6 +12,7 @@ export default class PanelManager {
         this.activeTab = 'content';
         this.activeState = 'base'; // 'base' | 'hover' | 'focus' (Elementor Normal/Hover/Focus)
         this.collapsedNodes = new Set();
+        try { const saved = JSON.parse(localStorage.getItem('inkwell_builder_nav_collapsed') || '[]'); if (Array.isArray(saved)) this.collapsedNodes = new Set(saved); } catch (_) {}
         this.navigatorDragId = null;
         this.unsubscribers = [];
     }
@@ -31,6 +32,7 @@ export default class PanelManager {
             this.unsubscribers.push(this.runtime.events.on('document:replace', () => this.render()));
         }
         this.unsubscribers.push(this.runtime.events.on('library:open', () => { if (this.role === 'main') { this.route = 'elements'; this.render(); } }));
+        document.addEventListener('click', () => this.closeNavigatorMenu());
         this.render();
         return this;
     }
@@ -699,30 +701,140 @@ export default class PanelManager {
             const item = document.createElement('li');
             item.dataset.inkNavigatorItem = node.id;
             const row = document.createElement('div'); row.className = 'ink-v2-navigator-row';
-            const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'ink-v2-navigator-toggle'; toggle.textContent = node.children?.length ? (this.collapsedNodes.has(node.id) ? '›' : '⌄') : ''; toggle.disabled = !node.children?.length;
-            toggle.addEventListener('click', () => { this.collapsedNodes.has(node.id) ? this.collapsedNodes.delete(node.id) : this.collapsedNodes.add(node.id); this.render(); }); row.appendChild(toggle);
-            const button = document.createElement('button'); button.type = 'button'; button.dataset.inkNavigatorId = node.id; button.draggable = true;
+            row.setAttribute('role', 'treeitem'); row.setAttribute('aria-expanded', node.children?.length ? 'true' : 'false');
             const definition = this.runtime.elements.get(node.type);
+            const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'ink-v2-navigator-toggle'; toggle.textContent = node.children?.length ? (this.collapsedNodes.has(node.id) ? '›' : '⌄') : ''; toggle.disabled = !node.children?.length;
+            toggle.setAttribute('aria-label', node.children?.length ? 'Toggle children' : '');
+            toggle.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.toggleNavigatorCollapse(node.id); }); row.appendChild(toggle);
+            const button = document.createElement('button'); button.type = 'button'; button.dataset.inkNavigatorId = node.id; button.draggable = true; button.tabIndex = 0;
             button.innerHTML = `<span class="material-symbols-rounded">${definition.icon}</span><span data-ink-navigator-label>${node.settings.label || node.settings.text || definition.title}</span>`;
             if (node.id === this.runtime.selection.selectedId) button.classList.add('is-active');
-            button.addEventListener('click', (event) => { this.runtime.selection.select(node.id, { additive: event.shiftKey || event.metaKey || event.ctrlKey }); this.route = 'navigator'; this.render(); });
-            button.addEventListener('dblclick', (event) => { event.preventDefault(); event.stopPropagation(); const label = button.querySelector('[data-ink-navigator-label]'); const input = document.createElement('input'); input.type = 'text'; input.value = node.settings.label || node.settings.text || definition.title; label.replaceWith(input); input.focus(); input.select(); const commit = () => this.runtime.update(node.id, { settings: { label: input.value.trim() } }, 'Rename element'); input.addEventListener('blur', commit, { once: true }); input.addEventListener('keydown', (key) => { if (key.key === 'Enter') input.blur(); if (key.key === 'Escape') this.render(); }); });
+            if (node.settings.hidden) button.classList.add('is-hidden');
+            if (node.settings.locked) button.classList.add('is-locked');
+            button.addEventListener('click', (event) => { this.runtime.selection.select(node.id, { additive: event.shiftKey || event.metaKey || event.ctrlKey }); this.route = 'navigator'; this.render(); this.scrollCanvasTo(node.id); });
+            button.addEventListener('pointerenter', () => this.runtime.selection.hover(node.id));
+            button.addEventListener('pointerleave', () => this.runtime.selection.hover(null));
+            button.addEventListener('dblclick', (event) => { event.preventDefault(); event.stopPropagation(); this.renameNavigatorNode(node, button); });
             button.addEventListener('dragstart', () => { this.navigatorDragId = node.id; });
             row.appendChild(button);
+            const tools = document.createElement('span'); tools.className = 'ink-v2-navigator-tools';
             if (definition.acceptsChildren) {
                 const add = document.createElement('button'); add.type = 'button'; add.className = 'ink-v2-navigator-add'; add.title = 'Add element inside'; add.setAttribute('aria-label', `Add element inside ${definition.title}`); add.innerHTML = '<span class="material-symbols-rounded">add</span>';
                 add.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.runtime.selection.select(node.id); this.events.emit('library:open', { parentId: node.id }); if (this.role !== 'navigator') this.route = 'elements'; else this.route = 'navigator'; this.render(); });
-                row.appendChild(add);
+                tools.appendChild(add);
             }
-            row.addEventListener('dragover', (event) => { if (this.navigatorDragId && this.navigatorDragId !== node.id) { event.preventDefault(); row.classList.add('is-drop-target'); } });
-            row.addEventListener('dragleave', () => row.classList.remove('is-drop-target'));
-            row.addEventListener('drop', (event) => { event.preventDefault(); row.classList.remove('is-drop-target'); if (!this.navigatorDragId || this.navigatorDragId === node.id) return; const parent = this.runtime.document.parentOf(node.id); const siblings = parent ? parent.children : this.runtime.document.data.children; this.runtime.move(this.navigatorDragId, { parentId: parent?.id || null, index: siblings.findIndex((sibling) => sibling.id === node.id) }); this.navigatorDragId = null; });
+            const visibility = document.createElement('button'); visibility.type = 'button'; visibility.className = 'ink-v2-navigator-vis'; visibility.title = node.settings.hidden ? 'Show element' : 'Hide element'; visibility.setAttribute('aria-label', visibility.title); visibility.innerHTML = `<span class="material-symbols-rounded">${node.settings.hidden ? 'visibility_off' : 'visibility'}</span>`;
+            visibility.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.runtime.update(node.id, { settings: { hidden: !node.settings.hidden } }, node.settings.hidden ? 'Show element' : 'Hide element'); });
+            tools.appendChild(visibility);
+            const lock = document.createElement('button'); lock.type = 'button'; lock.className = 'ink-v2-navigator-lock'; lock.title = node.settings.locked ? 'Unlock element' : 'Lock element'; lock.setAttribute('aria-label', lock.title); lock.innerHTML = `<span class="material-symbols-rounded">${node.settings.locked ? 'lock' : 'lock_open'}</span>`;
+            lock.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.runtime.update(node.id, { settings: { locked: !node.settings.locked } }, node.settings.locked ? 'Unlock element' : 'Lock element'); });
+            tools.appendChild(lock);
+            row.appendChild(tools);
+            row.addEventListener('dragover', (event) => this.navigatorDragOver(event, row, node));
+            row.addEventListener('dragleave', () => { row.classList.remove('is-drop-target'); delete row.dataset.inkNavDrop; });
+            row.addEventListener('drop', (event) => this.navigatorDrop(event, row, node));
+            row.addEventListener('contextmenu', (event) => { event.preventDefault(); event.stopPropagation(); this.runtime.selection.select(node.id); this.openNavigatorMenu(event, node, button); });
             item.appendChild(row);
             if (node.children?.length && !this.collapsedNodes.has(node.id)) { const children = document.createElement('ul'); node.children.forEach((child) => children.appendChild(renderNode(child))); item.appendChild(children); }
             return item;
         };
         this.runtime.document.data.children.forEach((node) => list.appendChild(renderNode(node)));
-        wrapper.appendChild(list); return wrapper;
+        wrapper.appendChild(list);
+        wrapper.setAttribute('role', 'tree');
+        wrapper.addEventListener('keydown', (event) => this.navigatorKeydown(event, wrapper));
+        return wrapper;
+    }
+
+    toggleNavigatorCollapse(id) {
+        this.collapsedNodes.has(id) ? this.collapsedNodes.delete(id) : this.collapsedNodes.add(id);
+        try { localStorage.setItem('inkwell_builder_nav_collapsed', JSON.stringify([...this.collapsedNodes])); } catch (_) {}
+        this.render();
+    }
+
+    scrollCanvasTo(id) {
+        const canvasEl = this.runtime.canvas.instances.get(id)?.element;
+        if (canvasEl) canvasEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+
+    renameNavigatorNode(node, button) {
+        const label = button.querySelector('[data-ink-navigator-label]');
+        const definition = this.runtime.elements.get(node.type);
+        const input = document.createElement('input'); input.type = 'text'; input.value = node.settings.label || node.settings.text || definition.title; label.replaceWith(input); input.focus(); input.select();
+        const commit = () => this.runtime.update(node.id, { settings: { label: input.value.trim() } }, 'Rename element');
+        input.addEventListener('blur', commit, { once: true });
+        input.addEventListener('keydown', (key) => { if (key.key === 'Enter') input.blur(); if (key.key === 'Escape') this.render(); });
+    }
+
+    navigatorDragOver(event, row, node) {
+        if (!this.navigatorDragId || this.navigatorDragId === node.id) return;
+        event.preventDefault(); event.dataTransfer.dropEffect = 'move';
+        const rect = row.getBoundingClientRect();
+        const ratio = (event.clientY - rect.top) / Math.max(rect.height, 1);
+        const position = ratio < .25 ? 'before' : ratio > .75 ? 'after' : 'inside';
+        row.dataset.inkNavDrop = position;
+        row.classList.add('is-drop-target');
+    }
+
+    navigatorDrop(event, row, node) {
+        event.preventDefault(); row.classList.remove('is-drop-target');
+        const dragId = this.navigatorDragId; this.navigatorDragId = null;
+        if (!dragId || dragId === node.id) return;
+        const dragNode = this.runtime.document.get(dragId);
+        if (!dragNode) return;
+        const position = row.dataset.inkNavDrop || 'before';
+        delete row.dataset.inkNavDrop;
+        // Cannot move a node into itself or a descendant.
+        if (dragNode && this.runtime.document.pathTo(node.id).some((ancestor) => ancestor.id === dragId)) return;
+        if (position === 'inside') {
+            if (!this.runtime.elements.get(node.type).acceptsChildren) return;
+            this.runtime.move(dragId, { parentId: node.id, index: node.children?.length || 0 });
+        } else {
+            const parent = this.runtime.document.parentOf(node.id);
+            const siblings = parent ? parent.children : this.runtime.document.data.children;
+            const index = siblings.findIndex((sibling) => sibling.id === node.id) + (position === 'after' ? 1 : 0);
+            this.runtime.move(dragId, { parentId: parent?.id || null, index });
+        }
+    }
+
+    openNavigatorMenu(event, node, button) {
+        this.closeNavigatorMenu();
+        const menu = document.createElement('div'); menu.className = 'ink-navigator-context-menu'; menu.dataset.inkEditorOnly = '';
+        const actions = [
+            ['edit', 'edit', 'Edit', () => this.runtime.selection.select(node.id)],
+            ['duplicate', 'content_copy', 'Duplicate', () => this.runtime.duplicate(node.id)],
+            ['copy', 'content_copy', 'Copy', () => this.runtime.copy(node.id)],
+            ['paste', 'content_paste', 'Paste', () => this.runtime.paste(node.id)],
+            ['rename', 'edit_note', 'Rename', () => this.renameNavigatorNode(node, button)],
+            ['delete', 'delete', 'Delete', () => this.runtime.remove(node.id)],
+        ];
+        actions.forEach(([action, icon, label, run]) => {
+            const item = document.createElement('button'); item.type = 'button'; item.dataset.action = action;
+            item.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${icon}</span><span>${label}</span>`;
+            item.addEventListener('click', () => { run(); this.closeNavigatorMenu(); });
+            menu.appendChild(item);
+        });
+        document.body.appendChild(menu);
+        menu.style.left = `${Math.min(event.clientX, window.innerWidth - 180)}px`;
+        menu.style.top = `${Math.min(event.clientY, window.innerHeight - menu.offsetHeight - 8)}px`;
+        this._navigatorMenu = menu;
+    }
+
+    closeNavigatorMenu() { if (this._navigatorMenu) { this._navigatorMenu.remove(); this._navigatorMenu = null; } }
+
+    navigatorKeydown(event, wrapper) {
+        if (event.key === 'Escape') { this.closeNavigatorMenu(); return; }
+        const rows = Array.from(wrapper.querySelectorAll('[data-ink-navigator-id]'));
+        const active = document.activeElement;
+        const index = rows.indexOf(active);
+        if (index === -1) return;
+        if (event.key === 'ArrowDown') { rows[Math.min(index + 1, rows.length - 1)]?.focus(); event.preventDefault(); }
+        else if (event.key === 'ArrowUp') { rows[Math.max(index - 1, 0)]?.focus(); event.preventDefault(); }
+        else if (event.key === 'Enter') { active.click(); event.preventDefault(); }
+        else if (event.key === 'F2') { active.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); event.preventDefault(); }
+        else if (event.key === 'Delete' || event.key === 'Backspace') {
+            const id = active.dataset.inkNavigatorId;
+            if (id) { this.runtime.remove(id); event.preventDefault(); }
+        }
     }
 
     destroy() { this.unsubscribers.forEach((unsubscribe) => unsubscribe()); this.unsubscribers = []; this.container.replaceChildren(); }

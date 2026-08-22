@@ -459,6 +459,100 @@ async function main() {
     check("Structure mirrors the recursive document and syncs with the top bar", state.count >= 3 && state.labels.some((label) => label.includes("Edited heading")) && state.nested && state.toggled, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
+      var n=builder.navigator, panel=n.panel;
+      localStorage.setItem('inkwell_builder_nav_collapsed','[]');
+      panel.collapsedNodes.clear(); panel.render();
+      n.show();
+      var rows=Array.from(document.querySelectorAll('.ink-structure-window-body [data-ink-navigator-id]'));
+      var container=rows.find(function(b){return b.closest('li').querySelector('ul');});
+      if(!container) { n.hide(); return {ok:false}; }
+      var parentId=container.getAttribute('data-ink-navigator-id');
+      panel.toggleNavigatorCollapse(parentId);
+      var saved=JSON.parse(localStorage.getItem('inkwell_builder_nav_collapsed')||'[]');
+      var collapsed=panel.collapsedNodes.has(parentId) && saved.includes(parentId);
+      var gone=container.closest('li').querySelectorAll('ul').length===0;
+      panel.toggleNavigatorCollapse(parentId);
+      var expanded=!panel.collapsedNodes.has(parentId) && container.closest('li').querySelectorAll('ul').length>0;
+      n.hide();
+      return {ok:true,collapsed:collapsed,expanded:expanded};
+    })()`);
+    check("navigator expand/collapse persists to localStorage", state.ok && state.collapsed && state.expanded, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, n=builder.navigator; n.show();
+      var first=r.document.data.children[0], second=r.document.data.children[1];
+      if(!first||!second) { n.hide(); return {ok:false}; }
+      var rows=Array.from(document.querySelectorAll('.ink-structure-window-body [data-ink-navigator-id]'));
+      var srcRow=rows.find(function(b){return b.getAttribute('data-ink-navigator-id')===first.id;});
+      var dstRow=rows.find(function(b){return b.getAttribute('data-ink-navigator-id')===second.id;});
+      var dt=new DataTransfer(), beforeOrder=r.document.data.children.map(function(x){return x.id;}).join(',');
+      srcRow.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:dt}));
+      var rowDiv=dstRow.closest('.ink-v2-navigator-row'), rect=rowDiv.getBoundingClientRect();
+      dstRow.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:rect.left+5,clientY:rect.bottom-2}));
+      var zone=rowDiv.dataset.inkNavDrop;
+      dstRow.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt}));
+      var moved=!!(r.document.data.children[0].id===second.id && r.document.data.children[1].id===first.id);
+      r.history.undo();
+      var restored=r.document.data.children.map(function(x){return x.id;}).join(',')===beforeOrder;
+      n.hide();
+      return {ok:true,moved:moved,restored:restored,zone:zone};
+    })()`);
+    check("navigator drag reorders via before/after drop zones", state.ok && state.moved && state.restored && (state.zone==="before"||state.zone==="after"), JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, b=builder, id=${JSON.stringify(ids.heading)};
+      r.update(id,{settings:{hidden:true}},'Hide element');
+      var el=b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]');
+      var dimmed=!!el && el.hasAttribute('data-ink-hidden') && b.iframeDoc.defaultView.getComputedStyle(el).opacity==="0.4";
+      var html=b.getHtml();
+      var publishedHidden=!html.includes('ink-el-'+id);
+      r.update(id,{settings:{hidden:false}},'Show element');
+      var shown=!!b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]') && !b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]').hasAttribute('data-ink-hidden');
+      return {ok:true,dimmed:dimmed,publishedHidden:publishedHidden,shown:shown};
+    })()`);
+    check("hidden toggle dims canvas and strips publish output", state.ok && state.dimmed && state.publishedHidden && state.shown, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, b=builder, id=${JSON.stringify(ids.heading)};
+      r.update(id,{settings:{locked:true}},'Lock element');
+      var el=b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]');
+      var overlay=b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"] > .ink-editor-overlay');
+      var canvasLocked=!!el && el.hasAttribute('data-ink-locked') && el.draggable===false;
+      var toolbarDisabled=!!overlay && Array.from(overlay.querySelectorAll('.ink-editor-toolbar button')).length>0 && Array.from(overlay.querySelectorAll('.ink-editor-toolbar button')).every(function(btn){return btn.disabled;});
+      var row=Array.from(document.querySelectorAll('.ink-structure-window-body [data-ink-navigator-id]')).find(function(x){return x.getAttribute('data-ink-navigator-id')===id;});
+      var rowLocked=!!row && row.classList.contains('is-locked');
+      r.update(id,{settings:{locked:false}},'Unlock element');
+      var unlocked=!!b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]') && !b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]').hasAttribute('data-ink-locked');
+      return {ok:true,canvasLocked:canvasLocked,toolbarDisabled:toolbarDisabled,rowLocked:rowLocked,unlocked:unlocked};
+    })()`);
+    check("lock disables canvas toolbar and marks the navigator row", state.ok && state.canvasLocked && state.toolbarDisabled && state.rowLocked && state.unlocked, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var n=builder.navigator; n.show();
+      var row=document.querySelector('.ink-structure-window-body [data-ink-navigator-id]');
+      row.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:80,clientY:120}));
+      var menu=document.querySelector('.ink-navigator-context-menu');
+      var opened=!!menu;
+      var items=opened?Array.from(menu.querySelectorAll('button')).map(function(b){return b.dataset.action;}):[];
+      n.panel.closeNavigatorMenu();
+      var closed=!document.querySelector('.ink-navigator-context-menu');
+      n.hide();
+      return {ok:true,opened:opened,items:items,closed:closed};
+    })()`);
+    check("navigator context menu offers element actions", state.ok && state.opened && ["duplicate","copy","paste","rename","delete"].every(function(a){return state.items.includes(a);}) && state.closed, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var n=builder.navigator;
+      n.show(); n.setDocked(true);
+      var docked=JSON.parse(localStorage.getItem('inkwell_builder_navigator')||'{}').docked===true;
+      n.setDocked(false);
+      var undocked=JSON.parse(localStorage.getItem('inkwell_builder_navigator')||'{}').docked===false;
+      n.hide();
+      return {ok:true,docked:docked,undocked:undocked};
+    })()`);
+    check("navigator dock state persists", state.ok && state.docked && state.undocked, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
       var b=builder, r=b.runtime, canvas=b.iframeDoc, win=b.iframeDoc.defaultView;
       var full=r.insert('section',{}, {settings:{layout:'full'}});
       var boxed=r.insert('section',{}, {settings:{layout:'boxed'}});

@@ -24,7 +24,30 @@ export default class NavigatorManager {
         header.querySelector('[data-dock]').addEventListener('click', () => this.setDocked(!this.docked));
         header.addEventListener('pointerdown', (event) => this.startDrag(event));
         resize.addEventListener('pointerdown', (event) => this.startResize(event));
+        this.restorePrefs();
         return this;
+    }
+
+    restorePrefs() {
+        try {
+            const prefs = JSON.parse(localStorage.getItem('inkwell_builder_navigator') || '{}');
+            if (prefs.docked) this.docked = true;
+            if (prefs.left) { this.window.style.left = `${prefs.left}px`; this.window.style.right = 'auto'; }
+            if (prefs.top) this.window.style.top = `${prefs.top}px`;
+            if (prefs.width) this.window.style.width = `${prefs.width}px`;
+            if (prefs.height) this.window.style.height = `${prefs.height}px`;
+            this.window.classList.toggle('is-docked', this.docked);
+        } catch (_) {}
+    }
+
+    savePrefs() {
+        try {
+            const rect = this.window.getBoundingClientRect();
+            localStorage.setItem('inkwell_builder_navigator', JSON.stringify({
+                docked: this.docked, left: Math.round(rect.left), top: Math.round(rect.top),
+                width: Math.round(rect.width), height: Math.round(rect.height),
+            }));
+        } catch (_) {}
     }
 
     isOpen() { return !this.window.hidden; }
@@ -49,6 +72,7 @@ export default class NavigatorManager {
         this.window.classList.toggle('is-docked', docked);
         document.body.classList.toggle('ink-structure-docked', docked && !this.window.hidden);
         this.window.querySelector('[data-dock] .material-symbols-rounded').textContent = docked ? 'open_in_new' : 'dock_to_right';
+        this.savePrefs();
     }
     startDrag(event) {
         if (this.docked || event.target.closest('button')) return;
@@ -59,7 +83,7 @@ export default class NavigatorManager {
             this.window.style.top = `${Math.max(52, rect.top + pointer.clientY - startY)}px`;
             this.window.style.right = 'auto';
         };
-        const stop = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', stop); };
+        const stop = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', stop); this.savePrefs(); };
         document.addEventListener('pointermove', move); document.addEventListener('pointerup', stop);
     }
     startResize(event) {
@@ -70,7 +94,7 @@ export default class NavigatorManager {
             this.window.style.width = `${Math.max(220, Math.min(520, rect.width + pointer.clientX - startX))}px`;
             this.window.style.height = `${Math.max(220, Math.min(window.innerHeight - 56, rect.height + pointer.clientY - startY))}px`;
         };
-        const stop = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', stop); };
+        const stop = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', stop); this.savePrefs(); };
         document.addEventListener('pointermove', move); document.addEventListener('pointerup', stop);
     }
     destroy() {
