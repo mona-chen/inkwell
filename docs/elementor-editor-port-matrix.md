@@ -126,20 +126,22 @@ in the editor and on the published page with zero external JS.
 
 ## Remaining gaps (honest)
 
-- Composite widgets now ship self-contained interactive behavior (tabs/carousel/lightbox);
+- Composite widgets ship self-contained interactive behavior (tabs/carousel/lightbox);
   remaining composite parity is per-widget polish (e.g. gallery captions, carousel effects).
-- The element part/selector contract is established and applied to image, heading, button,
-  icon-box/image-box, and progress; the other 35 element schemas still default style controls
-  to the root wrapper and need their part selectors migrated.
-- Values are stored as flat buckets (base/tablet/mobile/hover/focus/active); the Elementor
-  device × state combination (e.g. hover on tablet) and unset/inherited semantics are not yet
-  represented. Control definitions need a `property`/`part` audit (some names don't map to CSS).
-- Container/Div are functional but not full flex/grid group-control parity; legacy
-  Section/Columns share the same style pipeline.
-- Control renderers still live in `PanelManager` (841+ lines); extraction into independent
-  control modules with parity fixtures is pending.
-- WYSIWYG still uses `document.execCommand` internally; the shared TipTap adapter (JSON
-  document + sanitized HTML + Ruby allowlist) is the intended replacement.
+- The element part/selector contract is applied to image, heading, button, icon-box/image-box,
+  progress, icon-list, counter, rating, testimonial, alert, tabs, accordion/toggle, and the
+  container inner wrapper; the remaining schemas (spacer, map, audio/video, plugin-widget,
+  Magic UI) are single-root and need only explicit `selectors` when part controls are added.
+- Device × state value storage, inheritance/unset semantics, and the Classic/Gradient background
+  model are implemented; the remaining audit items are per-control polish (token inheritance,
+  full border-per-side, media metadata model).
+- Control renderers are extracted into independent modules (`src/core/controls/`) with a uniform
+  contract; parity fixtures per control are the next hardening step.
+- WYSIWYG now runs the shared TipTap adapter (canonical JSON + schema-bound HTML + legacy
+  fallback); Ruby-side allowlist parity and Visual/Code mode are pending.
+- Modern Container is the primary layout element (Elementor flex/grid controls on the inner
+  wrapper); legacy Section/Columns/Column are flagged `legacy` in the library. A full
+  migration/serializer for old section stores is pending.
 - Magic UI visual parity intentionally deferred until the foundation is verified.
 
 ## Core element inventory

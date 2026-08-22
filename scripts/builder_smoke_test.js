@@ -144,6 +144,14 @@ async function main() {
     check("empty canvas exposes a real drop surface", state.emptyHelper === true);
     check("element library is registry-driven", state.elements === 40, `${state.elements} elements`);
     check("canvas has no Bootstrap dependency", state.noBootstrap === true);
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime;
+      var section=r.elements.get('section'), columns=r.elements.get('columns'), container=r.elements.get('container');
+      var flagged=section.legacy===true && columns.legacy===true && container.legacy!==true;
+      var containerFirst=document.querySelectorAll('.ink-v2-library-section')[0].textContent.includes('Container');
+      return {flagged:flagged,containerFirst:containerFirst};
+    })()`);
+    check("modern Container is primary; legacy Section/Columns are flagged", state.flagged && state.containerFirst, JSON.stringify(state));
     state = await client.evaluate(`(function(){var button=document.querySelector('.ink-v2-panel-collapse');var resizer=document.querySelector('.ink-v2-panel-resizer');button.click();var collapsed=document.body.classList.contains('ink-panel-collapsed');button.click();return {button:!!button,resizer:!!resizer,collapsed:collapsed,restored:!document.body.classList.contains('ink-panel-collapsed')}})()`);
     check("Ink panel can resize and collapse", state.button && state.resizer && state.collapsed && state.restored, JSON.stringify(state));
     state = await client.evaluate(`(function(){var n=builder.navigator;n.toggle();var visible=!n.window.hidden;n.setDocked(true);var docked=n.window.classList.contains('is-docked')&&document.body.classList.contains('ink-structure-docked');n.hide();return {visible:visible,docked:docked,hidden:n.window.hidden&&!document.body.classList.contains('ink-structure-docked')}})()`);

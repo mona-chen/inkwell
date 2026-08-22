@@ -55,7 +55,7 @@ function renderShell(domDocument, node, rootClass, tag = 'div') {
 export default function registerInkElements(registry) {
     // Section: full-width bar, optional inner content width, vertical stack, accepts columns.
     register(registry, {
-        type: 'section', title: 'Section', icon: 'crop_landscape', category: 'Layout', acceptsChildren: true,
+        type: 'section', title: 'Section', icon: 'crop_landscape', category: 'Layout', legacy: true, acceptsChildren: true,
         defaults: {
             settings: { tag: 'section', layout: 'boxed', structure: '50,50' },
             styles: { base: { display: 'flex', 'flex-direction': 'column', width: '100%', padding: { top: 35, right: 10, bottom: 35, left: 10, unit: 'px' }, gap: { row: 20, column: 20, unit: 'px' } } },
@@ -79,7 +79,7 @@ export default function registerInkElements(registry) {
 
     // Columns: a flex row that only accepts columns. Structure presets drive widths.
     register(registry, {
-        type: 'columns', title: 'Columns', icon: 'view_column', category: 'Layout', acceptsChildren: ['column'],
+        type: 'columns', title: 'Columns', icon: 'view_column', category: 'Layout', legacy: true, acceptsChildren: ['column'],
         acceptsChild: (parent, child) => child.type === 'column',
         defaults: { settings: { structure: '50,50' }, styles: { base: {} }, children: [] },
         controls: [
@@ -106,7 +106,7 @@ export default function registerInkElements(registry) {
 
     // Column: a vertical stack container with a 10px gutter padding.
     register(registry, {
-        type: 'column', title: 'Column', icon: 'view_week', category: 'Layout', acceptsChildren: true,
+        type: 'column', title: 'Column', icon: 'view_week', category: 'Layout', legacy: true, acceptsChildren: true,
         defaults: { settings: {}, styles: { base: { display: 'flex', 'flex-direction': 'column', gap: { row: 20, column: 20, unit: 'px' }, padding: { top: 10, right: 10, bottom: 10, left: 10, unit: 'px' }, 'align-items': 'stretch' } }, children: [] },
         controls: [
             { tab: 'content', target: 'styles', section: 'Layout', name: 'flex-grow', type: 'number', label: 'Grow', responsive: true },

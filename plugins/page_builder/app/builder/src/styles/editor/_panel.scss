@@ -95,6 +95,8 @@
   cursor: move;
   transition: border-color .12s, background .12s, color .12s;
 }
+.ink-v2-library-item em { padding: 1px 5px; border-radius: 2px; background: var(--ink-editor-border); color: var(--ink-editor-faint); font-size: 9px; font-style: normal; text-transform: uppercase; letter-spacing: .5px; }
+.ink-v2-library-item.is-legacy { opacity: .62; }
 .ink-v2-library-item .material-symbols-rounded { font-size: 22px; }
 .ink-v2-library-item:hover, .ink-v2-library-item:focus-visible {
   border-color: var(--ink-editor-faint);

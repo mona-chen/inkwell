@@ -159,8 +159,9 @@ export default class PanelManager {
                 const grid = section.querySelector('.ink-v2-library-grid');
                 items.forEach((definition) => {
                     const item = document.createElement('button'); item.type = 'button'; item.className = 'ink-v2-library-item';
+                    if (definition.legacy) item.classList.add('is-legacy');
                     item.draggable = true; item.dataset.inkElementType = definition.type;
-                    item.innerHTML = `<span class="material-symbols-rounded">${definition.icon}</span><span>${definition.title}</span>`;
+                    item.innerHTML = `<span class="material-symbols-rounded">${definition.icon}</span><span>${definition.title}</span>${definition.legacy ? '<em>Legacy</em>' : ''}`;
                     item.addEventListener('click', () => this.insertDefinition(definition.type));
                     grid.appendChild(item);
                 });
@@ -349,7 +350,7 @@ export default class PanelManager {
         if (control.type === 'textarea' || control.type === 'code') { input = document.createElement('textarea'); input.value = value; input.classList.toggle('ink-v2-code', control.type === 'code'); }
         else if (['select', 'select2', 'font', 'animation', 'exit-animation', 'hover-animation'].includes(control.type)) {
             input = document.createElement('select');
-            (control.options || []).forEach((option) => { const item = document.createElement('option'); item.value = valueFor(option); item.textContent = labelFor(option); input.appendChild(item); }); input.value = value;
+            (control.options || []).forEach((option) => { const item = document.createElement('option'); item.value = valueFor(option); item.textContent = labelFor(option); input.appendChild(item); }); input.value = value !== '' && value !== undefined && value !== null ? value : (control.default ?? '');
         } else if (control.type === 'choose' || control.type === 'visual-choice') {
             input = document.createElement('div'); input.className = 'ink-v2-choose';
             (control.options || []).forEach((option) => {
@@ -376,7 +377,7 @@ export default class PanelManager {
         } else {
             input = document.createElement('input');
             input.type = control.type === 'color' ? 'color' : control.type === 'number' ? 'number' : control.type === 'url' ? 'url' : control.type === 'date-time' ? 'datetime-local' : 'text';
-            input.value = value || (control.type === 'color' ? '#000000' : '');
+            input.value = value !== '' && value !== undefined && value !== null ? value : (control.default ?? (control.type === 'color' ? '#000000' : ''));
         }
         const commit = () => {
             let next = input.value;
