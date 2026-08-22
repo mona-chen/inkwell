@@ -298,10 +298,14 @@ async function main() {
       var contentTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.toLowerCase().includes('content')});
       if(contentTab) contentTab.click();
       var pickerTabs=document.querySelectorAll('.ink-v2-icon-libs button');
-      var tabTexts=Array.from(pickerTabs).map(function(t){return t.textContent;});
       var fullSets=pickerTabs.length>=3 && Array.from(pickerTabs).some(function(t){return t.textContent.includes('2034')}) && Array.from(pickerTabs).some(function(t){return t.textContent.includes('1512')});
+      // The full grid renders all icons, not a hardcoded slice.
+      var lucideTab=Array.from(pickerTabs).find(function(t){return t.textContent.includes('Lucide')});
+      if(lucideTab) lucideTab.click();
+      var lucideButtons=document.querySelectorAll('.ink-v2-icon-grid button').length;
+      var fullGrid=lucideButtons===2034;
       [lucide.id,phosphor.id,material.id,heading.id,iconBox.id].forEach(function(x){r.remove(x);});
-      return {ok:true,lucideSvg:!!lucideSvg,phosphorSvg:!!phosphorSvg,materialSpan:!!materialSpan,fontImport:fontImport,fontLink:!!link,fullSets:fullSets,tabTexts:tabTexts};
+      return {ok:true,lucideSvg:!!lucideSvg,phosphorSvg:!!phosphorSvg,materialSpan:!!materialSpan,fontImport:fontImport,fontLink:!!link,fullSets:fullSets,fullGrid:fullGrid,lucideButtons:lucideButtons};
     })()`);
     check("icon libraries (Phosphor/Lucide/Material) and Google Fonts integrate", state.lucideSvg && state.phosphorSvg && state.materialSpan && state.fontImport && state.fontLink && state.fullSets, JSON.stringify(state));
 

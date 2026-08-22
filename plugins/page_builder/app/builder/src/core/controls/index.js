@@ -186,15 +186,17 @@ export function icon(panel, control, node, value, row) {
         grid.replaceChildren();
         const all = iconNames(active);
         const query = search.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '-');
-        const shown = query ? all.filter((name) => name.includes(query)) : all.slice(0, 200);
+        const shown = query ? all.filter((name) => name.includes(query)) : all;
         if (!shown.length) { grid.innerHTML = '<span class="ink-v2-icon-empty">No icons match</span>'; return; }
+        const fragment = document.createDocumentFragment();
         shown.forEach((name) => {
             const button = document.createElement('button'); button.type = 'button'; button.title = name; button.className = resolved.library === active && resolved.name === name ? 'is-active' : '';
             button.setAttribute('aria-label', name);
             button.appendChild(renderIcon(document, iconValue(active, name)));
             button.addEventListener('click', () => panel.setValue(control, node, iconValue(active, name)));
-            grid.appendChild(button);
+            fragment.appendChild(button);
         });
+        grid.appendChild(fragment);
     };
     libraries.forEach((library) => {
         const tab = document.createElement('button'); tab.type = 'button'; tab.textContent = `${libraryTitle(library)} · ${iconCount(library)}`; tab.className = library === active ? 'is-active' : '';

@@ -142,7 +142,7 @@
 .ink-v2-icon-libs button { flex: 1; padding: 6px 4px; border: 0; border-right: 1px solid var(--ink-editor-border); background: var(--ink-editor-surface); color: var(--ink-editor-muted); font: 600 10px/1.2 Inter, Arial, sans-serif; text-transform: uppercase; letter-spacing: .4px; cursor: pointer; }
 .ink-v2-icon-libs button:last-child { border-right: 0; }
 .ink-v2-icon-libs button.is-active { background: var(--ink-editor-accent); color: #fff; }
-.ink-v2-icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); max-height: 168px; overflow-y: auto; border: 1px solid var(--ink-editor-border); }
+.ink-v2-icon-grid { display: grid; grid-template-columns: repeat(8, 1fr); max-height: 260px; overflow-y: auto; border: 1px solid var(--ink-editor-border); }
 .ink-v2-icons { display: flex; flex-direction: column; gap: 6px; }
 .ink-v2-icon-grid button {
   display: flex;
