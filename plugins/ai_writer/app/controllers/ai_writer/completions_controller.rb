@@ -5,6 +5,17 @@ module AiWriter
   class CompletionsController < Admin::BaseController
     include ActionController::Live
 
+    # In-memory session store for the client-driven (CopilotTools) loop. The design lives in the
+    # browser; the server only carries the model's message history between rounds. Single-process
+    # is fine for this app; entries expire and are pruned lazily.
+    CLIENT_SESSIONS = {}
+    SESSION_TTL = 600
+
+    def self.prune_sessions
+      now = Time.now
+      CLIENT_SESSIONS.delete_if { |_, s| now - (s[:created_at] || now) > SESSION_TTL }
+    end
+
     # Instructs the model to chat conversationally and, only when the user asks to change the
     # document, return edit operations. Keep this in lockstep with the client-side executor
     # in app/views/ai_writer/_editor_toolbar.html.erb.
@@ -66,6 +77,17 @@ module AiWriter
       end
 
       response.headers["Content-Type"] = "text/event-stream"
+
+      # Client-driven mode: the design lives in the browser (builder.copilotTools). The server
+      # relays the model's tool calls to the client, which executes them against the live store
+      # and POSTs results back via tool_result to resume the loop.
+      if params[:clientTools]
+        self.class.prune_sessions
+        session_id = SecureRandom.hex(8)
+        CLIENT_SESSIONS[session_id] = { messages: [ { role: "user", content: client_build_prompt } ], created_at: Time.now }
+        run_client_round(client, session_id, [])
+        return
+      end
 
       # A working copy of the current design that the editing tools mutate server-side. When
       # any editing tool runs, the updated spec streams back as a "design" event after the reply.
@@ -475,7 +497,87 @@ module AiWriter
 
     READ_TOOL_NAMES = READ_TOOL_SCHEMAS.map { |s| s["function"]["name"] }.freeze
 
+    # Resume a client-driven Copilot loop after the browser executed a batch of tools against the
+    # live builder store. Appends the tool results to the session and streams the next model turn.
+    def tool_result
+      client = AiWriter::Client.new(site: Current.site)
+      unless client.configured?
+        render json: { error: "Copilot is not configured — add an API key in Settings → Copilot." }, status: :unprocessable_entity
+        return
+      end
+      response.headers["Content-Type"] = "text/event-stream"
+      run_client_round(client, params[:session_id].to_s, Array(params[:results]))
+    rescue AiWriter::Client::Error => e
+      stream_json(error: e.message)
+    ensure
+      response.stream.close
+    end
+
     private
+
+    # One round of the client-driven loop: run the model, stream deltas, append the assistant
+    # message; if it emitted tool calls, stream them as a "tools" event for the browser to execute.
+    def run_client_round(client, session_id, results)
+      session = CLIENT_SESSIONS[session_id]
+      unless session
+        stream_json(error: "Copilot session expired — send your request again.")
+        stream_done
+        return
+      end
+      session[:created_at] = Time.now
+      results.each do |result|
+        session[:messages] << { role: "tool", tool_call_id: result["id"].to_s, content: result["content"].to_s }
+      end
+      tools = Array(params[:tools]).map { |t| t.is_a?(String) ? JSON.parse(t) : t }
+      assistant = client.stream_round(session[:messages], system: client_system_prompt, tools: tools) do |piece|
+        stream_json(choice: { delta: piece }) unless piece[:tool_calls]
+      end
+      session[:messages] << assistant
+      if assistant[:tool_calls]&.any?
+        calls = assistant[:tool_calls].map { |c| { "id" => c["id"], "name" => c.dig("function", "name"), "arguments" => c.dig("function", "arguments") } }
+        stream_json(tools: { session_id: session_id, calls: calls })
+      else
+        CLIENT_SESSIONS.delete(session_id)
+      end
+      stream_done
+    end
+
+    def client_build_prompt
+      parts = []
+      parts << "Page title: #{params[:context]}" if params[:context].to_s.present?
+      parts << "Site name: #{params[:site]}" if params[:site].to_s.present?
+      parts << "Mode: #{params[:mode]}"
+      parts << "Current design (numbered tree — target elements by their [path] or id):\n#{params[:designIndex].to_s}"
+      parts << "User request: #{params[:prompt]}"
+      parts.join("\n\n")
+    end
+
+    def client_system_prompt
+      <<~PROMPT
+        You are Copilot, a design assistant inside Inkwell's visual Page Builder. The user's page
+        design is LIVE in the browser and you control it with tools that act directly on the
+        editable elements.
+
+        WORKFLOW:
+        - Start by calling read_design to see the current structure and target elements by their
+          [path] (e.g. 0.1) or id.
+        - Use read_element / read_styles to inspect before changing.
+        - insert_element adds builder elements inside a container/section or at the page root.
+          Build structure with containers/columns and fill with real, specific copy for the page's
+          topic (from the page title/site) — never lorem ipsum.
+        - update_element / set_styles edit copy and styling (set_styles takes CSS-style properties
+          under desktop/base, tablet, mobile).
+        - move_element / remove_element / duplicate_element restructure.
+        - set_custom_css / css_edit manage the page-level design tokens (e.g.
+          css_edit(':root', '--ink-color-primary', '#5e6ad2')).
+        - undo/redo step through changes.
+
+        Each tool applies instantly to the canvas and is undoable. Prefer precise tool edits over
+        redesigning the whole page when the user asks to change part of the current design. Reply
+        conversationally, and briefly confirm what you changed. For a whole-page design, compose an
+        elegant layout and set a coherent palette via css_edit on :root tokens.
+      PROMPT
+    end
 
     # MCP design-research tools (DesignMD). Enabled via Settings → Copilot; the URL and bearer
     # token are stored in site settings and never sent to the browser. Any MCP failure just

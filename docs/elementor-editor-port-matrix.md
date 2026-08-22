@@ -126,6 +126,9 @@ in the editor and on the published page with zero external JS.
 
 ## Remaining gaps (honest)
 
+- Copilot now edits designs through client tools (`window.builder.copilotTools`) on the live v2
+  store via a client-driven relay loop; the legacy v1 spec path (server-side `AiWriter::Design`)
+  is retained for block-editor (non-builder) contexts.
 - Composite widgets ship self-contained interactive behavior (tabs/carousel/lightbox);
   remaining composite parity is per-widget polish (e.g. gallery captions, carousel effects).
 - The element part/selector contract is applied to image, heading, button, icon-box/image-box,

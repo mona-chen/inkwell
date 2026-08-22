@@ -523,6 +523,12 @@
         const baseJs = this.customJs || (document.getElementById("customJs") ? document.getElementById("customJs").value : "")
         this.addUserMessage(prompt)
         this.beginThinking()
+        // Client-driven loop: the AI edits the LIVE v2 store through builder.copilotTools.
+        if (window.builder && window.builder.copilotTools) {
+          await this.clientSend(prompt)
+          this.setStatus("", false)
+          return
+        }
         try {
           const resp = await fetch("/plugins/ai_writer/chat", {
             method: "POST",
@@ -562,6 +568,7 @@
         let content = ""
         let reasoning = ""
         let design = null
+        let tools = null
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
@@ -582,6 +589,7 @@
               if (r) { reasoning += r; this.appendThinking(r) }
               if (c) { content += c; this.appendThinking(c) }
               if (evt.tool) this.appendToolTurn(evt.tool.name, evt.tool.args)
+              if (evt.tools) tools = evt.tools
               if (evt.design && evt.design.elementLists) {
                 design = evt.design
                 this.applyDesignLive(evt.design)
@@ -589,7 +597,63 @@
             } catch { /* skip */ }
           }
         }
-        return { content, reasoning, design }
+        return { content, reasoning, design, tools }
+      }
+
+      // Client-driven Copilot loop: the server relays the model's tool calls; this widget
+      // executes them against the LIVE v2 store via builder.copilotTools (each edit morphs the
+      // canvas and is undoable), then posts the results back to resume the loop.
+      async clientSend(prompt) {
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.content
+        const tools = window.builder.copilotTools.TOOLS
+        let content = ""
+        let url = "/plugins/ai_writer/chat"
+        let body = {
+          mode: this.mode, prompt, env: "html", clientTools: true,
+          context: this.contextValue, site: this.siteValue, brand: this.hasBrandTarget ? this.brandTarget.value : "",
+          history: this.history, designIndex: window.builder.copilotTools.index(),
+          tools: JSON.stringify(tools)
+        }
+        try {
+          for (let round = 0; round < 40; round++) {
+            const resp = await fetch(url, {
+              method: "POST",
+              headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json", "Accept": "text/event-stream" },
+              body: JSON.stringify(body)
+            })
+            if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || "Copilot failed (" + resp.status + ")") }
+            const streamed = await this.streamResponse(resp)
+            content += streamed.content || ""
+            if (!streamed.tools || !streamed.tools.calls || !streamed.tools.calls.length) break
+            const results = streamed.tools.calls.map((call) => ({ id: call.id, content: this.executeTool(call.name, call.arguments) }))
+            url = "/plugins/ai_writer/tool_result"
+            body = { session_id: streamed.tools.session_id, results, tools: JSON.stringify(tools) }
+          }
+          this.handleClientReply(content)
+        } catch (e) {
+          this.endThinking()
+          this.addError(e.message)
+        }
+      }
+
+      executeTool(name, args) {
+        try {
+          const out = window.builder.copilotTools.apply(name, args || {})
+          this.appendToolTurn(name, args)
+          return String(out)
+        } catch (e) { return "tool error: " + e.message }
+      }
+
+      // Client-tools path: edits already morphed the canvas live; checkpoint the v2 store.
+      handleClientReply(text) {
+        this.endThinking()
+        this.addAssistantMessage(text || "Updated the design.")
+        this.designViewTarget.classList.remove("hidden")
+        this.pushCheckpoint(text || "Design update")
+        this.history.push({ role: "user", content: this.promptTarget.value.trim() })
+        this.history.push({ role: "assistant", content: text || "" })
+        this.promptTarget.value = ""
+        if (typeof window.applyCustomCode === "function") window.applyCustomCode()
       }
 
       // Apply a streamed design state to the canvas immediately (live editing). No checkpoint is
@@ -720,6 +784,7 @@
           customCss: this.customCss || "",
           customJs: this.customJs || "",
           design: this.design || "",
+          store: (window.builder && window.builder.getData) ? JSON.parse(JSON.stringify(window.builder.getData())) : null,
           label: String(label || "Change").slice(0, 60)
         }
         // Truncate history so it can't grow forever.
@@ -748,7 +813,16 @@
         this.customCss = cp.customCss
         this.customJs = cp.customJs
         this.design = cp.design
-        if (this.designHtml) this.previewOnCanvas()
+        // Client-tools checkpoints snapshot the v2 store; restore it directly.
+        if (cp.store && window.builder && window.builder.parse) {
+          window.builder.clear()
+          window.builder.parse(cp.store)
+          window.builder.render()
+          if (window.builder.customCode) window.builder.customCode.update(this.customCss || "", this.customJs || "")
+          if (typeof window.applyCustomCode === "function") window.applyCustomCode()
+        } else if (this.designHtml) {
+          this.previewOnCanvas()
+        }
         this.renderCheckpoints()
         this.showPlan(this.pendingSpec || { elementLists: [] })
         this.logAction("Restored checkpoint " + (index + 1))

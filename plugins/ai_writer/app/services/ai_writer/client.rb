@@ -218,6 +218,104 @@ module AiWriter
       raise Error, "The model exceeded #{MAX_TOOL_ROUNDS} tool-calling rounds."
     end
 
+    # ONE streaming round for the client-driven loop: stream reasoning + content deltas, then if
+    # the model emits tool calls, yield { tool_calls: [...] } WITHOUT executing them (the client
+    # executes them against the live builder store) and return the assistant message. The caller
+    # appends this message to the session, relays the calls to the client, and resumes with the
+    # tool results.
+    def stream_round(messages, system: nil, tools: [], &block)
+      all_messages = []
+      all_messages << { role: "system", content: system } if system.present?
+      all_messages.concat(messages)
+      body = { model: model, messages: all_messages, tools: tools, stream: true }
+
+      request = Net::HTTP::Post.new("/chat/completions")
+      request["Content-Type"] = "application/json"
+      request["Accept"] = "text/event-stream"
+      request["Authorization"] = "Bearer #{api_key}"
+      request.body = body.to_json
+
+      tool_calls = nil
+      content = +""
+      http.request(request) do |response|
+        unless response.is_a?(Net::HTTPSuccess)
+          raise Error, "AI request failed (#{response.code}): #{response.body.to_s[0, 200]}"
+        end
+
+        raw = +""
+        response.read_body do |chunk|
+          raw << chunk
+          chunk.each_line do |line|
+            next unless line.start_with?("data:")
+
+            data = line[5..].strip
+            next if data == "[DONE]"
+
+            parsed = JSON.parse(data) rescue next
+            delta = parsed.dig("choices", 0, "delta") || {}
+            block.call({ reasoning_content: delta["reasoning_content"] }) if delta["reasoning_content"]
+            if delta["content"]
+              content << delta["content"]
+              block.call({ content: delta["content"] })
+            end
+            next unless delta["tool_calls"]
+
+            tool_calls ||= { entries: [], by_id: {}, by_index: {} }
+            delta["tool_calls"].each do |tc|
+              entry = nil
+              if tc["id"] && tool_calls[:by_id][tc["id"]]
+                entry = tool_calls[:by_id][tc["id"]]
+              elsif tc["index"] && tool_calls[:by_index][tc["index"]]
+                entry = tool_calls[:by_index][tc["index"]]
+              else
+                entry = { "id" => nil, "function" => { "name" => nil, "arguments" => +"" } }
+                tool_calls[:entries] << entry
+              end
+              if tc["id"]
+                tool_calls[:by_id][tc["id"]] = entry
+                entry["id"] ||= tc["id"]
+              end
+              if tc["index"]
+                tool_calls[:by_index][tc["index"]] = entry
+              end
+              next unless tc["function"]
+
+              entry["function"]["name"] ||= tc["function"]["name"]
+              entry["function"]["arguments"] << tc["function"]["arguments"].to_s
+            end
+          end
+        end
+
+        # Non-streaming fallback (provider ignores stream:true).
+        if raw.present? && !raw.include?("data:")
+          message = JSON.parse(raw).dig("choices", 0, "message") rescue nil
+          if message
+            tool_calls = { entries: [], by_id: {}, by_index: {} }
+            if message["tool_calls"].present?
+              message["tool_calls"].each do |c|
+                tool_calls[:entries] << { "id" => c["id"], "function" => { "name" => c.dig("function", "name"), "arguments" => c.dig("function", "arguments") || "" } }
+              end
+            end
+            if message["content"].present?
+              content << message["content"]
+              block.call({ content: message["content"] })
+            end
+          end
+        end
+      end
+
+      entries = tool_calls && tool_calls[:entries] || []
+      calls = entries.map do |tc|
+        { "id" => tc["id"], "type" => "function", "function" => { "name" => tc["function"]["name"], "arguments" => tc["function"]["arguments"] } }
+      end
+      if calls.any?
+        block.call({ tool_calls: calls })
+        return { role: "assistant", content: content.presence, tool_calls: calls }
+      end
+
+      { role: "assistant", content: content.presence }
+    end
+
     private
 
     def safe_parse(string)

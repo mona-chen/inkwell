@@ -65,6 +65,15 @@ custom CSS. Everything the Copilot can emit must be reproducible by a human with
 builder — via the Elements library, the section-structure presets, or the Code tab — so the
 builder is genuinely capable without AI, and the AI only automates what already exists.
 
+**Copilot client tools**: the AI interacts with a design through `window.builder.copilotTools`
+(`src/core/CopilotTools.js`) — a client-side tool surface that maps model tool calls onto the
+LIVE v2 runtime (insert/update/set_styles/move/remove/duplicate/undo, css_edit, custom CSS).
+Every call runs in the browser, is history-aware (undoable), and morphs the canvas in place.
+The agent loop is client-driven: the server relays the model's tool calls over SSE
+(`POST /plugins/ai_writer/chat` with `clientTools: true`), the widget executes them against
+`builder.copilotTools`, and `POST /plugins/ai_writer/tool_result` resumes the loop. Only the
+model's message history lives server-side (in-memory `CLIENT_SESSIONS`, TTL 600s).
+
 Regression safety: `bin/rails builder:smoke` (Node/CDP harness in
 `scripts/builder_smoke_test.js`) exercises builder load, real drag & drop, store
 reconstruction, editability, panel routing, Structure, themes, the media picker, Clear, code

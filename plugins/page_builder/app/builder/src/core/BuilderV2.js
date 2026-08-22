@@ -3,6 +3,7 @@ import CustomCodeManager from '../includes/CustomCodeManager.js';
 import ViewportManager from './ViewportManager.js';
 import NavigatorManager from './NavigatorManager.js';
 import FinderManager from './FinderManager.js';
+import { createCopilotTools } from './CopilotTools.js';
 import inkCanvasCss from '../styles/canvas.scss?asString';
 import inkMagicCss from '../styles/canvas-magic.scss?asString';
 
@@ -129,6 +130,7 @@ export default class BuilderV2 {
             if (button) button.classList.toggle('is-active', open);
         };
         this.finder = new FinderManager(this.runtime).mount();
+        this.copilotTools = createCopilotTools(this.runtime, this);
         this.customCode.injectEffectStyles(document);
         this.customCode.inject();
         this.save = typeof window.saveToInkwell === 'function' ? window.saveToInkwell.bind(window) : null;

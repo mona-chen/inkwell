@@ -309,6 +309,31 @@ async function main() {
     })()`);
     check("icon libraries (Phosphor/Lucide/Material) and Google Fonts integrate", state.lucideSvg && state.phosphorSvg && state.materialSpan && state.fontImport && state.fontLink && state.fullSets, JSON.stringify(state));
 
+    state = await client.evaluate(`(function(){
+      var b=builder, r=b.runtime, tools=b.copilotTools;
+      var exposed=!!tools && typeof tools.apply==='function' && typeof tools.index==='function' && tools.TOOLS.length>=11;
+      var beforeStore=r.serialize();
+      var container=r.insert('container',{});
+      var inserted=tools.apply('insert_element',{path:'0',type:'heading',settings:{text:'AI heading'}});
+      var headingNode=r.document.data.children[0].children.find(function(n){return n.type==='heading';});
+      var styled=tools.apply('set_styles',{path:'0.0',styles:{desktop:{base:{color:'#123456'}}}});
+      var cssColor=headingNode && headingNode.styles.desktop.base.color==='#123456';
+      var removed=tools.apply('remove_element',{path:'0.0'});
+      var gone=!r.document.data.children[0].children.some(function(n){return n.type==='heading';});
+      var undid=tools.apply('undo');
+      var restored=r.document.data.children[0].children.some(function(n){return n.type==='heading';});
+      var cssBefore=b.customCode.getCss();
+      var cssEdited=tools.apply('css_edit',{selector:':root',property:'--ink-color-primary',value:'#ff0000'});
+      var cssChanged=b.customCode.getCss()!==cssBefore && b.customCode.getCss().includes('#ff0000');
+      var readback=tools.apply('read_design').includes('[0]');
+      // Restore exactly (the tools test must not disturb later coordinate-based tests).
+      r.document.replace(beforeStore);
+      b.customCode.update(cssBefore, b.customCode.getJs());
+      var clean=r.serialize().children.length===beforeStore.children.length;
+      return {ok:true,exposed:exposed,inserted:String(inserted).startsWith('ok'),headingExists:!!headingNode,styled:styled==='ok'&&cssColor,remove:removed==='ok'&&gone,undoRestores:undid==='ok'&&restored,cssEdit:cssEdited==='ok'&&cssChanged,readback:readback,clean:clean};
+    })()`);
+    check("Copilot client tools edit the live v2 store through history", state.exposed && state.inserted && state.headingExists && state.styled && state.remove && state.undoRestores && state.cssEdit && state.readback && state.clean, JSON.stringify(state));
+
 
     state = await client.evaluate(`(function(){
       var r=builder.runtime;
