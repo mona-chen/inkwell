@@ -2,6 +2,12 @@
 // (copied from the Elementor reference checkout) so the builder build is fully self-contained
 // and never depends on the git-ignored references/ directory. The ?raw webpack rule inlines
 // each file as a string.
+//
+// LICENSE NOTE + CLEAN-ROOM TODO: these SVG paths come from Elementor (GPL-2.0). They are kept
+// for parity/behavioral reference only. Before any distribution that must not carry GPL, replace
+// the shapes with a clean-room implementation (original path geometry, own naming) — see
+// docs/elementor-editor-port-matrix.md → Remaining gaps. The ELEMENTOR_SHAPES contract below is
+// the only thing consuming code depends on, so a drop-in replacement is safe.
 import mountains from '../vendor/shapes/mountains.svg?raw';
 import drops from '../vendor/shapes/drops.svg?raw';
 import clouds from '../vendor/shapes/clouds.svg?raw';

@@ -142,6 +142,10 @@ in the editor and on the published page with zero external JS.
 - Modern Container is the primary layout element (Elementor flex/grid controls on the inner
   wrapper); legacy Section/Columns/Column are flagged `legacy` in the library. A full
   migration/serializer for old section stores is pending.
+- Shape dividers (elementorShapes.js) vendor Elementor's GPL-2.0 SVG paths for parity only.
+  Clean-room TODO: replace with original path geometry + own naming before any distribution
+  that must not carry GPL — the ELEMENTOR_SHAPES contract is the only consumer-facing surface,
+  so a drop-in replacement is safe.
 - Magic UI visual parity intentionally deferred until the foundation is verified.
 
 ## Core element inventory
