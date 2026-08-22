@@ -1,7 +1,7 @@
 const clone = (value) => value == null ? value : structuredClone(value);
+import { mergeStyles, emptyStyles } from './StyleValueModel.js';
 
-export default class ElementRegistry {
-    constructor() { this.definitions = new Map(); }
+export default class ElementRegistry {    constructor() { this.definitions = new Map(); }
 
     register(definition) {
         if (!definition || typeof definition.type !== 'string' || !definition.type.trim()) {
@@ -45,11 +45,7 @@ export default class ElementRegistry {
             id: overrides.id || crypto.randomUUID(),
             type,
             settings: { ...(clone(defaults.settings) || {}), ...(clone(overrides.settings) || {}) },
-            styles: {
-                base: {}, tablet: {}, mobile: {}, hover: {}, focus: {},
-                ...(clone(defaults.styles) || {}),
-                ...(clone(overrides.styles) || {}),
-            },
+            styles: mergeStyles(emptyStyles(), { ...(defaults.styles || {}), ...(overrides.styles || {}) }),
             ...(definition.acceptsChildren ? { children: clone(overrides.children || defaults.children || []) } : {}),
         };
     }

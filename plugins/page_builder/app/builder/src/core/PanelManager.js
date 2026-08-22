@@ -1,4 +1,5 @@
 import { pickMedia, uploadMedia } from './MediaPicker.js';
+import { resolveLocation } from './StyleValueModel.js';
 
 const labelFor = (option) => typeof option === 'object' ? option.label : String(option).replace(/-/g, ' ');
 const valueFor = (option) => typeof option === 'object' ? option.value : option;
@@ -350,7 +351,7 @@ export default class PanelManager {
     controlIsActive(control, node) {
         if (!control.condition) return true;
         const test = (conditions) => Object.entries(conditions).every(([name, expected]) => {
-            const actual = node.settings[name] ?? node.styles.base?.[name];
+            const actual = node.settings[name] ?? node.styles.desktop?.base?.[name] ?? node.styles.base?.[name];
             if (Array.isArray(expected)) return expected.includes(actual);
             if (expected === '__not_empty__') return actual !== undefined && actual !== null && actual !== '';
             return actual === expected;
@@ -365,16 +366,16 @@ export default class PanelManager {
     currentValue(control, node) {
         if (control.target === 'settings' || (control.target !== 'styles' && control.tab === 'content')) return node.settings[control.name] ?? '';
         const device = this.runtime.responsive.device;
-        const bucket = control.responsive ? (device === 'desktop' ? 'base' : device) : (control.state || 'base');
-        return node.styles[bucket]?.[control.name] ?? '';
+        const location = resolveLocation(control, device);
+        return node.styles[location.device]?.[location.state]?.[control.name] ?? '';
     }
 
     setValue(control, node, value) {
         if (control.target === 'settings' || (control.target !== 'styles' && control.tab === 'content')) this.runtime.update(node.id, { settings: { [control.name]: value } }, `Change ${control.label}`);
         else {
             const device = this.runtime.responsive.device;
-            const bucket = control.responsive ? (device === 'desktop' ? 'base' : device) : (control.state || 'base');
-            this.runtime.update(node.id, { styles: { [bucket]: { ...(node.styles[bucket] || {}), [control.name]: value } } }, `Change ${control.label}`);
+            const location = resolveLocation(control, device);
+            this.runtime.update(node.id, { styles: { [location.device]: { [location.state]: { [control.name]: value } } } }, `Change ${control.label}`);
         }
     }
 

@@ -221,8 +221,8 @@ async function main() {
       menu?.remove();
       var before=b.getData().children[0].children.length; b.runtime.duplicate(${JSON.stringify(ids.heading)});
       var duplicated=b.getData().children[0].children.length===before+1; b.runtime.history.undo();
-      b.runtime.copyStyles(${JSON.stringify(ids.heading)}); b.runtime.pasteStyles(${JSON.stringify(ids.paragraph)}); var stylesPasted=b.runtime.document.get(${JSON.stringify(ids.paragraph)}).styles.base.color==='#123456'; b.runtime.history.undo();
-      return {actions:actions,duplicated:duplicated,restored:b.getData().children[0].children.length===before,stylesPasted:stylesPasted,stylesRestored:!b.runtime.document.get(${JSON.stringify(ids.paragraph)}).styles.base.color};
+      b.runtime.copyStyles(${JSON.stringify(ids.heading)}); b.runtime.pasteStyles(${JSON.stringify(ids.paragraph)}); var stylesPasted=b.runtime.document.get(${JSON.stringify(ids.paragraph)}).styles.desktop.base.color==='#123456'; b.runtime.history.undo();
+      return {actions:actions,duplicated:duplicated,restored:b.getData().children[0].children.length===before,stylesPasted:stylesPasted,stylesRestored:!b.runtime.document.get(${JSON.stringify(ids.paragraph)}).styles.desktop.base.color};
     })()`);
     check("context menu, duplicate, and style actions use document commands", state.actions === 8 && state.duplicated && state.restored && state.stylesPasted && state.stylesRestored, JSON.stringify(state));
 
@@ -590,7 +590,7 @@ async function main() {
       var css=b.iframeDoc.getElementById('ink-builder-v2-styles').textContent;
       var unlinked=css.includes('margin:10px 20px 30px 40px');
       r.history.undo();
-      var undone=!b.runtime.document.get(id).styles.base.margin;
+      var undone=!b.runtime.document.get(id).styles.desktop.base.margin;
       var gaps=r.insert('columns',{}, {settings:{structure:'50,50'},children:[r.create('column'),r.create('column')]});
       r.update(gaps.id,{styles:{base:{gap:{row:30,column:12,unit:'px'}}}},'Set gaps');
       var gapCss=b.iframeDoc.getElementById('ink-builder-v2-styles').textContent.includes('gap:30px 12px');
@@ -683,6 +683,29 @@ async function main() {
       return {ok:true,imageParts:imageParts,iconParts:iconParts,progressPart:progressPart,buttonParts:buttonParts,headingPart:headingPart,imageDom:imageDom,headingLink:headingLink,noWrapperOnly:noWrapperOnly};
     })()`);
     check("style controls target declared element parts, not the wrapper", state.imageParts && state.iconParts && state.progressPart && state.buttonParts && state.headingPart && state.imageDom && state.headingLink && state.noWrapperOnly, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder, r=b.runtime, id=b.iframeDoc, esc=function(x){return CSS.escape(x);};
+      var btn=r.insert('button',{});
+      // Panel path: writing a hover value while the tablet device is active lands on tablet.hover.
+      switchToTabletMode();
+      var panel=r.settingsPanel;
+      panel.setValue({name:'color',responsive:true,state:'hover',label:'Color'}, r.document.get(btn.id), '#00ff88');
+      var node=r.document.get(btn.id);
+      var panelStored=!!node.styles.tablet && node.styles.tablet.hover && node.styles.tablet.hover.color==='#00ff88';
+      // Non-responsive control on tablet inherits from desktop.base.
+      panel.setValue({name:'background-color',responsive:false,label:'Background'}, r.document.get(btn.id), '#112233');
+      var inherited=!!node.styles.desktop && node.styles.desktop.base['background-color']==='#112233';
+      switchToDesktopMode();
+      // Engine path: tablet × hover compiles into a media-scoped :hover rule (not a plain desktop rule).
+      r.update(btn.id,{styles:{tablet:{hover:{color:'#00ff88'}}}},'Style');
+      var rules=builder.runtime.styles.nodeRules(r.document.get(btn.id));
+      var mediaHover=rules.indexOf('@media(max-width:1024px){.ink-el-'+esc(btn.id)+':hover .ink-el-button-text{color:#00ff88')!==-1;
+      var plainDesktop=!rules.includes('.ink-el-'+esc(btn.id)+'{color:#00ff88');
+      r.remove(btn.id);
+      return {ok:true,panelStored:panelStored,inherited:inherited,mediaHover:mediaHover,plainDesktop:plainDesktop};
+    })()`);
+    check("responsive values combine with interaction states (device × state)", state.panelStored && state.inherited && state.mediaHover && state.plainDesktop, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var b=builder, r=b.runtime;

@@ -1,4 +1,5 @@
 const clone = (value) => structuredClone(value);
+import { normalizeStyles, mergeStyles } from './StyleValueModel.js';
 
 export default class EditorDocument {
     constructor({ registry, events, data } = {}) {
@@ -22,6 +23,12 @@ export default class EditorDocument {
             children: clone(data.children || []),
         };
         if (data.version && data.version !== 2) throw new Error(`Unsupported builder document version: ${data.version}`);
+        // Migrate any legacy-flat style buckets into the device × state model.
+        const visit = (node) => {
+            if (node && node.styles && typeof node.styles === 'object') node.styles = normalizeStyles(node.styles);
+            (node.children || []).forEach(visit);
+        };
+        document.children.forEach(visit);
         return document;
     }
 
@@ -92,7 +99,7 @@ export default class EditorDocument {
         const node = this.get(id);
         if (!node) throw new Error(`Unknown element id: ${id}`);
         if (patch.settings) node.settings = { ...node.settings, ...clone(patch.settings) };
-        if (patch.styles) node.styles = { ...node.styles, ...clone(patch.styles) };
+        if (patch.styles) node.styles = mergeStyles(node.styles, patch.styles);
         this.emit('document:update', { id, patch: clone(patch) });
         return node;
     }

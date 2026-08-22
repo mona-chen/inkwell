@@ -1,4 +1,5 @@
-const STATES = new Set(['hover', 'focus', 'active']);
+const STATE_PSEUDOS = { hover: 'hover', focus: 'focus', active: 'active' };
+const DEVICE_WIDTHS = { desktop: null, tablet: 'tablet', mobile: 'mobile' };
 
 export default class StyleEngine {
     constructor({ registry, responsive, events } = {}) {
@@ -63,44 +64,42 @@ export default class StyleEngine {
         const definition = this.registry.get(node.type);
         const map = definition.styleMap || {};
         const meta = this.controlMeta(definition);
-        // bucket -> selector (default '') -> property:value map
-        const buckets = { base: new Map(), tablet: new Map(), mobile: new Map(), hover: new Map(), focus: new Map(), active: new Map() };
-        Object.entries(node.styles || {}).forEach(([bucket, settings]) => {
-            if (!buckets[bucket]) return;
-            Object.entries(settings || {}).forEach(([key, value]) => {
-                if (value === undefined || value === null || value === '') return;
-                const descriptor = map[key] || {};
-                const control = meta.get(key) || {};
-                let suffix = descriptor.selector;
-                if (suffix === undefined) {
-                    const part = descriptor.part || control.part || 'root';
-                    suffix = this.partSelector(definition, part);
-                    if (suffix === null) return; // declared part has no selector target
-                }
-                const target = buckets[bucket].get(suffix) || {};
-                if (typeof descriptor === 'function') {
-                    const extra = descriptor(value, node) || {};
-                    Object.assign(buckets[bucket].get(suffix) || target, extra);
-                } else {
-                    target[descriptor.property || control.property || key] = typeof descriptor.transform === 'function' ? descriptor.transform(value, node) : value;
-                }
-                buckets[bucket].set(suffix, target);
-            });
-        });
         let css = '';
-        Object.entries(buckets).forEach(([bucket, bySelector]) => {
-            bySelector.forEach((values, selector) => {
-                const declarations = this.declarations(values);
-                if (!declarations) return;
-                const rule = `${this.selector(node.id, selector)}{${declarations}}`;
-                if (STATES.has(bucket)) css += `${this.selector(node.id, `:${bucket}${selector}`)}{${declarations}}`;
-                else if (bucket === 'base') css += rule;
-                else {
-                    const width = this.responsive.breakpoints[bucket];
-                    if (width) css += `@media(max-width:${width}px){${rule}}`;
-                }
-            });
-        });
+        for (const device of ['desktop', 'tablet', 'mobile']) {
+            const deviceStyles = node.styles?.[device] || {};
+            const width = DEVICE_WIDTHS[device] ? this.responsive.breakpoints[DEVICE_WIDTHS[device]] : null;
+            for (const state of ['base', 'hover', 'focus', 'active']) {
+                const settings = deviceStyles[state] || {};
+                if (!Object.keys(settings).length) continue;
+                const bySelector = new Map();
+                Object.entries(settings).forEach(([key, value]) => {
+                    if (value === undefined || value === null || value === '') return;
+                    const descriptor = map[key] || {};
+                    const control = meta.get(key) || {};
+                    let suffix = descriptor.selector;
+                    if (suffix === undefined) {
+                        const part = descriptor.part || control.part || 'root';
+                        suffix = this.partSelector(definition, part);
+                        if (suffix === null) return; // declared part has no selector target
+                    }
+                    const target = bySelector.get(suffix) || {};
+                    if (typeof descriptor === 'function') {
+                        const extra = descriptor(value, node) || {};
+                        Object.assign(bySelector.get(suffix) || target, extra);
+                    } else {
+                        target[descriptor.property || control.property || key] = typeof descriptor.transform === 'function' ? descriptor.transform(value, node) : value;
+                    }
+                    bySelector.set(suffix, target);
+                });
+                const pseudo = STATE_PSEUDOS[state] ? `:${state}` : '';
+                bySelector.forEach((values, selector) => {
+                    const declarations = this.declarations(values);
+                    if (!declarations) return;
+                    const rule = `${this.selector(node.id, `${pseudo}${selector}`)}{${declarations}}`;
+                    css += width ? `@media(max-width:${width}px){${rule}}` : rule;
+                });
+            }
+        }
         return css;
     }
 
