@@ -24,9 +24,10 @@ Primary references:
 | Dark responsive preview stage | Ported; centered page frame on a neutral stage |
 | Element hover/selection outline | Ported; per-kind outlines (section/column dashed/container/widget) and toolbars |
 | Floating element edit toolbar | Ported; revealed on hover/selection only |
-| Empty page/container add affordance | Ported; compact insertion surface with circular actions (Add element / Add structure with Elementor-style presets) |
+| Empty page/container add affordance | Ported; full-width dashed insertion surface with 40×40 actions and a wide visual structure-preset gallery (state-based, Elementor `e-con-select-preset`) |
 | Nested drag/drop intents | Ported; axis-aware before/after/inside with a visible drop line |
-| Real cross-document drag & drop | Ported; library tile -> iframe works via payload fallback + iframe capture listeners |
+| Real cross-document drag & drop | Ported; blank-root, empty-container, before/after, reparent, and cancellation paths covered by real pointer tests |
+| Column resize | Ported; per-column handles with live percentage feedback that commits real column structures |
 | Context menu: edit/copy/paste/duplicate/delete | Ported |
 | Recursive Structure panel and selection sync | Ported as a floating "Structure" panel toggled from the top bar |
 | Undo/redo command history | Ported; History routed screen with jump-to-state |
@@ -85,11 +86,35 @@ Primary references:
 | box-shadow, text-shadow | Ported with structured panel UI and CSS serialization |
 | background (color/image/gradient/size/position/repeat) | Ported as a unified popover control (Elementor-style Classic/Gradient surface) |
 | css-filters, text-stroke | Ported |
+| Normal/Hover/Focus states | Ported for state-capable controls (state switcher threads into value buckets) |
+| Conditions | Ported with AND/OR/not, multi-value arrays, and `__not_empty__` |
+| {{WRAPPER}}-style descendant selectors | Ported via `styleMap` `selector` descriptors in StyleEngine |
+| WYSIWYG | Ported with a formatting toolbar and live active states |
 | popover-toggle | Ported |
 | tabs, section | Ported with collapsible control sections |
 | responsive switcher per control | Ported (per-label device popover wired to the appbar) |
-| WYSIWYG | Ported with editable HTML and basic formatting toolbar |
 | WP widget | Not portable or applicable; replace with Ink plugin-element adapter |
+
+## Primitive parity status
+
+| Element | Status |
+| --- | --- |
+| Button | Size scale (xs–xl), icon + placement, alignment, hover/focus states, inner padding, CSS ID/classes |
+| Heading | Link, hover/focus color, text shadow/stroke, blend mode, size presets, CSS ID/classes |
+| Image | Caption/figure, link, alignment, object fit/position, hover filters, border/radius states |
+| Icon | Size, color states, rotation |
+| Divider | Alignment, weight, gap |
+| Text Editor / Spacer / remaining primitives | Partial — no drop cap/columns yet; further per-widget parity pending |
+| Common Advanced | CSS ID/classes/custom-attributes on primitives; motion effects/transforms/masks pending |
+
+## Remaining gaps (honest)
+
+- Navigator: recursive connectors, expand/collapse persistence, drag reorder/reparent,
+  visibility/lock, context menu, keyboard nav, dock persistence not yet complete.
+- Composite widgets (tabs/accordion/gallery/carousel/social) parity is partial.
+- Magic UI visual parity intentionally deferred until the foundation is verified.
+- WYSIWYG still uses `document.execCommand` internally (the only cross-browser inline
+  formatting API; Elementor's own toolbar backend does the same).
 
 ## Core element inventory
 
