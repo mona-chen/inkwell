@@ -284,34 +284,17 @@ export default function registerInkElements(registry) {
             const root = make(domDocument, 'div', 'ink-el-tabs');
             const nav = make(domDocument, 'div', 'ink-el-tabs-nav'); nav.setAttribute('role', 'tablist');
             const items = node.settings.items || [];
-            const panels = [];
-            const activate = (index) => {
-                nav.querySelectorAll('button').forEach((tab, i) => { const active = i === index; tab.classList.toggle('is-active', active); tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; });
-                panels.forEach((panel, i) => { panel.hidden = i !== index; });
-            };
             items.forEach((item, index) => {
                 const button = make(domDocument, 'button', '', item.title); button.type = 'button';
                 button.id = `ink-tab-${node.id}-${index}`; button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(index === 0)); button.setAttribute('aria-controls', `ink-panel-${node.id}-${index}`); button.tabIndex = index === 0 ? 0 : -1;
-                button.addEventListener('click', () => activate(index));
-                button.addEventListener('keydown', (event) => {
-                    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft' && event.key !== 'Home' && event.key !== 'End') return;
-                    event.preventDefault();
-                    const buttons = Array.from(nav.querySelectorAll('button'));
-                    const current = buttons.indexOf(event.target);
-                    let next = current;
-                    if (event.key === 'ArrowRight') next = (current + 1) % buttons.length;
-                    if (event.key === 'ArrowLeft') next = (current - 1 + buttons.length) % buttons.length;
-                    if (event.key === 'Home') next = 0;
-                    if (event.key === 'End') next = buttons.length - 1;
-                    buttons[next].focus(); activate(next);
-                });
-                nav.append(button);
+                if (index === 0) button.classList.add('is-active');
+                nav.appendChild(button);
             });
             root.append(nav);
             items.forEach((item, index) => {
                 const panel = make(domDocument, 'div', 'ink-el-tab-panel', item.content);
                 panel.id = `ink-panel-${node.id}-${index}`; panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', `ink-tab-${node.id}-${index}`); panel.hidden = index !== 0;
-                panels.push(panel); root.append(panel);
+                root.append(panel);
             });
             return root;
         },
@@ -380,21 +363,58 @@ export default function registerInkElements(registry) {
             return root;
         },
     });
-    const galleryDefaults = { settings: { images: [] }, styles: { base: {} } };
-    const galleryControls = [{ tab: 'content', section: 'Images', name: 'images', type: 'gallery', label: 'Gallery' }, ...spacing];
+    const galleryDefaults = { settings: { images: [], lightbox: true }, styles: { base: {} } };
+    const galleryControls = [
+        { tab: 'content', section: 'Images', name: 'images', type: 'gallery', label: 'Gallery' },
+        { tab: 'content', section: 'Lightbox', name: 'lightbox', type: 'switcher', label: 'Open images in a lightbox' },
+        ...spacing,
+    ];
     register(registry, {
         type: 'gallery', title: 'Image Gallery', icon: 'collections', defaults: galleryDefaults, controls: galleryControls,
         render: ({ domDocument }, node) => {
             const root = make(domDocument, 'div', 'ink-el-gallery');
+            root.dataset.lightbox = node.settings.lightbox === false ? 'false' : 'true';
             (node.settings.images || []).forEach((item) => { const image = make(domDocument, 'img'); image.src = typeof item === 'string' ? item : item.url; image.alt = item.alt || ''; image.loading = 'lazy'; root.append(image); });
             return root;
         },
     });
     register(registry, {
-        type: 'carousel', title: 'Image Carousel', icon: 'view_carousel', defaults: galleryDefaults, controls: galleryControls,
+        type: 'carousel', title: 'Image Carousel', icon: 'view_carousel',
+        defaults: { settings: { images: [], navigation: 'arrows', autoplay: false, interval: 4000, loop: false }, styles: { base: {} } },
+        controls: [
+            { tab: 'content', section: 'Images', name: 'images', type: 'gallery', label: 'Gallery' },
+            { tab: 'content', section: 'Carousel', name: 'navigation', type: 'select', label: 'Navigation', options: ['arrows', 'dots', 'both', 'none'] },
+            { tab: 'content', section: 'Carousel', name: 'loop', type: 'switcher', label: 'Loop' },
+            { tab: 'content', section: 'Carousel', name: 'autoplay', type: 'switcher', label: 'Autoplay' },
+            { tab: 'content', section: 'Carousel', name: 'interval', type: 'slider', label: 'Autoplay interval', min: 1000, max: 12000, step: 500 },
+            ...spacing,
+        ],
         render: ({ domDocument }, node) => {
             const root = make(domDocument, 'div', 'ink-el-carousel');
-            (node.settings.images || []).forEach((item) => { const image = make(domDocument, 'img'); image.src = typeof item === 'string' ? item : item.url; image.alt = item.alt || ''; image.loading = 'lazy'; root.append(image); });
+            root.dataset.autoplay = node.settings.autoplay ? 'true' : 'false';
+            root.dataset.loop = node.settings.loop ? 'true' : 'false';
+            root.dataset.interval = String(node.settings.interval || 4000);
+            const track = make(domDocument, 'div', 'ink-el-carousel-track');
+            (node.settings.images || []).forEach((item) => {
+                const slide = make(domDocument, 'div', 'ink-el-carousel-slide');
+                const image = make(domDocument, 'img'); image.src = typeof item === 'string' ? item : item.url; image.alt = item.alt || ''; image.loading = 'lazy'; image.draggable = false;
+                slide.appendChild(image); track.appendChild(slide);
+            });
+            root.appendChild(track);
+            const navigation = node.settings.navigation || 'arrows';
+            if (navigation === 'arrows' || navigation === 'both') {
+                const prev = make(domDocument, 'button', 'ink-el-carousel-nav is-prev'); prev.type = 'button'; prev.setAttribute('aria-label', 'Previous slide'); prev.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">chevron_left</span>';
+                const next = make(domDocument, 'button', 'ink-el-carousel-nav is-next'); next.type = 'button'; next.setAttribute('aria-label', 'Next slide'); next.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">chevron_right</span>';
+                root.append(prev, next);
+            }
+            if (navigation === 'dots' || navigation === 'both') {
+                const dots = make(domDocument, 'div', 'ink-el-carousel-dots');
+                (node.settings.images || []).forEach((item, index) => {
+                    const dot = make(domDocument, 'button', index === 0 ? 'ink-el-carousel-dot is-active' : 'ink-el-carousel-dot'); dot.type = 'button'; dot.dataset.carouselDot = ''; dot.dataset.index = String(index); dot.setAttribute('aria-label', `Go to slide ${index + 1}`);
+                    dots.appendChild(dot);
+                });
+                root.appendChild(dots);
+            }
             return root;
         },
     });

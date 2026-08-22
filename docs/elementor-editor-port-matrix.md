@@ -107,9 +107,27 @@ Primary references:
 | Text Editor / Spacer / remaining primitives | Partial — no drop cap/columns yet; further per-widget parity pending |
 | Common Advanced | CSS ID/classes/custom-attributes on primitives; motion effects/transforms/masks pending |
 
+## Composite & interactive widget parity
+
+Every composite widget is a native v2 element (repeater/gallery controls, semantic markup,
+canvas CSS). Interactive behavior ships with the widget: a self-contained behavior runtime
+(`data-ink-widget-runtime`) is emitted into the canvas root, delegates on the iframe document
+(capture phase), and survives into published output — so tabs, carousels, and lightboxes work
+in the editor and on the published page with zero external JS.
+
+| Widget | Ink status |
+| --- | --- |
+| Tabs | Click + keyboard (arrows/Home/End) tab switching, ARIA roles, hidden panels |
+| Accordion / Toggle | Native `<details>/<summary>` — interactive without JS |
+| Image Carousel | Slide track with prev/next arrows, dot indicators, autoplay (interval), loop; navigation style setting |
+| Image Gallery | Responsive grid + lightbox (open/close, prev/next, Esc/backdrop) |
+| Social Icons | Repeater of icon/label/URL links |
+| Testimonial / Counter / Progress / Rating / Alert / Audio / Video / Map | Static render from settings; no JS required |
+
 ## Remaining gaps (honest)
 
-- Composite widgets (tabs/accordion/gallery/carousel/social) parity is partial.
+- Composite widgets now ship self-contained interactive behavior (tabs/carousel/lightbox);
+  remaining composite parity is per-widget polish (e.g. gallery captions, carousel effects).
 - Magic UI visual parity intentionally deferred until the foundation is verified.
 - WYSIWYG still uses `document.execCommand` internally (the only cross-browser inline
   formatting API; Elementor's own toolbar backend does the same).

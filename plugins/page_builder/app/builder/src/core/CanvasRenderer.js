@@ -1,3 +1,126 @@
+// Inline widget-behavior runtime. Emitted once per canvas render inside the canvas root so it
+// ships in published output (getHtml clones the body). Uses event delegation on the iframe's
+// document, so widgets added/replaced later are covered automatically. Keep this script free of
+// ERB-sensitive tokens ({{ }}, <% %>) because the saved HTML is later rendered as a live template.
+const WIDGET_RUNTIME = `
+(function () {
+  if (window.__inkWidgetsReady) { return; }
+  window.__inkWidgetsReady = true;
+  function closest (el, sel) { while (el && el.nodeType === 1) { if (el.matches(sel)) { return el; } el = el.parentNode; } return null; }
+  function on (evt, sel, handler) { document.addEventListener(evt, function (event) { var target = closest(event.target, sel); if (target) { handler(event, target); } }, true); }
+
+  /* Tabs */
+  function activateTab (nav, index) {
+    var tabs = Array.prototype.slice.call(nav.children);
+    var panels = Array.prototype.slice.call(nav.parentElement.children).filter(function (child) { return child.classList.contains('ink-el-tab-panel'); });
+    tabs.forEach(function (tab, i) { var active = i === index; tab.classList.toggle('is-active', active); tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; });
+    panels.forEach(function (panel, i) { panel.hidden = i !== index; });
+  }
+  on('click', '.ink-el-tabs-nav button', function (event, button) {
+    var nav = closest(button, '.ink-el-tabs-nav');
+    if (!nav) { return; }
+    activateTab(nav, Array.prototype.indexOf.call(nav.children, button));
+  });
+  on('keydown', '.ink-el-tabs-nav button', function (event, button) {
+    if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].indexOf(event.key) === -1) { return; }
+    event.preventDefault();
+    var nav = closest(button, '.ink-el-tabs-nav');
+    if (!nav) { return; }
+    var buttons = Array.prototype.slice.call(nav.children);
+    var current = buttons.indexOf(button), next = current;
+    if (event.key === 'ArrowRight') { next = (current + 1) % buttons.length; }
+    else if (event.key === 'ArrowLeft') { next = (current - 1 + buttons.length) % buttons.length; }
+    else if (event.key === 'Home') { next = 0; }
+    else if (event.key === 'End') { next = buttons.length - 1; }
+    buttons[next].focus(); activateTab(nav, next);
+  });
+
+  /* Carousel */
+  function carouselCount (carousel) { return carousel.querySelectorAll('.ink-el-carousel-slide').length; }
+  function carouselIndex (carousel) { return Number(carousel.getAttribute('data-index') || 0); }
+  function renderCarousel (carousel) {
+    var count = carouselCount(carousel);
+    if (!count) { return; }
+    var loop = carousel.getAttribute('data-loop') === 'true';
+    var index = carouselIndex(carousel);
+    if (index >= count) { index = loop ? 0 : count - 1; }
+    if (index < 0) { index = loop ? count - 1 : 0; }
+    carousel.setAttribute('data-index', String(index));
+    var track = carousel.querySelector('.ink-el-carousel-track');
+    if (track) { track.style.transform = 'translateX(' + (-index * 100) + '%)'; }
+    carousel.querySelectorAll('[data-carousel-dot]').forEach(function (dot, i) { dot.classList.toggle('is-active', i === index); });
+    carousel.querySelectorAll('.ink-el-carousel-nav').forEach(function (btn) {
+      var disabled = !loop && ((btn.classList.contains('is-prev') && index === 0) || (btn.classList.contains('is-next') && index === count - 1));
+      btn.disabled = disabled;
+    });
+  }
+  function stepCarousel (carousel, delta) {
+    var count = carouselCount(carousel);
+    if (!count) { return; }
+    var loop = carousel.getAttribute('data-loop') === 'true';
+    var index = carouselIndex(carousel) + delta;
+    if (!loop) { index = Math.max(0, Math.min(count - 1, index)); }
+    carousel.setAttribute('data-index', String(index));
+    renderCarousel(carousel);
+  }
+  on('click', '.ink-el-carousel .is-prev', function (event, button) { var c = closest(button, '.ink-el-carousel'); if (c) { stepCarousel(c, -1); } });
+  on('click', '.ink-el-carousel .is-next', function (event, button) { var c = closest(button, '.ink-el-carousel'); if (c) { stepCarousel(c, 1); } });
+  on('click', '[data-carousel-dot]', function (event, dot) {
+    var c = closest(dot, '.ink-el-carousel');
+    if (c) { c.setAttribute('data-index', String(Number(dot.getAttribute('data-index') || 0))); renderCarousel(c); }
+  });
+  function bindAutoplay (carousel) {
+    if (carousel.getAttribute('data-autoplay-bound')) { return; }
+    carousel.setAttribute('data-autoplay-bound', 'true');
+    var interval = Math.max(500, Number(carousel.getAttribute('data-interval') || 4000));
+    carousel.__inkTimer = setInterval(function () {
+      if (!document.contains(carousel)) { clearInterval(carousel.__inkTimer); return; }
+      if (carousel.getAttribute('data-hover') === 'true') { return; }
+      stepCarousel(carousel, 1);
+    }, interval);
+  }
+  function scanAutoplay () { Array.prototype.forEach.call(document.querySelectorAll('.ink-el-carousel[data-autoplay="true"]'), bindAutoplay); }
+  if (window.MutationObserver) { var observer = new MutationObserver(scanAutoplay); observer.observe(document.body, { childList: true, subtree: true }); }
+  scanAutoplay();
+
+  /* Gallery lightbox */
+  var lightbox = null, lightboxSources = [], lightboxIndex = 0;
+  function closeLightbox () { if (lightbox) { lightbox.remove(); lightbox = null; } }
+  function renderLightbox () {
+    if (!lightbox) { return; }
+    var image = lightbox.querySelector('.ink-lightbox-image');
+    image.src = lightboxSources[lightboxIndex];
+    lightbox.querySelector('.ink-lightbox-prev').hidden = lightboxSources.length < 2;
+    lightbox.querySelector('.ink-lightbox-next').hidden = lightboxSources.length < 2;
+  }
+  function openLightbox (sources, index) {
+    closeLightbox();
+    lightboxSources = sources; lightboxIndex = index;
+    lightbox = document.createElement('div');
+    lightbox.className = 'ink-lightbox';
+    var image = document.createElement('img'); image.className = 'ink-lightbox-image'; image.alt = '';
+    var close = document.createElement('button'); close.type = 'button'; close.className = 'ink-lightbox-close'; close.setAttribute('aria-label', 'Close'); close.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">close</span>';
+    var prev = document.createElement('button'); prev.type = 'button'; prev.className = 'ink-lightbox-prev'; prev.setAttribute('aria-label', 'Previous'); prev.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">chevron_left</span>';
+    var next = document.createElement('button'); next.type = 'button'; next.className = 'ink-lightbox-next'; next.setAttribute('aria-label', 'Next'); next.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">chevron_right</span>';
+    lightbox.append(close, prev, image, next);
+    document.body.appendChild(lightbox);
+    renderLightbox();
+  }
+  on('click', '.ink-el-gallery[data-lightbox="true"] img', function (event, img) {
+    var gallery = closest(img, '.ink-el-gallery');
+    var images = Array.prototype.slice.call(gallery.querySelectorAll('img'));
+    var sources = images.map(function (i) { return i.getAttribute('src') || ''; }).filter(Boolean);
+    if (!sources.length) { return; }
+    openLightbox(sources, images.indexOf(img));
+  });
+  on('click', '.ink-lightbox-close', closeLightbox);
+  on('click', '.ink-lightbox', function (event) { if (event.target.classList.contains('ink-lightbox')) { closeLightbox(); } });
+  on('click', '.ink-lightbox-prev', function () { lightboxIndex = (lightboxIndex - 1 + lightboxSources.length) % lightboxSources.length; renderLightbox(); });
+  on('click', '.ink-lightbox-next', function () { lightboxIndex = (lightboxIndex + 1) % lightboxSources.length; renderLightbox(); });
+  document.addEventListener('keydown', function (event) { if (event.key === 'Escape') { closeLightbox(); } });
+})();
+`;
+
 export default class CanvasRenderer {
     constructor({ registry, document, styles, selection, events } = {}) {
         this.registry = registry;
@@ -56,8 +179,17 @@ export default class CanvasRenderer {
         this.instances.clear();
         this.root.replaceChildren(...this.document.data.children.map((node) => this.create(node)));
         if (!this.document.data.children.length) this.root.appendChild(this.rootEmptyView());
+        else this.root.appendChild(this.widgetRuntime());
         this.styles.mount(this.root.ownerDocument, this.document);
         this.events.emit('canvas:render', { root: this.root });
+    }
+
+    widgetRuntime() {
+        const doc = this.root.ownerDocument;
+        const script = doc.createElement('script');
+        script.dataset.inkWidgetRuntime = '';
+        script.textContent = WIDGET_RUNTIME;
+        return script;
     }
 
     actionButton(icon, label, action, id) {

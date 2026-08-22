@@ -45,7 +45,8 @@ function cdp(url) {
       errors.push(details.exception?.description || details.text || "Runtime exception");
     }
     if (message.method === "Runtime.consoleAPICalled" && message.params.type === "error") {
-      errors.push((message.params.args || []).map((arg) => arg.value || arg.description || "").join(" "));
+      const stack = (message.params.stackTrace?.callFrames || []).map((f) => `  at ${f.functionName} (${f.url}:${f.lineNumber}:${f.columnNumber})`).join("\n");
+      errors.push((message.params.args || []).map((arg) => arg.value || arg.description || "").join(" ") + (stack ? "\n" + stack : ""));
     }
   };
   const open = new Promise((resolve, reject) => {
@@ -505,7 +506,7 @@ async function main() {
       var el=b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]');
       var dimmed=!!el && el.hasAttribute('data-ink-hidden') && b.iframeDoc.defaultView.getComputedStyle(el).opacity==="0.4";
       var html=b.getHtml();
-      var publishedHidden=!html.includes('ink-el-'+id);
+      var publishedHidden=!new DOMParser().parseFromString(html, 'text/html').querySelector('.ink-el-'+id);
       r.update(id,{settings:{hidden:false}},'Show element');
       var shown=!!b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]') && !b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"]').hasAttribute('data-ink-hidden');
       return {ok:true,dimmed:dimmed,publishedHidden:publishedHidden,shown:shown};
@@ -711,6 +712,36 @@ async function main() {
     check("publish HTML ships self-contained layout CSS", state.layout === true, JSON.stringify(state));
     check("publish HTML strips editor-only state", state.clean === true, JSON.stringify(state));
 
+    state = await client.evaluate(`(function(){
+      var b=builder, r=b.runtime, d=b.iframeDoc;
+      var tabs=r.insert('tabs',{}, {settings:{items:[{title:'One',content:'First panel'},{title:'Two',content:'Second panel'}]}});
+      var carousel=r.insert('carousel',{}, {settings:{images:[{url:'https://example.com/a.jpg'},{url:'https://example.com/b.jpg'},{url:'https://example.com/c.jpg'}],navigation:'both',autoplay:true,interval:3000,loop:true}});
+      var gallery=r.insert('gallery',{}, {settings:{images:[{url:'https://example.com/g1.jpg'},{url:'https://example.com/g2.jpg'}]}});
+      var tabsEl=d.querySelector('[data-ink-element-id="'+tabs.id+'"]');
+      var carEl=d.querySelector('[data-ink-element-id="'+carousel.id+'"]');
+      var galEl=d.querySelector('[data-ink-element-id="'+gallery.id+'"]');
+      var tabsNav=tabsEl.querySelectorAll('.ink-el-tabs-nav button');
+      var tabTwo=tabsEl.querySelectorAll('.ink-el-tabs-nav button')[1];
+      tabTwo.click();
+      var tabSwitched=!!tabTwo.classList.contains('is-active') && tabsEl.querySelectorAll('.ink-el-tab-panel')[1].hidden===false && tabsEl.querySelectorAll('.ink-el-tab-panel')[0].hidden===true;
+      var runtime=!!d.querySelector('[data-ink-widget-runtime]') && d.defaultView.__inkWidgetsReady===true;
+      var carouselMarkup=!!carEl && carEl.querySelectorAll('.ink-el-carousel-slide').length===3 && !!carEl.querySelector('.is-prev') && !!carEl.querySelector('.is-next') && !!carEl.querySelector('[data-carousel-dot]') && carEl.getAttribute('data-autoplay')==='true' && carEl.getAttribute('data-loop')==='true' && carEl.getAttribute('data-interval')==='3000';
+      carEl.querySelector('.is-next').click();
+      var advanced=carEl.getAttribute('data-index')==='1' && carEl.querySelector('.ink-el-carousel-track').style.transform.indexOf('-100%')!==-1;
+      var galleryLightbox=!!galEl && galEl.getAttribute('data-lightbox')==='true' && !!galEl.querySelector('img');
+      galEl.querySelector('img').click();
+      var lightbox=!!d.querySelector('.ink-lightbox');
+      if(lightbox){ d.querySelector('.ink-lightbox-close').click(); }
+      var lightboxClosed=!d.querySelector('.ink-lightbox');
+      var publishedRuntime=b.getHtml().includes('data-ink-widget-runtime');
+      r.remove(tabs.id); r.remove(carousel.id); r.remove(gallery.id);
+      return {ok:true,tabSwitched:tabSwitched,runtime:runtime,carouselMarkup:carouselMarkup,advanced:advanced,galleryLightbox:galleryLightbox,lightboxClosed:lightboxClosed,publishedRuntime:publishedRuntime};
+    })()`);
+    check("interactive widgets ship a self-contained behavior runtime", state.ok && state.runtime && state.publishedRuntime, JSON.stringify(state));
+    check("tabs switch panels on click", state.tabSwitched, JSON.stringify(state));
+    check("carousel exposes slides, nav, dots, autoplay, and advances", state.carouselMarkup && state.advanced, JSON.stringify(state));
+    check("gallery lightbox opens and closes", state.galleryLightbox && state.lightboxClosed, JSON.stringify(state));
+
     if (process.env.SMOKE_SCREENSHOT) {
       await client.evaluate(`builder.runtime.selection.select(${JSON.stringify(ids.heading)})`);
       const capture = await client.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
@@ -823,6 +854,7 @@ async function main() {
     check("classic editor preview remains styled", state.preview && state.styled, JSON.stringify(state));
 
     const relevantErrors = client.errors.filter((error) => !/not configured|favicon|Failed to load resource/.test(error));
+    if (relevantErrors.length) console.log("  captured errors:\n" + relevantErrors.join("\n---\n"));
     check("no uncaught console errors", relevantErrors.length === 0, relevantErrors[0] || "");
     client.close();
   } finally {

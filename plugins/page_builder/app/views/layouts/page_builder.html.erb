@@ -388,13 +388,18 @@
       var js = codeFileValue('js');
 
       // Prohibit inline <style>/<script>: hoist every style block into the CSS file and
-      // every script block into the JS file, so the builder keeps one clean source.
+      // every script block into the JS file, so the builder keeps one clean source. The
+      // builder-owned widget-behavior runtime (data-ink-widget-runtime) stays in the HTML —
+      // it ships with the page structure and is not user code.
       var styleParts = [];
       html = html.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, function (_, body) { styleParts.push(body); return ''; });
       var scriptParts = [];
-      html = html.replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, function (_, body) { scriptParts.push(body); return ''; });
+      html = html.replace(/<script([^>]*)>([\s\S]*?)<\/script>/gi, function (_, attrs, body) {
+        if (/(^|\s)data-ink-widget-runtime(\s|$)/.test(attrs)) return '<script' + attrs + '>' + body + '</scr' + 'ipt>';
+        scriptParts.push(body); return '';
+      });
       if (styleParts.length) css = (css.trim() ? css.trim() + '\n\n' : '') + styleParts.join('\n');
-      if (scriptParts.length) js = (js.trim() ? js.trim() + '\n\n' : '') + scriptParts.join('\n');
+      if (scriptParts.length) js = (js.trim() ? js.trim() + ';\n\n' : '') + scriptParts.join(';\n');
       setCodeFileValue('css', css);
       setCodeFileValue('js', js);
       document.getElementById('customCss').value = css;

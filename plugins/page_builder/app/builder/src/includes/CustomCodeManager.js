@@ -73,7 +73,7 @@ class CustomCodeManager {
         if (this.js) {
             const script = doc.createElement('script');
             script.id = 'pb-custom-js';
-            script.textContent = 'try {\n' + this.js + '\n} catch (e) { console.error("Custom JS error:", e) }';
+            script.textContent = 'try {\n' + this.js + '\n} catch (e) { console.error("Custom JS error:", e && e.stack ? e.stack : e) }';
             doc.body.appendChild(script);
         }
     }
