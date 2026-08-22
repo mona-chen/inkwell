@@ -77,6 +77,9 @@
     <div class="ink-appbar-end">
       <button type="button" data-action="finder" title="Finder (⌘K)" aria-label="Finder"><span class="material-symbols-rounded">search</span></button>
       <button type="button" id="structureButton" data-action="structure" title="Structure" aria-label="Structure"><span class="material-symbols-rounded">account_tree</span></button>
+      <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
+        <button type="button" id="copilotButton" data-action="copilot" title="Copilot" aria-label="Copilot"><span class="material-symbols-rounded">sparkles</span></button>
+      <% end %>
       <button id="toggleButton" onclick="toggleDesignMode()" type="button" title="Preview" aria-label="Preview"><span class="material-symbols-rounded">visibility_off</span></button>
       <button id="btn-save" onclick="saveToInkwell()" type="button" class="ink-appbar-publish"><span class="material-symbols-rounded">publish</span><span>Publish</span></button>
       <button type="button" data-action="menu" title="Page actions" aria-label="Page actions"><span class="material-symbols-rounded">more_vert</span></button>
@@ -97,6 +100,12 @@
         <div class="spin-loader"></div>
         <div id="MainContainer" class="content-container"></div>
       </main>
+
+      <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
+        <aside id="CopilotDock" class="ink-copilot-dock" hidden>
+          <%= render "ai_writer/builder_copilot" %>
+        </aside>
+      <% end %>
 
       <aside class="builder-sidebar">
         <div id="Sidebar">
@@ -516,9 +525,6 @@
     });
   </script>
 
-  <%# Copilot (AI Writer plugin) — floating design assistant for the builder, when active %>
-  <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
-    <%= render "ai_writer/builder_copilot" %>
-  <% end %>
+  <%# Copilot (AI Writer plugin) — rendered inside the #CopilotDock right-side panel above %>
 </body>
 </html>

@@ -15,6 +15,22 @@
   box-shadow: 1px 0 0 var(--ink-editor-border);
   z-index: 5;
 }
+
+// Right-side Copilot dock — part of the builder workspace, hidden until toggled from the appbar.
+.ink-copilot-dock {
+  order: 3;
+  flex: 0 0 372px;
+  width: 372px;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ink-editor-panel);
+  border-left: 1px solid var(--ink-editor-border);
+  z-index: 5;
+}
+.ink-copilot-dock[hidden] { display: none; }
+.ink-copilot-dock > [data-controller="builder-copilot"] { height: 100%; }
 .builder-sidebar #Sidebar { display: flex; height: 100%; flex-direction: column; }
 .builder-sidebar #Sidebar > div:last-child { flex: 1; min-height: 0; overflow: hidden; }
 

@@ -259,6 +259,21 @@ export default class BuilderV2 {
         this.runtime.selection.clear();
     }
 
+    // Load a store in place (used by the Copilot apply path and checkpoint restore). document.replace
+    // normalizes the store (migrates legacy style buckets) and re-renders the canvas via events.
+    parse(store) {
+        const data = store && store.version === 2 ? store : { version: 2, type: 'page', settings: { title: 'Blank' }, children: [] };
+        this.runtime.document.replace(data);
+        this.runtime.selection.clear();
+        this.applyCustomCode();
+        return this;
+    }
+
+    render() {
+        this.runtime.canvas.render();
+        return this;
+    }
+
     setDevice(device) {
         this.pendingDevice = device;
         if (this.runtime) this.runtime.responsive.setDevice(device);

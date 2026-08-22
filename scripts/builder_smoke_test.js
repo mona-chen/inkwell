@@ -314,25 +314,28 @@ async function main() {
       var exposed=!!tools && typeof tools.apply==='function' && typeof tools.index==='function' && tools.TOOLS.length>=11;
       var beforeStore=r.serialize();
       var container=r.insert('container',{});
-      var inserted=tools.apply('insert_element',{path:'0',type:'heading',settings:{text:'AI heading'}});
-      var headingNode=r.document.data.children[0].children.find(function(n){return n.type==='heading';});
-      var styled=tools.apply('set_styles',{path:'0.0',styles:{desktop:{base:{color:'#123456'}}}});
+      var containerIndex=r.document.data.children.findIndex(function(n){return n.id===container.id;});
+      var inserted=tools.apply('insert_element',{path:String(containerIndex),type:'heading',settings:{text:'AI heading'}});
+      var headingNode=r.document.get(container.id).children.find(function(n){return n.type==='heading';});
+      var styled=tools.apply('set_styles',{path:String(containerIndex)+'.0',styles:{desktop:{base:{color:'#123456'}}}});
       var cssColor=headingNode && headingNode.styles.desktop.base.color==='#123456';
-      var removed=tools.apply('remove_element',{path:'0.0'});
-      var gone=!r.document.data.children[0].children.some(function(n){return n.type==='heading';});
+      var removed=tools.apply('remove_element',{path:String(containerIndex)+'.0'});
+      var gone=!r.document.get(container.id).children.some(function(n){return n.type==='heading';});
       var undid=tools.apply('undo');
-      var restored=r.document.data.children[0].children.some(function(n){return n.type==='heading';});
+      var restored=r.document.get(container.id).children.some(function(n){return n.type==='heading';});
       var cssBefore=b.customCode.getCss();
       var cssEdited=tools.apply('css_edit',{selector:':root',property:'--ink-color-primary',value:'#ff0000'});
       var cssChanged=b.customCode.getCss()!==cssBefore && b.customCode.getCss().includes('#ff0000');
       var readback=tools.apply('read_design').includes('[0]');
+      var containerEl=b.iframeDoc.querySelector('[data-ink-element-id="'+container.id+'"]');
+      var canvasShows=!!containerEl && !!containerEl.querySelector('[data-ink-element-type="heading"]');
       // Restore exactly (the tools test must not disturb later coordinate-based tests).
       r.document.replace(beforeStore);
       b.customCode.update(cssBefore, b.customCode.getJs());
       var clean=r.serialize().children.length===beforeStore.children.length;
-      return {ok:true,exposed:exposed,inserted:String(inserted).startsWith('ok'),headingExists:!!headingNode,styled:styled==='ok'&&cssColor,remove:removed==='ok'&&gone,undoRestores:undid==='ok'&&restored,cssEdit:cssEdited==='ok'&&cssChanged,readback:readback,clean:clean};
+      return {ok:true,exposed:exposed,inserted:String(inserted).startsWith('ok'),headingExists:!!headingNode,styled:styled==='ok'&&cssColor,remove:removed==='ok'&&gone,undoRestores:undid==='ok'&&restored,cssEdit:cssEdited==='ok'&&cssChanged,readback:readback,canvasShows:canvasShows,clean:clean};
     })()`);
-    check("Copilot client tools edit the live v2 store through history", state.exposed && state.inserted && state.headingExists && state.styled && state.remove && state.undoRestores && state.cssEdit && state.readback && state.clean, JSON.stringify(state));
+    check("Copilot client tools edit the live v2 store through history", state.exposed && state.inserted && state.headingExists && state.styled && state.remove && state.undoRestores && state.cssEdit && state.readback && state.canvasShows && state.clean, JSON.stringify(state));
 
 
     state = await client.evaluate(`(function(){

@@ -12,10 +12,13 @@ const labelOf = (node) => {
 };
 
 export function createCopilotTools(runtime, builder) {
+    // A dot path like "0" or "0.1.2" addresses nodes by index through the tree; anything else is
+    // treated as an element id (UUIDs).
+    const isNumericPath = (value) => /^\d+(\.\d+)*$/.test(String(value));
     const resolve = (pathOrId) => {
         if (!pathOrId) return null;
-        if (typeof pathOrId === 'string' && pathOrId.includes('.')) {
-            const parts = pathOrId.split('.').map(Number);
+        if (isNumericPath(pathOrId)) {
+            const parts = String(pathOrId).split('.').map(Number);
             let node = null, parent = null;
             for (const part of parts) {
                 const siblings = node ? (node.children || []) : runtime.document.data.children;
@@ -24,10 +27,10 @@ export function createCopilotTools(runtime, builder) {
                 parent = node;
                 node = next;
             }
-            return { node, parent, path: pathOrId };
+            return { node, parent, path: String(pathOrId) };
         }
-        const node = runtime.document.get(pathOrId);
-        return node ? { node, parent: runtime.document.parentOf(node.id), path: pathOrId } : null;
+        const node = runtime.document.get(String(pathOrId));
+        return node ? { node, parent: runtime.document.parentOf(node.id), path: String(pathOrId) } : null;
     };
 
     const indexNode = (node, path) => {

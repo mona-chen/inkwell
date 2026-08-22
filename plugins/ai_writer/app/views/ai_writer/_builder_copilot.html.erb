@@ -9,21 +9,27 @@
      data-builder-copilot-site-value="<%= Current.site.name %>"
      data-builder-copilot-record-id-value="<%= @record&.id %>"
      data-builder-copilot-record-type-value="<%= @record.is_a?(Page) ? "page" : "post" %>">
-  <button type="button" data-action="builder-copilot#open" aria-label="Open Copilot" class="bc-fab">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-    </svg>
-    Copilot
+  <button type="button" data-builder-copilot-target="fab" data-action="builder-copilot#open" aria-label="Open Copilot" class="bc-fab">
+    <span class="bc-fab-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9z"/><circle cx="19" cy="5" r="1.6"/><circle cx="5.5" cy="17.5" r="1.2"/></svg>
+    </span>
+    <span>Copilot</span>
   </button>
 
   <div data-builder-copilot-target="window" class="bc-window hidden">
+    <div class="bc-accent-bar"></div>
     <div class="bc-header">
       <div class="bc-header-left">
+        <span class="bc-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9z"/></svg>
+        </span>
         <span class="bc-title">Copilot</span>
         <span class="bc-badge">Page builder</span>
         <span data-builder-copilot-target="statusDot" class="bc-dot hidden"></span>
       </div>
-      <button type="button" data-action="builder-copilot#close" class="bc-icon-btn" aria-label="Close Copilot">✕</button>
+      <button type="button" data-action="builder-copilot#close" class="bc-icon-btn" aria-label="Close Copilot">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
     </div>
 
     <div data-builder-copilot-target="chatView" class="bc-chat">
@@ -31,43 +37,48 @@
 
       <div data-builder-copilot-target="designView" class="bc-design hidden">
         <div class="bc-design-head">
-          <span class="bc-design-label">Design</span>
+          <span class="bc-design-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><path d="M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6 2.1 2.1M3 12h3m12 0h3M5.6 18.4l2.1-2.1m8.6-8.6 2.1-2.1"/></svg>
+            Design history
+          </span>
           <div class="bc-design-actions">
             <button type="button" data-builder-copilot-target="undoCheckpoint" data-action="builder-copilot#undoCheckpoint" class="bc-btn bc-btn-ghost">Undo</button>
-            <button type="button" data-builder-copilot-target="apply" data-action="builder-copilot#apply" class="bc-btn">Apply design</button>
+            <button type="button" data-builder-copilot-target="apply" data-action="builder-copilot#apply" class="bc-btn bc-btn-accent">Apply design</button>
           </div>
         </div>
         <div data-builder-copilot-target="checkpoints" class="bc-checkpoints"></div>
-        <div class="bc-design-hint">The canvas shows each change live. Every change is a checkpoint — Undo or click a checkpoint to step back.</div>
+        <div class="bc-design-hint">Every change is a checkpoint — Undo or click a chip to step back.</div>
       </div>
 
       <div class="bc-input-area">
         <div class="bc-brand-row">
           <label class="bc-brand-label" for="bc-brand">Design language</label>
-          <select data-builder-copilot-target="brand" id="bc-brand" class="bc-brand" aria-label="Design aesthetic">
-            <option value="">Auto — pick a fitting aesthetic</option>
-            <option value="linear.app">Linear — minimal, precise, lavender</option>
-            <option value="stripe">Stripe — purple gradients, elegant</option>
-            <option value="vercel">Vercel — black &amp; white precision</option>
-            <option value="cursor">Cursor — sleek dark, gradient accents</option>
-            <option value="framer">Framer — bold black &amp; blue, motion-first</option>
-            <option value="supabase">Supabase — dark emerald, code-first</option>
-            <option value="notion">Notion — warm minimalism, serif headings</option>
-            <option value="raycast">Raycast — dark chrome, vibrant accents</option>
-            <option value="posthog">PostHog — playful, developer dark UI</option>
-            <option value="resend">Resend — minimal dark, monospace accents</option>
-            <option value="airbnb">Airbnb — warm coral, rounded, photography</option>
-            <option value="spotify">Spotify — vibrant green on dark</option>
-            <option value="figma">Figma — vibrant multi-color, playful</option>
-            <option value="shopify">Shopify — dark-first cinematic, neon green</option>
-            <option value="coinbase">Coinbase — clean blue, institutional trust</option>
-            <option value="binance">Binance — bold yellow on monochrome</option>
-            <option value="apple">Apple — premium white space, cinematic</option>
-            <option value="nike">Nike — monochrome, massive display type</option>
-            <option value="tesla">Tesla — radical subtraction, cinematic</option>
-          </select>
+          <span class="bc-brand-wrap">
+            <select data-builder-copilot-target="brand" id="bc-brand" class="bc-brand" aria-label="Design aesthetic">
+              <option value="">Auto — pick a fitting aesthetic</option>
+              <option value="linear.app">Linear — minimal, precise, lavender</option>
+              <option value="stripe">Stripe — purple gradients, elegant</option>
+              <option value="vercel">Vercel — black &amp; white precision</option>
+              <option value="cursor">Cursor — sleek dark, gradient accents</option>
+              <option value="framer">Framer — bold black &amp; blue, motion-first</option>
+              <option value="supabase">Supabase — dark emerald, code-first</option>
+              <option value="notion">Notion — warm minimalism, serif headings</option>
+              <option value="raycast">Raycast — dark chrome, vibrant accents</option>
+              <option value="posthog">PostHog — playful, developer dark UI</option>
+              <option value="resend">Resend — minimal dark, monospace accents</option>
+              <option value="airbnb">Airbnb — warm coral, rounded, photography</option>
+              <option value="spotify">Spotify — vibrant green on dark</option>
+              <option value="figma">Figma — vibrant multi-color, playful</option>
+              <option value="shopify">Shopify — dark-first cinematic, neon green</option>
+              <option value="coinbase">Coinbase — clean blue, institutional trust</option>
+              <option value="binance">Binance — bold yellow on monochrome</option>
+              <option value="apple">Apple — premium white space, cinematic</option>
+              <option value="nike">Nike — monochrome, massive display type</option>
+              <option value="tesla">Tesla — radical subtraction, cinematic</option>
+            </select>
+          </span>
         </div>
-        <div class="bc-modes">
+        <div class="bc-modes" role="group" aria-label="Design mode">
           <button type="button" data-builder-copilot-target="mode" data-mode="design" data-action="builder-copilot#setMode" class="bc-mode">Design</button>
           <button type="button" data-builder-copilot-target="mode" data-mode="add_section" data-action="builder-copilot#setMode" class="bc-mode">Add section</button>
           <button type="button" data-builder-copilot-target="mode" data-mode="rewrite" data-action="builder-copilot#setMode" class="bc-mode">Rewrite</button>
@@ -76,188 +87,448 @@
                   placeholder="Describe the page you want — tell me your site's story and I'll design it…" class="bc-prompt"></textarea>
         <div class="bc-input-row">
           <span data-builder-copilot-target="status" class="bc-status"></span>
-          <button type="button" data-builder-copilot-target="send" data-action="builder-copilot#send" class="bc-btn bc-btn-primary">Generate</button>
+          <button type="button" data-builder-copilot-target="send" data-action="builder-copilot#send" class="bc-btn bc-btn-send" aria-label="Generate">
+            <span>Generate</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
+          </button>
         </div>
       </div>
-    </div>
     </div>
   </div>
 
   <style>
     .hidden { display: none !important; }
 
+    /* ---- design tokens ---- */
+    .bc-window {
+      --bc-bg: #ffffff;
+      --bc-surface: #f8fafc;
+      --bc-surface-2: #f1f5f9;
+      --bc-border: #e6eaf0;
+      --bc-border-strong: #cbd5e1;
+      --bc-text: #0f172a;
+      --bc-muted: #64748b;
+      --bc-faint: #94a3b8;
+      --bc-accent: #6366f1;
+      --bc-accent-2: #8b5cf6;
+      --bc-accent-soft: #eef2ff;
+      --bc-accent-ink: #4338ca;
+      --bc-ok: #10b981;
+      --bc-danger: #ef4444;
+      --bc-radius: 12px;
+      --bc-shadow: 0 24px 60px rgba(15, 23, 42, .22), 0 4px 14px rgba(15, 23, 42, .08);
+    }
+
     .bc-fab {
       position: fixed;
-      bottom: 16px;
-      right: 16px;
+      bottom: 18px;
+      right: 18px;
       z-index: 9000;
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      height: 40px;
+      padding: 0 16px;
+      border: 0;
       border-radius: 9999px;
-      background: #111827;
+      background: linear-gradient(135deg, var(--bc-accent), var(--bc-accent-2));
       color: #fff;
-      padding: 10px 16px;
-      font-size: 14px;
-      font-weight: 500;
-      border: none;
-      box-shadow: 0 10px 25px rgba(0,0,0,.25);
+      font: 600 13.5px/1 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      letter-spacing: .01em;
       cursor: pointer;
-      transition: transform .15s ease, background .15s ease;
-      font-family: inherit;
+      box-shadow: 0 8px 24px rgba(99, 102, 241, .4);
+      transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
     }
-    .bc-fab:hover { background: #000; }
-    .bc-fab:active { transform: scale(.98); }
+    .bc-fab:hover { filter: brightness(1.06); box-shadow: 0 10px 30px rgba(99, 102, 241, .5); }
+    .bc-fab:active { transform: scale(.97); }
+    .bc-fab-icon { display: inline-flex; }
 
     .bc-window {
       position: fixed;
-      bottom: 72px;
-      right: 16px;
+      bottom: 70px;
+      right: 18px;
       z-index: 9001;
-      width: 420px;
-      max-width: calc(100vw - 32px);
-      height: 600px;
-      max-height: calc(100vh - 144px);
+      width: 424px;
+      max-width: calc(100vw - 36px);
+      height: 640px;
+      max-height: calc(100vh - 140px);
       display: flex;
       flex-direction: column;
       overflow: hidden;
-      border-radius: 16px;
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      box-shadow: 0 25px 50px rgba(0,0,0,.3);
-      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      border: 1px solid var(--bc-border);
+      border-radius: 18px;
+      background: var(--bc-bg);
+      box-shadow: var(--bc-shadow);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      color: var(--bc-text);
     }
+    /* Right-side dock: the Copilot fills the #CopilotDock panel in the builder workspace. */
+    .bc-window.bc-docked {
+      position: static;
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .bc-window.bc-docked .bc-accent-bar { display: none; }
+    .bc-window.bc-docked .bc-header { background: var(--ink-editor-panel, #fcfcfe); border-bottom-color: var(--ink-editor-border, var(--bc-border)); }
+
+    .bc-accent-bar { height: 3px; flex: none; background: linear-gradient(90deg, var(--bc-accent), var(--bc-accent-2)); }
 
     .bc-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid #f3f4f6;
-      padding: 12px 16px;
+      flex: none;
+      padding: 11px 14px 11px 16px;
+      border-bottom: 1px solid var(--bc-border);
+      background: #fcfcfe;
     }
-    .bc-header-left { display: flex; align-items: center; gap: 8px; }
-    .bc-title { font-size: 14px; font-weight: 600; color: #111827; }
+    .bc-header-left { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .bc-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--bc-accent), var(--bc-accent-2));
+      flex: none;
+    }
+    .bc-title { font-size: 14px; font-weight: 700; color: var(--bc-text); letter-spacing: -.01em; }
     .bc-badge {
       border-radius: 9999px;
-      background: #eef2ff;
-      color: #4f46e5;
+      background: var(--bc-accent-soft);
+      color: var(--bc-accent-ink);
       padding: 2px 8px;
       font-size: 10px;
-      font-weight: 500;
+      font-weight: 600;
+      letter-spacing: .02em;
     }
-    .bc-dot { width: 8px; height: 8px; border-radius: 9999px; background: #10b981; }
+    .bc-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 9999px;
+      background: var(--bc-ok);
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, .18);
+      animation: bc-pulse 1.2s ease-in-out infinite;
+    }
     .bc-icon-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
       border: 0;
+      border-radius: 8px;
       background: transparent;
-      border-radius: 6px;
-      padding: 4px;
-      color: #9ca3af;
+      color: var(--bc-faint);
       cursor: pointer;
-      font-size: 14px;
+      transition: background .12s ease, color .12s ease;
     }
-    .bc-icon-btn:hover { background: #f3f4f6; color: #374151; }
+    .bc-icon-btn:hover { background: var(--bc-surface-2); color: var(--bc-text); }
 
     .bc-chat { display: flex; flex-direction: column; min-height: 0; flex: 1; }
-    .bc-transcript { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .bc-transcript {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: #fff;
+      scrollbar-width: thin;
+      scrollbar-color: var(--bc-border-strong) transparent;
+    }
 
+    /* user / assistant bubbles */
     .bc-user { display: flex; justify-content: flex-end; }
-    .bc-user > div { max-width: 85%; border-radius: 12px; border-bottom-right-radius: 4px; background: #111827; color: #fff; padding: 8px 12px; white-space: pre-wrap; word-break: break-word; }
-    .bc-bubble { max-width: 90%; white-space: pre-wrap; word-break: break-word; border-radius: 12px; border-bottom-left-radius: 4px; border: 1px solid #e5e7eb; background: #f9fafb; color: #111827; padding: 8px 12px; }
-    .bc-error { border: 1px solid #fecaca; background: #fef2f2; color: #b91c1c; padding: 8px 12px; border-radius: 8px; font-size: 12px; }
-    .bc-log { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #6b7280; }
-    .bc-log .bc-log-arrow { color: #d1d5db; }
-    .bc-thinking { display: flex; gap: 8px; }
-    .bc-thinking-dot { margin-top: 2px; width: 8px; height: 8px; border-radius: 9999px; background: #111827; animation: bc-pulse 1s ease-in-out infinite; }
+    .bc-user > div {
+      max-width: 84%;
+      border-radius: 14px 14px 4px 14px;
+      background: var(--bc-text);
+      color: #fff;
+      padding: 9px 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .bc-bubble {
+      position: relative;
+      max-width: 92%;
+      align-self: flex-start;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border: 1px solid var(--bc-border);
+      border-radius: 4px 14px 14px 14px;
+      background: var(--bc-surface);
+      color: var(--bc-text);
+      padding: 9px 13px;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+    .bc-bubble::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -1px;
+      width: 3px;
+      bottom: 0;
+      border-radius: 0 0 0 3px;
+      background: linear-gradient(180deg, var(--bc-accent), var(--bc-accent-2));
+      opacity: .8;
+    }
+    .bc-error {
+      border: 1px solid #fecdd3;
+      background: #fff1f2;
+      color: #be123c;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 12.5px;
+    }
+    .bc-log {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      align-self: flex-start;
+      font-size: 12px;
+      color: var(--bc-muted);
+    }
+    .bc-log-arrow { color: var(--bc-faint); }
+
+    /* thinking / working card */
+    .bc-thinking {
+      display: flex;
+      gap: 10px;
+      align-self: flex-start;
+      width: 100%;
+      border: 1px dashed var(--bc-border-strong);
+      border-radius: 12px;
+      background: var(--bc-surface);
+      padding: 9px 12px;
+    }
+    .bc-thinking-dot {
+      flex: none;
+      width: 8px;
+      height: 8px;
+      margin-top: 5px;
+      border-radius: 9999px;
+      background: linear-gradient(135deg, var(--bc-accent), var(--bc-accent-2));
+      animation: bc-pulse 1s ease-in-out infinite;
+    }
     .bc-thinking-body { min-width: 0; flex: 1; }
-    .bc-thinking-label { font-size: 11px; font-weight: 500; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; }
-    .bc-thinking-text { margin-top: 4px; max-height: 80px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #4b5563; }
+    .bc-thinking-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--bc-faint);
+      text-transform: uppercase;
+      letter-spacing: .09em;
+    }
+    .bc-thinking-text {
+      margin-top: 4px;
+      max-height: 96px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 11.5px;
+      color: var(--bc-muted);
+    }
     @keyframes bc-pulse { 50% { opacity: .35; } }
 
-    .bc-plan { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; padding: 10px 12px; }
-    .bc-plan-title { font-size: 12px; font-weight: 600; color: #111827; margin-bottom: 8px; }
+    /* plan / section preview */
+    .bc-plan {
+      align-self: stretch;
+      border: 1px solid var(--bc-border);
+      border-radius: 12px;
+      background: #fff;
+      padding: 10px 12px;
+    }
+    .bc-plan-title { font-size: 12px; font-weight: 700; color: var(--bc-text); margin-bottom: 8px; }
     .bc-plan-body { display: flex; flex-direction: column; gap: 6px; }
-    .bc-plan-sec { font-size: 12px; color: #374151; cursor: pointer; border: 1px solid transparent; border-radius: 8px; padding: 4px 6px; margin: 0 -6px; transition: all .15s ease; }
-    .bc-plan-sec:hover { background: #f3f4f6; }
-    .bc-section-active { background: #eef2ff; border-color: #c7d2fe; }
+    .bc-plan-sec {
+      font-size: 12.5px;
+      color: var(--bc-text);
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 4px 6px;
+      margin: 0 -6px;
+      transition: all .15s ease;
+    }
+    .bc-plan-sec:hover { background: var(--bc-surface); }
+    .bc-section-active { background: var(--bc-accent-soft); border-color: #c7d2fe; }
     .bc-section-updated { border-color: #a7f3d0; background: #ecfdf5; }
     .bc-plan-sec-label { font-weight: 600; }
-    .bc-plan-els { margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px; }
-    .bc-plan-el { border: 1px solid #e5e7eb; background: #f9fafb; border-radius: 9999px; padding: 1px 8px; font-size: 10px; color: #6b7280; }
+    .bc-plan-els { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px; }
+    .bc-plan-el {
+      border: 1px solid var(--bc-border);
+      background: var(--bc-surface);
+      border-radius: 9999px;
+      padding: 1px 8px;
+      font-size: 10px;
+      color: var(--bc-muted);
+    }
     .bc-plan-actions { margin-top: 8px; display: flex; align-items: center; gap: 10px; }
-    .bc-plan-hint { font-size: 11px; color: #9ca3af; }
+    .bc-plan-hint { font-size: 11px; color: var(--bc-faint); }
 
-    .bc-design { border-top: 1px solid #e5e7eb; padding: 12px; }
+    /* design history tray */
+    .bc-design {
+      flex: none;
+      border-top: 1px solid var(--bc-border);
+      padding: 10px 16px 12px;
+      background: linear-gradient(180deg, #fcfcfe, #fff);
+    }
     .bc-design-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-    .bc-design-label { font-size: 12px; font-weight: 600; color: #374151; }
+    .bc-design-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--bc-muted);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+    .bc-design-label svg { color: var(--bc-accent); }
     .bc-design-actions { display: flex; gap: 6px; }
-    .bc-design-hint { font-size: 11px; color: #9ca3af; margin-top: 8px; }
-    .bc-btn-ghost { background: #fff; color: #111827; border: 1px solid #d1d5db; }
-    .bc-btn-ghost:hover { background: #f9fafb; }
+    .bc-design-hint { font-size: 11px; color: var(--bc-faint); margin-top: 8px; }
+    .bc-btn-ghost { background: #fff; color: var(--bc-text); border: 1px solid var(--bc-border-strong); }
+    .bc-btn-ghost:hover { background: var(--bc-surface-2); }
 
     .bc-checkpoints { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
     .bc-checkpoint {
-      border: 1px solid #e5e7eb;
-      background: #f9fafb;
-      color: #374151;
-      border-radius: 9999px;
-      padding: 3px 10px;
-      font-size: 11px;
-      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       max-width: 100%;
+      border: 1px solid var(--bc-border);
+      background: #fff;
+      color: var(--bc-muted);
+      border-radius: 9999px;
+      padding: 3px 10px 3px 4px;
+      font-size: 11.5px;
+      cursor: pointer;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      transition: all .12s ease;
     }
-    .bc-checkpoint:hover { background: #eef2ff; border-color: #c7d2fe; }
-    .bc-checkpoint-active { background: #111827; color: #fff; border-color: #111827; }
-    .bc-checkpoint-tag { font-weight: 600; }
-
-    .bc-input-area { border-top: 1px solid #f3f4f6; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
-    .bc-brand-row { display: flex; align-items: center; gap: 8px; }
-    .bc-brand-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
-    .bc-brand {
-      flex: 1; min-width: 0; border: 1px solid #e5e7eb; border-radius: 8px;
-      background: #fff; color: #374151; font-size: 12px; font-family: inherit; padding: 6px 8px;
-    }
-    .bc-brand:focus { border-color: #9ca3af; box-shadow: 0 0 0 2px rgba(156,163,175,.2); outline: none; }
-    .bc-modes { display: flex; flex-wrap: wrap; gap: 4px; }
-    .bc-mode {
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      color: #4b5563;
+    .bc-checkpoint:hover { background: var(--bc-accent-soft); border-color: #c7d2fe; color: var(--bc-accent-ink); }
+    .bc-checkpoint-active { background: var(--bc-accent); color: #fff; border-color: var(--bc-accent); }
+    .bc-checkpoint-active:hover { background: var(--bc-accent-ink); color: #fff; }
+    .bc-checkpoint-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
       border-radius: 9999px;
-      padding: 4px 10px;
-      font-size: 12px;
+      background: var(--bc-surface-2);
+      color: var(--bc-muted);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .bc-checkpoint-active .bc-checkpoint-tag { background: rgba(255, 255, 255, .2); color: #fff; }
+
+    /* composer */
+    .bc-input-area {
+      flex: none;
+      border-top: 1px solid var(--bc-border);
+      padding: 10px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: #fcfcfe;
+    }
+    .bc-brand-row { display: flex; align-items: center; gap: 8px; }
+    .bc-brand-label { font-size: 10.5px; font-weight: 700; color: var(--bc-faint); text-transform: uppercase; letter-spacing: .07em; white-space: nowrap; }
+    .bc-brand-wrap { position: relative; flex: 1; min-width: 0; display: block; }
+    .bc-brand {
+      width: 100%;
+      appearance: none;
+      border: 1px solid var(--bc-border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--bc-text);
+      font-size: 12.5px;
+      font-family: inherit;
+      padding: 6px 26px 6px 9px;
       cursor: pointer;
     }
-    .bc-mode:hover { background: #f9fafb; }
-    .bc-mode-active { background: #111827; color: #fff; border-color: #111827; }
+    .bc-brand:focus { border-color: var(--bc-accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, .16); outline: none; }
+    .bc-brand-wrap::after {
+      content: "";
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      width: 6px;
+      height: 6px;
+      border-right: 1.6px solid var(--bc-muted);
+      border-bottom: 1.6px solid var(--bc-muted);
+      transform: translateY(-65%) rotate(45deg);
+      pointer-events: none;
+    }
+    .bc-modes { display: flex; gap: 4px; background: var(--bc-surface-2); border: 1px solid var(--bc-border); border-radius: 10px; padding: 3px; }
+    .bc-mode {
+      flex: 1;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--bc-muted);
+      padding: 6px 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .14s ease;
+    }
+    .bc-mode:hover { color: var(--bc-text); }
+    .bc-mode-active { background: #fff; color: var(--bc-text); box-shadow: 0 1px 4px rgba(15, 23, 42, .12); }
     .bc-prompt {
       width: 100%;
       resize: none;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 14px;
+      border: 1px solid var(--bc-border);
+      border-radius: 10px;
+      padding: 9px 12px;
+      font-size: 13.5px;
       font-family: inherit;
+      color: var(--bc-text);
       outline: none;
+      transition: border-color .12s ease, box-shadow .12s ease;
     }
-    .bc-prompt:focus { border-color: #9ca3af; box-shadow: 0 0 0 2px rgba(156,163,175,.2); }
+    .bc-prompt:focus { border-color: var(--bc-accent); box-shadow: 0 0 0 3px rgba(99, 102, 241, .14); }
+    .bc-prompt::placeholder { color: var(--bc-faint); }
     .bc-input-row { display: flex; align-items: center; gap: 8px; }
-    .bc-status { flex: 1; font-size: 12px; color: #9ca3af; }
+    .bc-status { flex: 1; font-size: 12px; color: var(--bc-faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bc-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       border: 0;
-      border-radius: 6px;
-      background: #111827;
-      color: #fff;
+      border-radius: 8px;
       padding: 6px 12px;
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 12.5px;
+      font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
+      transition: all .12s ease;
     }
-    .bc-btn:hover { background: #000; }
     .bc-btn:disabled { opacity: .5; cursor: default; }
-    .bc-btn-primary { padding: 8px 14px; font-size: 14px; }
+    .bc-btn-accent { background: var(--bc-text); color: #fff; }
+    .bc-btn-accent:hover:not(:disabled) { background: #1e293b; }
+    .bc-btn-send {
+      background: linear-gradient(135deg, var(--bc-accent), var(--bc-accent-2));
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, .3);
+    }
+    .bc-btn-send:hover:not(:disabled) { filter: brightness(1.06); }
   </style>
 
   <script type="module">
@@ -440,7 +711,20 @@
       static values = { context: String, site: String, recordId: String, recordType: String }
 
       connect() {
-        if (this.element.parentElement !== document.body) document.body.appendChild(this.element)
+        // Right-side dock (part of the builder workspace): fill it and hide the floating FAB.
+        // Without a dock (standalone) the classic floating window is appended to the body.
+        this.dock = document.getElementById("CopilotDock")
+        this.copilotButton = document.getElementById("copilotButton")
+        if (this.dock) {
+          this.windowTarget.classList.add("bc-docked")
+          this.fabTarget?.classList.add("hidden")
+        } else if (this.element.parentElement !== document.body) {
+          document.body.appendChild(this.element)
+        }
+        if (this.copilotButton) {
+          this._copilotToggle = () => this.toggle()
+          this.copilotButton.addEventListener("click", this._copilotToggle)
+        }
         this.mode = "design"
         this.history = []
         this.busy = false
@@ -466,12 +750,22 @@
       }
 
       disconnect() {
+        if (this.copilotButton && this._copilotToggle) this.copilotButton.removeEventListener("click", this._copilotToggle)
         if (this.transcriptTarget && this._sectionClick) this.transcriptTarget.removeEventListener("click", this._sectionClick)
         if (this.checkpointsTarget && this._checkpointClick) this.checkpointsTarget.removeEventListener("click", this._checkpointClick)
       }
 
+      toggle(event) { this.windowTarget.classList.contains("hidden") ? this.open(event) : this.close(event) }
+
       open(event) {
         event && event.preventDefault()
+        if (this.dock) {
+          this.dock.hidden = false
+          this.windowTarget.classList.remove("hidden")
+          if (this.copilotButton) this.copilotButton.classList.add("is-active")
+          this.promptTarget?.focus()
+          return
+        }
         const closed = this.windowTarget.classList.contains("hidden")
         this.windowTarget.classList.toggle("hidden", !closed)
         if (closed) this.promptTarget.focus()
@@ -479,6 +773,12 @@
 
       close(event) {
         event && event.preventDefault()
+        if (this.dock) {
+          this.dock.hidden = true
+          this.windowTarget.classList.add("hidden")
+          if (this.copilotButton) this.copilotButton.classList.remove("is-active")
+          return
+        }
         this.windowTarget.classList.add("hidden")
       }
 
@@ -525,8 +825,16 @@
         this.beginThinking()
         // Client-driven loop: the AI edits the LIVE v2 store through builder.copilotTools.
         if (window.builder && window.builder.copilotTools) {
-          await this.clientSend(prompt)
-          this.setStatus("", false)
+          try {
+            await this.clientSend(prompt)
+          } catch (e) {
+            this.endThinking()
+            this.addError(e.message)
+          } finally {
+            this.setStatus("", false)
+            this.busy = false
+            this.sendTarget.disabled = false
+          }
           return
         }
         try {
@@ -607,6 +915,7 @@
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content
         const tools = window.builder.copilotTools.TOOLS
         let content = ""
+        let changed = false
         let url = "/plugins/ai_writer/chat"
         let body = {
           mode: this.mode, prompt, env: "html", clientTools: true,
@@ -625,11 +934,12 @@
             const streamed = await this.streamResponse(resp)
             content += streamed.content || ""
             if (!streamed.tools || !streamed.tools.calls || !streamed.tools.calls.length) break
+            changed = true
             const results = streamed.tools.calls.map((call) => ({ id: call.id, content: this.executeTool(call.name, call.arguments) }))
             url = "/plugins/ai_writer/tool_result"
             body = { session_id: streamed.tools.session_id, results, tools: JSON.stringify(tools) }
           }
-          this.handleClientReply(content)
+          this.handleClientReply(content, changed)
         } catch (e) {
           this.endThinking()
           this.addError(e.message)
@@ -644,16 +954,21 @@
         } catch (e) { return "tool error: " + e.message }
       }
 
-      // Client-tools path: edits already morphed the canvas live; checkpoint the v2 store.
-      handleClientReply(text) {
+      // Client-tools path: edits already morphed the canvas live; checkpoint the v2 store only
+      // when tools actually changed something (a plain chat reply gets no design checkpoint).
+      handleClientReply(text, changed) {
         this.endThinking()
-        this.addAssistantMessage(text || "Updated the design.")
-        this.designViewTarget.classList.remove("hidden")
-        this.pushCheckpoint(text || "Design update")
+        if (changed) {
+          this.addAssistantMessage(text || "Updated the design.")
+          this.designViewTarget.classList.remove("hidden")
+          this.pushCheckpoint(text || "Design update")
+          if (typeof window.applyCustomCode === "function") window.applyCustomCode()
+        } else {
+          this.addAssistantMessage(text || "How can I help with the page?")
+        }
         this.history.push({ role: "user", content: this.promptTarget.value.trim() })
         this.history.push({ role: "assistant", content: text || "" })
         this.promptTarget.value = ""
-        if (typeof window.applyCustomCode === "function") window.applyCustomCode()
       }
 
       // Apply a streamed design state to the canvas immediately (live editing). No checkpoint is
