@@ -6,7 +6,7 @@
 
 import { pickMedia, uploadMedia } from '../MediaPicker.js';
 import { RichTextAdapter } from '../RichTextAdapter.js';
-import { iconNames, iconValue, resolveIcon, renderIcon, libraryTitle } from '../icons.js';
+import { iconNames, iconCount, iconValue, resolveIcon, renderIcon, libraryTitle } from '../icons.js';
 import { GOOGLE_FONTS } from '../fonts.js';
 import { ELEMENTOR_SHAPES } from '../elementorShapes.js';
 
@@ -180,10 +180,15 @@ export function icon(panel, control, node, value, row) {
     const libraries = ['material', 'phosphor', 'lucide'];
     const tabs = document.createElement('div'); tabs.className = 'ink-v2-icon-libs';
     let active = libraries.includes(resolved.library) ? resolved.library : 'material';
+    const search = document.createElement('input'); search.type = 'search'; search.placeholder = 'Search icons'; search.className = 'ink-v2-icon-search';
     const grid = document.createElement('div'); grid.className = 'ink-v2-icon-grid';
     const draw = () => {
         grid.replaceChildren();
-        iconNames(active).forEach((name) => {
+        const all = iconNames(active);
+        const query = search.value.trim().toLowerCase().replace(/[^a-z0-9]/g, '-');
+        const shown = query ? all.filter((name) => name.includes(query)) : all.slice(0, 200);
+        if (!shown.length) { grid.innerHTML = '<span class="ink-v2-icon-empty">No icons match</span>'; return; }
+        shown.forEach((name) => {
             const button = document.createElement('button'); button.type = 'button'; button.title = name; button.className = resolved.library === active && resolved.name === name ? 'is-active' : '';
             button.setAttribute('aria-label', name);
             button.appendChild(renderIcon(document, iconValue(active, name)));
@@ -192,13 +197,14 @@ export function icon(panel, control, node, value, row) {
         });
     };
     libraries.forEach((library) => {
-        const tab = document.createElement('button'); tab.type = 'button'; tab.textContent = libraryTitle(library); tab.className = library === active ? 'is-active' : '';
+        const tab = document.createElement('button'); tab.type = 'button'; tab.textContent = `${libraryTitle(library)} · ${iconCount(library)}`; tab.className = library === active ? 'is-active' : '';
         tab.addEventListener('click', () => { active = library; tabs.querySelectorAll('button').forEach((b) => b.classList.toggle('is-active', b === tab)); draw(); });
         tabs.appendChild(tab);
     });
+    search.addEventListener('input', draw);
     draw();
     const custom = document.createElement('input'); custom.type = 'text'; custom.placeholder = 'Icon name (material) or lucide:name'; custom.value = typeof value === 'string' ? value : ''; custom.addEventListener('change', () => panel.setValue(control, node, custom.value));
-    row.append(tabs, grid, custom); return row;
+    row.append(tabs, search, grid, custom); return row;
 }
 
 /* ------------------------------------------------------------------ *

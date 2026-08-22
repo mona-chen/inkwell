@@ -160,6 +160,8 @@
 .ink-v2-icon-grid button:hover { color: var(--ink-editor-text); }
 .ink-v2-icon-grid button.is-active { background: var(--ink-editor-accent); color: #fff; }
 .ink-v2-icon-grid .ink-icon-svg { width: 18px; height: 18px; }
+.ink-v2-icon-search { width: 100%; padding: 5px 8px; border: 1px solid var(--ink-editor-border); border-top: 0; background: var(--ink-editor-panel); color: var(--ink-editor-text); font: 12px Inter, Arial, sans-serif; }
+.ink-v2-icon-empty { grid-column: 1 / -1; padding: 10px; color: var(--ink-editor-faint); font-size: 11px; text-align: center; }
 
 // Border + image dimensions.
 .ink-v2-border-fields { margin: 8px -12px -12px; border-top: 1px solid var(--ink-editor-border); }

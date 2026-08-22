@@ -32,10 +32,10 @@ module.exports = {
                 type: 'asset/source',
             },
             {
-                // Elementor's source SVG shape-divider assets are compiled into the builder
-                // bundle so canvas and published markup remain self-contained.
+                // SVG imported as a raw string: the vendored shape-divider assets and the full
+                // Lucide/Phosphor icon sets (loaded via require.context) are inlined into the
+                // bundle so canvas and published markup remain fully self-contained.
                 test: /\.svg$/,
-                resourceQuery: /raw/,
                 type: 'asset/source',
             },
             {

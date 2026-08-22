@@ -292,10 +292,18 @@ async function main() {
       var css=builder.runtime.styles.compile(r.document);
       var fontImport=css.startsWith("@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@") && css.includes('font-family:Montserrat');
       var link=id.querySelector('link[data-ink-google-font][data-ink-font="Montserrat"]');
-      [lucide.id,phosphor.id,material.id,heading.id].forEach(function(x){r.remove(x);});
-      return {ok:true,lucideSvg:!!lucideSvg,phosphorSvg:!!phosphorSvg,materialSpan:!!materialSpan,fontImport:fontImport,fontLink:!!link};
+      // Mount the icon picker (an icon-box has an icon control) and confirm the full sets loaded.
+      var iconBox=r.insert('icon-box',{});
+      r.selection.select(iconBox.id);
+      var contentTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.toLowerCase().includes('content')});
+      if(contentTab) contentTab.click();
+      var pickerTabs=document.querySelectorAll('.ink-v2-icon-libs button');
+      var tabTexts=Array.from(pickerTabs).map(function(t){return t.textContent;});
+      var fullSets=pickerTabs.length>=3 && Array.from(pickerTabs).some(function(t){return t.textContent.includes('2034')}) && Array.from(pickerTabs).some(function(t){return t.textContent.includes('1512')});
+      [lucide.id,phosphor.id,material.id,heading.id,iconBox.id].forEach(function(x){r.remove(x);});
+      return {ok:true,lucideSvg:!!lucideSvg,phosphorSvg:!!phosphorSvg,materialSpan:!!materialSpan,fontImport:fontImport,fontLink:!!link,fullSets:fullSets,tabTexts:tabTexts};
     })()`);
-    check("icon libraries (Phosphor/Lucide/Material) and Google Fonts integrate", state.lucideSvg && state.phosphorSvg && state.materialSpan && state.fontImport && state.fontLink, JSON.stringify(state));
+    check("icon libraries (Phosphor/Lucide/Material) and Google Fonts integrate", state.lucideSvg && state.phosphorSvg && state.materialSpan && state.fontImport && state.fontLink && state.fullSets, JSON.stringify(state));
 
 
     state = await client.evaluate(`(function(){
