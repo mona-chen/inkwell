@@ -13,8 +13,11 @@
 .ink-el-section.is-full .ink-el-section-inner,
 .ink-el-section.is-stretched .ink-el-section-inner { max-width: none; }
 
-.ink-el-container { position: relative; width: 100%; }
+.ink-el-container { position: relative; display: flex; width: 100%; flex-direction: column; }
 .ink-el-container-inner {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
   width: 100%;
   max-width: min(100%, var(--ink-content-width, 1140px));
   margin-inline: auto;

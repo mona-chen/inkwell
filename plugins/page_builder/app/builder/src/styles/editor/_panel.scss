@@ -134,7 +134,12 @@
 
 .ink-v2-control-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--ink-editor-border); }
 .ink-v2-control-tabs button {
-  min-height: 36px;
+  display: flex;
+  min-height: 48px;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -144,6 +149,7 @@
   text-transform: capitalize;
   cursor: pointer;
 }
+.ink-v2-control-tabs button .material-symbols-rounded { font-size: 18px; }
 .ink-v2-control-tabs button:hover { color: var(--ink-editor-text); }
 .ink-v2-control-tabs button.is-active { border-bottom-color: var(--ink-editor-accent-bright); color: var(--ink-editor-text); }
 

@@ -30,6 +30,29 @@ const layoutControls = [
     { tab: 'content', target: 'styles', section: 'Grid', name: 'grid-auto-flow', type: 'select', label: 'Auto flow', options: ['row', 'column', 'dense', 'row dense', 'column dense'], responsive: true, condition: { display: 'grid' } },
 ];
 
+// Modern container controls. Child layout styles target the inner wrapper because it
+// is the direct parent of the elements placed inside a boxed or full-width container.
+const containerLayoutControls = [
+    { tab: 'content', target: 'styles', section: 'Container', name: 'display', type: 'select', label: 'Container Layout', options: [{ value: 'flex', label: 'Flexbox' }, { value: 'grid', label: 'Grid' }] },
+    { tab: 'content', section: 'Container', name: 'layout', type: 'select', label: 'Content Width', options: [{ value: 'boxed', label: 'Boxed' }, { value: 'full', label: 'Full Width' }] },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'boxed-width', type: 'slider', label: 'Width', min: 500, max: 1600, default: 1140, units: ['px', '%', 'em', 'rem', 'vw'], responsive: true, condition: { layout: 'boxed' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'width', type: 'slider', label: 'Width', min: 0, max: 100, default: 100, units: ['%', 'px', 'em', 'rem', 'vw'], responsive: true, condition: { layout: 'full' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'min-height', type: 'slider', label: 'Min Height', min: 0, max: 1440, default: 0, units: ['px', 'em', 'rem', 'vh'], responsive: true, description: 'To achieve full height Container use 100vh.' },
+    { tab: 'content', section: 'Container', name: '__items', type: 'heading', label: 'Items', text: 'Items', condition: { display: 'flex' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'flex-direction', type: 'choose', label: 'Direction', options: [{ value: 'row', label: 'Row — horizontal', icon: 'arrow_forward' }, { value: 'column', label: 'Column — vertical', icon: 'arrow_downward' }, { value: 'row-reverse', label: 'Row — reversed', icon: 'arrow_back' }, { value: 'column-reverse', label: 'Column — reversed', icon: 'arrow_upward' }], responsive: true, condition: { display: 'flex' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'justify-content', type: 'choose', label: 'Justify Content', options: [{ value: 'flex-start', label: 'Start', icon: 'align_horizontal_left' }, { value: 'center', label: 'Center', icon: 'align_horizontal_center' }, { value: 'flex-end', label: 'End', icon: 'align_horizontal_right' }, { value: 'space-between', label: 'Space Between', icon: 'space_bar' }, { value: 'space-around', label: 'Space Around', icon: 'density_medium' }, { value: 'space-evenly', label: 'Space Evenly', icon: 'drag_handle' }], responsive: true, condition: { display: 'flex' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'align-items', type: 'choose', label: 'Align Items', options: [{ value: 'flex-start', label: 'Start', icon: 'vertical_align_top' }, { value: 'center', label: 'Center', icon: 'vertical_align_center' }, { value: 'flex-end', label: 'End', icon: 'vertical_align_bottom' }, { value: 'stretch', label: 'Stretch', icon: 'height' }], responsive: true, condition: { display: 'flex' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'gap', type: 'gaps', label: 'Gaps', units: ['px', '%', 'em', 'rem', 'vw'], responsive: true },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'flex-wrap', type: 'choose', label: 'Wrap', options: [{ value: 'nowrap', label: 'No Wrap', icon: 'east' }, { value: 'wrap', label: 'Wrap', icon: 'keyboard_return' }], responsive: true, condition: { display: 'flex' }, description: 'Items can stay in a single line or wrap onto multiple lines.' },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'align-content', type: 'choose', label: 'Align Content', options: [{ value: 'flex-start', label: 'Start', icon: 'vertical_align_top' }, { value: 'center', label: 'Middle', icon: 'vertical_align_center' }, { value: 'flex-end', label: 'End', icon: 'vertical_align_bottom' }, { value: 'space-between', label: 'Space Between', icon: 'height' }], responsive: true, condition: { display: 'flex', 'flex-wrap': 'wrap' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'grid-template-columns', type: 'text', label: 'Columns', responsive: true, condition: { display: 'grid' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'grid-template-rows', type: 'text', label: 'Rows', responsive: true, condition: { display: 'grid' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'grid-auto-flow', type: 'select', label: 'Auto Flow', options: ['row', 'column'], responsive: true, condition: { display: 'grid' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'justify-items', type: 'choose', label: 'Justify Items', options: [{ value: 'start', label: 'Start', icon: 'align_horizontal_left' }, { value: 'center', label: 'Center', icon: 'align_horizontal_center' }, { value: 'end', label: 'End', icon: 'align_horizontal_right' }, { value: 'stretch', label: 'Stretch', icon: 'width' }], responsive: true, condition: { display: 'grid' } },
+    { tab: 'content', target: 'styles', section: 'Additional Options', name: 'overflow', type: 'select', label: 'Overflow', options: [{ value: '', label: 'Default' }, { value: 'hidden', label: 'Hidden' }, { value: 'auto', label: 'Auto' }] },
+    { tab: 'content', section: 'Additional Options', name: 'tag', type: 'select', label: 'HTML Tag', options: ['div', 'header', 'footer', 'main', 'article', 'section', 'aside', 'nav'] },
+];
+
 const advancedControls = [
     { tab: 'advanced', target: 'styles', section: 'Spacing', name: 'margin', type: 'dimensions', label: 'Margin', units: ['px', 'rem', '%'], responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Spacing', name: 'padding', type: 'dimensions', label: 'Padding', units: ['px', 'rem', '%'], responsive: true },
@@ -64,10 +87,27 @@ export default function registerInkFoundationElements(registry) {
     registry.register({
         type: 'container', title: 'Container', icon: 'view_column', category: 'Layout', acceptsChildren: true,
         defaults: { settings: { tag: 'div', layout: 'boxed' }, styles: { base: { display: 'flex', 'flex-direction': 'column', width: '100%', padding: { top: 10, right: 10, bottom: 10, left: 10, unit: 'px' }, gap: { row: 20, column: 20, unit: 'px' } } }, children: [] },
+        tabLabels: { content: 'Layout' },
+        tabIcons: { content: 'view_column' },
+        selectors: { root: '&', inner: '.ink-el-container-inner' },
+        styleMap: {
+            display: { part: 'inner' },
+            'flex-direction': { part: 'inner' },
+            'flex-wrap': { part: 'inner' },
+            'justify-content': { part: 'inner' },
+            'align-items': { part: 'inner' },
+            'align-content': { part: 'inner' },
+            gap: { part: 'inner' },
+            'grid-template-columns': { part: 'inner' },
+            'grid-template-rows': { part: 'inner' },
+            'grid-auto-flow': { part: 'inner' },
+            'justify-items': { part: 'inner' },
+            'boxed-width': { part: 'inner', property: 'max-width' },
+        },
         controls: [
-            { tab: 'content', section: 'Layout', name: 'layout', type: 'choose', label: 'Content width', options: [{ value: 'boxed', label: 'Boxed' }, { value: 'full', label: 'Full width' }] },
-            { tab: 'content', section: 'Layout', name: 'tag', type: 'select', label: 'HTML tag', options: ['div', 'section', 'main', 'header', 'footer', 'article', 'aside', 'nav'] },
-            ...layoutControls, ...surfaceControls, ...advancedControls,
+            ...containerLayoutControls,
+            ...surfaceControls,
+            ...advancedControls.filter((control) => !['width', 'min-height', 'overflow'].includes(control.name)),
         ],
         render: ({ domDocument }, node) => renderShell(domDocument, node, 'ink-el-container', 'div'),
     });

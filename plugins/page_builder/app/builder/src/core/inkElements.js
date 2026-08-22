@@ -123,7 +123,12 @@ export default function registerInkElements(registry) {
         type: 'text-editor', title: 'Text Editor', icon: 'notes',
         defaults: { settings: { html: '<p>Add your text here. Edit it from the panel.</p>' }, styles: { base: {} } },
         controls: [{ tab: 'content', section: 'Content', name: 'html', type: 'wysiwyg', label: 'Text editor' }, typographyControls, alignmentControl, ...spacing],
-        render: ({ domDocument }, node) => { const root = make(domDocument, 'div', 'ink-el-text-editor'); root.innerHTML = node.settings.html || ''; return root; },
+        render: ({ domDocument }, node) => {
+            const root = make(domDocument, 'div', 'ink-el-text-editor');
+            // Canonical value is { json, html } (TipTap); legacy pages carry a raw HTML string.
+            root.innerHTML = typeof node.settings.html === 'string' ? (node.settings.html || '') : (node.settings.html?.html || '');
+            return root;
+        },
     });
     register(registry, {
         type: 'html', title: 'HTML', icon: 'code',

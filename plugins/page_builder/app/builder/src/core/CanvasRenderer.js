@@ -207,7 +207,8 @@ export default class CanvasRenderer {
     //   column      -> move / edit / duplicate / delete (plus resize handles)
     //   container*  -> move / edit / add / duplicate / delete
     actionsFor(kind) {
-        if (kind === 'section' || kind === 'container') return ['drag_indicator', 'edit', 'add', 'content_copy', 'delete'];
+        if (kind === 'container') return ['add', 'drag_indicator', 'delete'];
+        if (kind === 'section') return ['drag_indicator', 'edit', 'add', 'content_copy', 'delete'];
         return ['drag_indicator', 'edit', 'content_copy', 'delete'];
     }
 
@@ -219,7 +220,8 @@ export default class CanvasRenderer {
         const toolbar = doc.createElement('div'); toolbar.className = 'ink-editor-toolbar';
         const labels = { drag_indicator: 'Move', edit: 'Edit', add: 'Add element', content_copy: 'Duplicate', delete: 'Delete' };
         this.actionsFor(kind).forEach((action) => {
-            const button = this.actionButton(action, labels[action], action, node.id);
+            const icon = kind === 'container' && action === 'delete' ? 'close' : action;
+            const button = this.actionButton(icon, labels[action], action, node.id);
             if (node.settings.locked) button.disabled = true;
             toolbar.appendChild(button);
         });
@@ -266,12 +268,17 @@ export default class CanvasRenderer {
         const startX = event.clientX;
         const self = this;
         const neighbor = edge === 'e' ? index + 1 : index - 1;
+        let liveRows = rows.slice();
         const move = (pointer) => {
             const delta = pointer.clientX - startX;
+            const pairTotal = rows[index] + rows[neighbor];
+            const minimum = Math.min(40, pairTotal * .45);
             let next = rows[index] + (edge === 'e' ? delta : -delta);
-            next = Math.max(40, Math.min(total - 40, next));
-            const pct = Math.round((next / total) * 100);
-            columnEl.style.flexBasis = `${pct}%`;
+            next = Math.max(minimum, Math.min(pairTotal - minimum, next));
+            liveRows = rows.slice(); liveRows[index] = next; liveRows[neighbor] = pairTotal - next;
+            const percentages = liveRows.map((width) => (width / total) * 100);
+            columns.forEach((column, columnIndex) => { column.style.flexBasis = `${percentages[columnIndex]}%`; });
+            const pct = Math.round(percentages[index]);
             if (self.percentTooltip) { self.percentTooltip.textContent = `${pct}%`; const r = columnEl.getBoundingClientRect(); self.percentTooltip.style.left = `${r.left + r.width / 2}px`; self.percentTooltip.style.top = `${r.top}px`; self.percentTooltip.style.opacity = '1'; }
         };
         const stop = () => {
@@ -279,14 +286,12 @@ export default class CanvasRenderer {
             if (columnEl.dataset.inkWasDraggable === '1') columnEl.draggable = true;
             delete columnEl.dataset.inkWasDraggable;
             if (self.percentTooltip) self.percentTooltip.style.opacity = '0';
-            const pct = Number.parseFloat(columnEl.style.flexBasis) || 0;
-            if (pct) {
-                const widths = rows.slice();
-                const delta = pct - widths[index];
-                widths[index] = pct;
-                if (neighbor >= 0 && neighbor < widths.length) widths[neighbor] = Math.max(5, widths[neighbor] - delta);
+            if (liveRows.some((width, columnIndex) => Math.abs(width - rows[columnIndex]) > .01)) {
+                const percentages = liveRows.map((width) => Math.round((width / total) * 10000) / 100);
+                const drift = Math.round((100 - percentages.reduce((sum, width) => sum + width, 0)) * 100) / 100;
+                percentages[percentages.length - 1] += drift;
                 const columnsEl = columnEl.parentElement;
-                if (columnsEl?.dataset?.inkElementId) self.events.emit('element:resize', { id: columnsEl.dataset.inkElementId, structure: widths.map((w) => Math.round((w / total) * 100)).join(',') });
+                if (columnsEl?.dataset?.inkElementId) self.events.emit('element:resize', { id: columnsEl.dataset.inkElementId, structure: percentages.join(',') });
             }
         };
         doc.addEventListener('pointermove', move); doc.addEventListener('pointerup', stop);

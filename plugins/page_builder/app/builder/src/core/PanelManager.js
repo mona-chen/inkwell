@@ -1,5 +1,6 @@
 import { pickMedia, uploadMedia } from './MediaPicker.js';
 import { resolveLocation } from './StyleValueModel.js';
+import { RichTextAdapter } from './RichTextAdapter.js';
 
 const labelFor = (option) => typeof option === 'object' ? option.label : String(option).replace(/-/g, ' ');
 const valueFor = (option) => typeof option === 'object' ? option.value : option;
@@ -21,6 +22,7 @@ export default class PanelManager {
     mount() {
         this.container.classList.add('ink-v2-panel');
         if (this.role === 'settings') this.unsubscribers.push(this.runtime.events.on('selection:change', () => this.render()));
+        if (this.role === 'settings') this.unsubscribers.push(this.runtime.events.on('document:update', () => this.render()));
         if (this.role === 'navigator') this.unsubscribers.push(this.runtime.events.on('selection:change', () => this.render()));
         if (this.role !== 'settings') this.unsubscribers.push(this.runtime.events.on('document:update', () => this.render()));
         this.unsubscribers.push(this.runtime.events.on('document:settings', () => { if (this.route === 'site') this.render(); }));
@@ -223,9 +225,14 @@ export default class PanelManager {
         const range = document.createElement('input'); range.type = 'range'; range.min = control.min ?? 0; range.max = control.max ?? 100; range.step = control.step ?? 1;
         const number = document.createElement('input'); number.type = 'number'; number.min = range.min; number.max = range.max; number.step = range.step;
         const size = value && typeof value === 'object' ? value.size : value;
-        range.value = size ?? control.default ?? 0; number.value = range.value;
-        const commit = (source) => { range.value = source.value; number.value = source.value; this.setValue(control, node, control.units ? { size: Number(source.value), unit: value?.unit || control.units[0] } : Number(source.value)); };
-        range.addEventListener('input', () => commit(range)); number.addEventListener('change', () => commit(number)); slider.append(range, number); row.appendChild(slider); return row;
+        const initial = size === '' || size === undefined || size === null ? (control.default ?? control.min ?? 0) : size;
+        range.value = initial; number.value = range.value;
+        const unit = control.units ? document.createElement('select') : null;
+        if (unit) { unit.className = 'ink-v2-unit'; control.units.forEach((name) => unit.add(new Option(name, name))); unit.value = value?.unit || control.units[0]; }
+        const commit = (source) => { if (source) { range.value = source.value; number.value = source.value; } this.setValue(control, node, unit ? { size: Number(number.value), unit: unit.value } : Number(number.value)); };
+        range.addEventListener('input', () => { number.value = range.value; });
+        range.addEventListener('change', () => commit(range)); number.addEventListener('change', () => commit(number)); unit?.addEventListener('change', () => commit());
+        slider.append(range, number); if (unit) slider.appendChild(unit); row.appendChild(slider); return row;
     }
 
     renderGapsControl(control, node, value, row) {
@@ -323,7 +330,10 @@ export default class PanelManager {
         const availableTabs = ['content', 'style', 'advanced'].filter((tab) => definition.controls.some((control) => control.tab === tab));
         if (!availableTabs.includes(this.activeTab)) this.activeTab = availableTabs[0] || 'content';
         availableTabs.forEach((tab) => {
-            const button = document.createElement('button'); button.type = 'button'; button.textContent = tab; button.className = tab === this.activeTab ? 'is-active' : '';
+            const labels = { content: 'Content', style: 'Style', advanced: 'Advanced', ...(definition.tabLabels || {}) };
+            const icons = { content: 'edit', style: 'contrast', advanced: 'settings', ...(definition.tabIcons || {}) };
+            const button = document.createElement('button'); button.type = 'button'; button.className = tab === this.activeTab ? 'is-active' : '';
+            button.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${icons[tab]}</span><span>${labels[tab]}</span>`;
             button.addEventListener('click', () => { this.activeTab = tab; this.render(); }); tabs.appendChild(button);
         });
         const controlsHost = wrapper.querySelector('.ink-v2-controls');
@@ -340,7 +350,7 @@ export default class PanelManager {
         }
         tabControls.forEach((control) => {
             if (!sections.has(control.section)) {
-                const section = document.createElement('details'); section.className = 'ink-v2-control-section'; section.open = true; section.innerHTML = `<summary><span>${control.section}</span><span class="material-symbols-rounded">expand_more</span></summary>`;
+                const section = document.createElement('details'); section.className = 'ink-v2-control-section'; section.open = control.section !== 'Additional Options'; section.innerHTML = `<summary><span>${control.section}</span><span class="material-symbols-rounded">expand_more</span></summary>`;
                 sections.set(control.section, section); controlsHost.appendChild(section);
             }
             sections.get(control.section).appendChild(this.renderControl(control, node));
@@ -480,51 +490,41 @@ export default class PanelManager {
 
     renderWysiwygControl(control, node, value, row) {
         const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-wysiwyg';
-        const toolbar = document.createElement('div');
+        const toolbar = document.createElement('div'); toolbar.className = 'ink-v2-wysiwyg-toolbar';
+        const adapter = new RichTextAdapter();
         const commands = [
-            ['bold', 'B', 'bold'], ['italic', 'I', 'italic'], ['underline', 'U', 'underline'], ['strikeThrough', 'S', 'strikeThrough'],
-            ['insertUnorderedList', '• List', 'insertUnorderedList'], ['insertOrderedList', '1. List', 'insertOrderedList'], ['createLink', 'Link', null],
+            [0, 'toggleBold', 'B', 'bold', null], [1, 'toggleItalic', 'I', 'italic', null], [2, 'toggleUnderline', 'U', 'underline', null], [3, 'toggleStrike', 'S', 'strike', null],
+            [4, 'toggleBulletList', '• List', 'bulletList', null], [5, 'toggleOrderedList', '1. List', 'orderedList', null],
+            [6, 'setParagraph', '¶', 'paragraph', null], [7, 'toggleHeading', 'H1', 'heading', { level: 1 }], [8, 'toggleHeading', 'H2', 'heading', { level: 2 }], [9, 'toggleHeading', 'H3', 'heading', { level: 3 }],
+            [10, 'toggleBlockquote', '❝', 'blockquote', null], [11, 'toggleCodeBlock', '</>', 'codeBlock', null], [12, 'setHorizontalRule', '—', null, null],
         ];
-        const buttons = commands.map(([command, label, stateCommand]) => {
-            const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.dataset.cmd = command;
+        const refreshActive = () => {
+            commands.forEach(([index, command, label, stateCommand, arg]) => {
+                if (!stateCommand) return;
+                const button = toolbar.querySelector(`[data-cmd="${index}"]`);
+                if (button) button.classList.toggle('is-active', adapter.isActive(stateCommand));
+            });
+        };
+        commands.forEach(([index, command, label, stateCommand, arg]) => {
+            const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.title = command; button.dataset.cmd = String(index);
+            button.addEventListener('mousedown', (event) => event.preventDefault());
             button.addEventListener('click', (event) => {
                 event.preventDefault();
-                const argument = command === 'createLink' ? (window.prompt('Link URL', 'https://') || undefined) : null;
-                if (command === 'createLink' && !argument) return;
-                this.wysiwygFocus(editor);
-                document.execCommand(command, false, argument || undefined);
-                editor.focus();
+                if (arg) adapter.runCommand(command, arg);
+                else adapter.runCommand(command);
                 refreshActive();
             });
             toolbar.appendChild(button);
-            return { button, stateCommand };
         });
-        const refreshActive = () => {
-            this.wysiwygFocus(editor);
-            buttons.forEach(({ button, stateCommand }) => {
-                if (!stateCommand) return;
-                let active = false;
-                try { active = document.queryCommandState(stateCommand); } catch (_) {}
-                button.classList.toggle('is-active', active);
-            });
-        };
-        const editor = document.createElement('div'); editor.contentEditable = 'true'; editor.innerHTML = value || '';
-        editor.addEventListener('input', () => { /* live; committed on blur */ });
-        editor.addEventListener('blur', () => { const active = document.activeElement && toolbar.contains(document.activeElement) ? null : this; if (active === this) this.setValue(control, node, editor.innerHTML); });
-        editor.addEventListener('keyup', refreshActive); editor.addEventListener('mouseup', refreshActive);
-        // A click inside the toolbar keeps focus in the editor so formatting applies.
-        toolbar.addEventListener('mousedown', (event) => event.preventDefault());
-        wrapper.append(toolbar, editor); row.appendChild(wrapper); return row;
-    }
-
-    wysiwygFocus(editor) {
-        if (document.activeElement === editor) return;
-        editor.focus();
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount === 0) {
-            const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
-            selection.removeAllRanges(); selection.addRange(range);
-        }
+        const editor = document.createElement('div'); editor.className = 'ink-v2-wysiwyg-editor';
+        const initial = value && typeof value === 'object' && value.json ? value.json : (typeof value === 'string' && value.startsWith('{') ? (() => { try { return JSON.parse(value); } catch (_) { return null; } })() : null);
+        adapter.mount(editor, {
+            content: initial || (typeof value === 'string' && !value.startsWith('{') ? value : '<p></p>'),
+            onChange: (json) => this.setValue(control, node, { json, html: adapter.getHTML() }),
+        });
+        wrapper.append(toolbar, editor); row.appendChild(wrapper);
+        editor.addEventListener('keyup', refreshActive); editor.addEventListener('mouseup', refreshActive); editor.addEventListener('keydown', () => setTimeout(refreshActive, 0));
+        return row;
     }
 
     renderImageDimensionsControl(control, node, value, row) {
@@ -721,7 +721,7 @@ export default class PanelManager {
             const tools = document.createElement('span'); tools.className = 'ink-v2-navigator-tools';
             if (definition.acceptsChildren) {
                 const add = document.createElement('button'); add.type = 'button'; add.className = 'ink-v2-navigator-add'; add.title = 'Add element inside'; add.setAttribute('aria-label', `Add element inside ${definition.title}`); add.innerHTML = '<span class="material-symbols-rounded">add</span>';
-                add.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.runtime.selection.select(node.id); this.events.emit('library:open', { parentId: node.id }); if (this.role !== 'navigator') this.route = 'elements'; else this.route = 'navigator'; this.render(); });
+                add.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.runtime.selection.select(node.id); this.runtime.events.emit('library:open', { parentId: node.id }); if (this.role !== 'navigator') this.route = 'elements'; else this.route = 'navigator'; this.render(); });
                 tools.appendChild(add);
             }
             const visibility = document.createElement('button'); visibility.type = 'button'; visibility.className = 'ink-v2-navigator-vis'; visibility.title = node.settings.hidden ? 'Show element' : 'Hide element'; visibility.setAttribute('aria-label', visibility.title); visibility.innerHTML = `<span class="material-symbols-rounded">${node.settings.hidden ? 'visibility_off' : 'visibility'}</span>`;

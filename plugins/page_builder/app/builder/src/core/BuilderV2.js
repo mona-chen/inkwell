@@ -15,6 +15,7 @@ img,svg,video,canvas{display:block;max-width:100%}button,input,select,textarea{f
 
 const EDITOR_CANVAS_CSS = `
 body.ink-builder-design .ink-editor-overlay{position:absolute;inset:0;z-index:9990;pointer-events:none;display:block}
+body.ink-builder-design .ink-canvas-root:has(> .ink-element){padding-top:28px}
 body.ink-builder-design .ink-element:hover>.ink-editor-overlay{box-shadow:0 0 0 1px #a4afb7}
 body.ink-builder-design .ink-element[data-ink-kind="column"]:hover>.ink-editor-overlay{box-shadow:none}
 body.ink-builder-design .ink-element[data-ink-kind="column"]:hover>.ink-editor-overlay::after{content:"";position:absolute;inset:1px;outline:1px dashed #6d7882}
@@ -26,10 +27,12 @@ body.ink-builder-design .ink-element[data-ink-kind="widget"].ink-is-selected>.in
 body.ink-builder-design .ink-element[data-ink-kind="widget"]>.ink-editor-overlay>.ink-editor-toolbar{border-radius:0 0 0 3px}
 body.ink-builder-design .ink-element[data-ink-kind="section"]>.ink-editor-overlay>.ink-editor-toolbar{top:auto;right:auto;bottom:0;left:0;flex-direction:row-reverse;border-radius:0 3px 0 0;background:#93003c}
 body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-editor-toolbar{top:auto;right:auto;bottom:0;left:0;flex-direction:row-reverse;border-radius:0 3px 0 0;background:#7a7a7a}
-body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{top:0;right:auto;left:0;flex-direction:row;border-radius:0 0 3px 0;background:#a4afb7}
+body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-overlay{box-shadow:0 0 0 1px #e6a1ef}
+body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay{box-shadow:0 0 0 2px #e6a1ef}
+body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{top:-24px;right:auto;left:50%;height:24px;transform:translateX(-50%);flex-direction:row;border-radius:0;background:#e6a1ef;color:#17191c;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 100%,0 100%);padding-inline:8px}
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="section"]>.ink-editor-overlay>.ink-editor-toolbar,
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="column"]>.ink-editor-overlay>.ink-editor-toolbar,
-body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{background:var(--ink-editor-accent,#93003c)}
+body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{background:#e6a1ef}
 body.ink-builder-design .ink-editor-toolbar button{display:flex;width:28px;height:24px;align-items:center;justify-content:center;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;pointer-events:auto}
 body.ink-builder-design .ink-editor-toolbar button:hover{background:rgba(0,0,0,.18)}body.ink-builder-design .ink-editor-toolbar .material-symbols-rounded{font-size:15px}
 
@@ -158,7 +161,7 @@ export default class BuilderV2 {
         });
         this.runtime.events.on('responsive:change', ({ device }) => this.applyDeviceWidth(device));
         this.runtime.events.on('document:settings', ({ settings }) => { const title = document.querySelector('.ink-appbar-document-name'); if (title) title.textContent = settings?.title || 'Untitled'; });
-        this.runtime.events.on('library:open', () => this.openPanelScreen('elements'));
+        this.runtime.events.on('library:open', ({ parentId } = {}) => this.openPanelScreen('elements', { preserveSelection: Boolean(parentId) }));
         this.runtime.events.on('history:change', ({ canUndo, canRedo }) => {
             const undo = document.querySelector('.ink-appbar button[title="Undo"]'); if (undo) undo.disabled = !canUndo;
             const redo = document.querySelector('.ink-appbar button[title="Redo"]'); if (redo) redo.disabled = !canRedo;
@@ -169,11 +172,11 @@ export default class BuilderV2 {
     }
 
     // Top-bar entry points: route the main left panel and bring it to the front.
-    openPanelScreen(screen) {
+    openPanelScreen(screen, { preserveSelection = false } = {}) {
         const panel = this.runtime?.panel;
         if (panel && ['elements', 'site', 'history'].includes(screen)) { panel.route = screen; panel.render(); }
         if (window.sidebarTabManager) window.sidebarTabManager.openTab(document.querySelector('[data-tab="widgets"]'));
-        this.runtime.selection.clear();
+        if (!preserveSelection) this.runtime.selection.clear();
         return panel;
     }
 

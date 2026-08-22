@@ -253,6 +253,26 @@ async function main() {
 
     state = await client.evaluate(`(function(){
       var r=builder.runtime;
+      var editorEl=r.insert('text-editor',{}, {settings:{html:'<p>Legacy paragraph.</p>'}});
+      r.selection.select(editorEl.id);
+      var pm=document.querySelector('#SettingsContainer .ink-v2-wysiwyg-editor .ProseMirror');
+      var mounted=!!pm;
+      var legacyCanvas=(function(){var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+editorEl.id+'"]');return !!el && el.textContent.includes('Legacy paragraph');})();
+      // Canonical { json, html } object also renders on canvas (TipTap save shape).
+      r.update(editorEl.id,{settings:{html:{json:{type:'doc',content:[{type:'paragraph',content:[{type:'text',text:'Canonical JSON.'}]}]},html:'<p>Canonical JSON.</p>'}}},'Edit');
+      var canonicalCanvas=(function(){var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+editorEl.id+'"]');return !!el && el.textContent.includes('Canonical JSON.');})();
+      // Toolbar command toggles an active state (TipTap, not execCommand).
+      var boldBtn=document.querySelector('#SettingsContainer .ink-v2-wysiwyg-toolbar [title="toggleBold"]');
+      var toggles=false, active=false;
+      if(boldBtn){ boldBtn.click(); active=boldBtn.classList.contains('is-active'); boldBtn.click(); toggles=!boldBtn.classList.contains('is-active'); }
+      r.remove(editorEl.id);
+      return {ok:true,mounted:mounted,legacyCanvas:legacyCanvas,canonicalCanvas:canonicalCanvas,active:active,toggles:toggles};
+    })()`);
+    check("Text Editor runs TipTap and stores canonical JSON with legacy fallback", state.mounted && state.legacyCanvas && state.canonicalCanvas && state.active && state.toggles, JSON.stringify(state));
+
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime;
       return { baseline: window.__registryBaseline, count: r.elements.list().length, hasLab: r.elements.has('control-lab') };
     })()`);
     check("registry is not polluted by synthetic test elements", state.count === state.baseline && !state.hasLab, JSON.stringify(state));
@@ -296,10 +316,11 @@ async function main() {
       var section=r.insert('section',{});
       var heading=r.insert('heading',{parentId:section.id});
       r.selection.select(section.id);
-      var styleTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.trim()==='style'});
+      var styleTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.trim().toLowerCase().endsWith('style')});
       if(styleTab) styleTab.click();
       var bg=document.querySelector('#SettingsContainer .ink-v2-background');
       var bgControl=!!bg, bgRows=bg?bg.querySelectorAll('.ink-v2-control').length:0;
+      var tabsDebug=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).map(function(t){return t.textContent.trim()});
       bg?.querySelector('.ink-v2-background-trigger')?.click();
       var bgOpen=!!bg&&bg.classList.contains('is-open');
       var panel=r.panel; panel.route='history'; panel.render();
@@ -316,7 +337,7 @@ async function main() {
       var toolbarOnSelect=!!toolbar && d.defaultView.getComputedStyle(toolbar).opacity==='1';
       var editorCss=d.querySelector('#ink-editor-canvas-styles')?.textContent||'';
       r.remove(section.id);
-      return {labels:labels,hasCurrent:hasCurrent,undoWorks:childrenBefore===1&&childrenAfter===0,bgControl:bgControl,bgRows:bgRows,bgOpen:bgOpen,toolbarOnSelect:toolbarOnSelect,hoverRule:editorCss.includes('data-ink-kind="column"]:hover')};
+      return {labels:labels,hasCurrent:hasCurrent,undoWorks:childrenBefore===1&&childrenAfter===0,bgControl:bgControl,bgRows:bgRows,bgOpen:bgOpen,toolbarOnSelect:toolbarOnSelect,hoverRule:editorCss.includes('data-ink-kind="column"]:hover'),tabsDebug:tabsDebug};
     })()`);
     check("history panel, background control, and toolbar reveal work", state.hasCurrent && state.undoWorks && state.labels[0].toLowerCase().includes('add heading') && state.bgControl && state.bgRows === 6 && state.bgOpen && state.toolbarOnSelect && state.hoverRule, JSON.stringify(state));
 
@@ -642,7 +663,7 @@ async function main() {
       };
       // states switcher appears on state-capable controls (button style tab)
       r.selection.select(btn.id);
-      var styleTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.trim()==='style'});
+      var styleTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.trim().toLowerCase().endsWith('style')});
       if(styleTab) styleTab.click();
       result.statesSwitcher=!!document.querySelector('#SettingsContainer .ink-v2-states');
       r.remove(container.id);
