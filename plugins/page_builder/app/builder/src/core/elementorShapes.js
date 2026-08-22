@@ -1,33 +1,37 @@
-import mountains from '../../../../../../references/elementor/assets/shapes/mountains.svg?raw';
-import drops from '../../../../../../references/elementor/assets/shapes/drops.svg?raw';
-import clouds from '../../../../../../references/elementor/assets/shapes/clouds.svg?raw';
-import zigzag from '../../../../../../references/elementor/assets/shapes/zigzag.svg?raw';
-import pyramids from '../../../../../../references/elementor/assets/shapes/pyramids.svg?raw';
-import triangle from '../../../../../../references/elementor/assets/shapes/triangle.svg?raw';
-import triangleAsymmetrical from '../../../../../../references/elementor/assets/shapes/triangle-asymmetrical.svg?raw';
-import tilt from '../../../../../../references/elementor/assets/shapes/tilt.svg?raw';
-import opacityTilt from '../../../../../../references/elementor/assets/shapes/opacity-tilt.svg?raw';
-import opacityFan from '../../../../../../references/elementor/assets/shapes/opacity-fan.svg?raw';
-import curve from '../../../../../../references/elementor/assets/shapes/curve.svg?raw';
-import curveAsymmetrical from '../../../../../../references/elementor/assets/shapes/curve-asymmetrical.svg?raw';
-import waves from '../../../../../../references/elementor/assets/shapes/waves.svg?raw';
-import waveBrush from '../../../../../../references/elementor/assets/shapes/wave-brush.svg?raw';
-import wavesPattern from '../../../../../../references/elementor/assets/shapes/waves-pattern.svg?raw';
-import book from '../../../../../../references/elementor/assets/shapes/book.svg?raw';
-import split from '../../../../../../references/elementor/assets/shapes/split.svg?raw';
-import arrow from '../../../../../../references/elementor/assets/shapes/arrow.svg?raw';
+// Elementor-style shape-divider SVGs. The SVG assets are vendored into src/vendor/shapes/
+// (copied from the Elementor reference checkout) so the builder build is fully self-contained
+// and never depends on the git-ignored references/ directory. The ?raw webpack rule inlines
+// each file as a string.
+import mountains from '../vendor/shapes/mountains.svg?raw';
+import drops from '../vendor/shapes/drops.svg?raw';
+import clouds from '../vendor/shapes/clouds.svg?raw';
+import zigzag from '../vendor/shapes/zigzag.svg?raw';
+import pyramids from '../vendor/shapes/pyramids.svg?raw';
+import triangle from '../vendor/shapes/triangle.svg?raw';
+import triangleAsymmetrical from '../vendor/shapes/triangle-asymmetrical.svg?raw';
+import tilt from '../vendor/shapes/tilt.svg?raw';
+import opacityTilt from '../vendor/shapes/opacity-tilt.svg?raw';
+import opacityFan from '../vendor/shapes/opacity-fan.svg?raw';
+import curve from '../vendor/shapes/curve.svg?raw';
+import curveAsymmetrical from '../vendor/shapes/curve-asymmetrical.svg?raw';
+import waves from '../vendor/shapes/waves.svg?raw';
+import waveBrush from '../vendor/shapes/wave-brush.svg?raw';
+import wavesPattern from '../vendor/shapes/waves-pattern.svg?raw';
+import book from '../vendor/shapes/book.svg?raw';
+import split from '../vendor/shapes/split.svg?raw';
+import arrow from '../vendor/shapes/arrow.svg?raw';
 
-import dropsNegative from '../../../../../../references/elementor/assets/shapes/drops-negative.svg?raw';
-import cloudsNegative from '../../../../../../references/elementor/assets/shapes/clouds-negative.svg?raw';
-import pyramidsNegative from '../../../../../../references/elementor/assets/shapes/pyramids-negative.svg?raw';
-import triangleNegative from '../../../../../../references/elementor/assets/shapes/triangle-negative.svg?raw';
-import triangleAsymmetricalNegative from '../../../../../../references/elementor/assets/shapes/triangle-asymmetrical-negative.svg?raw';
-import curveNegative from '../../../../../../references/elementor/assets/shapes/curve-negative.svg?raw';
-import curveAsymmetricalNegative from '../../../../../../references/elementor/assets/shapes/curve-asymmetrical-negative.svg?raw';
-import wavesNegative from '../../../../../../references/elementor/assets/shapes/waves-negative.svg?raw';
-import bookNegative from '../../../../../../references/elementor/assets/shapes/book-negative.svg?raw';
-import splitNegative from '../../../../../../references/elementor/assets/shapes/split-negative.svg?raw';
-import arrowNegative from '../../../../../../references/elementor/assets/shapes/arrow-negative.svg?raw';
+import dropsNegative from '../vendor/shapes/drops-negative.svg?raw';
+import cloudsNegative from '../vendor/shapes/clouds-negative.svg?raw';
+import pyramidsNegative from '../vendor/shapes/pyramids-negative.svg?raw';
+import triangleNegative from '../vendor/shapes/triangle-negative.svg?raw';
+import triangleAsymmetricalNegative from '../vendor/shapes/triangle-asymmetrical-negative.svg?raw';
+import curveNegative from '../vendor/shapes/curve-negative.svg?raw';
+import curveAsymmetricalNegative from '../vendor/shapes/curve-asymmetrical-negative.svg?raw';
+import wavesNegative from '../vendor/shapes/waves-negative.svg?raw';
+import bookNegative from '../vendor/shapes/book-negative.svg?raw';
+import splitNegative from '../vendor/shapes/split-negative.svg?raw';
+import arrowNegative from '../vendor/shapes/arrow-negative.svg?raw';
 
 export const ELEMENTOR_SHAPES = {
     mountains: { title: 'Mountains', svg: mountains, flip: true },
