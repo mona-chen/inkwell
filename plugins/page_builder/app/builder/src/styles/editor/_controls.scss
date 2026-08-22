@@ -1,5 +1,11 @@
 // Panel controls — Elementor-faithful density: ~32px controls, 12px labels, tight rows.
 
+// Normal / Hover / Focus state switcher.
+.ink-v2-states { display: grid; grid-template-columns: repeat(3, 1fr); padding: 8px 12px; gap: 6px; border-bottom: 1px solid var(--ink-editor-border); background: var(--ink-editor-surface); }
+.ink-v2-states button { min-height: 28px; border: 1px solid var(--ink-editor-border); border-radius: 3px; background: var(--ink-editor-panel); color: var(--ink-editor-muted); font-size: 11px; text-transform: uppercase; cursor: pointer; }
+.ink-v2-states button:hover { color: var(--ink-editor-text); }
+.ink-v2-states button.is-active { background: var(--ink-editor-accent); border-color: var(--ink-editor-accent); color: #fff; }
+
 .ink-v2-control { position: relative; display: grid; gap: 5px; margin: 0; padding: 8px 12px 12px; }
 .ink-v2-control label { display: flex; gap: 6px; align-items: center; color: var(--ink-editor-text); font-size: 12px; font-weight: 400; }
 .ink-v2-control label > .ink-v2-responsive-switcher { margin-left: auto; }

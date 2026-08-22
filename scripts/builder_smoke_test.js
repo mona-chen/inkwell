@@ -515,6 +515,37 @@ async function main() {
 
     state = await client.evaluate(`(function(){
       var b=builder, r=b.runtime;
+      var container=r.insert('container',{});
+      var btn=r.insert('button',{parentId:container.id},{settings:{text:'Go',size:'lg',icon:'arrow_forward',iconPosition:'after',align:'center',url:'#x'}});
+      var heading=r.insert('heading',{parentId:container.id},{settings:{text:'Linked',tag:'h2',link:'https://example.com'}});
+      var img=r.insert('image',{parentId:container.id},{settings:{src:'https://example.com/i.png',caption:'Cap',link:'https://ex.com',align:'center'}});
+      var icon=r.insert('icon',{parentId:container.id},{settings:{icon:'star',rotate:45}});
+      var divider=r.insert('divider',{parentId:container.id},{settings:{align:'center'}});
+      var d=b.iframeDoc;
+      var btnEl=d.querySelector('[data-ink-element-id="'+btn.id+'"]');
+      var result={
+        buttonSize:btnEl.classList.contains('is-size-lg'),
+        buttonAlign:btnEl.classList.contains('is-align-center'),
+        buttonIcon:!!btnEl.querySelector('.ink-el-button-icon'),
+        headingLink:!!d.querySelector('[data-ink-element-id="'+heading.id+'"] a'),
+        imageFigure:d.querySelector('[data-ink-element-id="'+img.id+'"]')?.classList.contains('ink-el-image-figure'),
+        imageCaption:d.querySelector('[data-ink-element-id="'+img.id+'"] figcaption')?.textContent==='Cap',
+        imageLinked:!!d.querySelector('[data-ink-element-id="'+img.id+'"] .ink-el-image-link'),
+        iconRotate:d.querySelector('[data-ink-element-id="'+icon.id+'"]')?.style.transform,
+        dividerAlign:d.querySelector('[data-ink-element-id="'+divider.id+'"]')?.classList.contains('is-align-center')
+      };
+      // states switcher appears on state-capable controls (button style tab)
+      r.selection.select(btn.id);
+      var styleTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.trim()==='style'});
+      if(styleTab) styleTab.click();
+      result.statesSwitcher=!!document.querySelector('#SettingsContainer .ink-v2-states');
+      r.remove(container.id);
+      return result;
+    })()`);
+    check("primitive widgets expose Elementor-style controls and markup", state.buttonSize && state.buttonAlign && state.buttonIcon && state.headingLink && state.imageFigure && state.imageCaption && state.imageLinked && state.iconRotate === "rotate(45deg)" && state.dividerAlign && state.statesSwitcher, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder, r=b.runtime;
       var section=r.insert('section',{});
       var heading=r.insert('heading',{parentId:section.id},{styles:{base:{'background-image':'https://example.com/bg.jpg',filter:{blur:1,brightness:90,contrast:110,saturate:80,hue:5},'-webkit-text-stroke':{strokeWidth:2,unit:'px',color:'#ff0000'}}}});
       var gradientEl=r.insert('paragraph',{parentId:section.id},{styles:{base:{'background-image':'linear-gradient(90deg, #6ec1e4, #4054b2)'}}});

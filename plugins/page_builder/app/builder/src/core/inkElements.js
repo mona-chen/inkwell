@@ -133,15 +133,20 @@ export default function registerInkElements(registry) {
     });
     register(registry, {
         type: 'icon', title: 'Icon', icon: 'star',
-        defaults: { settings: { icon: 'star', label: 'Star' }, styles: { base: { color: '#6ec1e4' } } },
+        defaults: { settings: { icon: 'star', label: 'Star', rotate: 0 }, styles: { base: { color: '#6ec1e4' } } },
         controls: [
             { tab: 'content', section: 'Icon', name: 'icon', type: 'icon', label: 'Icon' },
             { tab: 'content', section: 'Icon', name: 'label', type: 'text', label: 'Accessible label' },
-            { tab: 'style', target: 'styles', section: 'Icon', name: 'color', type: 'color', label: 'Color' },
+            { tab: 'content', section: 'Icon', name: 'rotate', type: 'slider', label: 'Rotate', min: -360, max: 360 },
+            { tab: 'style', target: 'styles', section: 'Icon', name: 'color', type: 'color', label: 'Color', states: true },
             { tab: 'style', target: 'styles', section: 'Icon', name: 'font-size', type: 'size', label: 'Size', units: ['px', 'rem'], responsive: true },
             ...spacing,
         ],
-        render: ({ domDocument }, node) => { const root = icon(domDocument, node.settings.icon, 'ink-el-icon'); root.setAttribute('aria-label', node.settings.label || ''); return root; },
+        render: ({ domDocument }, node) => {
+            const root = icon(domDocument, node.settings.icon, 'ink-el-icon'); root.setAttribute('aria-label', node.settings.label || '');
+            if (Number(node.settings.rotate)) root.style.transform = `rotate(${Number(node.settings.rotate)}deg)`;
+            return root;
+        },
     });
     ['icon-box', 'image-box'].forEach((type) => register(registry, {
         type,
