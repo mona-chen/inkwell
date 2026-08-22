@@ -1,0 +1,108 @@
+// Top app bar — one continuous dark (or light) strip above the panel and canvas.
+
+.ink-appbar {
+  position: relative;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  height: var(--ink-appbar-height);
+  align-items: center;
+  background: var(--ink-editor-appbar);
+  border-bottom: 1px solid var(--ink-editor-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+  color: var(--ink-editor-text);
+  font-family: Roboto, Inter, Arial, sans-serif;
+}
+
+.ink-appbar-start, .ink-appbar-center, .ink-appbar-end { display: flex; height: 100%; align-items: center; }
+.ink-appbar-start { padding-left: 4px; }
+.ink-appbar-end { justify-content: flex-end; padding-right: 6px; position: relative; }
+
+.ink-appbar button {
+  display: inline-flex;
+  height: 32px;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-editor-muted);
+  font: 500 12px Roboto, Inter, Arial, sans-serif;
+  cursor: pointer;
+  transition: background-color .12s, color .12s;
+}
+.ink-appbar button:hover { background: var(--ink-editor-surface); color: var(--ink-editor-text); }
+.ink-appbar button:disabled { opacity: .35; cursor: default; }
+.ink-appbar button.is-active { background: var(--ink-editor-surface); color: var(--ink-editor-text); }
+.ink-appbar button:focus-visible { outline: 2px solid var(--ink-editor-accent-bright); outline-offset: -2px; }
+.ink-appbar .material-symbols-rounded { font-size: 19px; }
+
+.ink-appbar-logo {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 3px !important;
+  color: var(--ink-editor-text) !important;
+}
+.ink-appbar-logo svg { width: 18px; height: 18px; fill: currentColor; }
+
+.ink-appbar-action { white-space: nowrap; }
+.ink-appbar-action.is-primary { color: var(--ink-editor-text); }
+.ink-appbar-action.is-primary .material-symbols-rounded { color: var(--ink-editor-accent-bright); }
+
+.ink-appbar-document { max-width: 220px; height: 32px !important; }
+.ink-appbar-document-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-editor-text);
+  font-weight: 500;
+}
+.ink-appbar-document .material-symbols-rounded { font-size: 16px; color: var(--ink-editor-faint); }
+
+.ink-appbar-divider { width: 1px; height: 20px; margin: 0 8px; background: var(--ink-editor-border); }
+
+.builder-mode-button { width: 34px; padding: 0 !important; }
+.builder-mode-button.active {
+  background: var(--ink-editor-surface);
+  color: var(--ink-editor-text);
+  box-shadow: inset 0 -2px 0 var(--ink-editor-accent-bright);
+}
+
+.ink-appbar-publish {
+  height: 32px !important;
+  padding: 0 16px !important;
+  background: var(--ink-editor-accent) !important;
+  color: #fff !important;
+  font-weight: 600 !important;
+}
+.ink-appbar-publish:hover { background: var(--ink-editor-accent-bright) !important; }
+
+// Page-actions menu (Design/Code, shortcuts, Clear, Close).
+.ink-appbar-menu {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 4px);
+  right: 6px;
+  display: flex;
+  min-width: 190px;
+  flex-direction: column;
+  padding: 5px;
+  border: 1px solid var(--ink-editor-border);
+  border-radius: 6px;
+  background: var(--ink-editor-panel);
+  box-shadow: var(--ink-editor-shadow);
+}
+.ink-appbar-menu[hidden] { display: none; }
+.ink-appbar-menu button { width: 100%; height: 34px; justify-content: flex-start; padding: 0 10px; border-radius: 3px; }
+.ink-appbar-menu .material-symbols-rounded { font-size: 17px; }
+
+@media (max-width: 900px) {
+  .ink-appbar { grid-template-columns: auto 1fr auto; }
+  .ink-appbar-action span:last-child:not(.material-symbols-rounded) { display: none; }
+  .ink-appbar-document { display: none; }
+}

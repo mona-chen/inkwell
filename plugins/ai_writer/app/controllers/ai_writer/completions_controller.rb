@@ -66,9 +66,80 @@ module AiWriter
       end
 
       response.headers["Content-Type"] = "text/event-stream"
-      client.stream_chat(build_messages, system: system_prompt) do |delta|
-        stream_json(choice: { delta: { content: delta } })
+
+      # A working copy of the current design that the editing tools mutate server-side. When
+      # any editing tool runs, the updated spec streams back as a "design" event after the reply.
+      # The page's current custom CSS/JS seed the copy so precision edits (css_edit) build on
+      # the existing stylesheet instead of replacing it.
+      design = AiWriter::Design.new(
+        Array(params[:currentSections]),
+        custom_css: params[:customCss].to_s,
+        custom_js: params[:customJs].to_s
+      )
+      design_dirty = false
+      mcp_configured = mcp_enabled? && mcp_token.present?
+      mcp_client = mcp_configured ? AiWriter::McpClient.new(url: mcp_url, token: mcp_token) : nil
+      executor = lambda do |name, arguments|
+        # Stream the tool turn so the widget can show what the AI is doing, subtly.
+        stream_json(tool: { name: name.to_s, args: arguments })
+        if EDITING_TOOL_NAMES.include?(name.to_s)
+          design_dirty = true
+          design.apply_tool(name, arguments)
+          # Live editing: stream the updated design right after each edit tool so the canvas
+          # morphs in real time as the model works, instead of waiting for the whole reply.
+          stream_json(design: design.to_spec)
+          "ok — design now has #{design.sections.length} sections"
+        elsif READ_TOOL_NAMES.include?(name.to_s)
+          design.apply_tool(name, arguments) # read-only: returns data, never mutates
+        elsif mcp_client
+          mcp_client.call(name, arguments)
+        else
+          "unknown tool: #{name}"
+        end
+      rescue StandardError => e
+        "MCP tool error: #{e.message}"
       end
+
+      tools = EDITING_TOOL_SCHEMAS + READ_TOOL_SCHEMAS + mcp_tools
+
+      # Phase 1 — BUILD. The model creates the design (via editing tools and/or the marked-text
+      # format). For the page builder we buffer the raw content so it's not shown verbatim; the
+      # design is streamed as a "design" event instead.
+      build_content = +""
+      client.stream_chat(build_messages, system: system_prompt, tools: tools, tool_executor: executor) do |piece|
+        if piece.is_a?(Hash)
+          stream_json(choice: { delta: piece }) unless piece[:content] && params[:env] == "html"
+          build_content << piece[:content].to_s if piece[:content]
+        else
+          stream_json(choice: { delta: { content: piece } })
+          build_content << piece.to_s
+        end
+      end
+
+      # If the build came back as a marked-text design (no editing tools ran), the server parses
+      # it so the design state is authoritative — and streamed as a design event, not raw text.
+      if spec = AiWriter::DesignSpec.parse(build_content)
+        design = AiWriter::Design.new(spec["elementLists"], custom_css: spec["customCss"], custom_js: spec["customJs"])
+        design_dirty = true
+        stream_json(design: design.to_spec)
+        reply = spec["reply"].presence
+        stream_json(choice: { delta: { content: reply } }) if reply
+      elsif build_content.present? && params[:env] != "html"
+        stream_json(choice: { delta: { content: build_content } })
+      end
+
+      # Phase 2 — REVIEW & REFINE (agentic loop). For whole-page work (design/rewrite) we hand the
+      # just-built design back to the model with the editing tools and a critique instruction. It
+      # reads, criticises, and refines via tools (each edit streams live to the canvas) until it's
+      # satisfied, then confirms. Targeted edits (add_section / surgical) skip the review so the
+      # AI never second-guesses a precise instruction.
+      if design_dirty && design.sections.any? && %w[design rewrite].include?(params[:mode])
+        client.stream_chat(review_messages(design), system: REVIEW_SYSTEM_PROMPT, tools: tools, tool_executor: executor) do |piece|
+          payload = piece.is_a?(Hash) ? piece : { content: piece }
+          stream_json(choice: { delta: payload })
+        end
+      end
+
       stream_done
     rescue AiWriter::Client::Error => e
       stream_json(error: e.message)
@@ -122,13 +193,415 @@ module AiWriter
       - Use real, specific copy for the page's topic based on the PAGE TITLE and SITE NAME in
         the request — never lorem ipsum and never invent a hardcoded topic.
       - You may use {{ site.name }} and {{ page.title }} tokens inside the text.
+      - COLOR IS THEME-LEVEL, NOT PER-ELEMENT: text/typography colors follow the .cp-* vocabulary
+        (driven by the --pb-* tokens in the page's CSS), so pick a palette ONCE and express it as
+        a final CSS: block of --pb-* tokens (see the token list in the CSS section below). Dark
+        sections (BG: #0b0f1a etc.) automatically get light text — do NOT add per-line colors.
+        Never rely on the default blue/purple palette.
       - Keep it concise.
+
+      MAGIC DESIGN KIT (make it look premium, not templated): use these section markers to
+      compose modern, animated-feeling layouts. Use them deliberately, not everywhere. When you
+      use a gradient or aurora, ALWAYS pick colors that fit the page's topic/mood (never the
+      default blue-purple):
+        AURORA: <bg>|<from>|<to>   section with an animated aurora backdrop; give it two colors
+        GRADIENT: <from>|<to>|<title>   a headline with a gradient; give it two colors
+        SHIMMER: <title>    a headline with a light shimmer sweep (great on dark sections)
+        MARQUEE: Acme | Linear | Vercel   a scrolling logo/brand marquee
+        BENTO:              makes the section's cards a bento grid
+        CARD: title | body | wide|tall     a bento card (optional wide/tall span)
+        SPOTCARD: title | body   a spotlight card (soft hover glow)
+        STATS:              makes the section a stats band
+        STAT: 99.9% | Uptime   one stat number + label
+        EFFECT: grid|dots   adds a grid or dot background pattern to the section
+      Example hero: "BG: #0b0f1a / AURORA: #0b0f1a|#22d3ee|#a78bfa / GRADIENT: #22d3ee|#a78bfa|Build
+      something people remember / P: ... / BUTTON: Get started". Pick a distinct palette per
+      page — emerald/teal, warm amber/rose, cool cyan/violet — and match the dark/light scheme.
+      Prefer variety — don't make every section an eyebrow + cards + button.
+
+      EDITING: you have page tools. Reading tools (read_design, read_section, read_element,
+      read_css) let you inspect the CURRENT design and its styling precisely — use them to see
+      exact indices or a CSS rule before changing it. Editing tools (edit_element, edit_section,
+      add_element, remove_element, add_section, remove_section, move_section, set_custom_css,
+      set_custom_js, css_edit) change the design. When the user asks to change, add, remove, or
+      restyle part of the CURRENT design, CALL the tools — do not emit text edits and do not
+      redesign the page. Use the CURRENT DESIGN (grep-style index in the request) to target exact
+      0-indexed sections/elements. For styling, use css_edit(selector, property, value) to change
+      a single token/rule (e.g. css_edit(':root', '--cp-accent', '#5e6ad2')) without touching the
+      rest of the stylesheet. Call as many tools as needed; the server applies them and returns the
+      updated design, then reply with a one-line confirmation of what changed. Use the full design
+      format (REPLY:/BG:/H1:/…) only for a whole-page build or explicit
+      "rewrite / design from scratch" requests.
     PROMPT
+
+    # Appended to the system prompt when an MCP research server (DesignMD) is configured.
+    # The model discovers the tool schemas from the request; this tells it WHY/HOW to use them.
+    RESEARCH_HINT = <<~HINT
+      DESIGN RESEARCH: You have access to a design-research tool server (DesignMD). Before you
+      propose a design, USE its tools to ground your work in real, tasteful design systems:
+      search_designs(query) to find a matching brand/aesthetic or mood, get_design(slug) or
+      get_full_system(slug) for a system's colors/typography/spacing, generate_css_variables(slug)
+      for ready-made design tokens, compare_designs(slug_a, slug_b) to weigh two directions, and
+      search_patterns(query) or search_blocks(query) for component patterns. Call the tools, then
+      weave the fetched design language (palette, type, spacing) into your proposal so it looks
+      like a considered, on-brand design rather than generic defaults. Never claim research you
+      didn't actually perform.
+    HINT
+
+    # Design skills loaded from the MCP server and appended to the system prompt for builder
+    # (env=html) design requests, so the model follows the DesignMD methodology and design
+    # fundamentals (accessibility, spacing, typography) on every design — not just when it
+    # remembers to call a tool.
+    RESEARCH_SKILLS = %w[designmd fundamentals].freeze
+
+    # The Copilot's page-editing tools. These are executed SERVER-SIDE against a working copy of
+    # the current design (AiWriter::Design); after the tool loop the updated spec streams back to
+    # the widget, which re-renders the canvas. Sections and elements are 0-indexed.
+    EDITING_TOOL_SCHEMAS = [
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "edit_element",
+          "description" => "Change one property of a specific element in the current design. Sections and elements are 0-indexed. field is 'text' (the visible copy) or 'align' ('left' or 'center').",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "section" => { "type" => "integer", "description" => "0-indexed section number" },
+              "element" => { "type" => "integer", "description" => "0-indexed element index within the section" },
+              "field" => { "type" => "string", "enum" => %w[text align] },
+              "value" => { "type" => "string" }
+            },
+            "required" => %w[section element field value]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "edit_section",
+          "description" => "Change a section-level property of the current design. Currently supports field 'bg' (background color, e.g. '#f8f9fa'). Section is 0-indexed.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "section" => { "type" => "integer" },
+              "field" => { "type" => "string", "enum" => %w[bg] },
+              "value" => { "type" => "string" }
+            },
+            "required" => %w[section field value]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "add_element",
+          "description" => "Append a new element to a section's elements. type is one of H5, H1, P, BUTTON, LIST, IMG, DIVIDER, GRADIENT (gradient-text title), SHIMMER (shimmer title), MARQUEE (items separated by |), BENTOCARD (title|body|wide/tall), SPOTCARD (title|body), STAT (number|label). For LIST separate items with newlines. Use align 'left' for paragraph-like elements.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "section" => { "type" => "integer", "description" => "0-indexed section" },
+              "type" => { "type" => "string", "enum" => %w[H5 H1 P BUTTON LIST IMG DIVIDER GRADIENT SHIMMER MARQUEE BENTOCARD SPOTCARD STAT] },
+              "text" => { "type" => "string" },
+              "align" => { "type" => "string", "enum" => %w[left center] }
+            },
+            "required" => %w[section type text]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "remove_element",
+          "description" => "Remove an element from a section. Both indices are 0-indexed.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "section" => { "type" => "integer" },
+              "element" => { "type" => "integer" }
+            },
+            "required" => %w[section element]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "add_section",
+          "description" => "Insert a new section into the current design. elements is an array of {type, text, align}. 'after' is the 0-indexed section to insert after; omit it or use -1 to append at the end. Use this to add a section (e.g. testimonials, pricing, FAQ) without touching existing sections.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "bg" => { "type" => "string", "description" => "Background color, e.g. '#f8f9fa'" },
+              "elements" => {
+                "type" => "array",
+                "items" => {
+                  "type" => "object",
+                  "properties" => {
+                    "type" => { "type" => "string", "enum" => %w[H5 H1 P BUTTON LIST IMG DIVIDER] },
+                    "text" => { "type" => "string" },
+                    "align" => { "type" => "string", "enum" => %w[left center] }
+                  },
+                  "required" => %w[type text]
+                }
+              },
+              "after" => { "type" => "integer", "description" => "0-indexed section to insert after; -1 (or omitted) appends" }
+            },
+            "required" => [ "elements" ]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "remove_section",
+          "description" => "Remove a whole section from the current design. 0-indexed.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => { "section" => { "type" => "integer" } },
+            "required" => %w[section]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "move_section",
+          "description" => "Move a section to a new position. Both indices are 0-indexed; position is 'before' or 'after' the target section.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "section" => { "type" => "integer" },
+              "target" => { "type" => "integer" },
+              "position" => { "type" => "string", "enum" => %w[before after] }
+            },
+            "required" => %w[section target position]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "set_custom_css",
+          "description" => "Set the page-level custom CSS (e.g. design tokens like :root { --cp-accent: #5e6ad2; }). Replaces any previous custom CSS.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => { "css" => { "type" => "string" } },
+            "required" => %w[css]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "set_custom_js",
+          "description" => "Set the page-level custom JavaScript. Replaces any previous custom JS.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => { "js" => { "type" => "string" } },
+            "required" => %w[js]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "css_edit",
+          "description" => "Precisely edit the page's custom CSS: set ONE property on a selector (e.g. ':root' → '--cp-accent', or '.cp-btn' → 'background'). If the selector already exists it updates that declaration (adding it if missing); if it doesn't exist a new rule is appended. Everything else in the stylesheet is untouched.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "selector" => { "type" => "string", "description" => "CSS selector, e.g. ':root' or '.cp-btn-primary'" },
+              "property" => { "type" => "string", "description" => "CSS property, e.g. '--cp-accent' or 'background'" },
+              "value" => { "type" => "string", "description" => "New value, e.g. '#5e6ad2'" }
+            },
+            "required" => %w[selector property value]
+          }
+        }
+      }
+    ].freeze
+
+    EDITING_TOOL_NAMES = EDITING_TOOL_SCHEMAS.map { |s| s["function"]["name"] }.freeze
+
+    # Read-only tools: let the model inspect the current design / CSS precisely before editing.
+    # They return data but never mutate the design, so no "design" event is streamed for them.
+    READ_TOOL_SCHEMAS = [
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "read_design",
+          "description" => "Return the current design as a readable, line-numbered index (sections, element text, section backgrounds). Use this before editing to see the exact structure and indices.",
+          "parameters" => { "type" => "object", "properties" => {} }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "read_section",
+          "description" => "Return one section of the current design: its background and every element (0-indexed).",
+          "parameters" => {
+            "type" => "object",
+            "properties" => { "section" => { "type" => "integer", "description" => "0-indexed section" } },
+            "required" => %w[section]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "read_element",
+          "description" => "Return one element's properties (name, template, text, align). Sections and elements are 0-indexed.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "section" => { "type" => "integer" },
+              "element" => { "type" => "integer" }
+            },
+            "required" => %w[section element]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "read_css",
+          "description" => "Return the page's custom CSS rule(s) matching a selector (e.g. ':root' or '.cp-btn'). Pass '*' or an empty selector to return the whole stylesheet. Use this before css_edit to see what's there.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => { "selector" => { "type" => "string", "description" => "CSS selector, or '*' for the whole stylesheet" } }
+          }
+        }
+      }
+    ].freeze
+
+    READ_TOOL_NAMES = READ_TOOL_SCHEMAS.map { |s| s["function"]["name"] }.freeze
 
     private
 
+    # MCP design-research tools (DesignMD). Enabled via Settings → Copilot; the URL and bearer
+    # token are stored in site settings and never sent to the browser. Any MCP failure just
+    # disables the tools for this request rather than breaking the chat.
+    def mcp_enabled?
+      Current.site.setting("mcp_enabled") == "1"
+    end
+
+    def mcp_url
+      Current.site.setting("mcp_url").presence || AiWriter::McpClient::DEFAULT_URL
+    end
+
+    def mcp_token
+      Current.site.setting("mcp_token").presence
+    end
+
+    def mcp_tools
+      return [] unless mcp_enabled? && mcp_token.present?
+
+      @mcp_tools ||= AiWriter::McpClient.new(url: mcp_url, token: mcp_token).tools
+    rescue StandardError
+      []
+    end
+
     def system_prompt
-      params[:env] == "html" ? PAGE_BUILDER_SYSTEM_PROMPT : COPILOT_SYSTEM_PROMPT
+      base = params[:env] == "html" ? PAGE_BUILDER_SYSTEM_PROMPT : COPILOT_SYSTEM_PROMPT
+      return base unless mcp_enabled?
+
+      parts = [ base, RESEARCH_HINT ]
+      parts << research_skills if params[:env] == "html"
+      parts.join("\n\n")
+    end
+
+    # The DesignMD methodology + fundamentals skills, loaded from the MCP server once per
+    # request. Any failure degrades to "no skills" rather than breaking the chat.
+    def research_skills
+      return "" unless mcp_enabled? && mcp_token.present?
+
+      @research_skills ||= begin
+        client = AiWriter::McpClient.new(url: mcp_url, token: mcp_token)
+        RESEARCH_SKILLS.map do |name|
+          text = client.call("get_skill", { "name" => name }).to_s
+          "\n\n## Design skill: #{name}\n#{text[0, 3000]}"
+        end.join
+      rescue StandardError
+        ""
+      end
+    end
+
+    # Proactively research a requested brand's design system (its DESIGN.md + CSS tokens) and
+    # hand it to the model, so a brand-aesthetic design is deterministic even if the model never
+    # calls a tool. Also instructs the model to emit those tokens as --cp-* overrides so the
+    # whole page re-themes. Degrades to a one-line instruction if the research fails.
+    def design_language_block(brand)
+      client = AiWriter::McpClient.new(url: mcp_url, token: mcp_token)
+      summary = client.call("get_design", { "slug" => brand }).to_s[0, 2200]
+      tokens = client.call("generate_css_variables", { "slug" => brand }).to_s[0, 2200]
+      <<~PROMPT
+        DESIGN WITH THE AESTHETIC OF "#{brand}". Its design system:
+        #{summary}
+
+        Its design tokens (CSS custom properties):
+        #{tokens}
+
+        Design the page in #{brand}'s visual language — palette, typography, spacing, mood.
+        The builder's .cp-* vocabulary is tokenized (--pb-*): override the tokens on :root and
+        the whole page re-themes. Emit a final CSS: block (after the design sections) mapping this
+        brand into the tokens, e.g.:
+        CSS:
+        :root {
+          --pb-accent: <accent hex>;
+          --pb-accent-2: <secondary hex>;
+          --pb-text: <text hex>;
+          --pb-muted: <muted hex>;
+          --pb-lead: <body text hex>;
+          --pb-surface: <background hex>;
+          --pb-dark: <dark section hex>;
+          --pb-card: <card surface hex>;
+          --pb-border: <border color>;
+          --pb-font: "<display typeface>";
+          --pb-btn-bg: <button background hex>;
+          --pb-btn-text: <button text hex>;
+        }
+        Keep it concise; reuse var(--pb-*) in BG: values where it helps (e.g. BG: var(--pb-dark)).
+      PROMPT
+    rescue StandardError => e
+      "Design with the aesthetic of #{brand}."
+    end
+
+    # A readable, grep-style index of the current design so the model can target exact
+    # sections/elements for precision edits (same formatter as the read_design tool).
+    def design_index(sections)
+      AiWriter::Design.new(Array(sections)).design_summary
+    end
+
+    # Review-and-refine stage of the agent loop: the model critiques the just-built design and
+    # iterates with the editing tools until satisfied (the tool loop's MAX_TOOL_ROUNDS bounds it).
+    REVIEW_SYSTEM_PROMPT = <<~PROMPT
+      You are the review-and-refine stage of a design agent working inside Inkwell's visual
+      Page Builder. A design has been built on the canvas. Critique it against the user's request
+      and strong design principles, then use the editing tools to fix weaknesses and polish it.
+      Iterate — inspect, critique, refine — until you're genuinely satisfied, then reply with a
+      short one-line confirmation of what you improved.
+
+      Critique checklist:
+      - Does it fully satisfy the user's request? Every requested section/element present?
+      - Copy: specific, complete, on-topic (never lorem ipsum), not truncated.
+      - Hierarchy: one clear hero, consistent headings, scannable sections.
+      - Spacing & rhythm: balanced sections, comfortable padding, not cramped or sparse.
+      - Color & contrast: dark sections keep light text, light sections dark text; accents used
+        intentionally (tokens via set_custom_css / css_edit).
+      - Polish: no awkward gaps, empty sections, or duplicate headlines.
+
+      Use read_design / read_section / read_css to inspect, and edit_element / edit_section /
+      add_section / remove_section / move_section / css_edit / set_custom_css to refine. Do NOT
+      output a design format — the design is already on the canvas; refine it with tools only.
+    PROMPT
+
+    def review_messages(design)
+      parts = [ "The user asked: #{params[:prompt].to_s.strip}" ]
+      parts << "Page title: #{params[:context]}" if params[:context].to_s.present?
+      parts << "Site name: #{params[:site]}" if params[:site].to_s.present?
+      parts << "Design language: #{params[:brand]}" if params[:brand].to_s.present?
+      parts << "Current design (0-indexed):\n#{design.design_summary}"
+      parts << "Review it critically and refine it with the editing tools until you're satisfied, then confirm in one line what you improved."
+      [ { role: "user", content: parts.join("\n\n") } ]
     end
 
     def stream_json(payload)
@@ -169,11 +642,21 @@ module AiWriter
       else
         parts << "Current document (JSON): #{blocks.to_json}"
       end
+      if current_sections.present?
+        parts << "Current design (grep-style index — use these numbers to target edits):\n#{design_index(current_sections)}"
+      end
+      mode_steering = {
+        "add_section" => "TASK: ADD new section(s) to the CURRENT design. Do NOT replace, remove, or redesign existing sections. Prefer ADD SECTION [AFTER <n>] ops; if you use the full design format, output ONLY the new section(s).",
+        "rewrite" => "TASK: REWRITE the entire page as a fresh design.",
+        "design" => "TASK: design as requested. If the user asks to change or extend part of the current design, use PRECISION EDITS (ops) rather than a full redesign."
+      }
+      parts << mode_steering[mode] if mode_steering[mode]
       if edit_section.present?
         parts << "SURGICAL EDIT: change ONLY section #{Integer(edit_section) + 1} of the design."
-        parts << "Current design sections: #{current_sections.to_json}"
         parts << "Reply with the design text format for JUST that one section (REPLY + BG + elements) — do not output the other sections."
       end
+      brand = params[:brand].to_s.strip
+      parts << design_language_block(brand) if brand.present? && mcp_enabled?
       parts << "User request: #{prompt}"
       parts.join("\n\n")
     end

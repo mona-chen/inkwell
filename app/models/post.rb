@@ -18,7 +18,7 @@ class Post < ApplicationRecord
 
   before_save :set_published_at, if: -> { status_changed? && status == "published" }
   after_update :create_revision!, if: -> { saved_change_to_content? || saved_change_to_title? }
-  after_commit :fire_published_hook, on: [:create, :update], if: -> { saved_change_to_status? && status == "published" }
+  after_commit :fire_published_hook, on: [ :create, :update ], if: -> { saved_change_to_status? && status == "published" }
 
   # `content` is the *live* published array of block hashes:
   # [{ "type" => "paragraph", "data" => { "text" => "..." } }]. `draft_content` holds the
@@ -31,7 +31,23 @@ class Post < ApplicationRecord
 
   # What the editor should show: the in-progress draft if one exists, else the live content.
   def editing_blocks
-    draft_content || content || []
+    draft = draft_content
+    if stale_builder_draft?(draft)
+      content || []
+    else
+      draft || content || []
+    end
+  end
+
+  # A draft whose page_builder block carries no HTML while the published content does is stale
+  # (e.g. an accidental autosave of an empty build) — never let it blank out the real design.
+  def stale_builder_draft?(draft)
+    return false unless draft.is_a?(Array)
+
+    draft_builder = draft.select { |b| b["type"] == "page_builder" }
+    return false if draft_builder.empty? || draft_builder.any? { |b| b["data"]["html"].to_s.present? }
+
+    content_blocks.any? { |b| b["type"] == "page_builder" && b["data"]["html"].to_s.present? }
   end
 
   # Rough reading time based on visible text (~200 wpm).

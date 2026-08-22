@@ -36,7 +36,23 @@ class Page < ApplicationRecord
 
   # In-progress draft the editor works on; committed to `content` on publish (see publish_draft!).
   def editing_blocks
-    draft_content || content || []
+    draft = draft_content
+    if stale_builder_draft?(draft)
+      content || []
+    else
+      draft || content || []
+    end
+  end
+
+  # A draft whose page_builder block carries no HTML while the published content does is stale
+  # (e.g. an accidental autosave of an empty build) — never let it blank out the real design.
+  def stale_builder_draft?(draft)
+    return false unless draft.is_a?(Array)
+
+    draft_builder = draft.select { |b| b["type"] == "page_builder" }
+    return false if draft_builder.empty? || draft_builder.any? { |b| b["data"]["html"].to_s.present? }
+
+    content_blocks.any? { |b| b["type"] == "page_builder" && b["data"]["html"].to_s.present? }
   end
 
   def publish_draft!
@@ -54,7 +70,7 @@ class Page < ApplicationRecord
   end
 
   def breadcrumbs
-    parent ? parent.breadcrumbs + [self] : [self]
+    parent ? parent.breadcrumbs + [ self ] : [ self ]
   end
 
   private

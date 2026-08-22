@@ -36,6 +36,30 @@ module AiWriter
           end
         end
       end
+
+      render SettingsSection.new(
+        title: "Design research (MCP)",
+        description: "Let the Copilot research real design systems before it designs. Connect a Model Context Protocol server such as DesignMD (add with `claude mcp add designmd --transport http <url> --header \"Authorization: Bearer <token>\"`)."
+      ) do |section|
+        section.form do
+          form_with(url: AiWriter::Engine.routes.url_helpers.settings_path, method: :post, scope: "ai_writer", builder: NitroKit::FormBuilder) do |form|
+            form.group do
+              form.field(:mcp_enabled, as: :switch, label: "Enable design research tools",
+                                       value: "1", checked: setting_value("mcp_enabled") == "1")
+              form.field(:mcp_url, value: setting_value("mcp_url", McpClient::DEFAULT_URL), label: "MCP server URL")
+              form.field(:mcp_token, value: setting_value("mcp_token"), label: "Bearer token", as: :password)
+            end
+            div(class: "px-1 pb-2 text-xs leading-relaxed text-muted-foreground") do
+              "When enabled, the Copilot can call the server's tools (search_designs, get_design, " \
+              "generate_css_variables, patterns/blocks, …) to ground its designs. The token is stored " \
+              "in site settings and never sent to the browser."
+            end
+            form.group do
+              form.submit("Save settings")
+            end
+          end
+        end
+      end
     end
 
     private

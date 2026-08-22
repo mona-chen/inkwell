@@ -1,0 +1,38 @@
+// Icon + box widgets: icon, icon box, image box, icon list, social icons.
+
+.ink-el-icon { display: inline-grid; place-items: center; font-size: 2.5rem; line-height: 1; }
+
+// Icon box — Elementor default: icon on top, text centered (`.elementor-icon-box-wrapper`
+// is `display:flex; flex-direction:column; text-align:center`), 40px icon with 15px gap.
+.ink-el-icon-box { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0; }
+.ink-el-icon-box .ink-el-icon { margin-bottom: 15px; color: var(--ink-color-primary, #6ec1e4); font-size: 40px; transition: color .3s; }
+.ink-el-icon-box .ink-el-box-title { width: 100%; margin: 0 0 5px; font-weight: 600; }
+.ink-el-icon-box .ink-el-box-desc { width: 100%; margin: 0; color: #7a7a7a; line-height: 1.5; }
+
+// Image box — Elementor default: image on top, content below, left-aligned.
+.ink-el-image-box { display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+.ink-el-image-box > img { width: 100%; margin-bottom: 15px; object-fit: cover; }
+.ink-el-image-box .ink-el-box-title { width: 100%; margin: 0 0 5px; font-weight: 600; }
+.ink-el-image-box .ink-el-box-desc { width: 100%; margin: 0; color: #7a7a7a; line-height: 1.5; }
+
+// Icon list.
+.ink-el-icon-list { display: grid; gap: .6rem; margin: 0; padding: 0; list-style: none; }
+.ink-el-icon-list li { display: flex; gap: .7rem; align-items: center; }
+.ink-el-icon-list .material-symbols-rounded { flex: none; font-size: 1.2em; color: var(--ink-color-primary, #6ec1e4); }
+.ink-el-icon-list a { color: inherit; text-decoration: none; }
+
+// Social icons.
+.ink-el-social { display: flex; gap: .5rem; }
+.ink-el-social a {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: #54595f;
+  color: #fff;
+  text-decoration: none;
+  transition: background .3s;
+}
+.ink-el-social a:hover { background: #7a7a7a; }
+.ink-el-social .material-symbols-rounded { font-size: 20px; }

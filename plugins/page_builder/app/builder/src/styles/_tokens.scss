@@ -1,0 +1,44 @@
+// Editor chrome design tokens. Dark is the default; [data-ink-theme="light"] on the
+// document root switches the whole shell (app bar, panel, stage, structure, menus) to a
+// light palette. Canvas/page typography is never themed here — that comes from the store.
+
+:root {
+  --ink-editor-appbar: #0c0d0e;
+  --ink-editor-panel: #1f2124;
+  --ink-editor-surface: #26282c;
+  --ink-editor-border: #34373b;
+  --ink-editor-text: #f2f3f5;
+  --ink-editor-muted: #a8adb4;
+  --ink-editor-faint: #6b7280;
+  --ink-editor-accent: #93003c;
+  --ink-editor-accent-bright: #e0537f;
+  --ink-editor-stage: #16181a;
+  --ink-editor-panel-width: 280px;
+  --ink-appbar-height: 48px;
+  --ink-stage-pad: 24px;
+  --ink-editor-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+  --ink-editor-dropdown: 0 10px 30px rgba(0, 0, 0, .5);
+}
+
+[data-ink-theme="light"] {
+  --ink-editor-appbar: #fafbfc;
+  --ink-editor-panel: #ffffff;
+  --ink-editor-surface: #f3f4f6;
+  --ink-editor-border: #d5dadf;
+  --ink-editor-text: #1f2937;
+  --ink-editor-muted: #4b5563;
+  --ink-editor-faint: #9ca3af;
+  --ink-editor-accent: #93003c;
+  --ink-editor-accent-bright: #b31753;
+  --ink-editor-stage: #e5e7eb;
+  --ink-editor-shadow: 0 12px 40px rgba(15, 23, 42, .18);
+  --ink-editor-dropdown: 0 10px 30px rgba(15, 23, 42, .16);
+}
+
+body {
+  overflow: hidden;
+  color: var(--ink-editor-text);
+  background: var(--ink-editor-panel);
+  font-family: Roboto, Inter, Arial, system-ui, sans-serif;
+  font-size: 13px;
+}

@@ -44,6 +44,11 @@ module Inkwell
     config.time_zone = "UTC"
     config.active_job.queue_adapter = :solid_queue
 
+    # The builder's canvas theme templates are fetched per load from /page_builder_theme; keep
+    # them out of the browser cache so restyling the canvas always reaches the builder.
+    require_relative "../lib/page_builder_theme_no_cache"
+    config.middleware.insert_before ActionDispatch::Static, PageBuilderThemeNoCache
+
     # Engine migrations (ActiveStorage, ActionText, ActionMailbox, and every /plugins engine)
     # aren't added to `db:migrate` automatically — Rails only migrates the app's own db/migrate
     # unless the paths are registered. Without this, plugin tables and ActiveStorage's tables

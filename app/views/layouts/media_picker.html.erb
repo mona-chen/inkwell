@@ -1,0 +1,22 @@
+<%# Standalone media picker page. The block editor opens the picker inside a Turbo Frame on
+    the admin page (which already loads Tailwind + Stimulus), but the Ink Builder loads
+    /admin/media?picker=1 directly in a dialog iframe — so the picker needs its own head that
+    loads the app stylesheets (bounded image tiles) and the Stimulus importmap (the
+    media-picker-item controller that posts the selection back to the builder page). %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Media picker — Inkwell</title>
+  <%= csrf_meta_tags %>
+  <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+  <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+  <%= javascript_importmap_tags %>
+</head>
+<body class="bg-background text-foreground">
+  <div class="p-3">
+    <%= yield %>
+  </div>
+</body>
+</html>

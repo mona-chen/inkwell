@@ -19,6 +19,11 @@ module PageBuilder
       @saved_store = builder_block&.dig("data", "store") || {}
       @saved_custom_css = builder_block&.dig("data", "custom_css") || ""
       @saved_custom_js = builder_block&.dig("data", "custom_js") || ""
+      @saved_html_body = @html.to_s[/<body[^>]*>(.*?)<\/body>/m, 1].presence || @html.to_s
+      # Builder v2 intentionally starts from its normalized recursive store. The email-era
+      # elementLists model and HTML-to-store reconstruction are not compatibility constraints.
+      @saved_store = {} unless @saved_store["version"] == 2
+      @html_design = false
     end
 
     def save

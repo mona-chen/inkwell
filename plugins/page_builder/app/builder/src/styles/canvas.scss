@@ -1,0 +1,10 @@
+// Canvas stylesheet (Ink widgets) — compiled to a single string that is injected into the
+// editor iframe AND hoisted into published body output.
+
+@use "canvas/base";
+@use "canvas/typography";
+@use "canvas/button";
+@use "canvas/boxes";
+@use "canvas/data";
+@use "canvas/content";
+@use "canvas/media";

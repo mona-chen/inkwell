@@ -1,0 +1,25 @@
+// Media + plugin widgets: audio, video, map, gallery, carousel, custom HTML, plugin adapter.
+
+.ink-el-audio { width: 100%; }
+.ink-el-video { display: block; width: 100%; aspect-ratio: 16/9; border: 0; }
+.ink-el-map { display: block; width: 100%; aspect-ratio: 16/9; border: 0; }
+
+.ink-el-gallery { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.ink-el-gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; }
+
+.ink-el-carousel {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+.ink-el-carousel img { width: min(82%, 600px); flex: none; aspect-ratio: 16/9; object-fit: cover; scroll-snap-align: center; }
+
+.ink-el-plugin { padding: 1rem; border: 1px dashed #a4afb7; background: #f8fafc; color: #54595f; font: 13px ui-monospace, monospace; }
+
+@media (max-width: 767px) {
+  .ink-el-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ink-el-icon-box, .ink-el-image-box { align-items: center; text-align: center; }
+  .ink-el-image-box > img { width: 100%; }
+}

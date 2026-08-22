@@ -1,0 +1,24 @@
+// Button — mirrors Elementor's shared `.elementor-button` defaults ($gray #818a91, size-sm).
+
+.ink-el-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #818a91;
+  color: #fff;
+  fill: #fff;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1;
+  padding: 12px 24px;
+  border-radius: 3px;
+  border: 0;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all .3s;
+}
+.ink-el-button:hover, .ink-el-button:focus, .ink-el-button:visited { color: #fff; background-color: #6d7882; }
+.ink-el-button:focus-visible { outline: 2px solid var(--ink-color-primary); outline-offset: 2px; }
+
+.ink-el-image { display: block; max-width: 100%; height: auto; }

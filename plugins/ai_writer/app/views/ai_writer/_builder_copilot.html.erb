@@ -31,16 +31,42 @@
 
       <div data-builder-copilot-target="designView" class="bc-design hidden">
         <div class="bc-design-head">
-          <span class="bc-design-label">Design preview</span>
+          <span class="bc-design-label">Design</span>
           <div class="bc-design-actions">
-            <button type="button" data-action="builder-copilot#expandPreview" class="bc-btn bc-btn-ghost">Expand</button>
+            <button type="button" data-builder-copilot-target="undoCheckpoint" data-action="builder-copilot#undoCheckpoint" class="bc-btn bc-btn-ghost">Undo</button>
             <button type="button" data-builder-copilot-target="apply" data-action="builder-copilot#apply" class="bc-btn">Apply design</button>
           </div>
         </div>
-        <iframe data-builder-copilot-target="preview" class="bc-preview-frame" sandbox="allow-same-origin"></iframe>
+        <div data-builder-copilot-target="checkpoints" class="bc-checkpoints"></div>
+        <div class="bc-design-hint">The canvas shows each change live. Every change is a checkpoint — Undo or click a checkpoint to step back.</div>
       </div>
 
       <div class="bc-input-area">
+        <div class="bc-brand-row">
+          <label class="bc-brand-label" for="bc-brand">Design language</label>
+          <select data-builder-copilot-target="brand" id="bc-brand" class="bc-brand" aria-label="Design aesthetic">
+            <option value="">Auto — pick a fitting aesthetic</option>
+            <option value="linear.app">Linear — minimal, precise, lavender</option>
+            <option value="stripe">Stripe — purple gradients, elegant</option>
+            <option value="vercel">Vercel — black &amp; white precision</option>
+            <option value="cursor">Cursor — sleek dark, gradient accents</option>
+            <option value="framer">Framer — bold black &amp; blue, motion-first</option>
+            <option value="supabase">Supabase — dark emerald, code-first</option>
+            <option value="notion">Notion — warm minimalism, serif headings</option>
+            <option value="raycast">Raycast — dark chrome, vibrant accents</option>
+            <option value="posthog">PostHog — playful, developer dark UI</option>
+            <option value="resend">Resend — minimal dark, monospace accents</option>
+            <option value="airbnb">Airbnb — warm coral, rounded, photography</option>
+            <option value="spotify">Spotify — vibrant green on dark</option>
+            <option value="figma">Figma — vibrant multi-color, playful</option>
+            <option value="shopify">Shopify — dark-first cinematic, neon green</option>
+            <option value="coinbase">Coinbase — clean blue, institutional trust</option>
+            <option value="binance">Binance — bold yellow on monochrome</option>
+            <option value="apple">Apple — premium white space, cinematic</option>
+            <option value="nike">Nike — monochrome, massive display type</option>
+            <option value="tesla">Tesla — radical subtraction, cinematic</option>
+          </select>
+        </div>
         <div class="bc-modes">
           <button type="button" data-builder-copilot-target="mode" data-mode="design" data-action="builder-copilot#setMode" class="bc-mode">Design</button>
           <button type="button" data-builder-copilot-target="mode" data-mode="add_section" data-action="builder-copilot#setMode" class="bc-mode">Add section</button>
@@ -54,15 +80,7 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <%# Fullscreen preview overlay — expand the design out of the floating widget %>
-  <div data-builder-copilot-target="previewOverlay" class="bc-overlay hidden">
-    <div class="bc-overlay-head">
-      <span class="bc-overlay-title">Design preview</span>
-      <button type="button" data-action="builder-copilot#closePreview" class="bc-overlay-close" aria-label="Close preview">✕</button>
     </div>
-    <iframe data-builder-copilot-target="previewFull" class="bc-overlay-frame" sandbox="allow-same-origin"></iframe>
   </div>
 
   <style>
@@ -172,18 +190,36 @@
     .bc-design-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
     .bc-design-label { font-size: 12px; font-weight: 600; color: #374151; }
     .bc-design-actions { display: flex; gap: 6px; }
-    .bc-preview-frame { width: 100%; height: 208px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+    .bc-design-hint { font-size: 11px; color: #9ca3af; margin-top: 8px; }
     .bc-btn-ghost { background: #fff; color: #111827; border: 1px solid #d1d5db; }
     .bc-btn-ghost:hover { background: #f9fafb; }
 
-    .bc-overlay { position: fixed; inset: 0; z-index: 10000; background: rgba(15,23,42,.55); backdrop-filter: blur(4px); display: flex; flex-direction: column; padding: 20px; }
-    .bc-overlay-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .bc-overlay-title { color: #fff; font-weight: 600; font-size: 14px; }
-    .bc-overlay-close { background: transparent; border: 0; color: #fff; font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
-    .bc-overlay-close:hover { background: rgba(255,255,255,.15); }
-    .bc-overlay-frame { flex: 1; width: 100%; border: 0; border-radius: 12px; background: #fff; }
+    .bc-checkpoints { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .bc-checkpoint {
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      color: #374151;
+      border-radius: 9999px;
+      padding: 3px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .bc-checkpoint:hover { background: #eef2ff; border-color: #c7d2fe; }
+    .bc-checkpoint-active { background: #111827; color: #fff; border-color: #111827; }
+    .bc-checkpoint-tag { font-weight: 600; }
 
     .bc-input-area { border-top: 1px solid #f3f4f6; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .bc-brand-row { display: flex; align-items: center; gap: 8px; }
+    .bc-brand-label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+    .bc-brand {
+      flex: 1; min-width: 0; border: 1px solid #e5e7eb; border-radius: 8px;
+      background: #fff; color: #374151; font-size: 12px; font-family: inherit; padding: 6px 8px;
+    }
+    .bc-brand:focus { border-color: #9ca3af; box-shadow: 0 0 0 2px rgba(156,163,175,.2); outline: none; }
     .bc-modes { display: flex; flex-wrap: wrap; gap: 4px; }
     .bc-mode {
       border: 1px solid #e5e7eb;
@@ -265,33 +301,100 @@
       PricingTableElement: true, YoutubeElement: true
     }
 
-    // Turn a compact spec { elementLists: [{ bg, elements: [{name,template,text,align}] }] }
-    // into the builder's hierarchical store: each section is an ARRAY wrapping a GridElement
-    // whose cells hold a CellElement whose elementLists hold the content elements — the exact
-    // shape the theme's own store.json uses (verified to load via builder.load).
+    // Turn a compact spec { elementLists: [{ bg, elements: [{name,template,text,align}] }] } into
+    // the builder's hierarchical store — the EXACT shape the builder itself produces: each
+    // section is an ARRAY wrapping a GridElement whose cells are CellElements holding the content
+    // elements. AI-only element names (GradientTitleElement, SpotlightCardElement, …) map onto
+    // real builder elements + formats, so the design is 100% editable in the canvas. Element
+    // styling flows from formats (inline) + the per-page .cp-* vocabulary; the design look lives
+    // in the page custom CSS.
     function completeStore(spec) {
       const sections = (spec && spec.elementLists) || []
-      const elementLists = sections.map((sec) => {
-        const elements = (sec && (sec.elements || [])) || []
-        const content = elements.map((el) => {
-          const align = el.align || (LEFT_ALIGNED[el.name] ? "left" : "center")
-          // Never emit an element the factory can't parse (that would throw + blank the canvas).
-          const name = SAFE_ELEMENTS[el.name] ? el.name : "PElement"
-          const template = name === "PElement" ? "P" : (el.template || el.name.replace(/Element$/, ""))
-          const obj = { name, template, formats: Object.assign({}, ELEMENT_FORMATS, { text_align: align }) }
-          if (el.text != null) obj.text = el.text
-          return obj
-        })
-        return [{
-          name: "GridElement", template: "Grid", type: null,
-          formats: Object.assign({}, SECTION_FORMATS),
-          cells: [{
-            name: "CellElement", template: "Cell", elementLists: [content],
-            formats: Object.assign({}, CELL_FORMATS, sec && sec.bg ? { background_color: sec.bg } : {})
-          }]
-        }]
-      })
+      // Drop sections with no content (a bare bg/effect would render as a giant empty colored
+      // block); every emitted section must carry real, editable content.
+      const elementLists = sections.map(buildSection).filter(Boolean)
       return { name: "PageElement", theme: "1_Column_Layout", formats: SECTION_FORMATS, elementLists }
+    }
+
+    // Design-system cascade: text colors are NOT inlined — the .cp-* vocabulary (var(--pb-*)
+    // tokens) + the page's custom CSS drive them, so a Copilot-generated --pb-* design re-themes
+    // EVERY element consistently. Only structure (size/align/effects) and design-required colors
+    // (stat numbers on dark stat cards, gradient-title fallback) are set here.
+    const H1_EL = (text, size, color, effect) => { const o = { name: "H1Element", template: "H1", formats: Object.assign({}, ELEMENT_FORMATS, { font_size: size || 40 }) }; if (color) o.formats.text_color = color; if (effect) o.formats.text_effect = effect; if (text != null) o.text = text; return o }
+    const H5_EL = (text, align) => { const o = { name: "H5Element", template: "H5", formats: Object.assign({}, ELEMENT_FORMATS, { text_align: align || "center" }) }; if (text != null) o.text = text; return o }
+    const P_EL = (text, align) => { const o = { name: "PElement", template: "P", formats: Object.assign({}, ELEMENT_FORMATS, { text_align: align || "center" }) }; if (text != null) o.text = text; return o }
+    const BTN_EL = (text, effect) => { const o = { name: "ButtonElement", template: "Button", text: String(text == null ? "" : text), url: "#", formats: Object.assign({}, ELEMENT_FORMATS, { text_align: "center" }) }; if (effect) o.formats.button_effect = effect; return o }
+    const LIST_EL = (text) => ({ name: "ListElement", template: "List", text: String(text == null ? "" : text), align: "left", formats: Object.assign({}, ELEMENT_FORMATS, { text_align: "left" }) })
+    const CELL_OF = (blocks, extra) => ({ name: "CellElement", template: "Cell", elementLists: [blocks], formats: Object.assign({}, CELL_FORMATS, extra || {}) })
+
+    function buildSection(sec) {
+      const bg = (sec && sec.bg) || "#ffffff"
+      const els = (sec && (sec.elements || [])) || []
+      if (!els.length) return null
+      const hero = [], cards = [], bentoCards = [], stats = [], marquees = [], buttons = [], lists = []
+      let idx = 0
+      while (idx < els.length && ["H5Element", "H1Element", "PElement", "GradientTitleElement", "ShimmerTitleElement"].includes(els[idx].name)) {
+        hero.push(els[idx]); idx++
+      }
+      while (idx < els.length) {
+        const e = els[idx]
+        if (e.name === "H5Element" && els[idx + 1] && els[idx + 1].name === "PElement") { cards.push({ t: e.text || "", b: els[idx + 1].text || "" }); idx += 2 }
+        else if (e.name === "SpotlightCardElement") { cards.push({ t: (e.text || "").split("|")[0] || "", b: (e.text || "").split("|")[1] || "" }); idx++ }
+        else if (e.name === "BentoCardElement") { bentoCards.push({ t: (e.text || "").split("|")[0] || "", b: (e.text || "").split("|")[1] || "", span: e.span || "" }); idx++ }
+        else if (e.name === "StatElement") { stats.push({ n: (e.text || "").split("|")[0] || "", l: (e.text || "").split("|")[1] || "" }); idx++ }
+        else if (e.name === "MarqueeElement") { marquees.push(String(e.text || "")); idx++ }
+        else if (e.name === "ButtonElement") { buttons.push(e); idx++ }
+        else if (e.name === "ListElement") { lists.push(e); idx++ }
+        else if (e.name === "PElement") { hero.push(e); idx++ }
+        else idx++
+      }
+
+      const gformats = Object.assign({}, SECTION_FORMATS, { background_color: bg })
+      if (sec && sec.aurora) gformats.section_effect = "aurora"
+      else if (sec && sec.effect === "grid") gformats.section_effect = "grid"
+      else if (sec && sec.effect === "dots") gformats.section_effect = "dots"
+      else if (sec && sec.noise) gformats.section_effect = "noise"
+
+      let layout = "columns", cells = []
+      if (marquees.length) {
+        layout = "marquee"
+        const items = marquees[0].split("|").map((x) => x.trim()).filter(Boolean)
+        cells = items.map((name) => CELL_OF([P_EL(name)]))
+      } else if (bentoCards.length) {
+        layout = "bento"
+        cells = bentoCards.map((c) => CELL_OF([H5_EL(c.t, "left"), P_EL(c.b, "left")], c.span ? { span: c.span } : {}))
+      } else if (stats.length) {
+        layout = "stats"
+        cells = stats.map((s) => CELL_OF([H1_EL(s.n, 40, "#ffffff"), H5_EL(s.l)]))
+      } else if (cards.length) {
+        layout = "spotlight"
+        cells = cards.map((c) => CELL_OF([H5_EL(c.t, "left"), P_EL(c.b, "left")]))
+      }
+
+      const heroBlocks = []
+      hero.forEach((e) => {
+        if (e.name === "H5Element") heroBlocks.push(H5_EL(e.text))
+        else if (e.name === "H1Element") heroBlocks.push(H1_EL(e.text, 40))
+        else if (e.name === "GradientTitleElement") heroBlocks.push(H1_EL(e.text, 40, "#ffffff", "gradient"))
+        else if (e.name === "ShimmerTitleElement") heroBlocks.push(H1_EL(e.text, 40, "#ffffff", "shiny"))
+        else if (e.name === "PElement") heroBlocks.push(P_EL(e.text))
+      })
+      buttons.forEach((b, i) => heroBlocks.push(BTN_EL(b.text, i === 0 ? "shimmer" : "none")))
+      lists.forEach((l) => heroBlocks.push(LIST_EL(l.text)))
+
+      if (heroBlocks.length) {
+        gformats.padding_top = 80; gformats.padding_bottom = 80
+        cells.unshift(CELL_OF(heroBlocks))
+      } else {
+        gformats.padding_top = 64; gformats.padding_bottom = 64
+      }
+      if (!cells.length) cells = [CELL_OF([])]
+
+      return [{
+        name: "GridElement", template: "Grid", type: null,
+        formats: Object.assign({}, gformats, { layout }),
+        cells: cells
+      }]
     }
 
     // Content elements of a section (digs through Grid -> Cell -> elementLists).
@@ -302,63 +405,28 @@
       return []
     }
 
-    // The design system (.cp-*) lives in the app stylesheet app/assets/stylesheets/
-    // copilot_design.css, loaded on the builder canvas and the public theme — so generated
-    // HTML carries only semantic classes, no inline <style> tags.
+    // Builder pattern for Copilot output: the design IS a builder store (element data = source
+    // of truth). The builder renders it on the canvas, so previews and saved pages carry real
+    // builder markers and stay 100% editable. Styling comes from element formats (inline) plus
+    // the per-page .cp-* vocabulary + the design's custom CSS — never hand-built inline HTML.
 
-    function isDark(bg) {
-      const h = String(bg || "").replace("#", "")
-      if (h.length !== 6) return false
-      const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16)
-      return (r * 299 + g * 587 + b * 114) / 1000 < 140
-    }
-
-    // Render a design spec as semantic .cp-* HTML (styled by the app's copilot_design.css),
-    // for the live preview and the saved page. No inline <style> tags.
+    // Render a design spec through the builder: rebuild the store, render it on the canvas as
+    // editable elements, and return the builder's own HTML (the source of truth for save).
     function specToHtml(spec) {
-      const sections = (spec && spec.elementLists) || []
-      return sections.map(renderSection).join("")
+      if (!spec || !spec.elementLists || !spec.elementLists.length) return ""
+      try {
+        const store = completeStore(spec)
+        if (window.builder && window.builder.clear) {
+          window.builder.clear()
+          window.builder.parse(store)
+          window.builder.render()
+          if (window.builder.applyCustomCode) window.builder.applyCustomCode()
+          return window.builder.getHtml()
+        }
+      } catch (e) { console.error("Copilot store render failed:", e) }
+      return ""
     }
 
-    function renderSection(sec) {
-      const bg = (sec && sec.bg) || "#ffffff"
-      const els = (sec && sec.elements) || []
-      const eyebrow = [], title = [], lead = [], cards = [], buttons = [], lists = []
-      let idx = 0
-      while (idx < els.length && ["H5Element", "H1Element", "PElement"].includes(els[idx].name)) {
-        const e = els[idx]
-        if (e.name === "H5Element") eyebrow.push(esc(e.text || ""))
-        else if (e.name === "H1Element") title.push(esc(e.text || ""))
-        else lead.push(esc(e.text || ""))
-        idx++
-      }
-      while (idx < els.length) {
-        const e = els[idx]
-        if (e.name === "H5Element" && els[idx + 1] && els[idx + 1].name === "PElement") {
-          cards.push({ t: esc(e.text || ""), b: esc(els[idx + 1].text || "") })
-          idx += 2
-        } else if (e.name === "ButtonElement") { buttons.push(esc(e.text || "")); idx++ }
-        else if (e.name === "ListElement") { lists.push(esc(e.text || "")); idx++ }
-        else if (e.name === "PElement") { lead.push(esc(e.text || "")); idx++ }
-        else idx++
-      }
-      let html = ""
-      if (eyebrow.length) html += '<p class="cp-eyebrow">' + eyebrow.join(" ") + "</p>"
-      if (title.length) html += '<h1 class="cp-title">' + title.join(" ") + "</h1>"
-      if (lead.length) html += '<p class="cp-lead">' + lead.join(" ") + "</p>"
-      if (cards.length) {
-        html += '<div class="cp-cards">' + cards.map((c) =>
-          '<div class="cp-card"><div class="cp-card-dot"></div><h3>' + c.t + "</h3><p>" + c.b + "</p></div>").join("") + "</div>"
-      }
-      lists.forEach((list) => {
-        html += '<ul class="cp-list">' + String(list).split("\n").filter(Boolean).map((x) => "<li>" + esc(x) + "</li>").join("") + "</ul>"
-      })
-      if (buttons.length) {
-        html += '<div class="cp-actions">' + buttons.map((b, i) =>
-          '<a href="#" class="cp-btn ' + (i === 0 ? "cp-btn-primary" : "cp-btn-ghost") + '">' + b + "</a>").join("") + "</div>"
-      }
-      return '<section class="cp-section' + (isDark(bg) ? " cp-dark" : "") + '" style="background:' + bg + '"><div class="cp-container">' + html + "</div></section>"
-    }
 
     // Accept either a compact spec (client completes formats) or a full builder store.
     function toStore(design) {
@@ -368,7 +436,7 @@
     }
 
     class BuilderCopilotController extends Controller {
-      static targets = ["window", "transcript", "prompt", "send", "status", "statusDot", "mode", "designView", "preview", "apply", "previewOverlay", "previewFull"]
+      static targets = ["window", "transcript", "prompt", "send", "status", "statusDot", "mode", "designView", "apply", "undoCheckpoint", "checkpoints", "brand"]
       static values = { context: String, site: String, recordId: String, recordType: String }
 
       connect() {
@@ -380,6 +448,8 @@
         this.designHtml = ""
         this.pendingSpec = null
         this.editingSection = null
+        this.checkpoints = []
+        this.checkpointIndex = -1
         this.markActiveModes()
         // Delegate section clicks: Stimulus doesn't re-scan data-action on dynamically
         // inserted rows, so we bind a delegated listener on the transcript instead.
@@ -388,10 +458,16 @@
           if (row) { e.preventDefault(); this.selectSection({ currentTarget: row }) }
         }
         this.transcriptTarget.addEventListener("click", this._sectionClick)
+        this._checkpointClick = (e) => {
+          const chip = e.target.closest("[data-checkpoint]")
+          if (chip) this.restoreCheckpoint(Number(chip.dataset.checkpoint))
+        }
+        this.checkpointsTarget.addEventListener("click", this._checkpointClick)
       }
 
       disconnect() {
         if (this.transcriptTarget && this._sectionClick) this.transcriptTarget.removeEventListener("click", this._sectionClick)
+        if (this.checkpointsTarget && this._checkpointClick) this.checkpointsTarget.removeEventListener("click", this._checkpointClick)
       }
 
       open(event) {
@@ -439,6 +515,12 @@
 
         const editIndex = this.targetSectionIndex(prompt)
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content
+        this._liveApplied = false
+        // Seed the server-side working copy with the current custom CSS/JS (the working design's
+        // code, else the builder Code tab's saved page code) so precision css_edit tools build
+        // on the existing stylesheet instead of replacing it.
+        const baseCss = this.customCss || (document.getElementById("customCss") ? document.getElementById("customCss").value : "")
+        const baseJs = this.customJs || (document.getElementById("customJs") ? document.getElementById("customJs").value : "")
         this.addUserMessage(prompt)
         this.beginThinking()
         try {
@@ -448,14 +530,16 @@
             body: JSON.stringify({
               mode: this.mode, prompt, html: this.currentHtml(), store: this.currentStore(),
               context: this.contextValue, site: this.siteValue, recordType: this.recordTypeValue,
+              brand: this.hasBrandTarget ? this.brandTarget.value : "",
+              customCss: baseCss, customJs: baseJs,
               env: "html", history: this.history,
               editSection: editIndex == null ? null : editIndex,
               currentSections: this.pendingSpec ? this.pendingSpec.elementLists : null
             })
           })
           if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || "Copilot failed (" + resp.status + ")") }
-          const { content } = await this.streamResponse(resp)
-          this.handleResponse(content)
+          const { content, design } = await this.streamResponse(resp)
+          this.handleResponse(content, design)
           this.setStatus("", false)
         } catch (e) {
           this.endThinking()
@@ -468,14 +552,16 @@
       }
 
       // Read the SSE stream. reasoning_content (the model's thinking) is shown in the
-      // thinking area but kept separate from `content` (the actual reply), so a reasoner's
-      // internal prose never pollutes the JSON plan we parse.
+      // thinking area but kept separate from `content` (the actual reply). Each "design" event
+      // (streamed after an edit tool executes) is applied to the canvas LIVE so the design
+      // morphs as the model works, not just when it finishes.
       async streamResponse(resp) {
         const reader = resp.body.getReader()
         const decoder = new TextDecoder()
         let buffer = ""
         let content = ""
         let reasoning = ""
+        let design = null
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
@@ -495,29 +581,107 @@
               const r = delta && (delta.reasoning_content || "")
               if (r) { reasoning += r; this.appendThinking(r) }
               if (c) { content += c; this.appendThinking(c) }
+              if (evt.tool) this.appendToolTurn(evt.tool.name, evt.tool.args)
+              if (evt.design && evt.design.elementLists) {
+                design = evt.design
+                this.applyDesignLive(evt.design)
+              }
             } catch { /* skip */ }
           }
         }
-        return { content, reasoning }
+        return { content, reasoning, design }
       }
 
-      handleResponse(text) {
+      // Apply a streamed design state to the canvas immediately (live editing). No checkpoint is
+      // pushed here — the final state gets one checkpoint when the message completes.
+      applyDesignLive(design) {
+        if (!design || !design.elementLists) return
+        this.pendingSpec = { elementLists: design.elementLists }
+        if (design.customCss != null) this.customCss = design.customCss
+        if (design.customJs != null) this.customJs = design.customJs
+        this.designHtml = specToHtml(this.pendingSpec)
+        this.designViewTarget.classList.remove("hidden")
+        this.previewOnCanvas()
+        this._liveApplied = true
+      }
+
+      handleResponse(text, design) {
         this.endThinking()
+
+        // Tool-based edits were applied live (including the review-and-refine phase), so the
+        // design state on the canvas is authoritative — show the confirmation and checkpoint.
+        if (this._liveApplied) {
+          this._liveApplied = false
+          this.addAssistantMessage(text || "Updated the design.")
+          this.showPlan(this.pendingSpec)
+          this.designViewTarget.classList.remove("hidden")
+          this.pushCheckpoint(text || "Design update")
+          this.history.push({ role: "user", content: this.promptTarget.value.trim() })
+          this.history.push({ role: "assistant", content: text || "" })
+          this.promptTarget.value = ""
+          return
+        }
+
+        // Tool-based edits (non-streamed path): apply the final design verbatim.
+        if (design && design.elementLists) {
+          this.pendingSpec = { elementLists: design.elementLists }
+          if (design.customCss != null) this.customCss = design.customCss
+          if (design.customJs != null) this.customJs = design.customJs
+          this.designHtml = specToHtml(this.pendingSpec)
+          this.addAssistantMessage(text || "Updated the design.")
+          this.showPlan(this.pendingSpec)
+          this.designViewTarget.classList.remove("hidden")
+          this.previewOnCanvas()
+          this.pushCheckpoint(text || "Design update")
+          this.history.push({ role: "user", content: this.promptTarget.value.trim() })
+          this.history.push({ role: "assistant", content: text || "" })
+          this.promptTarget.value = ""
+          return
+        }
+
         const parsed = this.parseDesign(text)
         const spec = parsed && parsed.spec && parsed.spec.elementLists ? parsed.spec : null
+        const ops = parsed && parsed.ops && parsed.ops.length ? parsed.ops : null
         const editIndex = this.editingSection
-        if (editIndex != null && spec && this.pendingSpec && this.pendingSpec.elementLists[editIndex]) {
+
+        // "Add section" mode must never wipe the existing design: a full-spec reply is treated
+        // as the NEW section(s) to append, not as a replacement.
+        if (this.mode === "add_section" && spec && !ops && this.pendingSpec) {
+          this.pendingSpec.elementLists = this.pendingSpec.elementLists.concat(spec.elementLists)
+          if (parsed.customCss) this.customCss = parsed.customCss
+          if (parsed.customJs) this.customJs = parsed.customJs
+          this.designHtml = specToHtml(this.pendingSpec)
+          this.addAssistantMessage(parsed.reply || "Added " + spec.elementLists.length + " section(s) to your design.")
+          this.showPlan(this.pendingSpec)
+          this.previewOnCanvas()
+          this.pushCheckpoint(parsed.reply || "Added section(s)")
+        } else if (ops && this.pendingSpec) {
+          // Precision edits ("sed" on the current design): apply ops, re-render in place.
+          const changed = this.applyOps(ops)
+          if (changed) {
+            if (parsed.customCss) this.customCss = parsed.customCss
+            if (parsed.customJs) this.customJs = parsed.customJs
+            this.designHtml = specToHtml(this.pendingSpec)
+            this.addAssistantMessage(parsed.reply || "Applied your edits to the current design.")
+            this.showPlan(this.pendingSpec)
+            this.previewOnCanvas()
+            this.pushCheckpoint(parsed.reply || "Precise edits")
+            this.logAction("Applied " + ops.length + " precise edit(s)")
+          } else {
+            this.addAssistantMessage(parsed.reply || "I couldn't apply those edits to the current design — the section or element may not exist.")
+          }
+        } else if (editIndex != null && spec && this.pendingSpec && this.pendingSpec.elementLists[editIndex]) {
           // Surgical edit: merge the model's returned (single) section into the design.
           const newSection = spec.elementLists[0]
           this.pendingSpec.elementLists[editIndex] = newSection
           if (parsed.customCss) this.customCss = parsed.customCss
           if (parsed.customJs) this.customJs = parsed.customJs
           this.designHtml = specToHtml(this.pendingSpec)
-          this.previewTarget.srcdoc = this.wrapPreview(this.designHtml)
           this.addAssistantMessage(parsed.reply || "Updated section " + (editIndex + 1) + ".")
-          this.logAction("Updated section " + (editIndex + 1) + " — review, then Apply")
+          this.logAction("Updated section " + (editIndex + 1))
           this.updatePlanRow(editIndex, newSection)
           this.previewOnCanvas()
+          this.pushCheckpoint(parsed.reply || "Updated section " + (editIndex + 1))
         } else if (spec) {
           this.pendingSpec = spec
           if (parsed.customCss) this.customCss = parsed.customCss
@@ -525,15 +689,16 @@
           this.designHtml = specToHtml(spec)
           this.addAssistantMessage(parsed.reply || "Here's a proposed design.")
           this.showPlan(spec)
-          this.previewTarget.srcdoc = this.wrapPreview(this.designHtml)
           this.designViewTarget.classList.remove("hidden")
           this.previewOnCanvas()
+          this.pushCheckpoint(parsed.reply || "Design")
         } else if (parsed && parsed.html) {
           this.addAssistantMessage(parsed.reply || "Here's a design for your page.")
           this.pendingSpec = null
           this.design = parsed.html
-          this.previewTarget.srcdoc = this.wrapPreview(parsed.html)
+          this.previewOnCanvas()
           this.designViewTarget.classList.remove("hidden")
+          this.pushCheckpoint(parsed.reply || "Design")
         } else if (parsed && parsed.reply) {
           this.addAssistantMessage(parsed.reply)
         } else {
@@ -544,14 +709,76 @@
         this.promptTarget.value = ""
       }
 
-      // Show the current design on the builder canvas in realtime. We inject the design HTML
-      // directly into the canvas iframe (instead of the fragile store clear/parse/render) so
-      // what you see on the canvas EXACTLY matches the preview, reliably, on every redesign.
+      // ---- checkpoints (undo/step-back for AI changes) --------------------------------
+
+      // Snapshot the current design as the latest checkpoint. Each successful change becomes a
+      // restore point, so a bad AI edit is always one click away.
+      pushCheckpoint(label) {
+        const snapshot = {
+          spec: this.pendingSpec ? JSON.parse(JSON.stringify(this.pendingSpec)) : null,
+          designHtml: this.designHtml,
+          customCss: this.customCss || "",
+          customJs: this.customJs || "",
+          design: this.design || "",
+          label: String(label || "Change").slice(0, 60)
+        }
+        // Truncate history so it can't grow forever.
+        this.checkpoints = this.checkpoints.slice(-24)
+        this.checkpoints.push(snapshot)
+        this.checkpointIndex = this.checkpoints.length - 1
+        this.renderCheckpoints()
+      }
+
+      renderCheckpoints() {
+        this.designViewTarget.classList.toggle("hidden", this.checkpoints.length === 0)
+        const chips = this.checkpoints.map((cp, i) =>
+          '<button type="button" class="bc-checkpoint' + (i === this.checkpointIndex ? " bc-checkpoint-active" : "") + '" data-checkpoint="' + i + '" title="Restore this design state">' +
+          '<span class="bc-checkpoint-tag">' + (i + 1) + "</span> " + esc(cp.label) + "</button>"
+        ).join("")
+        this.checkpointsTarget.innerHTML = chips
+        this.undoCheckpointTarget.disabled = this.checkpointIndex <= 0
+      }
+
+      restoreCheckpoint(index) {
+        const cp = this.checkpoints[index]
+        if (!cp) return
+        this.checkpointIndex = index
+        this.pendingSpec = cp.spec ? JSON.parse(JSON.stringify(cp.spec)) : null
+        this.designHtml = cp.designHtml
+        this.customCss = cp.customCss
+        this.customJs = cp.customJs
+        this.design = cp.design
+        if (this.designHtml) this.previewOnCanvas()
+        this.renderCheckpoints()
+        this.showPlan(this.pendingSpec || { elementLists: [] })
+        this.logAction("Restored checkpoint " + (index + 1))
+      }
+
+      undoCheckpoint() {
+        if (this.checkpointIndex > 0) this.restoreCheckpoint(this.checkpointIndex - 1)
+      }
+
+      // Show the current design on the builder canvas. Store-backed designs were already
+      // rendered as editable builder elements by specToHtml; here we just ensure the design's
+      // custom CSS tokens (the researched brand stylesheet) are live on the canvas. Raw HTML
+      // designs (model legacy output) are painted directly.
       previewOnCanvas() {
-        if (!this.designHtml) return
+        if (!this.designHtml && !this.design) return
         const doc = window.builder && (window.builder.iframeDoc || (window.builder.iframe && window.builder.iframe.contentDocument))
         if (!doc || !doc.body) return
-        doc.body.innerHTML = this.designHtml
+        if (!this.pendingSpec && !(this.designHtml && this.designHtml.indexOf('builder-element') > -1)) {
+          doc.body.innerHTML = this.designHtml || this.design
+        }
+        // Inject the design's own tokens (brand --cp-* overrides) into the canvas so the
+        // on-canvas preview reflects the researched design system, without touching the Code tab.
+        const old = doc.getElementById("__copilot_design_tokens")
+        if (old) old.remove()
+        if (this.customCss) {
+          const st = doc.createElement("style")
+          st.id = "__copilot_design_tokens"
+          st.textContent = this.customCss
+          doc.head.appendChild(st)
+        }
         if (typeof window.applyCustomCode === "function") window.applyCustomCode()
       }
 
@@ -585,17 +812,6 @@
         this.scrollTranscript()
       }
 
-      expandPreview() {
-        if (!this.previewTarget.srcdoc) return
-        this.previewFullTarget.srcdoc = this.previewTarget.srcdoc
-        this.previewOverlayTarget.classList.remove("hidden")
-      }
-
-      closePreview() {
-        this.previewOverlayTarget.classList.add("hidden")
-        this.previewFullTarget.srcdoc = ""
-      }
-
       // Apply the proposed design to the page: saves the rendered HTML through the builder's
       // save endpoint. The published page renders the design (the builder's public output is
       // the saved HTML). The canvas itself edits its own store, which this third-party builder
@@ -609,18 +825,23 @@
         btn.disabled = true
         btn.textContent = "Saving…"
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content
-        const fullDoc = "<html><head></head><body>" + html + "</body></html>"
+        // designHtml is the builder's own full <html> doc (store-rendered); legacy raw-HTML
+        // designs are fragments — normalize them to a full document for the save endpoint.
+        const fullDoc = /<html[\s>]/i.test(html) ? html : "<html><head></head><body>" + html + "</body></html>"
         // Preserve the page's custom CSS/JS: use the design's custom code if the model
         // provided it, otherwise keep the builder Code tab's values — so nothing is stripped.
         const tabCss = document.getElementById("customCss") ? document.getElementById("customCss").value : ""
         const tabJs = document.getElementById("customJs") ? document.getElementById("customJs").value : ""
         const customCss = this.customCss || tabCss
         const customJs = this.customJs || tabJs
+        // The design's builder store (element data = source of truth): reopening the builder
+        // loads it as real, editable elements.
+        const store = this.pendingSpec ? completeStore(this.pendingSpec) : null
         try {
           const resp = await fetch("/builder/save", {
             method: "POST",
             headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json", "Accept": "application/json" },
-            body: JSON.stringify({ html: fullDoc, custom_css: customCss, custom_js: customJs, record_type: this.recordTypeValue, record_id: this.recordIdValue })
+            body: JSON.stringify({ html: fullDoc, store: store, custom_css: customCss, custom_js: customJs, record_type: this.recordTypeValue, record_id: this.recordIdValue })
           })
           const j = await resp.json().catch(() => ({}))
           if (!resp.ok) throw new Error(j.error || "Save failed (" + resp.status + ")")
@@ -663,9 +884,12 @@
         this.setStatus("", false)
       }
 
-      // Find the target section index: explicit "section N" in the prompt, else a selected row.
+      // Find the target section index: explicit "edit/change section N" in the prompt, else a
+      // selected row. "Add/insert a section" is a positional insert — never a surgical edit.
       targetSectionIndex(prompt) {
-        const m = String(prompt || "").match(/section\s+(\d+)/i)
+        const p = String(prompt || "")
+        if (/\b(add|insert|append|create|new)\b.*\bsection\b/i.test(p)) return null
+        const m = p.match(/section\s+(\d+)/i)
         if (m) return Math.max(0, Number(m[1]) - 1)
         return this.editingSection
       }
@@ -702,59 +926,201 @@
         return this.parseDesignText(text)
       }
 
-      // The marked-text design format the model replies with. Returns {reply, spec, customCss, customJs}.
-      // Supports CSS: and JS: blocks (page-level custom code) after the design sections.
+      // The marked-text design format the model replies with. Returns {reply, spec, customCss, customJs, ops}.
+      // Supports CSS: and JS: blocks (page-level custom code) after the design sections, plus
+      // precision ops (sed-style edits against the current design — see the system prompt).
       parseDesignText(text) {
         let reply = ""
         let customCss = ""
         let customJs = ""
         const sections = []
+        const ops = []
         let current = null
         let mode = "design"
+        let opAddSection = null
         const startSection = (bg) => {
           current = { bg: bg || null, elements: [] }
           sections.push(current)
         }
-        const push = (name, template, content, align) => {
-          if (!current) startSection(null)
-          current.elements.push({ name, template, text: content, ...(align ? { align } : {}) })
+        const elementFromLine = (m) => {
+          const type = m[1].toUpperCase()
+          const content = m[2].trim()
+          switch (type) {
+            case "H5": return { name: "H5Element", template: "H5", text: content }
+            case "H1": return { name: "H1Element", template: "H1", text: content }
+            case "P": return { name: "PElement", template: "P", text: content, align: "left" }
+            case "BUTTON": return { name: "ButtonElement", template: "Button", text: content }
+            case "LIST": return { name: "ListElement", template: "List", text: content.split("|").map((s) => s.trim()).join("\n"), align: "left" }
+            case "IMG": return { name: "ImageElement", template: "Image", text: content }
+            case "DIVIDER": return { name: "DividerElement", template: "Divider", text: "" }
+          }
         }
 
         String(text || "").split("\n").forEach((rawLine) => {
           const line = rawLine.trim()
           if (!line && mode !== "css" && mode !== "js") return
+
+          // ---- precision ops (sed on the current design spec) ----
+          const addEl = line.match(/^ADD\s+SECTION\s+(\d+)\s+ELEMENT\s+(H5|H1|P|BUTTON|LIST|IMG|DIVIDER):\s*(.*)$/i)
+          const editEl = line.match(/^EDIT\s+SECTION\s+(\d+)\s+ELEMENT\s+(\d+)\s+(\w+):\s*(.*)$/i)
+          const editSec = line.match(/^EDIT\s+SECTION\s+(\d+)\s+(\w+):\s*(.*)$/i)
+          const remEl = line.match(/^REMOVE\s+SECTION\s+(\d+)\s+ELEMENT\s+(\d+)$/i)
+          const remSec = line.match(/^REMOVE\s+SECTION\s+(\d+)$/i)
+          const addSec = line.match(/^ADD\s+SECTION(?:\s+(AFTER|BEFORE)\s+(\d+))?(?:\s+(\d+))?(?:\s+bg:\s*(.*))?$/i)
+          const movSec = line.match(/^MOVE\s+SECTION\s+(\d+)\s+(before|after|to)\s+(\d+)$/i)
+          if (addEl) {
+            opAddSection = null
+            const name = addEl[2].toUpperCase()
+            ops.push({ op: "add_element", section: Number(addEl[1]) - 1, name: name, text: addEl[3].trim() })
+            return
+          }
+          if (editEl) {
+            opAddSection = null
+            ops.push({ op: "edit_element", section: Number(editEl[1]) - 1, element: Number(editEl[2]), field: editEl[3].toLowerCase(), value: editEl[4].trim() })
+            return
+          }
+          if (editSec) {
+            opAddSection = null
+            ops.push({ op: "edit_section", section: Number(editSec[1]) - 1, field: editSec[2].toLowerCase(), value: editSec[3].trim() })
+            return
+          }
+          if (remEl) {
+            opAddSection = null
+            ops.push({ op: "remove_element", section: Number(remEl[1]) - 1, element: Number(remEl[2]) })
+            return
+          }
+          if (remSec) {
+            opAddSection = null
+            ops.push({ op: "remove_section", section: Number(remSec[1]) - 1 })
+            return
+          }
+          if (addSec) {
+            const position = (addSec[1] || "").toLowerCase()
+            const target = addSec[2] != null ? Number(addSec[2]) : (addSec[3] != null ? Number(addSec[3]) : null)
+            const op = { op: "add_section", position: position || (target != null ? "at" : "append"), target: target, bg: (addSec[4] || "").trim() || null, elements: [] }
+            ops.push(op)
+            opAddSection = op
+            return
+          }
+          if (movSec) {
+            opAddSection = null
+            ops.push({ op: "move_section", section: Number(movSec[1]) - 1, where: movSec[2].toLowerCase(), target: Number(movSec[3]) - 1 })
+            return
+          }
+
           if (/^REPLY:/i.test(line)) { reply = line.replace(/^REPLY:/i, "").trim(); return }
           if (/^CSS:/i.test(line)) { mode = "css"; return }
           if (/^JS:/i.test(line)) { mode = "js"; return }
           if (/^BG:/i.test(line)) { mode = "design"; startSection(line.replace(/^BG:/i, "").trim()); return }
           if (mode === "css") { customCss += rawLine + "\n"; return }
           if (mode === "js") { customJs += rawLine + "\n"; return }
+
+          // Magic design-kit markers (renderSection knows how to render each).
+          if (/^AURORA:(?:\s*(.*))?$/i.test(line)) { const g = line.match(/^AURORA:\s*(.*)$/i); if (!current) startSection(null); current.aurora = true; const p = String(g[1] || "").split("|").map((s) => s.trim()); if (p[0]) current.bg = p[0]; if (p.length >= 2) { current.auroraFrom = p[1]; current.auroraTo = p[2] || p[1] } return }
+          if (/^SHIMMER:\s*(.*)$/i.test(line)) { const g = line.match(/^SHIMMER:\s*(.*)$/i); if (!current) startSection(null); current.elements.push({ name: "ShimmerTitleElement", template: "ShimmerTitle", text: g[1].trim() }); return }
+          if (/^GRADIENT:\s*(.*)$/i.test(line)) {
+            const g = line.match(/^GRADIENT:\s*(.*)$/i)
+            const p = String(g[1]).split("|").map((s) => s.trim())
+            const el = { name: "GradientTitleElement", template: "GradientTitle", text: p.length > 1 ? p[p.length - 1] : p[0] }
+            if (p.length >= 2) { el.from = p[0]; el.to = p[1] || p[0] }
+            if (!current) startSection(null)
+            current.elements.push(el)
+            return
+          }
+          if (/^MARQUEE:\s*(.*)$/i.test(line)) { const g = line.match(/^MARQUEE:\s*(.*)$/i); if (!current) startSection(null); current.elements.push({ name: "MarqueeElement", template: "Marquee", text: g[1].trim() }); return }
+          if (/^SPOTLIGHT/i.test(line)) { if (!current) startSection(null); current.spotlight = true; return }
+          if (/^BENTO/i.test(line)) { if (!current) startSection(null); current.bento = true; return }
+          if (/^CARD:\s*(.*)$/i.test(line)) { const g = line.match(/^CARD:\s*(.*)$/i); const p = String(g[1]).split("|").map((s) => s.trim()); if (!current) startSection(null); if (!current.bento) current.bento = true; current.elements.push({ name: "BentoCardElement", template: "BentoCard", text: p[0] + (p[1] != null ? "|" + p[1] : ""), span: p[2] && p[2].toLowerCase() === "wide" ? "wide" : p[2] && p[2].toLowerCase() === "tall" ? "tall" : "" }); return }
+          if (/^SPOTCARD:\s*(.*)$/i.test(line)) { const g = line.match(/^SPOTCARD:\s*(.*)$/i); if (!current) startSection(null); current.elements.push({ name: "SpotlightCardElement", template: "SpotlightCard", text: g[1].trim() }); return }
+          if (/^STAT:\s*(.*)$/i.test(line)) { const g = line.match(/^STAT:\s*(.*)$/i); if (!current) startSection(null); current.elements.push({ name: "StatElement", template: "Stat", text: g[1].trim() }); return }
+          if (/^EFFECT:\s*(.*)$/i.test(line)) { const g = line.match(/^EFFECT:\s*(.*)$/i); if (!current) startSection(null); current.effect = g[1].trim().toLowerCase(); return }
+          if (/^NOISE/i.test(line)) { if (!current) startSection(null); current.noise = true; return }
+
           const m = line.match(/^(H5|H1|P|BUTTON|LIST|IMG|DIVIDER):\s*(.*)$/i)
           if (!m) return
-          const type = m[1].toUpperCase()
-          const content = m[2].trim()
-          switch (type) {
-            case "H5": push("H5Element", "H5", content); break
-            case "H1": push("H1Element", "H1", content); break
-            case "P": push("PElement", "P", content, "left"); break
-            case "BUTTON": push("ButtonElement", "Button", content); break
-            case "LIST": push("ListElement", "List", content.split("|").map((s) => s.trim()).join("\n"), "left"); break
-            case "IMG": push("ImageElement", "Image", content); break
-            case "DIVIDER": push("DividerElement", "Divider", ""); break
-          }
+          if (opAddSection) { opAddSection.elements.push(elementFromLine(m)); return }
+          const el = elementFromLine(m)
+          if (el) { if (!current) startSection(null); current.elements.push(el) }
         })
 
         const spec = sections.length ? { elementLists: sections } : null
-        return { reply, spec, customCss: customCss.trim(), customJs: customJs.trim() }
+        return { reply, spec, customCss: customCss.trim(), customJs: customJs.trim(), ops }
       }
 
-      wrapPreview(html) {
-        return '<!doctype html><html><head><meta charset="utf-8">' +
-          '<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/css/bootstrap.min.css" rel="stylesheet">' +
-          '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">' +
-          '<link rel="stylesheet" href="/assets/copilot_design.css">' +
-          '<style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>' +
-          "</head><body>" + html + "</body></html>"
+      // ---- precision edits (our "sed" on the design spec) ------------------------------
+
+      // Apply an array of ops to this.pendingSpec (the current design as its compact store).
+      // Section and element indices are 0-based. Returns true if anything changed.
+      applyOps(ops) {
+        if (!ops || !ops.length || !this.pendingSpec || !this.pendingSpec.elementLists) return false
+        const sections = this.pendingSpec.elementLists
+        let changed = false
+        ops.forEach((op) => {
+          switch (op.op) {
+            case "edit_element": {
+              const el = sections[op.section] && sections[op.section].elements[op.element]
+              if (!el) return
+              if (op.field === "text" || op.field === "label") el.text = op.value
+              else if (op.field === "align") el.align = op.value
+              changed = true
+              break
+            }
+            case "edit_section": {
+              const sec = sections[op.section]
+              if (!sec) return
+              if (op.field === "bg") sec.bg = op.value || null
+              changed = true
+              break
+            }
+            case "add_element": {
+              const sec = sections[op.section]
+              if (!sec) return
+              const name = op.name + "Element"
+              const el = { name: name, template: op.name === "DIVIDER" ? "Divider" : op.name, text: op.text }
+              if (op.name === "P" || op.name === "LIST") el.align = "left"
+              if (op.name === "LIST") el.text = op.text.split("|").map((s) => s.trim()).join("\n")
+              sec.elements.push(el)
+              changed = true
+              break
+            }
+            case "remove_element": {
+              const sec = sections[op.section]
+              if (sec && sec.elements && op.element >= 0 && op.element < sec.elements.length) {
+                sec.elements.splice(op.element, 1)
+                changed = true
+              }
+              break
+            }
+            case "remove_section": {
+              if (op.section >= 0 && op.section < sections.length) { sections.splice(op.section, 1); changed = true }
+              break
+            }
+            case "add_section": {
+              const newSec = { bg: op.bg || null, elements: op.elements || [] }
+              if (op.position === "after" && op.target != null) {
+                sections.splice(Math.min(op.target + 1, sections.length), 0, newSec)
+              } else if (op.target != null) {
+                sections.splice(Math.max(0, Math.min(op.target, sections.length)), 0, newSec)
+              } else {
+                sections.push(newSec)
+              }
+              changed = true
+              break
+            }
+            case "move_section": {
+              if (op.section < 0 || op.section >= sections.length) return
+              const el = sections[op.section]
+              sections.splice(op.section, 1)
+              let at = op.target
+              if (op.where === "after") at += 1
+              at = Math.max(0, Math.min(at, sections.length))
+              sections.splice(at, 0, el)
+              changed = true
+              break
+            }
+          }
+        })
+        return changed
       }
 
       // ---- transcript helpers ----------------------------------------------------
@@ -780,8 +1146,41 @@
         if (body) { body.textContent += delta; this.scrollTranscript() }
       }
 
+      // Show a tool call the AI just made, subtly, inside the thinking area (e.g. "↳ add_section
+      // after=1 bg=#eef2ff"). The design updates stream alongside via applyDesignLive.
+      appendToolTurn(name, args) {
+        const el = this.transcriptTarget.querySelector("[data-builder-copilot-target='thinking']")
+        this._toolTurns = this._toolTurns || []
+        this._toolTurns.push({ name: name, args: args })
+        if (!el) return
+        const body = el.querySelector(".bc-thinking-text")
+        if (!body) return
+        let summary = ""
+        if (args && typeof args === "object") {
+          summary = Object.keys(args).slice(0, 4).map((k) => {
+            const v = String(args[k] || "")
+            return k + "=" + (v.length > 24 ? v.slice(0, 24) + "…" : v)
+          }).join(" ")
+        }
+        body.textContent += "\n↳ " + name + (summary ? " " + summary : "")
+        this.scrollTranscript()
+      }
+
       endThinking() {
-        this.transcriptTarget.querySelector("[data-builder-copilot-target='thinking']")?.remove()
+        const box = this.transcriptTarget.querySelector("[data-builder-copilot-target='thinking']")
+        if (!box) return
+        const text = (box.querySelector(".bc-thinking-text") || {}).textContent || ""
+        // Keep a subtle, collapsed record of what the AI did (reasoning snippet + tool calls)
+        // instead of silently removing the whole trace.
+        if (text.trim()) {
+          this.transcriptTarget.insertAdjacentHTML("beforeend",
+            '<div class="bc-log"><span class="bc-log-arrow">↳</span><span>AI worked through ' +
+            (this._toolTurns && this._toolTurns.length ? this._toolTurns.length + " step(s): " + this._toolTurns.map((t) => t.name).join(", ") : "the request") +
+            (text.length > 140 ? ' — ' + esc(text.trim().slice(0, 140)) + "…" : "") + "</span></div>")
+          this.scrollTranscript()
+        }
+        box.remove()
+        this._toolTurns = []
       }
 
       addAssistantMessage(text) {

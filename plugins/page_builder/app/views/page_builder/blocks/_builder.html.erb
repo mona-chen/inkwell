@@ -6,6 +6,17 @@
   # Only the body is page content — the stored <head> is builder/theme scaffolding (and has,
   # historically, carried multi-MB bloat). Never ship it into the editor DOM.
   body_only_html = saved_html[/<body[^>]*>(.*?)<\/body>/m, 1].presence || saved_html
+  # The preview iframe is sandboxed (no scripts) but needs the builder's design vocabulary + the
+  # page's custom CSS so the built page renders with its actual styles — matching the live page.
+  custom_css = local_assigns[:data]&.dig("custom_css").to_s
+  preview_doc = +<<~HTML
+    <!doctype html><html><head><meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="/page_builder_theme/ink-design-kit.css" rel="stylesheet">
+    <style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,system-ui,sans-serif}.ink-builder-content{width:100%;min-width:0}h1,h2,h3,h4,h5,h6,p,figure,blockquote{margin:0}img,svg,video,canvas{display:block;max-width:100%}</style>
+    #{custom_css.present? ? "<style>#{custom_css}</style>" : ""}
+    </head><body><div class="ink-builder-content">#{body_only_html}</div></body></html>
+  HTML
 %>
 <div data-block-editor-target="block" data-type="page_builder"
      class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
@@ -23,10 +34,8 @@
       </div>
     </div>
     <% if record_id %>
-      <%# Open the builder in a new tab when the browser allows it; if the popup is
-          blocked (w === null) fall back to navigating this tab so the button always works. %>
-      <a href="/builder/<%= record_type %>/<%= record_id %>" rel="noopener"
-         onclick="var w=window.open(this.href,'_blank','noopener');if(w){return false;}"
+      <%# The builder always opens in a new tab — never navigate away from the editor. %>
+      <a href="/builder/<%= record_type %>/<%= record_id %>" target="_blank" rel="noopener"
          class="text-sm px-4 py-2 rounded-lg bg-gray-900 text-white font-medium shadow-sm hover:bg-black active:scale-[0.98] transition">
         Open Ink Builder
       </a>
@@ -41,7 +50,7 @@
       <div class="border border-dashed border-gray-200 rounded-lg bg-white overflow-hidden">
         <iframe sandbox="" title="Ink Builder preview" loading="lazy"
                 class="w-full" style="height: 320px; border: 0; display: block;"
-                srcdoc="<%= html_escape(body_only_html) %>"></iframe>
+                srcdoc="<%= html_escape(preview_doc) %>"></iframe>
       </div>
     </div>
   <% end %>

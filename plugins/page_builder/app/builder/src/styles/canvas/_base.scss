@@ -1,0 +1,61 @@
+// Canvas base + layout primitives (sections, containers, columns). This CSS ships both in
+// the editor iframe and, hoisted into the body, in published output — it must never rely on
+// editor chrome or Bootstrap.
+
+.ink-el-section { position: relative; width: 100%; }
+.ink-el-section-inner {
+  width: 100%;
+  max-width: min(100%, var(--ink-content-width, 1140px));
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+}
+.ink-el-section.is-full .ink-el-section-inner,
+.ink-el-section.is-stretched .ink-el-section-inner { max-width: none; }
+
+.ink-el-container { position: relative; width: 100%; }
+.ink-el-container-inner {
+  width: 100%;
+  max-width: min(100%, var(--ink-content-width, 1140px));
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+}
+.ink-el-container.is-full .ink-el-container-inner { max-width: none; }
+
+// Column structure — Elementor's width-percentage model. Desktop uses nowrap so the flex gap
+// is absorbed by shrink; mobile flips to wrap/100%.
+.ink-el-columns { display: flex; flex-wrap: nowrap; width: 100%; gap: var(--ink-column-gap, 20px); }
+.ink-el-column { display: flex; min-width: 0; flex: 1 1 0%; flex-direction: column; }
+
+.ink-el-columns.is-50-50 > .ink-el-column { flex: 1 1 50%; }
+.ink-el-columns.is-33-33-33 > .ink-el-column { flex: 1 1 33.3333%; }
+.ink-el-columns.is-25-25-25-25 > .ink-el-column { flex: 1 1 25%; }
+.ink-el-columns.is-20-20-20-20-20 > .ink-el-column { flex: 1 1 20%; }
+.ink-el-columns.is-60-40 > .ink-el-column:first-child { flex: 1 1 60%; }
+.ink-el-columns.is-60-40 > .ink-el-column:last-child { flex: 1 1 40%; }
+.ink-el-columns.is-40-60 > .ink-el-column:first-child { flex: 1 1 40%; }
+.ink-el-columns.is-40-60 > .ink-el-column:last-child { flex: 1 1 60%; }
+.ink-el-columns.is-66-34 > .ink-el-column:first-child { flex: 1 1 66.6666%; }
+.ink-el-columns.is-66-34 > .ink-el-column:last-child { flex: 1 1 33.3333%; }
+.ink-el-columns.is-34-66 > .ink-el-column:first-child { flex: 1 1 33.3333%; }
+.ink-el-columns.is-34-66 > .ink-el-column:last-child { flex: 1 1 66.6666%; }
+.ink-el-columns.is-33-67 > .ink-el-column:first-child { flex: 1 1 33.3333%; }
+.ink-el-columns.is-33-67 > .ink-el-column:last-child { flex: 1 1 66.6666%; }
+.ink-el-columns.is-25-50-25 > .ink-el-column:nth-child(2) { flex: 1 1 50%; }
+.ink-el-columns.is-25-50-25 > .ink-el-column:not(:nth-child(2)) { flex: 1 1 25%; }
+
+@media (max-width: 767px) {
+  .ink-el-columns { flex-wrap: wrap; }
+  .ink-el-columns.is-50-50 > .ink-el-column,
+  .ink-el-columns.is-33-33-33 > .ink-el-column,
+  .ink-el-columns.is-25-25-25-25 > .ink-el-column,
+  .ink-el-columns.is-20-20-20-20-20 > .ink-el-column,
+  .ink-el-columns.is-60-40 > .ink-el-column,
+  .ink-el-columns.is-40-60 > .ink-el-column,
+  .ink-el-columns.is-66-34 > .ink-el-column,
+  .ink-el-columns.is-34-66 > .ink-el-column,
+  .ink-el-columns.is-33-67 > .ink-el-column,
+  .ink-el-columns.is-25-50-25 > .ink-el-column { flex: 1 1 100% !important; }
+  .ink-el-columns > .ink-el-column { flex: 1 1 100% !important; }
+}

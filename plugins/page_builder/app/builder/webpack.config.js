@@ -1,6 +1,5 @@
 const path = require('path');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
-const CleanCSS = require('clean-css');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
     entry: './src/builder.js',
@@ -27,20 +26,34 @@ module.exports = {
                     },
                 },
             },
+            {
+                // CSS imported as a string (e.g. the design-kit stylesheet injected into the canvas).
+                test: /\.css$/,
+                type: 'asset/source',
+            },
+            {
+                // SCSS split by domain (WordPress/Elementor style). Two consumers:
+                //  - ?asString imports compile to a raw CSS string (canvas styles injected into the iframe)
+                //  - the editor stylesheet is extracted to dist/builder.css via MiniCssExtractPlugin
+                test: /\.scss$/,
+                oneOf: [
+                    {
+                        resourceQuery: /asString/,
+                        type: 'asset/source',
+                        use: [{ loader: 'sass-loader', options: { sassOptions: { quietDeps: true } } }],
+                    },
+                    {
+                        use: [
+                            MiniCssExtractPlugin.loader,
+                            'css-loader',
+                            { loader: 'sass-loader', options: { sassOptions: { quietDeps: true } } },
+                        ],
+                    },
+                ],
+            },
         ],
     },
     plugins: [
-        new CopyWebpackPlugin({
-            patterns: [
-                {
-                    from: 'src/builder.css',
-                    to: 'builder.css',
-                    transform(content) {
-                        const output = new CleanCSS({}).minify(content.toString());
-                        return output.styles;
-                    },
-                },
-            ],
-        }),
+        new MiniCssExtractPlugin({ filename: 'builder.css' }),
     ],
 };

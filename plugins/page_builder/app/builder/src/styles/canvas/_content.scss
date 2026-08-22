@@ -1,0 +1,24 @@
+// Tabs, accordion, toggle, alert.
+
+.ink-el-tabs-nav { display: flex; gap: 0; border-bottom: 1px solid #d4d4d8; }
+.ink-el-tabs-nav button {
+  position: relative;
+  padding: .75rem 1rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.ink-el-tabs-nav button.is-active { border-bottom-color: var(--ink-color-primary, #6ec1e4); color: var(--ink-color-primary, #6ec1e4); }
+.ink-el-tab-panel { padding: 1rem 0; line-height: 1.6; }
+
+.ink-el-accordion { display: grid; }
+.ink-el-accordion details { border-bottom: 1px solid #d4d4d8; }
+.ink-el-accordion summary { padding: 1rem 0; font-weight: 600; cursor: pointer; list-style: none; }
+.ink-el-accordion summary::-webkit-details-marker { display: none; }
+.ink-el-accordion details > div { padding: 0 0 1rem; line-height: 1.6; }
+
+.ink-el-alert { display: flex; gap: .75rem; padding: 1rem; border: 1px solid color-mix(in srgb, var(--alert-color) 35%, transparent); border-radius: 3px; background: color-mix(in srgb, var(--alert-color) 8%, white); }
+.ink-el-alert > .material-symbols-rounded { flex: none; color: var(--alert-color); }
+.ink-el-alert strong, .ink-el-alert span { display: block; }

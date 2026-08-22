@@ -1,8 +1,9 @@
 module AiWriter
-  # Plugin settings: base URL, model, and API key for any OpenAI-compatible endpoint.
-  # Stored as site settings; the key falls back to the OPENAI_API_KEY env var at call time.
+  # Plugin settings: base URL, model, and API key for any OpenAI-compatible endpoint, plus
+  # optional MCP design-research tools (DesignMD). Stored as site settings; keys fall back to
+  # ENV vars at call time.
   class SettingsController < Admin::BaseController
-    SETTING_KEYS = %w[ai_base_url ai_model ai_api_key].freeze
+    SETTING_KEYS = %w[ai_base_url ai_model ai_api_key mcp_enabled mcp_url mcp_token].freeze
 
     def show
       render AiWriter::SettingsPage.new(site: Current.site)

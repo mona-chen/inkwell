@@ -1,0 +1,33 @@
+// Text-bearing widgets. Canvas typography comes exclusively from page/theme settings and
+// element styles — these rules only reset browser defaults (Elementor's heading-title reset)
+// and give the bare minimum baseline so freshly inserted text looks intentional.
+
+.ink-el-heading, .ink-el-heading a { line-height: 1.2; padding: 0; margin: 0; }
+
+// Ink heading size presets (mirroring Elementor's elementor-size-* scale).
+.ink-el-heading.ink-size-small { font-size: 15px; }
+.ink-el-heading.ink-size-medium { font-size: 19px; }
+.ink-el-heading.ink-size-large { font-size: 29px; }
+.ink-el-heading.ink-size-xl { font-size: 39px; }
+.ink-el-heading.ink-size-xxl { font-size: 59px; }
+.ink-el-paragraph { margin: 0; }
+.ink-el-paragraph p { margin: 0 0 1em; }
+.ink-el-paragraph p:last-child { margin-bottom: 0; }
+.ink-el-text-editor { line-height: 1.6; }
+.ink-el-text-editor p:first-child { margin-top: 0; }
+.ink-el-text-editor p:last-child { margin-bottom: 0; }
+
+.ink-el-divider { width: 100%; max-width: 100%; border: 0; border-top: 1px solid #7a7a7a; height: 1px; }
+.ink-el-spacer { display: block; }
+
+.ink-el-read-more {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  color: var(--ink-color-primary, #6ec1e4);
+  font-weight: 600;
+  text-decoration: none;
+}
+.ink-el-read-more:hover { color: #4054b2; }
+
+.ink-el-anchor { display: block; position: relative; top: calc(-1 * var(--anchor-offset, 0px)); visibility: hidden; }

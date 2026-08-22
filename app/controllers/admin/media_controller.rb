@@ -11,9 +11,15 @@ module Admin
       if params[:picker].present?
         # Turbo Frame navigation sends the requesting frame id in the Turbo-Frame header;
         # the picker view must wrap its content in that same id or Turbo reports
-        # "Content missing". Default to the block-editor picker frame.
+        # "Content missing". Default to the block-editor picker frame. When the picker is
+        # loaded directly (e.g. the Ink Builder's dialog iframe), render it as a standalone
+        # page so Tailwind (bounded tiles) and the Stimulus picker controller load.
         @picker_frame = request.headers["Turbo-Frame"] || "media-picker-frame"
-        render "admin/media/picker", layout: false
+        if request.headers["Turbo-Frame"].present?
+          render "admin/media/picker", layout: false
+        else
+          render "admin/media/picker", layout: "media_picker"
+        end
       else
         render Admin::MediaPage.new(media_items: @media_items, type: params[:type], q: params[:q])
       end

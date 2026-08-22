@@ -1,0 +1,247 @@
+// Left panel: routed screens (Elements / Edit / Site Settings / History), library, and
+// control sections. Keep density compact and consistent.
+
+.ink-v2-panel {
+  height: 100%;
+  overflow: hidden;
+  color: var(--ink-editor-text);
+  background: var(--ink-editor-panel);
+  font-family: Roboto, Inter, Arial, sans-serif;
+  font-size: 13px;
+}
+.ink-v2-panel button, .ink-v2-panel input, .ink-v2-panel select, .ink-v2-panel textarea { font: inherit; }
+
+.ink-v2-panel-body { height: 100%; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+
+// Per-screen title bar.
+.ink-v2-screen-title {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  height: 42px;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ink-editor-border);
+  background: var(--ink-editor-surface);
+}
+.ink-v2-screen-title strong { flex: 1; color: var(--ink-editor-text); font-size: 13px; font-weight: 600; }
+.ink-v2-screen-icon { font-size: 18px !important; color: var(--ink-editor-muted); }
+.ink-v2-screen-back {
+  display: flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  margin-right: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-editor-muted);
+  cursor: pointer;
+}
+.ink-v2-screen-back:hover { background: var(--ink-editor-border); color: var(--ink-editor-text); }
+.ink-v2-screen-back .material-symbols-rounded { font-size: 18px; }
+
+// Elements library.
+.ink-v2-search {
+  width: calc(100% - 24px);
+  margin: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--ink-editor-border);
+  border-radius: 4px;
+  background: var(--ink-editor-panel);
+  color: var(--ink-editor-text);
+  font-size: 12px;
+}
+.ink-v2-search::placeholder { color: var(--ink-editor-faint); font-style: italic; }
+.ink-v2-search:focus { outline: 0; border-color: var(--ink-editor-accent-bright); }
+.ink-v2-library-empty { padding: 24px 12px; color: var(--ink-editor-faint); font-size: 12px; text-align: center; }
+
+.ink-v2-library-section { padding: 0 12px 10px; }
+.ink-v2-library-section > summary {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--ink-editor-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  list-style: none;
+}
+.ink-v2-library-section > summary::-webkit-details-marker { display: none; }
+.ink-v2-library-section > summary .material-symbols-rounded { font-size: 16px; transition: transform .15s; }
+.ink-v2-library-section:not([open]) > summary .material-symbols-rounded { transform: rotate(-90deg); }
+
+.ink-v2-library-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ink-v2-library-item {
+  display: flex;
+  min-height: 64px;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 6px;
+  border: 1px solid var(--ink-editor-border);
+  border-radius: 4px;
+  background: var(--ink-editor-panel);
+  color: var(--ink-editor-muted);
+  font-size: 11px;
+  cursor: move;
+  transition: border-color .12s, background .12s, color .12s;
+}
+.ink-v2-library-item .material-symbols-rounded { font-size: 22px; }
+.ink-v2-library-item:hover, .ink-v2-library-item:focus-visible {
+  border-color: var(--ink-editor-faint);
+  color: var(--ink-editor-text);
+  background: var(--ink-editor-surface);
+  outline: 0;
+}
+.ink-v2-library-item:active { cursor: grabbing; }
+
+// Selected-element screen header + tabs.
+.ink-v2-element-title {
+  display: flex;
+  height: 42px;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--ink-editor-border);
+  background: var(--ink-editor-surface);
+}
+.ink-v2-element-title button {
+  display: flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--ink-editor-muted);
+  cursor: pointer;
+}
+.ink-v2-element-title button:hover { background: var(--ink-editor-border); color: var(--ink-editor-text); }
+.ink-v2-element-title .material-symbols-rounded { font-size: 18px; }
+.ink-v2-element-title strong { flex: 1; color: var(--ink-editor-text); font-size: 13px; font-weight: 600; }
+.ink-v2-edit-label { color: var(--ink-editor-faint); font-size: 12px; }
+
+.ink-v2-control-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--ink-editor-border); }
+.ink-v2-control-tabs button {
+  min-height: 36px;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ink-editor-muted);
+  font-size: 12px;
+  text-transform: capitalize;
+  cursor: pointer;
+}
+.ink-v2-control-tabs button:hover { color: var(--ink-editor-text); }
+.ink-v2-control-tabs button.is-active { border-bottom-color: var(--ink-editor-accent-bright); color: var(--ink-editor-text); }
+
+// Collapsible control sections.
+.ink-v2-controls { padding: 0; }
+.ink-v2-control-section { display: block; border: 0; border-top: 1px solid var(--ink-editor-border); padding: 0; background: transparent; }
+.ink-v2-control-section:first-child { border-top: 0; }
+.ink-v2-control-section > summary {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  color: var(--ink-editor-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  list-style: none;
+}
+.ink-v2-control-section > summary::-webkit-details-marker { display: none; }
+.ink-v2-control-section > summary .material-symbols-rounded { font-size: 16px; transition: transform .15s; }
+.ink-v2-control-section:not([open]) > summary .material-symbols-rounded { transform: rotate(-90deg); }
+
+.ink-v2-panel-empty {
+  display: flex;
+  min-height: 220px;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--ink-editor-faint);
+  text-align: center;
+}
+.ink-v2-panel-empty .material-symbols-rounded { font-size: 28px; }
+
+// Site settings.
+.ink-v2-site-settings > .ink-v2-control-section > h3 { margin: 0; padding: 12px 12px 6px; color: var(--ink-editor-text); font-size: 12px; font-weight: 600; }
+
+// History screen.
+.ink-v2-history { padding-bottom: 12px; }
+.ink-v2-history-title { display: none; }
+.ink-v2-history-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px; }
+.ink-v2-history-actions button {
+  min-height: 30px;
+  border: 1px solid var(--ink-editor-border);
+  border-radius: 3px;
+  background: var(--ink-editor-panel);
+  color: var(--ink-editor-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.ink-v2-history-actions button:hover:not(:disabled) { color: var(--ink-editor-text); background: var(--ink-editor-surface); }
+.ink-v2-history-actions button:disabled { opacity: .45; }
+.ink-v2-history h3 { margin: 12px 12px 4px; color: var(--ink-editor-faint); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.ink-v2-history-item {
+  display: flex;
+  width: 100%;
+  gap: 8px;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  font-size: 12px;
+  text-align: left;
+  color: var(--ink-editor-muted);
+  cursor: pointer;
+}
+.ink-v2-history-item .material-symbols-rounded { font-size: 15px; color: var(--ink-editor-faint); }
+.ink-v2-history-item:hover { background: var(--ink-editor-surface); color: var(--ink-editor-text); }
+.ink-v2-history-item.is-current {
+  border-left-color: var(--ink-editor-accent-bright);
+  background: rgba(224, 83, 127, .08);
+  color: var(--ink-editor-text);
+}
+.ink-v2-history-item.is-current .material-symbols-rounded { color: var(--ink-editor-accent-bright); }
+.ink-v2-history-empty { padding: 24px 12px; color: var(--ink-editor-faint); font-size: 12px; text-align: center; }
+
+// Sidebar code tab.
+.ink-sidebar-code { display: grid; gap: 6px; padding: 12px; }
+.ink-sidebar-code label { color: var(--ink-editor-muted); font-size: 12px; font-weight: 600; }
+.ink-sidebar-code textarea {
+  width: 100%;
+  min-height: 0;
+  padding: 8px;
+  border: 1px solid var(--ink-editor-border);
+  border-radius: 3px;
+  background: var(--ink-editor-panel);
+  color: var(--ink-editor-text);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  resize: vertical;
+}
+
+// Hidden legacy tab bar (kept for the container switcher).
+.builder-sidebar-tabs { display: none !important; }

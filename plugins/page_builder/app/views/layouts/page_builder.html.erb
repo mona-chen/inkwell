@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-ink-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,9 +15,6 @@
 
   <link href="/page_builder_assets/builder.css" rel="stylesheet" />
   <script src="/page_builder_assets/builder.js"></script>
-
-  <link href="/page_builder_theme/demo.css" rel="stylesheet" />
-  <%= stylesheet_link_tag "copilot_design", "data-turbo-track": "reload" %>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
@@ -46,109 +43,84 @@
   </div>
 
   <script>
-    window.addEventListener('load', () => {
-      const loader = document.getElementById('page-loader-overlay');
-      loader.classList.add('fade-out');
+    // The loader must never trap the editor: external CDNs (fonts, Bootstrap, CodeMirror,
+    // maps embeds) can keep `window load` from firing, which would leave an invisible overlay
+    // capturing every click and hover. Fade it out on the first real readiness signal.
+    function hidePageLoader() {
+      var loader = document.getElementById('page-loader-overlay');
+      if (loader && !loader.classList.contains('fade-out')) loader.classList.add('fade-out');
       document.body.classList.remove('loading');
-    });
-    document.addEventListener('DOMContentLoaded', () => {
-      document.body.classList.add('loading');
+    }
+    window.addEventListener('load', hidePageLoader);
+    window.addEventListener('DOMContentLoaded', function () {
+      setTimeout(hidePageLoader, 3500);
     });
   </script>
 
-  <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom" style="z-index: 10;">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">
-        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      </a>
-      <div class="collapse navbar-collapse" style="justify-content: space-between" id="navbarNav">
-        <div class="d-flex align-items-center">
-          <span class="mb-0 py-2 px-3 rounded-3 fw-bold shadow-sm" style="background-color: #0000000a;">
-            <span class="d-flex align-items-center">
-              <span>Blank</span>
-              <span class="material-symbols-rounded ms-1">brush</span>
-            </span>
-          </span>
-        </div>
-        <div class="d-flex align-items-center">
-          <div class="btn-group border bg-light" role="group">
-            <button id="desktopModeButton" onclick="switchToDesktopMode()" type="button" class="btn btn-light active d-flex align-items-center builder-mode-button">
-              <span class="material-symbols-rounded">desktop_windows</span>
-            </button>
-            <button id="tabletModeButton" onclick="switchToTabletMode()" type="button" class="btn btn-light d-flex align-items-center builder-mode-button">
-              <span class="material-symbols-rounded">tablet</span>
-            </button>
-            <button id="mobileModeButton" onclick="switchToMobileMode()" type="button" class="btn btn-light d-flex align-items-center builder-mode-button">
-              <span class="material-symbols-rounded">smartphone</span>
-            </button>
-          </div>
-        </div>
-        <div class="d-flex align-items-center">
-          <button id="clearButton" onclick="clearPage()" type="button" class="btn btn-outline-danger me-2">
-            <span class="d-flex align-items-center">
-              <span class="material-symbols-rounded me-2">clear_all</span>
-              <span>Clear</span>
-            </span>
-          </button>
-          <span class="mx-3">|</span>
-          <button id="btn-cancel" onclick="window.close()" type="button" class="btn btn-light border me-2">Cancel</button>
-          <button id="btn-save" onclick="saveToInkwell()" type="button" class="btn btn-primary me-2">
-            <span class="d-flex align-items-center">
-              <span class="material-symbols-rounded me-2">save</span>
-              <span>Save</span>
-            </span>
-          </button>
-          <span class="mx-3">|</span>
-          <button id="toggleButton" onclick="toggleDesignMode()" type="button" class="btn btn-light border">
-            <span class="d-flex align-items-center">
-              <span class="material-symbols-rounded">visibility_off</span>
-            </span>
-          </button>
-        </div>
+  <header class="ink-appbar">
+    <div class="ink-appbar-start">
+      <button type="button" class="ink-appbar-logo" aria-label="Ink Builder" title="Ink Builder">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+      </button>
+      <button type="button" class="ink-appbar-action is-primary" data-panel="elements" title="Add elements" aria-label="Add elements"><span class="material-symbols-rounded">add</span><span>Add Elements</span></button>
+      <button type="button" class="ink-appbar-action" data-panel="site" title="Page settings" aria-label="Page settings"><span class="material-symbols-rounded">description</span></button>
+      <button type="button" class="ink-appbar-action" data-panel="history" title="History" aria-label="History"><span class="material-symbols-rounded">history</span></button>
+      <button type="button" class="ink-appbar-action" data-panel="site" title="Site settings" aria-label="Site settings"><span class="material-symbols-rounded">tune</span></button>
+    </div>
+    <div class="ink-appbar-center" role="group" aria-label="Page and responsive preview">
+      <button type="button" class="ink-appbar-document" data-panel="site" title="Page settings" aria-label="Page settings"><span class="ink-appbar-document-name">Blank</span><span class="material-symbols-rounded">expand_more</span></button>
+      <span class="ink-appbar-divider"></span>
+      <button id="desktopModeButton" onclick="switchToDesktopMode()" type="button" class="builder-mode-button active" title="Desktop"><span class="material-symbols-rounded">desktop_windows</span></button>
+      <button id="tabletModeButton" onclick="switchToTabletMode()" type="button" class="builder-mode-button" title="Tablet"><span class="material-symbols-rounded">tablet</span></button>
+      <button id="mobileModeButton" onclick="switchToMobileMode()" type="button" class="builder-mode-button" title="Mobile"><span class="material-symbols-rounded">smartphone</span></button>
+    </div>
+    <div class="ink-appbar-end">
+      <button type="button" data-action="finder" title="Finder (⌘K)" aria-label="Finder"><span class="material-symbols-rounded">search</span></button>
+      <button type="button" id="structureButton" data-action="structure" title="Structure" aria-label="Structure"><span class="material-symbols-rounded">account_tree</span></button>
+      <button id="toggleButton" onclick="toggleDesignMode()" type="button" title="Preview" aria-label="Preview"><span class="material-symbols-rounded">visibility_off</span></button>
+      <button id="btn-save" onclick="saveToInkwell()" type="button" class="ink-appbar-publish"><span class="material-symbols-rounded">publish</span><span>Publish</span></button>
+      <button type="button" data-action="menu" title="Page actions" aria-label="Page actions"><span class="material-symbols-rounded">more_vert</span></button>
+      <div class="ink-appbar-menu" data-menu hidden>
+        <button type="button" data-smenu="design" onclick="enterBuilderMode('design')"><span class="material-symbols-rounded">design_services</span><span>Design</span></button>
+        <button type="button" data-smenu="code" onclick="enterBuilderMode('code')"><span class="material-symbols-rounded">code</span><span>Code editor</span></button>
+        <button type="button" onclick="builder?.toggleHotkeys?.()"><span class="material-symbols-rounded">help</span><span>Keyboard shortcuts</span></button>
+        <button type="button" onclick="toggleTheme()"><span class="material-symbols-rounded" id="themeModeIcon">dark_mode</span><span id="themeModeLabel">Light mode</span></button>
+        <button type="button" onclick="clearPage()"><span class="material-symbols-rounded">delete_sweep</span><span>Clear page</span></button>
+        <button type="button" onclick="window.close()"><span class="material-symbols-rounded">close</span><span>Close editor</span></button>
       </div>
     </div>
-  </nav>
+  </header>
 
-  <div class="d-flex">
-    <div data-smenu-container="design" style="flex: 1; min-width: 0;">
-      <div class="d-flex">
-    <div class="content-wrapper mx-4 my-5 d-flex justify-content-center">
-      <div class="spin-loader"></div>
-      <div id="MainContainer" class="content-container"></div>
-    </div>
+  <div class="ink-editor-workspace">
+    <div data-smenu-container="design" class="ink-editor-design">
+      <main class="ink-canvas-stage">
+        <div class="spin-loader"></div>
+        <div id="MainContainer" class="content-container"></div>
+      </main>
 
-    <div class="builder-sidebar">
+      <aside class="builder-sidebar">
         <div id="Sidebar">
-          <div class="builder-sidebar-tabs px-3 py-2 rounded-0 d-flex bg-light border-bottom">
-            <div class="tab-item active" data-tab="widgets">
-              <span class="material-symbols-rounded">widgets</span>
-            </div>
-            <div class="tab-item" data-tab="controls">
-              <span class="material-symbols-rounded">settings</span>
-            </div>
-            <div class="tab-item" data-tab="styles">
-              <span class="material-symbols-rounded">palette</span>
-            </div>
-            <div class="tab-item" data-tab="code">
-              <span class="material-symbols-rounded">code</span>
-            </div>
+          <div class="builder-sidebar-tabs">
+            <div class="tab-item active" data-tab="widgets"><span class="material-symbols-rounded">widgets</span></div>
+            <div class="tab-item" data-tab="controls"><span class="material-symbols-rounded">settings</span></div>
+            <div class="tab-item" data-tab="styles"><span class="material-symbols-rounded">palette</span></div>
+            <div class="tab-item" data-tab="code"><span class="material-symbols-rounded">code</span></div>
           </div>
           <div>
-            <div id="WidgetsContainer" data-tab-container="widgets" style="display: block;"></div>
+            <div id="WidgetsContainer" data-tab-container="widgets"></div>
             <div id="SettingsContainer" data-tab-container="controls" style="display: none;"></div>
             <div data-tab-container="styles" style="display: none;"></div>
-            <div data-tab-container="code" style="display: none;" class="p-3">
-              <label class="form-label fw-semibold mb-1">Custom CSS</label>
-              <textarea id="customCss" rows="8" class="form-control font-monospace"
+            <div data-tab-container="code" style="display: none;" class="ink-sidebar-code">
+              <label for="customCss">Custom CSS</label>
+              <textarea id="customCss" rows="8" class="font-monospace"
                         placeholder="/* page-level CSS, preserved on save */&#10;.hero { background: linear-gradient(135deg,#0f172a,#1e293b); }"></textarea>
-              <label class="form-label fw-semibold mt-3 mb-1">Custom JS</label>
-              <textarea id="customJs" rows="6" class="form-control font-monospace"
+              <label for="customJs">Custom JS</label>
+              <textarea id="customJs" rows="6" class="font-monospace"
                         placeholder="// page-level JS, runs on the page"></textarea>
             </div>
           </div>
         </div>
-    </div>
-      </div>
+      </aside>
     </div>
 
     <div data-smenu-container="code" class="code-editor-container" style="display: none;">
@@ -169,41 +141,16 @@
         <textarea id="codeFileJs" class="code-editor-textarea font-monospace" spellcheck="false" data-code-editor-for="js" style="display: none;"></textarea>
       </div>
     </div>
-
-    <div class="global-sidebar bg-white border-start">
-      <div class="sidebar-toggle-button">
-        <span class="material-symbols-rounded sidebar-toggle-icon">menu_open</span>
-      </div>
-      <script>
-        document.addEventListener('DOMContentLoaded', () => {
-          const toggleButton = document.querySelector('.sidebar-toggle-button');
-          toggleButton.addEventListener('click', () => {
-            document.body.classList.toggle('hide-sidebar');
-          });
-        });
-      </script>
-      <div class="smenu-items p-2">
-        <div data-smenu="design" class="smenu-item p-2 my-3 active">
-          <div class="d-flex align-items-center justify-content-center w-100">
-            <span class="material-symbols-rounded smenu-item-icon rounded-2 p-1 mb-1">design_services</span>
-          </div>
-          <div class="d-block text-center smenu-item-label">Design</div>
-        </div>
-        <div data-smenu="code" class="smenu-item p-2 my-3">
-          <div class="d-flex align-items-center justify-content-center w-100">
-            <span class="material-symbols-rounded smenu-item-icon rounded-2 p-1 mb-1">code</span>
-          </div>
-          <div class="d-block text-center smenu-item-label">Code</div>
-        </div>
-      </div>
-    </div>
   </div>
+
 
   <script>
     var savedStore = <%= @saved_store.to_json.html_safe %>;
     var recordType = <%= params[:record_type].to_json.html_safe %>;
     var savedCustomCss = <%= @saved_custom_css.to_json.html_safe %>;
     var savedCustomJs = <%= @saved_custom_js.to_json.html_safe %>;
+    var savedHtmlBody = <%= @saved_html_body.to_json.html_safe %>;
+    var htmlDesign = <%= @html_design.to_json.html_safe %>;
     document.addEventListener('DOMContentLoaded', function () {
       if (document.getElementById('customCss') && savedCustomCss) document.getElementById('customCss').value = savedCustomCss;
       if (document.getElementById('customJs') && savedCustomJs) document.getElementById('customJs').value = savedCustomJs;
@@ -212,25 +159,25 @@
     var themeUrl = '/page_builder_theme';
 
     document.addEventListener('DOMContentLoaded', () => {
-      window.builder = new Builder({
+      window.builder = new InkBuilderV2({
         mainContainer: '#MainContainer',
         settingsContainer: '#SettingsContainer',
         widgetsContainer: '#WidgetsContainer',
         assetUploadHandler: '<%= "/builder/upload_asset" %>',
         aiHandler: null,
         carousel: false,
+        customCss: savedCustomCss,
+        customJs: savedCustomJs,
       });
 
-      var loadPromise;
-      if (savedStore && savedStore.elementLists && savedStore.elementLists.length > 0) {
-        loadPromise = Promise.resolve(savedStore);
-      } else {
-        loadPromise = Promise.resolve({ theme: '1_Column_Layout', name: 'PageElement', elementLists: [] });
-      }
+      var hasStore = savedStore && savedStore.version === 2;
+      var loadPromise = Promise.resolve(hasStore ? savedStore : { version: 2, type: 'page', settings: { title: 'Blank' }, children: [] });
 
       loadPromise.then(function (store) {
         builder.load(store, themeUrl, () => {
           document.querySelector('.spin-loader').remove();
+          hidePageLoader();
+          if (typeof applyCustomCode === 'function') applyCustomCode();
         });
       });
 
@@ -239,6 +186,23 @@
       sidebarTabManager.addTab(document.querySelector('[data-tab="controls"]'), document.querySelector('[data-tab-container="controls"]'));
       sidebarTabManager.addTab(document.querySelector('[data-tab="styles"]'), document.querySelector('[data-tab-container="styles"]'));
       sidebarTabManager.addTab(document.querySelector('[data-tab="code"]'), document.querySelector('[data-tab-container="code"]'));
+
+      // App-bar wiring: left-panel screens, structure/finder toggles, and the actions menu.
+      document.querySelectorAll('[data-panel]').forEach(function (button) {
+        button.addEventListener('click', function () { if (window.builder?.openPanelScreen) window.builder.openPanelScreen(button.getAttribute('data-panel')); });
+      });
+      document.querySelector('[data-action="structure"]').addEventListener('click', function () { if (window.builder?.navigator) window.builder.navigator.toggle(); });
+      document.querySelector('[data-action="finder"]').addEventListener('click', function () { if (window.builder?.finder) window.builder.finder.toggle(); });
+      var menuButton = document.querySelector('[data-action="menu"]');
+      var menuPanel = document.querySelector('[data-menu]');
+      if (menuButton && menuPanel) {
+        menuButton.addEventListener('click', function (event) {
+          event.stopPropagation();
+          menuPanel.hidden = !menuPanel.hidden;
+          menuButton.classList.toggle('is-active', !menuPanel.hidden);
+        });
+        document.addEventListener('click', function () { menuPanel.hidden = true; menuButton.classList.remove('is-active'); });
+      }
 
       // The builder's native sidebar mode switch (Design / Code). window.smenu is the
       // builder's own TabsManager instance — it opens [data-smenu-container] for the
@@ -278,8 +242,8 @@
     function saveToInkwell() {
       var html = builder.getHtml();
       var store = builder.getData();
-      var customCss = document.getElementById('customCss').value;
-      var customJs = document.getElementById('customJs').value;
+      var customCss = builder.customCode ? builder.customCode.getCss() : '';
+      var customJs = builder.customCode ? builder.customCode.getJs() : '';
       var btn = document.getElementById('btn-save');
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Saving...';
@@ -294,17 +258,38 @@
         body: JSON.stringify({ html: html, store: store, custom_css: customCss, custom_js: customJs, record_type: recordType, record_id: recordId })
       }).then(function (r) { return r.json(); }).then(function () {
         btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-rounded me-2">save</span><span>Save</span>';
+        btn.innerHTML = '<span class="material-symbols-rounded">publish</span><span>Publish</span>';
         try { localStorage.setItem('inkwell_pb_' + recordType + '_' + recordId, Date.now()); } catch (e) {}
       }).catch(function () {
         btn.disabled = false;
-        btn.innerHTML = '<span class="material-symbols-rounded me-2">save</span><span>Save</span>';
+        btn.innerHTML = '<span class="material-symbols-rounded">publish</span><span>Publish</span>';
       });
     }
 
     function clearPage() {
       builder.clear();
+      if (typeof applyCustomCode === 'function') applyCustomCode();
     }
+
+    // Editor chrome theme (dark default / light). Persisted per user; the canvas/page
+    // typography is never affected — only the chrome tokens switch palettes.
+    function currentTheme() {
+      return document.documentElement.getAttribute('data-ink-theme') || 'dark';
+    }
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-ink-theme', theme);
+      var icon = document.getElementById('themeModeIcon');
+      var label = document.getElementById('themeModeLabel');
+      if (icon) icon.textContent = theme === 'dark' ? 'dark_mode' : 'light_mode';
+      if (label) label.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
+      try { localStorage.setItem('inkwell_builder_theme', theme); } catch (e) {}
+    }
+    function toggleTheme() {
+      applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+    }
+    (function () {
+      try { var saved = localStorage.getItem('inkwell_builder_theme'); if (saved === 'light' || saved === 'dark') applyTheme(saved); } catch (e) {}
+    })();
 
     // Builder modes. The toolbar eye icon is the original Design / Preview toggle; the
     // right-sidebar smenu (Design / Code) is the Design ⇄ Code switch.
@@ -415,14 +400,46 @@
       document.getElementById('customCss').value = css;
       document.getElementById('customJs').value = js;
 
+      // V2 HTML is generated from the recursive document tree. The Code workspace remains the
+      // source for page CSS/JS, but arbitrary HTML is no longer pushed into a detached email-era
+      // PageElement model. Structural edits belong to registered canvas elements.
+      if (window.builder instanceof InkBuilderV2) {
+        builder.customCode.update(css, js);
+        if (save) saveToInkwell();
+        return;
+      }
+
       var doc = canvasDoc();
       var m = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-      if (doc && doc.body) doc.body.innerHTML = m ? m[1] : html;
+      var applied = m ? m[1] : html;
+      if (doc && doc.body) doc.body.innerHTML = applied;
+      // Replacing the body detaches the builder's PageElement model node, so the builder would
+      // keep rendering into a dead node (frozen canvas). Re-attach the model to the new body and
+      // re-render: for builder-marked HTML the store render matches the applied source; for raw
+      // (HTML-first) source, paint it as the design view so it shows AND stays editable.
+      if (window.builder && window.builder.pageElement) {
+        var pe = window.builder.pageElement;
+        var host = doc.querySelector('[builder-element="PageElement"]');
+        if (!host) {
+          host = doc.createElement('div');
+          host.setAttribute('builder-element', 'PageElement');
+          doc.body.insertBefore(host, doc.body.firstChild);
+        }
+        pe.domNode = host;
+        pe.render();
+        if (applied.indexOf('builder-element') === -1 && applied.trim()) {
+          var view = doc.getElementById('__copilot_design_view');
+          if (!view) { view = doc.createElement('div'); view.id = '__copilot_design_view'; }
+          view.innerHTML = applied;
+          host.appendChild(view);
+        }
+      }
       if (typeof applyCustomCode === 'function') applyCustomCode();
       if (save) saveToInkwell();
     }
 
     function switchToMobileMode() {
+      if (window.builder && builder.setDevice) builder.setDevice('mobile');
       document.querySelector('.content-container').classList.add('mobile-mode');
       document.querySelector('.content-container').classList.remove('desktop-mode', 'tablet-mode');
       document.getElementById('mobileModeButton').classList.add('active');
@@ -431,6 +448,7 @@
     }
 
     function switchToTabletMode() {
+      if (window.builder && builder.setDevice) builder.setDevice('tablet');
       document.querySelector('.content-container').classList.remove('mobile-mode', 'desktop-mode');
       document.querySelector('.content-container').classList.add('tablet-mode');
       document.getElementById('tabletModeButton').classList.add('active');
@@ -439,6 +457,7 @@
     }
 
     function switchToDesktopMode() {
+      if (window.builder && builder.setDevice) builder.setDevice('desktop');
       document.querySelector('.content-container').classList.add('desktop-mode');
       document.querySelector('.content-container').classList.remove('mobile-mode', 'tablet-mode');
       document.getElementById('desktopModeButton').classList.add('active');
@@ -450,40 +469,14 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.9.2/umd/popper.min.js" integrity="sha512-2rNj2KJ+D8s1ceNasTIex6z4HWyOnEYLVC3FigGOmyQCZc2eBXKgOxQmo3oKLHyfcj53uz4QMsRCWNbLd32Q1g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.5/dist/js/bootstrap.bundle.min.js" integrity="sha384-k6d4wzSIapyDyv1kpU366/PK5hCdSbCRGRCMv+eplOQJWyd1fbcAu9OCUj5zNLiq" crossorigin="anonymous"></script>
 
-  <%# Realtime custom code: inject the Code tab's CSS/JS into the builder canvas iframe as it's
-      typed, so the design updates live. Re-injected after Copilot (or the builder) re-renders. %>
+  <%# Realtime custom code: the builder owns custom CSS/JS as a first-class capability. The Code
+      tab edits flow into builder.customCode and are re-injected into the canvas iframe live. %>
   <script>
     function applyCustomCode() {
-      if (!window.builder) return;
-      var doc = builder.iframeDoc || (builder.iframe && builder.iframe.contentDocument);
-      if (!doc || !doc.head || !doc.body) return;
-
-      // Ensure the Copilot design system is loaded inside the canvas iframe (the iframe is a
-      // separate document, so it doesn't inherit the parent's stylesheets). Copy the digested
-      // URL from the parent link.
-      var parentLink = document.querySelector('link[href*="copilot_design"]');
-      if (parentLink) {
-        var cd = doc.getElementById('__copilot_design_css');
-        if (!cd) { cd = doc.createElement('link'); cd.id = '__copilot_design_css'; cd.rel = 'stylesheet'; doc.head.appendChild(cd); }
-        if (cd.href !== parentLink.href) cd.href = parentLink.href;
-      }
-
+      if (!window.builder || !window.builder.customCode) return;
       var css = document.getElementById('customCss') ? document.getElementById('customCss').value : '';
-      var styleEl = doc.getElementById('__copilot_custom_css');
-      if (css) {
-        if (!styleEl) { styleEl = doc.createElement('style'); styleEl.id = '__copilot_custom_css'; doc.head.appendChild(styleEl); }
-        styleEl.textContent = css;
-      } else if (styleEl) { styleEl.remove(); }
-
       var js = document.getElementById('customJs') ? document.getElementById('customJs').value : '';
-      var old = doc.getElementById('__copilot_custom_js');
-      if (old) old.remove();
-      if (js) {
-        var script = doc.createElement('script');
-        script.id = '__copilot_custom_js';
-        script.textContent = 'try {\n' + js + '\n} catch (e) { console.error("Custom JS error:", e) }';
-        doc.body.appendChild(script);
-      }
+      window.builder.customCode.update(css, js);
     }
     window.applyCustomCode = applyCustomCode;
 

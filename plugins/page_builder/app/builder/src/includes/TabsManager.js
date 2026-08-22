@@ -19,7 +19,9 @@ class TabsManager {
         this.groups.forEach(group => {
             if (group.tab === tab) {
                 group.tab.classList.add('active');
-                group.container.style.display = 'block';
+                // Empty string (not 'block') so container display comes from CSS — the
+                // design/canvas container must keep its flex/grid layout rules.
+                group.container.style.display = '';
             } else {
                 group.tab.classList.remove('active');
                 group.container.style.display = 'none';

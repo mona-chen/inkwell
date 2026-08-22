@@ -1,0 +1,82 @@
+// Editor workspace: app bar, left panel, and the centered canvas stage.
+
+.ink-editor-workspace { display: flex; flex-direction: column; height: calc(100vh - var(--ink-appbar-height)); min-height: 0; }
+.ink-editor-design { flex: 1; display: flex; min-height: 0; }
+
+// Left panel.
+.builder-sidebar {
+  order: 1;
+  position: relative;
+  flex: 0 0 var(--ink-editor-panel-width);
+  width: var(--ink-editor-panel-width) !important;
+  height: 100%;
+  min-height: 0;
+  background: var(--ink-editor-panel);
+  box-shadow: 1px 0 0 var(--ink-editor-border);
+  z-index: 5;
+}
+.builder-sidebar #Sidebar { display: flex; height: 100%; flex-direction: column; }
+.builder-sidebar #Sidebar > div:last-child { flex: 1; min-height: 0; overflow: hidden; }
+
+// Canvas stage — a centered white page frame on a neutral dark stage.
+.ink-canvas-stage {
+  order: 2;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  overflow: auto;
+  padding: var(--ink-stage-pad);
+  background: var(--ink-editor-stage);
+}
+
+.content-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  align-self: stretch;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 0 3px rgba(0, 0, 0, .5), 0 8px 40px rgba(0, 0, 0, .45);
+  transform: scale(var(--ink-preview-scale, 1));
+  transform-origin: top center;
+  transition: width .25s ease, transform .15s ease;
+}
+.content-container iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+.content-container.desktop-mode { width: 100%; }
+.content-container.tablet-mode, .content-container.mobile-mode { align-self: flex-start; min-height: auto; margin: 0 auto; }
+.content-container.tablet-mode { width: 768px; }
+.content-container.mobile-mode { width: 375px; }
+
+// Panel resize + collapse.
+.ink-v2-panel-resizer { position: absolute; z-index: 20; top: 0; right: -3px; width: 6px; height: 100%; cursor: ew-resize; }
+.ink-v2-panel-collapse {
+  position: absolute;
+  z-index: 21;
+  top: 50%;
+  right: -15px;
+  display: flex;
+  width: 15px;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--ink-editor-surface);
+  color: var(--ink-editor-muted);
+  cursor: pointer;
+}
+.ink-v2-panel-collapse:hover { color: var(--ink-editor-text); }
+
+.ink-panel-collapsed .builder-sidebar { flex-basis: 0; width: 0 !important; }
+.ink-panel-collapsed .builder-sidebar #Sidebar { visibility: hidden; }
+.ink-panel-collapsed .ink-v2-panel-resizer { display: none; }
+.ink-panel-collapsed .ink-v2-panel-collapse { visibility: visible; }
+
+@media (max-width: 900px) {
+  .builder-sidebar { --ink-editor-panel-width: 260px; }
+}

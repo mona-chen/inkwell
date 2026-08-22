@@ -17,9 +17,13 @@ module PageBuilder
     def call
       return "" if @html.blank? && custom_css.blank? && custom_js.blank?
 
+      # The builder's base design-kit vocabulary (the .cp-* hooks the templates emit) ships with
+      # the theme; the page's custom CSS refines it. Element data is the source of truth.
+      link = '<link rel="stylesheet" href="/page_builder_theme/ink-design-kit.css">'
       style = custom_css.present? ? "<style>#{custom_css}</style>" : ""
       script = custom_js.present? ? "<script>#{custom_js}</script>" : ""
-      view_context.render(inline: style + body_only + script, type: :erb)
+      content = %(<div class="ink-builder-content">#{body_only}</div>)
+      view_context.render(inline: link + style + content + script, type: :erb)
     end
 
     private

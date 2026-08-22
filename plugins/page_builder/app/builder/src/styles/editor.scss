@@ -1,0 +1,12 @@
+// Editor chrome stylesheet — compiled to dist/builder.css.
+// Split by domain into SCSS partials below (WordPress-style organization).
+
+@use "tokens";
+@use "editor/appbar";
+@use "editor/workspace";
+@use "editor/panel";
+@use "editor/controls";
+@use "editor/structure";
+@use "editor/overlays";
+@use "editor/responsive";
+@use "editor/loader";
