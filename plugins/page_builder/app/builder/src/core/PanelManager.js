@@ -10,6 +10,7 @@ export default class PanelManager {
         this.role = role; // 'main' (left panel: elements/site/history) | 'settings' | 'navigator' (Structure window)
         this.route = role === 'settings' ? 'settings' : role === 'navigator' ? 'navigator' : 'elements';
         this.activeTab = 'content';
+        this.activeState = 'base'; // 'base' | 'hover' | 'focus' (Elementor Normal/Hover/Focus)
         this.collapsedNodes = new Set();
         this.navigatorDragId = null;
         this.unsubscribers = [];
@@ -171,6 +172,93 @@ export default class PanelManager {
         wrapper.append(trigger, body); row.appendChild(wrapper); return row;
     }
 
+    renderStructureControl(control, node, row) {
+        const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-structure';
+        const grid = document.createElement('div'); grid.className = 'ink-v2-structure-grid';
+        (control.options || []).forEach((option) => {
+            const preset = String(valueFor(option)); const widths = preset.split(',').map(Number);
+            const button = document.createElement('button'); button.type = 'button'; button.title = labelFor(option);
+            const current = node.settings[control.name] || node.settings.structure;
+            button.classList.toggle('is-active', String(current) === preset);
+            button.setAttribute('aria-label', labelFor(option) || preset);
+            button.innerHTML = `<span class="ink-v2-structure-cols">${widths.map((w) => `<i style="flex:${w}"></i>`).join('')}</span><span class="ink-v2-structure-label">${labelFor(option)}</span>`;
+            button.addEventListener('click', () => { this.applyStructure(node, preset); this.render(); });
+            grid.appendChild(button);
+        });
+        wrapper.appendChild(grid); row.appendChild(wrapper); return row;
+    }
+
+    renderPopoverToggleControl(control, node, row) {
+        const details = document.createElement('details'); details.className = 'ink-v2-popover'; const summary = document.createElement('summary'); summary.textContent = control.text || 'Open settings'; details.appendChild(summary);
+        (control.controls || []).forEach((nested) => details.appendChild(this.renderControl({ tab: control.tab, section: control.section, target: control.target, ...nested }, node))); row.appendChild(details); return row;
+    }
+
+    renderNoticeControl(control, node, row) {
+        row.classList.add(`ink-v2-control-${control.type}`);
+        if (control.type === 'divider') row.appendChild(document.createElement('hr'));
+        else { const message = document.createElement(control.type === 'heading' ? 'h4' : 'div'); message.textContent = control.text || control.content || control.label; row.replaceChildren(message); }
+        return row;
+    }
+
+    renderActionButtonControl(control, node, row) {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'ink-v2-action-button'; button.textContent = control.text || control.label;
+        button.addEventListener('click', () => control.onClick?.({ runtime: this.runtime, node, control })); row.appendChild(button); return row;
+    }
+
+    renderHiddenControl(control, node, row) { row.hidden = true; return row; }
+
+    renderSwitcherControl(control, node, value, row) {
+        const wrapper = document.createElement('label'); wrapper.className = 'ink-v2-switch';
+        const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = value === true || value === control.returnValue || value === 'yes';
+        const track = document.createElement('span'); track.dataset.on = control.onLabel || 'Yes'; track.dataset.off = control.offLabel || 'No';
+        checkbox.addEventListener('change', () => this.setValue(control, node, checkbox.checked ? (control.returnValue ?? true) : (control.offValue ?? false)));
+        wrapper.append(checkbox, track); row.appendChild(wrapper); return row;
+    }
+
+    renderSliderControl(control, node, value, row) {
+        const slider = document.createElement('div'); slider.className = 'ink-v2-slider';
+        const range = document.createElement('input'); range.type = 'range'; range.min = control.min ?? 0; range.max = control.max ?? 100; range.step = control.step ?? 1;
+        const number = document.createElement('input'); number.type = 'number'; number.min = range.min; number.max = range.max; number.step = range.step;
+        const size = value && typeof value === 'object' ? value.size : value;
+        range.value = size ?? control.default ?? 0; number.value = range.value;
+        const commit = (source) => { range.value = source.value; number.value = source.value; this.setValue(control, node, control.units ? { size: Number(source.value), unit: value?.unit || control.units[0] } : Number(source.value)); };
+        range.addEventListener('input', () => commit(range)); number.addEventListener('change', () => commit(number)); slider.append(range, number); row.appendChild(slider); return row;
+    }
+
+    renderGapsControl(control, node, value, row) {
+        const gaps = value && typeof value === 'object' ? value : {};
+        const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-gaps';
+        const rowGap = document.createElement('input'); rowGap.type = 'number'; rowGap.placeholder = 'Row'; rowGap.value = gaps.row ?? '';
+        const columnGap = document.createElement('input'); columnGap.type = 'number'; columnGap.placeholder = 'Column'; columnGap.value = gaps.column ?? '';
+        const unit = document.createElement('select'); (control.units || ['px']).forEach((name) => unit.add(new Option(name, name))); unit.value = gaps.unit || control.units?.[0] || 'px';
+        let linked = gaps.linked !== false; const link = document.createElement('button'); link.type = 'button'; link.className = 'ink-v2-link-values'; link.title = 'Link row and column gap'; link.setAttribute('aria-label', link.title); link.innerHTML = '<span class="material-symbols-rounded">link</span>'; link.classList.toggle('is-active', linked);
+        const commit = (source) => { if (linked && source === rowGap) columnGap.value = rowGap.value; if (linked && source === columnGap) rowGap.value = columnGap.value; this.setValue(control, node, { row: Number(rowGap.value) || 0, column: Number(columnGap.value) || 0, unit: unit.value, linked }); };
+        link.addEventListener('click', () => { linked = !linked; link.classList.toggle('is-active', linked); if (linked) { columnGap.value = rowGap.value; commit(); } });
+        rowGap.addEventListener('change', () => commit(rowGap)); columnGap.addEventListener('change', () => commit(columnGap)); unit.addEventListener('change', () => commit()); wrapper.append(rowGap, columnGap, unit, link); row.appendChild(wrapper); return row;
+    }
+
+    renderDimensionsControl(control, node, value, row) {
+        const dimensions = value && typeof value === 'object' ? value : {};
+        const inputs = document.createElement('div'); inputs.className = 'ink-v2-dimensions';
+        let linked = dimensions.linked !== false;
+        ['top', 'right', 'bottom', 'left'].forEach((side) => {
+            const field = document.createElement('label'); field.innerHTML = `<span>${side[0].toUpperCase()}</span>`;
+            const input = document.createElement('input'); input.type = 'number'; input.value = dimensions[side] ?? '';
+            field.prepend(input); inputs.appendChild(field);
+        });
+        const unit = document.createElement('select'); unit.className = 'ink-v2-unit';
+        (control.units || ['px']).forEach((name) => { const option = document.createElement('option'); option.value = name; option.textContent = name; unit.appendChild(option); });
+        unit.value = dimensions.unit || control.units?.[0] || 'px'; inputs.appendChild(unit);
+        const link = document.createElement('button'); link.type = 'button'; link.className = 'ink-v2-link-values'; link.title = 'Link values'; link.setAttribute('aria-label', 'Link spacing values'); link.innerHTML = '<span class="material-symbols-rounded">link</span>'; link.classList.toggle('is-active', linked); inputs.appendChild(link);
+        const commit = (source) => {
+            const sides = inputs.querySelectorAll('input');
+            if (linked && source) sides.forEach((input) => { if (input !== source) input.value = source.value; });
+            this.setValue(control, node, { top: Number(sides[0].value) || 0, right: Number(sides[1].value) || 0, bottom: Number(sides[2].value) || 0, left: Number(sides[3].value) || 0, unit: unit.value, linked });
+        };
+        inputs.querySelectorAll('input').forEach((input) => input.addEventListener('change', () => commit(input))); unit.addEventListener('change', () => commit()); link.addEventListener('click', () => { linked = !linked; link.classList.toggle('is-active', linked); if (linked) commit(inputs.querySelector('input')); });
+        row.appendChild(inputs); return row;
+    }
+
     renderLibrary() {
         const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-library';
         wrapper.appendChild(this.screenTitle('Elements', 'widgets'));
@@ -237,7 +325,17 @@ export default class PanelManager {
         });
         const controlsHost = wrapper.querySelector('.ink-v2-controls');
         const sections = new Map();
-        definition.controls.filter((control) => control.tab === this.activeTab && this.controlIsActive(control, node)).forEach((control) => {
+        const tabControls = definition.controls.filter((control) => control.tab === this.activeTab && this.controlIsActive(control, node));
+        // Normal / Hover / Focus state switcher (Elementor-style) when any control supports states.
+        if ((this.activeTab === 'style' || this.activeTab === 'advanced') && tabControls.some((control) => control.states)) {
+            const states = document.createElement('div'); states.className = 'ink-v2-states';
+            [['base', 'Normal'], ['hover', 'Hover'], ['focus', 'Focus']].forEach(([state, label]) => {
+                const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.className = this.activeState === state ? 'is-active' : '';
+                button.addEventListener('click', () => { this.activeState = state; this.render(); }); states.appendChild(button);
+            });
+            controlsHost.appendChild(states);
+        }
+        tabControls.forEach((control) => {
             if (!sections.has(control.section)) {
                 const section = document.createElement('details'); section.className = 'ink-v2-control-section'; section.open = true; section.innerHTML = `<summary><span>${control.section}</span><span class="material-symbols-rounded">expand_more</span></summary>`;
                 sections.set(control.section, section); controlsHost.appendChild(section);
@@ -249,7 +347,17 @@ export default class PanelManager {
 
     controlIsActive(control, node) {
         if (!control.condition) return true;
-        return Object.entries(control.condition).every(([name, expected]) => (node.settings[name] ?? node.styles.base?.[name]) === expected);
+        const test = (conditions) => Object.entries(conditions).every(([name, expected]) => {
+            const actual = node.settings[name] ?? node.styles.base?.[name];
+            if (Array.isArray(expected)) return expected.includes(actual);
+            if (expected === '__not_empty__') return actual !== undefined && actual !== null && actual !== '';
+            return actual === expected;
+        });
+        const condition = control.condition;
+        if (condition.any) return condition.any.some(test);
+        if (condition.all) return condition.all.every(test);
+        if (condition.not) return !test(condition.not);
+        return test(condition);
     }
 
     currentValue(control, node) {
@@ -370,8 +478,50 @@ export default class PanelManager {
     renderWysiwygControl(control, node, value, row) {
         const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-wysiwyg';
         const toolbar = document.createElement('div');
-        [['bold', 'B'], ['italic', 'I'], ['insertUnorderedList', '• List'], ['createLink', 'Link']].forEach(([command, label]) => { const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.addEventListener('click', () => { const argument = command === 'createLink' ? window.prompt('Link URL', 'https://') : null; document.execCommand(command, false, argument); }); toolbar.appendChild(button); });
-        const editor = document.createElement('div'); editor.contentEditable = 'true'; editor.innerHTML = value || ''; editor.addEventListener('blur', () => this.setValue(control, node, editor.innerHTML)); wrapper.append(toolbar, editor); row.appendChild(wrapper); return row;
+        const commands = [
+            ['bold', 'B', 'bold'], ['italic', 'I', 'italic'], ['underline', 'U', 'underline'], ['strikeThrough', 'S', 'strikeThrough'],
+            ['insertUnorderedList', '• List', 'insertUnorderedList'], ['insertOrderedList', '1. List', 'insertOrderedList'], ['createLink', 'Link', null],
+        ];
+        const buttons = commands.map(([command, label, stateCommand]) => {
+            const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.dataset.cmd = command;
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                const argument = command === 'createLink' ? (window.prompt('Link URL', 'https://') || undefined) : null;
+                if (command === 'createLink' && !argument) return;
+                this.wysiwygFocus(editor);
+                document.execCommand(command, false, argument || undefined);
+                editor.focus();
+                refreshActive();
+            });
+            toolbar.appendChild(button);
+            return { button, stateCommand };
+        });
+        const refreshActive = () => {
+            this.wysiwygFocus(editor);
+            buttons.forEach(({ button, stateCommand }) => {
+                if (!stateCommand) return;
+                let active = false;
+                try { active = document.queryCommandState(stateCommand); } catch (_) {}
+                button.classList.toggle('is-active', active);
+            });
+        };
+        const editor = document.createElement('div'); editor.contentEditable = 'true'; editor.innerHTML = value || '';
+        editor.addEventListener('input', () => { /* live; committed on blur */ });
+        editor.addEventListener('blur', () => { const active = document.activeElement && toolbar.contains(document.activeElement) ? null : this; if (active === this) this.setValue(control, node, editor.innerHTML); });
+        editor.addEventListener('keyup', refreshActive); editor.addEventListener('mouseup', refreshActive);
+        // A click inside the toolbar keeps focus in the editor so formatting applies.
+        toolbar.addEventListener('mousedown', (event) => event.preventDefault());
+        wrapper.append(toolbar, editor); row.appendChild(wrapper); return row;
+    }
+
+    wysiwygFocus(editor) {
+        if (document.activeElement === editor) return;
+        editor.focus();
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount === 0) {
+            const range = document.createRange(); range.selectNodeContents(editor); range.collapse(false);
+            selection.removeAllRanges(); selection.addRange(range);
+        }
     }
 
     renderImageDimensionsControl(control, node, value, row) {
@@ -479,6 +629,8 @@ export default class PanelManager {
 
     renderControl(control, node) {
         const row = document.createElement('div'); row.className = 'ink-v2-control';
+        // Thread the active Normal/Hover/Focus state into state-capable controls.
+        if (control.states && control.state !== this.activeState) control = { ...control, state: this.activeState };
         if (control.type !== 'background') {
             const label = document.createElement('label'); label.textContent = control.label;
             if (control.responsive) {
@@ -492,112 +644,24 @@ export default class PanelManager {
             row.appendChild(hint);
         }
         const value = this.currentValue(control, node);
-        if (control.type === 'media') return this.renderMediaControl(control, node, value, row);
-        if (control.type === 'gallery') return this.renderGalleryControl(control, node, value, row);
-        if (control.type === 'repeater') return this.renderRepeaterControl(control, node, value, row);
-        if (control.type === 'box-shadow' || control.type === 'text-shadow') return this.renderShadowControl(control, node, value, row);
-        if (control.type === 'url') return this.renderUrlControl(control, node, value, row);
-        if (control.type === 'icon' || control.type === 'icons') return this.renderIconControl(control, node, value, row);
-        if (control.type === 'border') return this.renderBorderControl(control, node, value, row);
-        if (control.type === 'wysiwyg') return this.renderWysiwygControl(control, node, value, row);
-        if (control.type === 'image-dimensions') return this.renderImageDimensionsControl(control, node, value, row);
-        if (control.type === 'color') return this.renderColorControl(control, node, value, row);
-        if (control.type === 'css-filters') return this.renderCssFiltersControl(control, node, value, row);
-        if (control.type === 'text-stroke') return this.renderTextStrokeControl(control, node, value, row);
-        if (control.type === 'gradient') return this.renderGradientControl(control, node, value, row);
-        if (control.type === 'background') return this.renderBackgroundControl(control, node, row);
-        if (control.type === 'typography') return this.renderTypographyControl(control, node, row);
-        if (control.type === 'structure') {
-            const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-structure';
-            const grid = document.createElement('div'); grid.className = 'ink-v2-structure-grid';
-            (control.options || []).forEach((option) => {
-                const preset = String(valueFor(option)); const widths = preset.split(',').map(Number);
-                const button = document.createElement('button'); button.type = 'button'; button.title = labelFor(option);
-                const current = node.settings[control.name] || node.settings.structure;
-                button.classList.toggle('is-active', String(current) === preset);
-                button.setAttribute('aria-label', labelFor(option));
-                button.innerHTML = `<span class="ink-v2-structure-cols">${widths.map((w) => `<i style="flex:${w}"></i>`).join('')}</span><span class="ink-v2-structure-label">${labelFor(option)}</span>`;
-                button.addEventListener('click', () => { this.applyStructure(node, preset); this.render(); });
-                grid.appendChild(button);
-            });
-            wrapper.appendChild(grid); row.appendChild(wrapper); return row;
-        }
-        if (control.type === 'popover-toggle') {
-            const details = document.createElement('details'); details.className = 'ink-v2-popover'; const summary = document.createElement('summary'); summary.textContent = control.text || 'Open settings'; details.appendChild(summary);
-            (control.controls || []).forEach((nested) => details.appendChild(this.renderControl({ tab: control.tab, section: control.section, target: control.target, ...nested }, node))); row.appendChild(details); return row;
-        }
-        if (['heading', 'divider', 'raw-html', 'notice', 'alert'].includes(control.type)) {
-            row.classList.add(`ink-v2-control-${control.type}`);
-            if (control.type === 'divider') row.appendChild(document.createElement('hr'));
-            else { const message = document.createElement(control.type === 'heading' ? 'h4' : 'div'); message.textContent = control.text || control.content || control.label; row.replaceChildren(message); }
-            return row;
-        }
-        if (control.type === 'button') {
-            const button = document.createElement('button'); button.type = 'button'; button.className = 'ink-v2-action-button'; button.textContent = control.text || control.label;
-            button.addEventListener('click', () => control.onClick?.({ runtime: this.runtime, node, control })); row.appendChild(button); return row;
-        }
-        if (control.type === 'hidden') { row.hidden = true; return row; }
-        if (control.type === 'switcher') {
-            const wrapper = document.createElement('label'); wrapper.className = 'ink-v2-switch';
-            const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = value === true || value === control.returnValue || value === 'yes';
-            const track = document.createElement('span'); track.dataset.on = control.onLabel || 'Yes'; track.dataset.off = control.offLabel || 'No';
-            checkbox.addEventListener('change', () => this.setValue(control, node, checkbox.checked ? (control.returnValue ?? true) : (control.offValue ?? false)));
-            wrapper.append(checkbox, track); row.appendChild(wrapper); return row;
-        }
-        if (control.type === 'slider') {
-            const slider = document.createElement('div'); slider.className = 'ink-v2-slider';
-            const range = document.createElement('input'); range.type = 'range'; range.min = control.min ?? 0; range.max = control.max ?? 100; range.step = control.step ?? 1;
-            const number = document.createElement('input'); number.type = 'number'; number.min = range.min; number.max = range.max; number.step = range.step;
-            const size = value && typeof value === 'object' ? value.size : value; range.value = size ?? control.default ?? 0; number.value = range.value;
-            const commit = (source) => { range.value = source.value; number.value = source.value; this.setValue(control, node, control.units ? { size: Number(source.value), unit: value?.unit || control.units[0] } : Number(source.value)); };
-            range.addEventListener('input', () => commit(range)); number.addEventListener('change', () => commit(number)); slider.append(range, number); row.appendChild(slider); return row;
-        }
-        if (control.type === 'gaps') {
-            const gaps = value && typeof value === 'object' ? value : {};
-            const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-gaps';
-            const rowGap = document.createElement('input'); rowGap.type = 'number'; rowGap.placeholder = 'Row'; rowGap.value = gaps.row ?? '';
-            const columnGap = document.createElement('input'); columnGap.type = 'number'; columnGap.placeholder = 'Column'; columnGap.value = gaps.column ?? '';
-            const unit = document.createElement('select'); (control.units || ['px']).forEach((name) => unit.add(new Option(name, name))); unit.value = gaps.unit || control.units?.[0] || 'px';
-            let linked = gaps.linked !== false; const link = document.createElement('button'); link.type = 'button'; link.className = 'ink-v2-link-values'; link.title = 'Link row and column gap'; link.setAttribute('aria-label', link.title); link.innerHTML = '<span class="material-symbols-rounded">link</span>'; link.classList.toggle('is-active', linked);
-            const commit = (source) => { if (linked && source === rowGap) columnGap.value = rowGap.value; if (linked && source === columnGap) rowGap.value = columnGap.value; this.setValue(control, node, { row: Number(rowGap.value) || 0, column: Number(columnGap.value) || 0, unit: unit.value, linked }); };
-            link.addEventListener('click', () => { linked = !linked; link.classList.toggle('is-active', linked); if (linked) { columnGap.value = rowGap.value; commit(); } });
-            rowGap.addEventListener('change', () => commit(rowGap)); columnGap.addEventListener('change', () => commit(columnGap)); unit.addEventListener('change', () => commit()); wrapper.append(rowGap, columnGap, unit, link); row.appendChild(wrapper); return row;
-        }
-        if (control.type === 'dimensions') {
-            const dimensions = value && typeof value === 'object' ? value : {};
-            const inputs = document.createElement('div'); inputs.className = 'ink-v2-dimensions';
-            let linked = dimensions.linked !== false;
-            ['top', 'right', 'bottom', 'left'].forEach((side) => {
-                const field = document.createElement('label'); field.innerHTML = `<span>${side[0].toUpperCase()}</span>`;
-                const input = document.createElement('input'); input.type = 'number'; input.value = dimensions[side] ?? '';
-                field.prepend(input); inputs.appendChild(field);
-            });
-            const unit = document.createElement('select'); unit.className = 'ink-v2-unit';
-            (control.units || ['px']).forEach((name) => { const option = document.createElement('option'); option.value = name; option.textContent = name; unit.appendChild(option); });
-            unit.value = dimensions.unit || control.units?.[0] || 'px'; inputs.appendChild(unit);
-            const link = document.createElement('button'); link.type = 'button'; link.className = 'ink-v2-link-values'; link.title = 'Link values'; link.setAttribute('aria-label', 'Link spacing values'); link.innerHTML = '<span class="material-symbols-rounded">link</span>'; link.classList.toggle('is-active', linked); inputs.appendChild(link);
-            const commit = (source) => {
-                const sides = inputs.querySelectorAll('input');
-                if (linked && source) sides.forEach((input) => { if (input !== source) input.value = source.value; });
-                this.setValue(control, node, { top: Number(sides[0].value) || 0, right: Number(sides[1].value) || 0, bottom: Number(sides[2].value) || 0, left: Number(sides[3].value) || 0, unit: unit.value, linked });
-            };
-            inputs.querySelectorAll('input').forEach((input) => input.addEventListener('change', () => commit(input))); unit.addEventListener('change', () => commit()); link.addEventListener('click', () => { linked = !linked; link.classList.toggle('is-active', linked); if (linked) commit(inputs.querySelector('input')); });
-            row.appendChild(inputs); return row;
-        }
+        // Composably delegated to the control registry (see EditorRuntime registrations).
+        const renderer = this.runtime.controls.has(control.type) ? this.runtime.controls.get(control.type) : null;
+        if (renderer) return renderer(this, control, node, value, row);
         let input;
         if (control.type === 'textarea' || control.type === 'code') { input = document.createElement('textarea'); input.value = value; input.classList.toggle('ink-v2-code', control.type === 'code'); }
         else if (['select', 'select2', 'font', 'animation', 'exit-animation', 'hover-animation'].includes(control.type)) {
             input = document.createElement('select');
             (control.options || []).forEach((option) => { const item = document.createElement('option'); item.value = valueFor(option); item.textContent = labelFor(option); input.appendChild(item); }); input.value = value;
-        } else if (control.type === 'choose' || control.type === 'visual-choice' || control.type === 'structure') {
+        } else if (control.type === 'choose' || control.type === 'visual-choice') {
             input = document.createElement('div'); input.className = 'ink-v2-choose';
             (control.options || []).forEach((option) => {
                 const button = document.createElement('button'); button.type = 'button';
                 const icon = typeof option === 'object' ? option.icon : null;
-                button.innerHTML = icon ? `<span class="material-symbols-rounded">${icon}</span>` : labelFor(option);
+                button.innerHTML = icon ? `<span class="material-symbols-rounded" aria-hidden="true">${icon}</span>` : labelFor(option);
                 if (!icon) button.textContent = labelFor(option);
                 button.className = value === valueFor(option) ? 'is-active' : '';
-                button.setAttribute('aria-label', labelFor(option));
+                button.setAttribute('aria-label', labelFor(option) || String(valueFor(option)));
+                button.setAttribute('aria-pressed', value === valueFor(option) ? 'true' : 'false');
                 button.addEventListener('click', () => this.setValue(control, node, valueFor(option)));
                 input.appendChild(button);
             });

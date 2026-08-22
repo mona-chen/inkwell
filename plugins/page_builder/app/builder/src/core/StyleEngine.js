@@ -41,25 +41,37 @@ export default class StyleEngine {
     nodeRules(node) {
         const definition = this.registry.get(node.type);
         const map = definition.styleMap || {};
-        const buckets = { base: {}, tablet: {}, mobile: {}, hover: {}, focus: {}, active: {} };
+        // bucket -> selector (default '') -> property:value map
+        const buckets = { base: new Map(), tablet: new Map(), mobile: new Map(), hover: new Map(), focus: new Map(), active: new Map() };
         Object.entries(node.styles || {}).forEach(([bucket, settings]) => {
-            if (!buckets[bucket]) buckets[bucket] = {};
+            if (!buckets[bucket]) return;
             Object.entries(settings || {}).forEach(([key, value]) => {
+                if (value === undefined || value === null || value === '') return;
                 const descriptor = map[key] || { property: key };
-                if (typeof descriptor === 'function') Object.assign(buckets[bucket], descriptor(value, node) || {});
-                else buckets[bucket][descriptor.property || key] = typeof descriptor.transform === 'function' ? descriptor.transform(value, node) : value;
+                const selector = descriptor.selector || '';
+                const target = buckets[bucket].get(selector) || {};
+                if (typeof descriptor === 'function') {
+                    const extra = descriptor(value, node) || {};
+                    Object.assign(buckets[bucket].get(selector) || target, extra);
+                } else {
+                    target[descriptor.property || key] = typeof descriptor.transform === 'function' ? descriptor.transform(value, node) : value;
+                }
+                buckets[bucket].set(selector, target);
             });
         });
         let css = '';
-        Object.entries(buckets).forEach(([bucket, values]) => {
-            const declarations = this.declarations(values);
-            if (!declarations) return;
-            if (STATES.has(bucket)) css += `${this.selector(node.id, `:${bucket}`)}{${declarations}}`;
-            else if (bucket === 'base') css += `${this.selector(node.id)}{${declarations}}`;
-            else {
-                const width = this.responsive.breakpoints[bucket];
-                if (width) css += `@media(max-width:${width}px){${this.selector(node.id)}{${declarations}}}`;
-            }
+        Object.entries(buckets).forEach(([bucket, bySelector]) => {
+            bySelector.forEach((values, selector) => {
+                const declarations = this.declarations(values);
+                if (!declarations) return;
+                const rule = `${this.selector(node.id, selector)}{${declarations}}`;
+                if (STATES.has(bucket)) css += `${this.selector(node.id, `:${bucket}${selector}`)}{${declarations}}`;
+                else if (bucket === 'base') css += rule;
+                else {
+                    const width = this.responsive.breakpoints[bucket];
+                    if (width) css += `@media(max-width:${width}px){${rule}}`;
+                }
+            });
         });
         return css;
     }

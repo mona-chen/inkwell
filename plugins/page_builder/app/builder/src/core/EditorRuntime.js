@@ -35,6 +35,41 @@ export default class EditorRuntime {
             const node = this.document.get(id);
             if (node && node.type === 'columns') this.update(id, { settings: { structure } }, 'Resize columns');
         });
+        this.registerControls();
+    }
+
+    // Panel control renderers, composably registered so PanelManager stays thin. Each
+    // renderer receives (panel, control, node, value, row) and returns the row.
+    registerControls() {
+        const valueRenderer = (render) => (panel, control, node, value, row) => render.call(panel, control, node, value, row);
+        const noValue = (render) => (panel, control, node, value, row) => render.call(panel, control, node, row);
+        const controls = this.controls;
+        controls.register('media', valueRenderer(PanelManager.prototype.renderMediaControl));
+        controls.register('gallery', valueRenderer(PanelManager.prototype.renderGalleryControl));
+        controls.register('repeater', valueRenderer(PanelManager.prototype.renderRepeaterControl));
+        controls.register('box-shadow', valueRenderer(PanelManager.prototype.renderShadowControl));
+        controls.register('text-shadow', valueRenderer(PanelManager.prototype.renderShadowControl));
+        controls.register('url', valueRenderer(PanelManager.prototype.renderUrlControl));
+        controls.register('icon', valueRenderer(PanelManager.prototype.renderIconControl));
+        controls.register('icons', valueRenderer(PanelManager.prototype.renderIconControl));
+        controls.register('border', valueRenderer(PanelManager.prototype.renderBorderControl));
+        controls.register('wysiwyg', valueRenderer(PanelManager.prototype.renderWysiwygControl));
+        controls.register('image-dimensions', valueRenderer(PanelManager.prototype.renderImageDimensionsControl));
+        controls.register('color', valueRenderer(PanelManager.prototype.renderColorControl));
+        controls.register('css-filters', valueRenderer(PanelManager.prototype.renderCssFiltersControl));
+        controls.register('text-stroke', valueRenderer(PanelManager.prototype.renderTextStrokeControl));
+        controls.register('gradient', valueRenderer(PanelManager.prototype.renderGradientControl));
+        controls.register('switcher', valueRenderer(PanelManager.prototype.renderSwitcherControl));
+        controls.register('slider', valueRenderer(PanelManager.prototype.renderSliderControl));
+        controls.register('gaps', valueRenderer(PanelManager.prototype.renderGapsControl));
+        controls.register('dimensions', valueRenderer(PanelManager.prototype.renderDimensionsControl));
+        controls.register('background', noValue(PanelManager.prototype.renderBackgroundControl));
+        controls.register('typography', noValue(PanelManager.prototype.renderTypographyControl));
+        controls.register('structure', noValue(PanelManager.prototype.renderStructureControl));
+        controls.register('popover-toggle', noValue(PanelManager.prototype.renderPopoverToggleControl));
+        ['heading', 'divider', 'raw-html', 'notice', 'alert'].forEach((type) => controls.register(type, noValue(PanelManager.prototype.renderNoticeControl)));
+        controls.register('button', noValue(PanelManager.prototype.renderActionButtonControl));
+        controls.register('hidden', noValue(PanelManager.prototype.renderHiddenControl));
     }
 
     create(type, overrides) { return this.elements.create(type, overrides); }

@@ -6,6 +6,7 @@ export default class ControlRegistry {
         this.controls.set(type, renderer);
         return this;
     }
+    has(type) { return this.controls.has(type); }
     get(type) {
         const renderer = this.controls.get(type);
         if (!renderer) throw new Error(`Unknown control type: ${type}`);
