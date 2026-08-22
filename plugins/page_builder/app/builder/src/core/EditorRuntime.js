@@ -30,6 +30,11 @@ export default class EditorRuntime {
         this.events.on('element:action', ({ action, id }) => this.performElementAction(action, id));
         this.events.on('element:inline-change', ({ id, text }) => this.update(id, { settings: { text } }, 'Edit text'));
         this.events.on('element:insert-structure', ({ parentId, structure }) => this.insertStructureAt(parentId, structure));
+        this.events.on('element:resize', ({ id, structure }) => {
+            if (!id || !structure) return;
+            const node = this.document.get(id);
+            if (node && node.type === 'columns') this.update(id, { settings: { structure } }, 'Resize columns');
+        });
     }
 
     create(type, overrides) { return this.elements.create(type, overrides); }

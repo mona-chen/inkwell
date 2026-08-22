@@ -94,6 +94,14 @@ export default function registerInkElements(registry) {
             root.dataset.inkChildren = '';
             return root;
         },
+        // Apply per-column widths as inline flex-basis (Elementor-style). Inline styles beat
+        // the preset classes, so arbitrary structures like "37,63" resize correctly.
+        mount: ({ element, node }) => {
+            const widths = String(node.settings.structure || '50,50').split(',').map(Number);
+            Array.from(element.querySelectorAll(':scope > .ink-el-column')).forEach((column, index) => {
+                if (widths[index]) column.style.flexBasis = `${widths[index]}%`;
+            });
+        },
     });
 
     // Column: a vertical stack container with a 10px gutter padding.

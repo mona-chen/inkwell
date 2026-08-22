@@ -436,6 +436,7 @@ async function main() {
     })()`);
     check("real drag reorders an existing canvas element", state.movedToRoot && !state.containerStillHas && state.rootCount === moveRootBefore + 1 && moveContainerChildren - 1 >= 1, JSON.stringify(state));
 
+
     state = await client.evaluate(`(function(){
       switchToTabletMode();
       var tablet={device:builder.runtime.responsive.device,width:builder.mainContainer.style.width,active:document.getElementById('tabletModeButton').classList.contains('active'),bar:!!builder.mainContainer.querySelector('.ink-v2-responsive-bar'),handles:builder.mainContainer.querySelectorAll('.ink-v2-viewport-handle').length};
@@ -591,6 +592,94 @@ async function main() {
       fs.writeFileSync(process.env.SMOKE_SCREENSHOT, Buffer.from(capture.result.data, "base64"));
     }
 
+    state = await client.evaluate(`(function(){
+      var before=builder.getData().children.length;
+      clearPage(); var empty=builder.getData().children.length===0;
+      builder.runtime.history.undo(); var restored=builder.getData().children.length===before;
+      return {before:before,empty:empty,restored:restored};
+    })()`);
+    // ------------------------------------------------------------------
+    // Additional drag/drop paths: blank root, empty container helper,
+    // before/after an existing widget, reorder between containers, and
+    // drag cancellation (no mutation, no leftover indicators).
+    // ------------------------------------------------------------------
+    async function scrollTile(type) {
+      await client.evaluate(`builder.openPanelScreen('elements'); true`);
+      await client.evaluate(`(function(){
+        var t=Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(x){return x.dataset.inkElementType===${JSON.stringify(type)}});
+        if(!t) return false;
+        var b=document.querySelector('#WidgetsContainer .ink-v2-panel-body');
+        b.scrollTop=Math.max(0, t.getBoundingClientRect().top - b.getBoundingClientRect().top - b.clientHeight/2 + 20);
+        return true;
+      })()`);
+      await wait(250);
+      return await client.evaluate(`(function(){
+        var t=Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(x){return x.dataset.inkElementType===${JSON.stringify(type)}});
+        var tr=t.getBoundingClientRect();
+        return { sx:Math.round(tr.x+tr.width/2), sy:Math.round(tr.y+tr.height/2) };
+      })()`);
+    }
+
+    // D) Library -> completely blank root
+    await client.evaluate(`(function(){ var r=builder.runtime; r.document.replace({version:2,type:'page',settings:{title:'Blank'},children:[]}); r.history.undoStack.length=0; r.history.redoStack.length=0; return true; })()`);
+    await wait(300);
+    const blankTile = await scrollTile('heading');
+    const blankPoint = await client.evaluate(`(function(){ var d=builder.iframeDoc; var root=d.querySelector('.ink-editor-root-empty'); var rr=root.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+rr.x+rr.width/2), dy:Math.round(ifr.y+rr.y+rr.height/2) }; })()`);
+    await realDrag(blankTile.sx, blankTile.sy, blankPoint.dx, blankPoint.dy);
+    state = await client.evaluate(`(function(){ var r=builder.runtime; return { count:r.document.data.children.length, inserted:r.document.data.children.some(function(n){return n.type==='heading'}), selected:!!r.selection.selectedId }; })()`);
+    check("drag onto a completely blank canvas inserts at root", state.count === 1 && state.inserted && state.selected, JSON.stringify(state));
+
+    // E) Library -> empty container helper
+    await client.evaluate(`(function(){ var r=builder.runtime; var c=r.insert('container',{}); window.__emptyContainer=c.id; builder.openPanelScreen('elements'); return true; })()`);
+    await wait(300);
+    const emptyTile = await scrollTile('paragraph');
+    const emptyPoint = await client.evaluate(`(function(){ var c=window.__emptyContainer; var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+c+'"] .ink-editor-empty'); var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+r.x+r.width/2), dy:Math.round(ifr.y+r.y+r.height/2) }; })()`);
+    await realDrag(emptyTile.sx, emptyTile.sy, emptyPoint.dx, emptyPoint.dy);
+    state = await client.evaluate(`(function(){ var r=builder.runtime; var c=r.document.get(window.__emptyContainer); return { inside:c.children.some(function(n){return n.type==='paragraph'}), domNested:!!builder.iframeDoc.querySelector('[data-ink-element-id="'+c.id+'"] [data-ink-element-type="paragraph"]') }; })()`);
+    check("drag into an empty container helper inserts inside", state.inside && state.domNested, JSON.stringify(state));
+
+    // F) Library -> after an existing widget
+    await client.evaluate(`(function(){ var r=builder.runtime; var c=r.document.get(window.__emptyContainer); r.insert('heading',{parentId:c.id},{settings:{text:'H'}}); return true; })()`);
+    await wait(300);
+    const afterTile = await scrollTile('button');
+    const afterPoint = await client.evaluate(`(function(){ var c=window.__emptyContainer; var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+c+'"]'); var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+r.x+r.width/2), dy:Math.round(ifr.y+r.y+r.height*0.85) }; })()`);
+    await realDrag(afterTile.sx, afterTile.sy, afterPoint.dx, afterPoint.dy);
+    state = await client.evaluate(`(function(){ var r=builder.runtime; var c=r.document.get(window.__emptyContainer); var types=c.children.map(function(n){return n.type}); var idx=types.indexOf('button'); return { after:idx>=0 && types[idx-1]==='heading', types:types }; })()`);
+    check("drag before/after an existing widget places it as a sibling", state.after, JSON.stringify(state.types));
+
+    // G) Reorder between containers
+    await client.evaluate(`(function(){
+      var r=builder.runtime; var c=r.document.get(window.__emptyContainer);
+      var b=c.children.find(function(n){return n.type==='button'});
+      var other=r.insert('container',{}); window.__other=other.id;
+      window.__moveButton=b.id;
+      return true;
+    })()`);
+    await wait(300);
+    const movePoint = await client.evaluate(`(function(){
+      var d=builder.iframeDoc; var b=window.__moveButton; var el=d.querySelector('[data-ink-element-id="'+b+'"]'); var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect();
+      var other=d.querySelector('[data-ink-element-id="'+window.__other+'"] .ink-editor-empty'); var or=other.getBoundingClientRect();
+      return { sx:Math.round(ifr.x+r.x+r.width/2), sy:Math.round(ifr.y+r.y+r.height/2), dx:Math.round(ifr.x+or.x+or.width/2), dy:Math.round(ifr.y+or.y+or.height/2) };
+    })()`);
+    await realDrag(movePoint.sx, movePoint.sy, movePoint.dx, movePoint.dy);
+    state = await client.evaluate(`(function(){ var r=builder.runtime; return { moved:r.document.get(window.__other).children.some(function(n){return n.id===window.__moveButton}), left:r.document.get(window.__emptyContainer).children.some(function(n){return n.id===window.__moveButton}) }; })()`);
+    check("drag reorders/reparents a widget between containers", state.moved && !state.left, JSON.stringify(state));
+
+    // H) Drag cancellation — dropping outside the canvas (or Escape) mutates nothing.
+    await client.evaluate(`(function(){ var r=builder.runtime; r.history.undoStack.length=0; r.history.redoStack.length=0; return true; })()`);
+    const beforeCancel = await client.evaluate(`builder.runtime.document.data.children.length`);
+    const cancelTile = await scrollTile('icon');
+    await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: cancelTile.sx, y: cancelTile.sy });
+    await client.send("Input.dispatchMouseEvent", { type: "mousePressed", x: cancelTile.sx, y: cancelTile.sy, button: "left", clickCount: 1 });
+    await wait(120);
+    // Move to the app bar (outside the canvas) and release — no canvas drop fires.
+    await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 100, y: 24, button: "left", buttons: 1 });
+    await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: 100, y: 24, button: "left", clickCount: 1 });
+    await wait(400);
+    state = await client.evaluate(`(function(){
+      return { count: builder.runtime.document.data.children.length, leftover: builder.iframeDoc.querySelectorAll('[data-ink-drop-position]').length, ghost: !!document.querySelector('.ink-drag-ghost') };
+    })()`);
+    check("drag cancellation mutates nothing and leaves no indicators", state.count === beforeCancel && state.leftover === 0 && !state.ghost, JSON.stringify(state));
     state = await client.evaluate(`(function(){
       var before=builder.getData().children.length;
       clearPage(); var empty=builder.getData().children.length===0;

@@ -30,24 +30,41 @@ body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-over
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="section"]>.ink-editor-overlay>.ink-editor-toolbar,
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="column"]>.ink-editor-overlay>.ink-editor-toolbar,
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{background:var(--ink-editor-accent,#93003c)}
-body.ink-builder-design .ink-editor-toolbar button{display:flex;width:28px;align-items:center;justify-content:center;padding:0;border:0;background:transparent;color:inherit;font:13px/1 Arial,sans-serif;cursor:pointer;pointer-events:auto}
-body.ink-builder-design .ink-editor-toolbar button:hover{background:rgba(0,0,0,.18)}body.ink-builder-design .ink-editor-toolbar span{font-size:15px}
-body.ink-builder-design .ink-editor-empty,body.ink-builder-design .ink-editor-root-empty{display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;border:1px dashed #b7bcc7;background:rgba(255,255,255,.35);color:#a4afb7}
-body.ink-builder-design .ink-editor-empty{min-height:72px;margin:4px;border-radius:4px}
-body.ink-builder-design .ink-editor-root-empty{min-height:140px;max-width:560px;margin:24px auto;border-radius:6px}
-body.ink-builder-design .ink-empty-actions{display:flex;gap:8px}
-body.ink-builder-design .ink-empty-action{display:flex;width:34px;height:34px;align-items:center;justify-content:center;border:0;border-radius:50%;background:#54595f;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:background .15s,transform .1s}
+body.ink-builder-design .ink-editor-toolbar button{display:flex;width:28px;height:24px;align-items:center;justify-content:center;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;pointer-events:auto}
+body.ink-builder-design .ink-editor-toolbar button:hover{background:rgba(0,0,0,.18)}body.ink-builder-design .ink-editor-toolbar .material-symbols-rounded{font-size:15px}
+
+/* Empty canvas/container insertion surface — Elementor's full-width dashed area */
+body.ink-builder-design .ink-editor-empty,body.ink-builder-design .ink-editor-root-empty{position:relative;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;border:2px dashed #b7bcc7;background:rgba(255,255,255,.4);color:#a4afb7}
+body.ink-builder-design .ink-editor-root-empty{width:100%;max-width:1160px;min-height:180px;margin:24px auto;padding:40px 16px;border-radius:4px}
+body.ink-builder-design .ink-editor-empty{width:100%;min-height:100px;margin:2px;padding:20px 12px;border-radius:4px}
+body.ink-builder-design .ink-empty-actions{display:flex;gap:10px;align-items:center;justify-content:center}
+body.ink-builder-design .ink-empty-action{display:flex;width:40px;height:40px;align-items:center;justify-content:center;border:0;border-radius:50%;background:#54595f;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:background .15s,transform .1s}
 body.ink-builder-design .ink-empty-action:hover{background:var(--ink-editor-accent,#93003c);transform:scale(1.06)}
-body.ink-builder-design .ink-empty-action .material-symbols-rounded{font-size:20px}
-body.ink-builder-design .ink-empty-caption{font-size:12px;font-style:italic}
-body.ink-builder-design .ink-structure-popover{position:absolute;z-index:9997;top:calc(100% + 8px);left:50%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:10px;border:1px solid #d5dadf;border-radius:6px;background:#fff;box-shadow:0 12px 40px rgba(0,0,0,.25)}
-body.ink-builder-design .ink-structure-popover[hidden]{display:none}
-body.ink-builder-design .ink-structure-popover button{display:flex;gap:8px;align-items:center;padding:6px 10px;border:1px solid #d5dadf;border-radius:4px;background:#fff;color:#495157;font:12px Roboto,Arial,sans-serif;cursor:pointer;white-space:nowrap}
-body.ink-builder-design .ink-structure-popover button:hover{border-color:var(--ink-editor-accent,#93003c);color:var(--ink-editor-accent,#93003c)}
-body.ink-builder-design .ink-structure-preset-bars{display:flex;width:44px;height:16px;gap:2px}
-body.ink-builder-design .ink-structure-preset-bars i{display:block;border:1px solid #a4afb7;border-radius:1px;background:#f1f3f5}
-body.ink-builder-design .ink-editor-root-empty{position:relative}
-body.ink-builder-design .ink-editor-empty{position:relative}
+body.ink-builder-design .ink-empty-action .material-symbols-rounded{font-size:22px}
+body.ink-builder-design .ink-empty-caption{font-size:13px;font-style:italic}
+
+/* Structure preset gallery — a wide visual state, not an overlapping popover */
+body.ink-builder-design .ink-empty-presets{display:flex;width:100%;max-width:650px;flex-direction:column;gap:14px}
+body.ink-builder-design .ink-empty-presets[hidden]{display:none}
+body.ink-builder-design .ink-empty-presets-header{display:flex;gap:8px;align-items:center}
+body.ink-builder-design .ink-empty-back{display:flex;width:26px;height:26px;align-items:center;justify-content:center;padding:0;border:0;border-radius:50%;background:transparent;color:#a4afb7;cursor:pointer}
+body.ink-builder-design .ink-empty-back:hover{background:rgba(0,0,0,.06);color:#495157}
+body.ink-builder-design .ink-empty-back .material-symbols-rounded{font-size:18px}
+body.ink-builder-design .ink-empty-presets-title{font-size:13px;font-weight:500;color:#495157}
+body.ink-builder-design .ink-empty-preset-list{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center}
+body.ink-builder-design .ink-empty-preset{display:flex;flex-direction:column;gap:6px;align-items:center;padding:8px 6px;border:0;background:transparent;color:#495157;font:11px Roboto,Arial,sans-serif;cursor:pointer}
+body.ink-builder-design .ink-empty-preset:hover{color:var(--ink-editor-accent,#93003c)}
+body.ink-builder-design .ink-empty-preset-bars{display:flex;width:88px;height:40px;gap:3px;align-items:stretch}
+body.ink-builder-design .ink-empty-preset-bars i{display:block;border:1px solid #a4afb7;border-radius:2px;background:#fff;transition:background .15s,border-color .15s}
+body.ink-builder-design .ink-empty-preset:hover .ink-empty-preset-bars i{border-color:var(--ink-editor-accent,#93003c);background:color-mix(in srgb,var(--ink-editor-accent,#93003c) 12%,#fff)}
+
+/* Column resize handles + percentage feedback */
+body.ink-builder-design .ink-el-column-resize{position:absolute;z-index:2;top:0;bottom:0;width:9px;cursor:col-resize;pointer-events:auto}
+body.ink-builder-design .ink-el-column-resize.is-e{right:-5px}
+body.ink-builder-design .ink-el-column-resize.is-w{left:-5px}
+body.ink-builder-design .ink-el-column-resize::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:transparent;transition:background .15s}
+body.ink-builder-design .ink-element:hover>.ink-editor-overlay .ink-el-column-resize::after,body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay .ink-el-column-resize::after{background:rgba(255,255,255,.7)}
+body.ink-builder-design .ink-el-column-percent{position:fixed;z-index:9999;padding:4px 8px;border-radius:3px;background:#26292c;color:#fff;font:11px Roboto,Arial,sans-serif;pointer-events:none;opacity:0;transition:opacity .12s;transform:translate(-50%,-100%)}
 
 /* Drag & drop indicators */
 body.ink-builder-design .ink-element[data-ink-drop-position="inside"]{box-shadow:0 0 0 2px var(--ink-editor-accent,#93003c)}

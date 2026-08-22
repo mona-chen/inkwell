@@ -41,6 +41,8 @@ export default class DragDropManager {
 
         // ---- Canvas element move drags (inside the iframe) ----
         this.canvas.addEventListener('dragstart', (event) => {
+            // Resize handles are pointer-driven; never start a move drag from them.
+            if (event.target.closest('.ink-el-column-resize')) return;
             const item = event.target.closest('[data-ink-element-id]');
             if (!item) return;
             this.beginDrag({ id: item.dataset.inkElementId }, event, this.iframeDoc);
@@ -59,6 +61,10 @@ export default class DragDropManager {
         parent.addEventListener('dragend', () => this.endDrag(), true);
         parent.addEventListener('keydown', (event) => { if (event.key === 'Escape') this.endDrag(); });
         parent.defaultView?.addEventListener('blur', () => this.endDrag());
+        if (this.iframeDoc) {
+            this.iframeDoc.addEventListener('dragend', () => this.endDrag(), true);
+            this.iframeDoc.addEventListener('keydown', (event) => { if (event.key === 'Escape') this.endDrag(); });
+        }
 
         this.canvas.addEventListener('dragover', (event) => { event.preventDefault(); });
         this.canvas.addEventListener('drop', (event) => { event.preventDefault(); });
@@ -75,6 +81,7 @@ export default class DragDropManager {
 
     beginDrag(payload, event, doc) {
         this.drag = payload;
+        this.cancelled = false;
         try { window[SHARED_SLOT] = payload; } catch (_) {}
         const transfer = event?.dataTransfer;
         if (transfer) {
@@ -220,6 +227,7 @@ export default class DragDropManager {
 
     onDrop(event) {
         event.preventDefault();
+        if (this.cancelled) { this.endDrag(); return; }
         const payload = this.resolvePayload(event);
         const intent = this.intent || (() => { const i = this.computeIntent(event); return i || null; })();
         this.endDrag();
@@ -249,6 +257,7 @@ export default class DragDropManager {
     endDrag() {
         this.clearIntent();
         this.removeGhost();
+        this.cancelled = true;
         this.drag = null;
         try { delete window[SHARED_SLOT]; } catch (_) {}
     }
