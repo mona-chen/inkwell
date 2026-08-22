@@ -11,6 +11,7 @@ import registerInkFoundationElements from './inkFoundationElements.js';
 import registerInkMagicElements from './inkMagicElements.js';
 import registerInkElements from './inkElements.js';
 import PanelManager from './PanelManager.js';
+import * as controlsModule from './controls/index.js';
 import DragDropManager from './DragDropManager.js';
 import ContextMenuManager from './ContextMenuManager.js';
 
@@ -39,37 +40,37 @@ export default class EditorRuntime {
     }
 
     // Panel control renderers, composably registered so PanelManager stays thin. Each
-    // renderer receives (panel, control, node, value, row) and returns the row.
+    // renderer is an independent module with the uniform contract
+    // (panel, control, node, value, row) => row.
     registerControls() {
-        const valueRenderer = (render) => (panel, control, node, value, row) => render.call(panel, control, node, value, row);
-        const noValue = (render) => (panel, control, node, value, row) => render.call(panel, control, node, row);
         const controls = this.controls;
-        controls.register('media', valueRenderer(PanelManager.prototype.renderMediaControl));
-        controls.register('gallery', valueRenderer(PanelManager.prototype.renderGalleryControl));
-        controls.register('repeater', valueRenderer(PanelManager.prototype.renderRepeaterControl));
-        controls.register('box-shadow', valueRenderer(PanelManager.prototype.renderShadowControl));
-        controls.register('text-shadow', valueRenderer(PanelManager.prototype.renderShadowControl));
-        controls.register('url', valueRenderer(PanelManager.prototype.renderUrlControl));
-        controls.register('icon', valueRenderer(PanelManager.prototype.renderIconControl));
-        controls.register('icons', valueRenderer(PanelManager.prototype.renderIconControl));
-        controls.register('border', valueRenderer(PanelManager.prototype.renderBorderControl));
-        controls.register('wysiwyg', valueRenderer(PanelManager.prototype.renderWysiwygControl));
-        controls.register('image-dimensions', valueRenderer(PanelManager.prototype.renderImageDimensionsControl));
-        controls.register('color', valueRenderer(PanelManager.prototype.renderColorControl));
-        controls.register('css-filters', valueRenderer(PanelManager.prototype.renderCssFiltersControl));
-        controls.register('text-stroke', valueRenderer(PanelManager.prototype.renderTextStrokeControl));
-        controls.register('gradient', valueRenderer(PanelManager.prototype.renderGradientControl));
-        controls.register('switcher', valueRenderer(PanelManager.prototype.renderSwitcherControl));
-        controls.register('slider', valueRenderer(PanelManager.prototype.renderSliderControl));
-        controls.register('gaps', valueRenderer(PanelManager.prototype.renderGapsControl));
-        controls.register('dimensions', valueRenderer(PanelManager.prototype.renderDimensionsControl));
-        controls.register('background', noValue(PanelManager.prototype.renderBackgroundControl));
-        controls.register('typography', noValue(PanelManager.prototype.renderTypographyControl));
-        controls.register('structure', noValue(PanelManager.prototype.renderStructureControl));
-        controls.register('popover-toggle', noValue(PanelManager.prototype.renderPopoverToggleControl));
-        ['heading', 'divider', 'raw-html', 'notice', 'alert'].forEach((type) => controls.register(type, noValue(PanelManager.prototype.renderNoticeControl)));
-        controls.register('button', noValue(PanelManager.prototype.renderActionButtonControl));
-        controls.register('hidden', noValue(PanelManager.prototype.renderHiddenControl));
+        controls.register('media', controlsModule.media);
+        controls.register('gallery', controlsModule.gallery);
+        controls.register('repeater', controlsModule.repeater);
+        controls.register('box-shadow', controlsModule.shadow);
+        controls.register('text-shadow', controlsModule.shadow);
+        controls.register('url', controlsModule.url);
+        controls.register('icon', controlsModule.icon);
+        controls.register('icons', controlsModule.icon);
+        controls.register('border', controlsModule.border);
+        controls.register('wysiwyg', controlsModule.wysiwyg);
+        controls.register('image-dimensions', controlsModule.imageDimensions);
+        controls.register('color', controlsModule.color);
+        controls.register('css-filters', controlsModule.cssFilters);
+        controls.register('text-stroke', controlsModule.textStroke);
+        controls.register('gradient', controlsModule.gradient);
+        controls.register('switcher', controlsModule.switcher);
+        controls.register('slider', controlsModule.slider);
+        controls.register('gaps', controlsModule.gaps);
+        controls.register('dimensions', controlsModule.dimensions);
+        controls.register('background', controlsModule.background);
+        controls.register('shape-divider', controlsModule.shapeDivider);
+        controls.register('typography', controlsModule.typography);
+        controls.register('structure', controlsModule.structure);
+        controls.register('popover-toggle', controlsModule.popoverToggle);
+        ['heading', 'divider', 'raw-html', 'notice', 'alert'].forEach((type) => controls.register(type, controlsModule.notice));
+        controls.register('button', controlsModule.actionButton);
+        controls.register('hidden', controlsModule.hidden);
     }
 
     create(type, overrides) { return this.elements.create(type, overrides); }
