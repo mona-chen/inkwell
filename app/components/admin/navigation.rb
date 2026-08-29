@@ -41,13 +41,14 @@ module Admin
                 div(class: "truncate text-xs text-muted-foreground") { @current_site&.name || "Inkwell" }
               end
             end
-            div(class: "mt-2 flex items-center justify-end px-1") do
+            div(class: "mt-2") do
               a(
                 href: "/users/sign_out",
                 data: { turbo_method: :delete },
-                class: "inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-destructive"
+                class: "flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               ) do
-                "Sign out"
+                render Icon.new(:log_out, size: :sm)
+                span { "Sign out" }
               end
             end
           end

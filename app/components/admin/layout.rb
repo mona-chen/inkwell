@@ -65,7 +65,7 @@ module Admin
       plugin_items = Inkwell::PluginManager.admin_nav_items.map do |item|
         { label: item[:label], path: item[:path], icon: Admin::Shell::ICONS[item[:icon].to_s] || :circle }
       end
-      groups << ["Plugins", plugin_items] if plugin_items.any?
+      groups << ["Installed", plugin_items] if plugin_items.any?
       groups
     end
   end

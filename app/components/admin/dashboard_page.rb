@@ -73,7 +73,7 @@ module Admin
         stat_item(@draft_posts, "Drafts")
         stat_item(@scheduled_posts, "Scheduled")
         if @pending_comments.positive?
-          stat_item(@pending_comments, "needs review", highlight: true)
+          stat_item(@pending_comments, "needs review", highlight: :warning)
         else
           stat_item(0, "Comments")
         end
@@ -83,9 +83,9 @@ module Admin
     def stat_item(value, label, highlight: false)
       div(class: "flex items-baseline gap-1.5") do
         if value.zero?
-          span(class: "text-muted-foreground") { "—" }
+          span(class: "text-muted-foreground") { "0" }
         else
-          span(class: "font-semibold text-foreground#{highlight ? " text-primary" : ""}") { value.to_s }
+          span(class: "font-semibold text-foreground#{highlight ? " text-#{highlight}" : ""}") { value.to_s }
         end
         span(class: "text-muted-foreground") { label }
       end
@@ -171,6 +171,11 @@ module Admin
 
     def render_comment_row(comment)
       div(class: "px-5 py-4") do
+        if comment.post.present?
+          div(class: "mb-1.5 text-xs font-medium text-muted-foreground") do
+            comment.post.title.to_s.truncate(60)
+          end
+        end
         div(class: "mb-2 text-sm text-foreground leading-relaxed") do
           comment.body.to_s.truncate(120)
         end
