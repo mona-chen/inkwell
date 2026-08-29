@@ -173,12 +173,12 @@
   --nk-radius-xl: inherit;
 }
 
-/* Topbar: frosted glass */
+/* Topbar: frosted glass, subtle border */
 #admin-shell [data-slot="app-shell-topbar"] {
-  background: oklch(0.145 0.005 286 / 0.85);
+  background: oklch(from var(--nk-color-canvas) l c h / 0.85);
   backdrop-filter: blur(20px) saturate(1.2);
   -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border-bottom: 1px solid oklch(0.24 0.005 286 / 0.6);
+  border-bottom: 1px solid oklch(from var(--nk-color-border) l c h / 0.5);
 }
 
 /* Navigation */
