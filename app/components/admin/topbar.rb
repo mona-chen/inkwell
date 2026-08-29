@@ -20,7 +20,8 @@ module Admin
               span { @current_site.name }
             end
           end
-          # Global Create button (replaces Quick Actions section)
+
+          # Global Create button
           div(class: "relative", data: { controller: "dropdown" }) do
             button(
               type: "button",
@@ -48,6 +49,17 @@ module Admin
               end
             end
           end
+
+          # Dark mode toggle
+          button(
+            type: "button",
+            class: "flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+            data: { action: "click->appearance#toggle" },
+            aria: { label: "Toggle dark mode" }
+          ) do
+            render Icon.new(:sun, size: :sm)
+          end
+
           a(
             href: "/",
             class: "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -55,14 +67,46 @@ module Admin
             span(class: "hidden sm:inline") { "View site" }
             render Icon.new(:external_link, size: :sm)
           end
+
           div(class: "h-5 w-px bg-border") {}
-          div(class: "flex items-center gap-2") do
-            span(
-              class: "flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+
+          # Profile dropdown
+          div(class: "relative", data: { controller: "dropdown" }) do
+            button(
+              type: "button",
+              class: "flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-muted",
+              data: { action: "click->dropdown#toggle" }
             ) do
-              (@user&.name || "A").first.upcase
+              span(
+                class: "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+              ) do
+                (@user&.name || "A").first.upcase
+              end
+              span(class: "hidden md:inline text-sm font-medium text-foreground") { @user&.name || "Admin" }
+              render Icon.new(:chevron_down, size: :xs)
             end
-            span(class: "hidden md:inline text-sm font-medium text-foreground") { @user&.name || "Admin" }
+            div(
+              class: "hidden absolute right-0 z-50 mt-1 w-56 rounded-xl border border-border bg-elevated py-1 shadow-lg",
+              data: { dropdown_target: "menu" }
+            ) do
+              div(class: "px-3 py-2 border-b border-border") do
+                div(class: "text-sm font-medium text-foreground") { @user&.name || "Admin" }
+                div(class: "text-xs text-muted-foreground") { @current_site&.name || "Inkwell" }
+              end
+              a(href: admin_settings_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
+                render Icon.new(:settings, size: :sm)
+                span { "Settings" }
+              end
+              a(href: "/", class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
+                render Icon.new(:external_link, size: :sm)
+                span { "View site" }
+              end
+              div(class: "border-t border-border mt-1") {}
+              a(href: "/users/sign_out", data: { turbo_method: :delete }, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
+                render Icon.new(:log_out, size: :sm)
+                span { "Sign out" }
+              end
+            end
           end
         end
       end
