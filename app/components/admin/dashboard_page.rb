@@ -69,25 +69,42 @@ module Admin
     # ── Stats strip ─────────────────────────────────────────────────────
     def render_stats_strip
       div(class: "mb-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm") do
-        stat_item(@published_posts, "Published")
-        stat_item(@draft_posts, "Drafts")
-        stat_item(@scheduled_posts, "Scheduled")
+        stat_item(@published_posts, "Published", path: admin_posts_path(status: "published"))
+        stat_item(@draft_posts, "Drafts", path: admin_posts_path(status: "draft"))
+        stat_item(@scheduled_posts, "Scheduled", path: admin_posts_path(status: "scheduled"))
         if @pending_comments.positive?
-          stat_item(@pending_comments, "needs review", highlight: :warning)
+          stat_item(@pending_comments, "needs review", highlight: :warning, path: admin_comments_path)
         else
-          stat_item(0, "Comments")
+          stat_item(0, "Comments", path: admin_comments_path)
         end
       end
     end
 
-    def stat_item(value, label, highlight: false)
-      div(class: "flex items-baseline gap-1.5") do
+    def stat_item(value, label, highlight: false, path: nil)
+      color_class = case highlight
+      when :warning then "text-warning"
+      when :primary then "text-primary"
+      else ""
+      end
+      content = div(class: "flex items-baseline gap-1.5") do
         if value.zero?
           span(class: "text-muted-foreground") { "0" }
         else
-          span(class: "font-semibold text-foreground#{highlight ? " text-#{highlight}" : ""}") { value.to_s }
+          span(class: "font-semibold text-foreground #{color_class}") { value.to_s }
         end
         span(class: "text-muted-foreground") { label }
+      end
+      if path
+        a(href: path, class: "flex items-baseline gap-1.5 hover:underline transition-colors") do
+          if value.zero?
+            span(class: "text-muted-foreground") { "0" }
+          else
+            span(class: "font-semibold text-foreground #{color_class}") { value.to_s }
+          end
+          span(class: "text-muted-foreground") { label }
+        end
+      else
+        content
       end
     end
 

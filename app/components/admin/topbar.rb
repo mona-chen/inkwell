@@ -12,15 +12,6 @@ module Admin
         h1(class: "text-base font-semibold text-foreground truncate") { @title }
 
         div(class: "flex items-center gap-3 text-sm") do
-          if @current_site
-            span(
-              class: "inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
-            ) do
-              render Icon.new(:globe, size: :sm)
-              span { @current_site.name }
-            end
-          end
-
           # Global Create button
           div(class: "relative", data: { controller: "dropdown" }) do
             button(
@@ -40,9 +31,10 @@ module Admin
                 span { "New post" }
               end
               a(href: new_admin_page_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
-                render Icon.new(:file, size: :sm)
+                render Icon.new(:layout, size: :sm)
                 span { "New page" }
               end
+              div(class: "border-t border-border my-1") {}
               a(href: admin_media_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
                 render Icon.new(:upload, size: :sm)
                 span { "Upload media" }
