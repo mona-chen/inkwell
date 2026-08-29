@@ -3,7 +3,7 @@ module Admin
   # page content (passed as a block) and loads the Nitro Kit + app stylesheets.
   # Rendered from the ERB admin layout so existing page ERB can keep yielding here.
   class Layout < ApplicationComponent
-    def initialize(title: "Dashboard", user: nil, current_site: nil)
+    def initialize(title: "Home", user: nil, current_site: nil)
       @title = title
       @user = user || (defined?(current_user) ? current_user : nil)
       @current_site = current_site || (defined?(Current) ? Current.site : nil)

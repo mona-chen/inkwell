@@ -20,6 +20,34 @@ module Admin
               span { @current_site.name }
             end
           end
+          # Global Create button (replaces Quick Actions section)
+          div(class: "relative", data: { controller: "dropdown" }) do
+            button(
+              type: "button",
+              class: "inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover",
+              data: { action: "click->dropdown#toggle" }
+            ) do
+              render Icon.new(:plus, size: :sm)
+              span(class: "hidden sm:inline") { "Create" }
+            end
+            div(
+              class: "hidden absolute right-0 z-50 mt-1 w-48 rounded-xl border border-border bg-elevated py-1 shadow-lg",
+              data: { dropdown_target: "menu" }
+            ) do
+              a(href: new_admin_post_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
+                render Icon.new(:file_text, size: :sm)
+                span { "New post" }
+              end
+              a(href: new_admin_page_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
+                render Icon.new(:file, size: :sm)
+                span { "New page" }
+              end
+              a(href: admin_media_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
+                render Icon.new(:upload, size: :sm)
+                span { "Upload media" }
+              end
+            end
+          end
           a(
             href: "/",
             class: "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

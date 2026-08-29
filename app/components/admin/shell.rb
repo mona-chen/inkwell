@@ -28,22 +28,25 @@ module Admin
           { label: "Posts", path: "/admin/posts", icon: "document-text" },
           { label: "Pages", path: "/admin/pages", icon: "document" },
           { label: "Media", path: "/admin/media", icon: "photo" },
-          { label: "Comments", path: "/admin/comments", icon: "chat-bubble-left" },
-          { label: "Categories", path: "/admin/taxonomies", icon: "bars-3" }
+          { label: "Comments", path: "/admin/comments", icon: "chat-bubble-left" }
         ]
       },
       {
-        label: "Design",
+        label: "Site",
         items: [
-          { label: "Themes", path: "/admin/themes", icon: "paint-brush" },
-          { label: "Menus", path: "/admin/menus", icon: "bars-3" },
-          { label: "Widgets", path: "/admin/widgets", icon: "layout" }
+          { label: "Appearance", path: "/admin/themes", icon: "paint-brush" },
+          { label: "Navigation", path: "/admin/menus", icon: "bars-3" }
         ]
       },
       {
-        label: "System",
+        label: "Extensions",
         items: [
-          { label: "Plugins", path: "/admin/plugins", icon: "puzzle-piece" },
+          { label: "Plugins", path: "/admin/plugins", icon: "puzzle-piece" }
+        ]
+      },
+      {
+        label: "Admin",
+        items: [
           { label: "Users", path: "/admin/users", icon: "users" },
           { label: "Settings", path: "/admin/settings", icon: "cog-6-tooth" }
         ]

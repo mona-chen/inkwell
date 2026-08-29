@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
 module Admin
-  # Editorial command center. Surfaces what needs attention (drafts, scheduled, pending
-  # moderation) plus the freshest content — the working view of a publishing platform,
-  # not a generic dashboard.
+  # Home screen — shows what needs attention, recent work, and site overview.
+  # Designed as a glanceable command center, not a feature showcase.
   class DashboardPage < ApplicationComponent
     def initialize(
       recent_posts:, published_posts:, total_pages:, pending_comments:,
@@ -29,29 +28,28 @@ module Admin
     end
 
     def view_template
-      div(class: "admin-dashboard space-y-6") do
+      div(class: "admin-dashboard") do
         render_header
-        render_editorial_stats
-        render_queue_band
-        render_scheduled_band
-        render_lower_grid
-        render_system_status
+        render_stats_strip
+        render_recent_content
+        render_moderation if @pending_comments.positive?
       end
     end
 
     private
 
+    # ── Header ──────────────────────────────────────────────────────────
     def render_header
-      today = Time.current.strftime("%A, %B %-d, %Y")
-      div(class: "flex flex-wrap items-end justify-between gap-4") do
-        div do
-          h1(class: "text-2xl font-semibold tracking-tight text-foreground") do
-            "Good #{greeting}, #{Current.user&.name&.split&.first || "there"}."
-          end
-          p(class: "mt-1 text-sm text-muted-foreground") { "#{today} · #{Current.site.name}" }
+      div(class: "mb-8") do
+        h1(class: "text-2xl font-semibold tracking-tight text-foreground") do
+          "Good #{greeting}, #{Current.user&.name&.split&.first || "there"}."
         end
-        div(class: "flex items-center gap-2") do
-          render Button.new("New post", href: new_admin_post_path, variant: :primary, icon: :plus)
+        div(class: "mt-1 flex items-center gap-2 text-sm text-muted-foreground") do
+          span { Current.site.name }
+          a(href: "/", class: "inline-flex items-center gap-0.5 hover:text-foreground transition-colors", target: "_blank") do
+            span { Current.site.host || "site" }
+            render Icon.new(:external_link, size: :xs)
+          end
         end
       end
     end
@@ -61,271 +59,136 @@ module Admin
       hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"
     end
 
-    def render_editorial_stats
-      render StatGrid.new(cols: "2 sm:2 lg:4", gap: 4) do |grid|
-        grid.stat(key: :published, label: "Published posts", value: @published_posts, detail: "live")
-        grid.stat(key: :drafts, label: "Drafts", value: @draft_posts, detail: "in progress")
-        grid.stat(key: :scheduled, label: "Scheduled", value: @scheduled_posts, detail: "queued")
-        grid.stat(key: :comments, label: "Pending comments", value: @pending_comments, detail: "need review")
+    # ── Stats strip ─────────────────────────────────────────────────────
+    def render_stats_strip
+      div(class: "mb-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm") do
+        stat_item(@published_posts, "Published")
+        stat_item(@draft_posts, "Drafts")
+        stat_item(@scheduled_posts, "Scheduled")
+        if @pending_comments.positive?
+          stat_item(@pending_comments, "needs review", highlight: true)
+        else
+          stat_item(0, "Comments")
+        end
       end
     end
 
-    def render_scheduled_band
-      return if @scheduled_queue.empty? && @draft_queue.empty?
-      render Grid.new(cols: "1 lg:2", gap: 6) do
-        render Card.new do |card|
-          card.title { "Up next (scheduled)" }
-          card.body do
-            if @scheduled_queue.empty?
-              div(class: "py-6 text-center text-sm text-muted-foreground") { "Nothing scheduled." }
-            else
-              ul(class: "divide-y divide-border") do
-                @scheduled_queue.each do |post|
-                  li(class: "flex items-center gap-3 py-2.5") do
-                    div(class: "min-w-0 flex-1") do
-                      a(href: edit_admin_post_path(post), class: "block truncate text-sm font-medium text-foreground hover:text-primary") { post.title }
-                      span(class: "text-xs text-muted-foreground") { post.scheduled_for&.strftime("%b %-d, %Y at %l:%M%P") }
-                    end
-                    render Badge.new("scheduled", color: :info, size: :xs)
-                  end
-                end
-              end
-            end
+    def stat_item(value, label, highlight: false)
+      div(class: "flex items-baseline gap-1.5") do
+        if value.zero?
+          span(class: "text-muted-foreground") { "—" }
+        else
+          span(class: "font-semibold text-foreground#{highlight ? " text-primary" : ""}") { value.to_s }
+        end
+        span(class: "text-muted-foreground") { label }
+      end
+    end
+
+    # ── Recent content ──────────────────────────────────────────────────
+    def render_recent_content
+      div(class: "mb-8") do
+        div(class: "mb-4 flex items-center justify-between") do
+          h2(class: "text-sm font-medium text-foreground") { "Recent content" }
+          a(href: admin_posts_path, class: "text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1") do
+            span { "View all" }
+            render Icon.new(:arrow_right, size: :xs)
           end
         end
 
-        render Card.new do |card|
-          card.title { "Drafts in progress" }
-          card.body do
-            if @draft_queue.empty?
-              div(class: "py-6 text-center text-sm text-muted-foreground") { "No drafts." }
-            else
-              ul(class: "divide-y divide-border") do
-                @draft_queue.each do |post|
-                  li(class: "flex items-center gap-3 py-2.5") do
-                    div(class: "min-w-0 flex-1") do
-                      a(href: edit_admin_post_path(post), class: "block truncate text-sm font-medium text-foreground hover:text-primary") { post.title }
-                      span(class: "text-xs text-muted-foreground") { "edited #{time_ago(post.updated_at)}" }
-                    end
-                    render Badge.new("draft", color: :neutral, size: :xs)
-                  end
-                end
-              end
-            end
+        if @recent_posts.empty?
+          div(class: "rounded-xl border border-border bg-background p-8 text-center") do
+            p(class: "text-sm text-muted-foreground") { "No content yet." }
+          end
+        else
+          div(class: "divide-y divide-border rounded-xl border border-border bg-background overflow-hidden") do
+            @recent_posts.each { |post| render_post_row(post) }
           end
         end
       end
     end
 
-    def render_queue_band
-      render Grid.new(cols: "1 lg:3", gap: 6) do
-        div(class: "lg:col-span-2") do
-          render_queue_card
-        end
-        div(class: "lg:col-span-1") do
-          render_pending_comments_card
-        end
-      end
-    end
-
-    def render_queue_card
-      render Card.new do |card|
-        card.title { "Your content" }
-        card.footer do
-          div(class: "flex items-center justify-between") do
-            span(class: "text-sm text-muted-foreground") { "#{@total_posts} total · #{@total_pages} pages" }
-            a(href: admin_posts_path, class: "text-sm font-medium text-primary hover:underline") { "View all posts" }
-          end
-        end
-        card.body do
-          if @recent_posts.empty?
-            render EmptyState.new(
-              title: "No posts yet",
-              description: "Write your first post and start publishing.",
-              level: 3,
-              variant: :borderless
-            )
-          else
-            ul(class: "divide-y divide-border") do
-              @recent_posts.each do |post|
-                li(class: "flex items-center gap-4 py-3") do
-                  div(class: "min-w-0 flex-1") do
-                    a(
-                      href: edit_admin_post_path(post),
-                      class: "block truncate text-sm font-medium text-foreground hover:text-primary"
-                    ) { post.title }
-                    div(class: "mt-0.5 flex items-center gap-2 text-xs text-muted-foreground") do
-                      span { "by #{post.author&.name}" }
-                      span(class: "text-muted-foreground/50") { "·" }
-                      span { time_ago(post.updated_at) }
-                      if post.categories.any?
-                        span(class: "text-muted-foreground/50") { "·" }
-                        span { post.categories.map(&:name).join(", ") }
-                      end
-                    end
-                  end
-                  render Badge.new(post.status, color: status_color(post.status), size: :sm)
-                end
-              end
-            end
-          end
-        end
-      end
-    end
-
-    def render_pending_comments_card
-      render Card.new do |card|
-        card.title { "Awaiting moderation" }
-        card.body do
-          if @recent_comments.empty?
-            div(class: "py-6 text-center text-sm text-muted-foreground") { "No comments to review." }
-          else
-            ul(class: "space-y-3") do
-              @recent_comments.each do |comment|
-                li do
-                  a(href: admin_comments_path, class: "block rounded-lg border border-border p-3 transition-colors hover:bg-muted/50") do
-                    div(class: "line-clamp-2 text-sm text-foreground") { comment.body }
-                    div(class: "mt-1 text-xs text-muted-foreground") { comment.author_name }
-                  end
-                end
-              end
-            end
-          end
-        end
-        card.footer do
-          a(href: admin_comments_path, class: "text-sm font-medium text-primary hover:underline") { "Review comments" }
-        end
-      end
-    end
-
-    def render_lower_grid
-      render Grid.new(cols: "1 lg:3", gap: 6) do
-        div(class: "lg:col-span-2") do
-          render_quick_actions
-        end
-        div(class: "lg:col-span-1 space-y-6") do
-          render_media_snapshot
-          render_plugins_snapshot
-        end
-      end
-    end
-
-    def render_quick_actions
-      render Card.new do |card|
-        card.title { "Quick actions" }
-        card.body do
-          Grid(cols: "1 sm:2 lg:4", gap: 3) do
-            quick_action("New post", new_admin_post_path, icon: :file_plus, primary: true)
-            quick_action("New page", new_admin_page_path, icon: :file_text)
-            quick_action("Upload media", admin_media_path, icon: :upload)
-            quick_action("Site settings", admin_settings_path, icon: :settings)
-          end
-        end
-      end
-    end
-
-    def quick_action(label, path, icon:, primary: false)
-      classes = if primary
-                  "bg-primary text-primary-foreground hover:bg-primary/90"
-                else
-                  "bg-muted/50 text-foreground hover:bg-muted"
-                end
+    def render_post_row(post)
       a(
-        href: path,
-        class: "group flex flex-col items-center gap-2 rounded-lg border border-border px-3 py-5 text-sm font-medium transition-all hover:shadow-sm #{classes}"
+        href: edit_admin_post_path(post),
+        class: "group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/30"
       ) do
-        span(class: "flex h-10 w-10 items-center justify-center rounded-full bg-background/60 text-foreground/80 transition-transform group-hover:scale-110") do
-          render Icon.new(icon, size: :md)
-        end
-        span { label }
-      end
-    end
-
-    def render_media_snapshot
-      render Card.new do |card|
-        card.title { "Media library" }
-        card.body do
-          div(class: "flex items-center gap-4") do
-            span(class: "flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground") do
-              render Icon.new(:image, size: :md)
-            end
-            div do
-              div(class: "text-2xl font-bold text-foreground") { @media_count }
-              div(class: "text-sm text-muted-foreground") { "files uploaded" }
-            end
+        div(class: "min-w-0 flex-1") do
+          div(class: "truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors") do
+            post.title
+          end
+          div(class: "mt-0.5 flex items-center gap-2 text-xs text-muted-foreground") do
+            span { post.author&.name || "—" }
+            span(class: "text-muted-foreground/40") { "·" }
+            span { relative_time(post.updated_at) }
           end
         end
-        card.footer do
-          a(href: admin_media_path, class: "text-sm font-medium text-primary hover:underline") { "Manage media" }
+        render status_badge(post.status)
+        div(class: "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100") do
+          render Button.new("Edit", href: edit_admin_post_path(post), variant: :ghost, size: :xs)
+          render Button.new("View", href: post_path(post), variant: :ghost, size: :xs, target: "_blank")
         end
       end
     end
 
-    def render_plugins_snapshot
-      render Card.new do |card|
-        card.title { "Plugins" }
-        card.body do
-          div(class: "flex items-center gap-4") do
-            span(class: "flex h-11 w-11 items-center justify-center rounded-xl bg-muted text-muted-foreground") do
-              render Icon.new(:puzzle, size: :md)
-            end
-            div do
-              div(class: "text-2xl font-bold text-foreground") { @active_plugins }
-              div(class: "text-sm text-muted-foreground") { "active plugins" }
-            end
+    def status_badge(status)
+      color = case status
+      when "published" then "bg-success/15 text-success"
+      when "scheduled" then "bg-info/15 text-info"
+      else "bg-muted text-muted-foreground"
+      end
+      Badge.new(status, color: color, size: :xs)
+    end
+
+    # ── Inline moderation ───────────────────────────────────────────────
+    def render_moderation
+      div(class: "rounded-xl border border-border bg-background") do
+        div(class: "flex items-center justify-between px-5 py-3.5") do
+          h2(class: "text-sm font-medium text-foreground") do
+            "Needs your attention"
+          end
+          span(class: "text-xs text-muted-foreground") { "#{@pending_comments} comment#{@pending_comments == 1 ? '' : 's'}" }
+        end
+        if @recent_comments.any?
+          div(class: "divide-y divide-border") do
+            @recent_comments.first(3).each { |comment| render_comment_row(comment) }
           end
         end
-        card.footer do
-          a(href: admin_plugins_path, class: "text-sm font-medium text-primary hover:underline") { "Manage plugins" }
-        end
-      end
-    end
-
-    def render_system_status
-      render Card.new do |card|
-        card.title { "System" }
-        card.body do
-          Grid(cols: "2 sm:3 lg:5", gap: 4) do
-            stat("Theme", Current.site.active_theme.titleize, icon: :palette)
-            stat("Users", @total_users.to_s, icon: :users)
-            stat("Storage", storage_label, icon: :database)
-            stat("Ruby", RUBY_VERSION, icon: :code)
-            stat("Rails", Rails.version, icon: :zap)
+        div(class: "px-5 py-3 border-t border-border") do
+          a(href: admin_comments_path, class: "text-sm text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1") do
+            span { "Review all" }
+            render Icon.new(:arrow_right, size: :xs)
           end
         end
       end
     end
 
-    def stat(label, value, icon:)
-      div(class: "flex flex-col gap-1 rounded-lg border border-border bg-muted/30 p-3") do
-        div(class: "flex items-center gap-1.5 text-muted-foreground") do
-          render Icon.new(icon, size: :sm)
-          span(class: "text-xs") { label }
+    def render_comment_row(comment)
+      div(class: "px-5 py-4") do
+        div(class: "mb-2 text-sm text-foreground leading-relaxed") do
+          comment.body.to_s.truncate(120)
         end
-        span(class: "text-sm font-semibold text-foreground") { value }
+        div(class: "flex items-center justify-between") do
+          div(class: "text-xs text-muted-foreground") do
+            span { comment.author_name || "Anonymous" }
+            span(class: "text-muted-foreground/40") { " · " }
+            span { relative_time(comment.created_at) }
+          end
+          div(class: "flex items-center gap-1") do
+            render Button.new("Approve", variant: :ghost, size: :xs, icon: :check)
+            render Button.new("Reply", variant: :ghost, size: :xs, icon: :reply)
+          end
+        end
       end
     end
 
-    def storage_label
-      return "0" if @storage_bytes.to_i.zero?
-      ActiveSupport::NumberHelper.number_to_human_size(@storage_bytes)
-    end
-
-    def time_ago(t)
+    # ── Helpers ─────────────────────────────────────────────────────────
+    def relative_time(t)
       distance = Time.current - t
       case distance
       when 0...60 then "just now"
       when 60...3600 then "#{(distance / 60).to_i}m ago"
       when 3600...86_400 then "#{(distance / 3600).to_i}h ago"
       else t.strftime("%b %-d")
-      end
-    end
-
-    def status_color(status)
-      case status
-      when "published" then :success
-      when "scheduled" then :info
-      else :neutral
       end
     end
   end

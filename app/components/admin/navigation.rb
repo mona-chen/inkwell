@@ -20,7 +20,7 @@ module Admin
           end
         end
         nav.body do
-          nav.item("Dashboard", href: "/admin", icon: :layout_dashboard, current: current?("/admin"))
+          nav.item("Home", href: "/admin", icon: :home, current: current?("/admin"))
           @groups.each do |(label, items)|
             nav.section(label: label) do
               items.each { |item| nav_item(nav, item) }
