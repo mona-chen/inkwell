@@ -6,7 +6,7 @@
 <% frame_id = "media-picker-frame-#{SecureRandom.hex(4)}" %>
 <div data-block-editor-target="block" data-type="image"
      data-controller="image-block"
-     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+     class="group relative py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
   <%= render "admin/posts/blocks/toolbar" %>
   <input type="hidden" data-field="url" data-image-block-target="url"
          data-action="input->block-editor#serialize"
@@ -30,7 +30,7 @@
       </div>
       <div class="mt-4 mx-auto max-w-xs">
         <input type="text" data-action="change->image-block#applyUrl"
-               placeholder="…or paste an image URL" class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:border-gray-400 focus:outline-none">
+               placeholder="…or paste an image URL" class="w-full rounded-md border border-gray-300 px-2 py-1.5 text-xs focus:outline-none">
       </div>
     </div>
     <input type="file" accept="image/*" class="hidden" data-image-block-target="file"
@@ -54,11 +54,11 @@
       <input type="text" data-field="alt" data-image-block-target="alt"
              data-action="input->block-editor#serialize" placeholder="Alt text (for screen readers)"
              value="<%= html_escape(local_assigns[:data]&.dig("alt")) %>"
-             class="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none">
+             class="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:outline-none">
       <input type="text" data-field="caption" data-image-block-target="caption"
              data-action="input->block-editor#serialize" placeholder="Caption (optional)"
              value="<%= html_escape(local_assigns[:data]&.dig("caption")) %>"
-             class="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:border-gray-400 focus:outline-none">
+             class="w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm focus:outline-none">
     </div>
   </div>
 

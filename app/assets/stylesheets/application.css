@@ -196,26 +196,42 @@
 #admin-shell .hover\:border-gray-300:hover {
   border-color: var(--nk-color-border);
 }
-/* Block editor specific */
+/* Block editor: writing surface (no borders, no backgrounds — content-first) */
 #admin-shell [data-block-editor-target="block"] {
-  background-color: var(--nk-color-surface);
-  border-color: var(--nk-color-border);
+  position: relative;
+  border: 1px solid transparent;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 #admin-shell [data-block-editor-target="block"]:hover {
-  border-color: var(--nk-color-muted-foreground);
+  background-color: oklch(from var(--nk-color-surface) l c h / 0.4);
+  border-color: oklch(from var(--nk-color-border) l c h / 0.4);
 }
-#admin-shell .heading-preview,
+#admin-shell [data-block-editor-target="block"]:focus-within {
+  background-color: oklch(from var(--nk-color-surface) l c h / 0.6);
+  border-color: oklch(from var(--nk-color-border) l c h / 0.6);
+}
+/* Left-edge indicator on focused block */
+#admin-shell [data-block-editor-target="block"]:focus-within::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--nk-color-primary);
+}
+/* Heading text — inherit document styling */
+#admin-shell .heading-preview {
+  color: var(--nk-color-foreground);
+  font-size: 1.5em;
+  line-height: 1.3;
+}
 #admin-shell textarea {
   color: var(--nk-color-foreground);
 }
-#admin-shell .choice-btn {
-  background-color: var(--nk-color-muted);
+/* Code block */
+#admin-shell .code-editor {
   color: var(--nk-color-foreground);
-}
-#admin-shell .choice-btn:hover {
-  background-color: var(--nk-color-surface-hover);
-}
-#admin-shell .choice-btn.is-active {
-  background-color: var(--nk-color-primary);
-  color: var(--nk-color-primary-foreground);
+  background-color: oklch(from var(--nk-color-muted) l c h / 0.5);
 }

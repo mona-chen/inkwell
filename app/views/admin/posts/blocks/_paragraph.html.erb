@@ -2,11 +2,11 @@
     field carries data-field="<key>" so the Stimulus controller's serialize() can read it back
     into the JSON blob on any change. %>
 <div data-block-editor-target="block" data-type="paragraph"
-     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+     class="group relative py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
   <%= render "admin/posts/blocks/toolbar" %>
   <textarea data-field="text"
             data-action="input->block-editor#onInput keydown->block-editor#onKeydown"
-            rows="3"
-            placeholder="Start writing… (press / for blocks, Enter for a new paragraph)"
-            class="w-full border-0 focus:ring-0 resize-none text-base leading-relaxed p-0"><%= local_assigns[:data]&.dig("text") %></textarea>
+            rows="1"
+            placeholder="Type / to add a block"
+            class="w-full border-0 focus:ring-0 resize-none text-base leading-relaxed p-0 bg-transparent text-foreground placeholder:text-muted-foreground"><%= local_assigns[:data]&.dig("text") %></textarea>
 </div>

@@ -159,6 +159,7 @@ export default class extends Controller {
     this.pushHistory()
     this.serialize(false)
     this.updateHistoryButtons()
+    requestAnimationFrame(() => this.updateWordCount())
     this.bindPickerOutsideClose()
     this.bindMarkdownPaste()
   }

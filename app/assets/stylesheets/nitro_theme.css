@@ -24,11 +24,11 @@
   --nk-color-border: oklch(0.922 0.004 286);
   --nk-color-border-subtle: oklch(0.955 0.002 286);
 
-  /* --- Colors: Accent (Perplexity-inspired warm red/coral) --- */
-  --nk-color-primary: oklch(0.637 0.22 25);
-  --nk-color-primary-hover: oklch(0.59 0.22 25);
+  /* --- Colors: Accent (vibrant purple, inkwell brand) --- */
+  --nk-color-primary: oklch(0.546 0.245 286);
+  --nk-color-primary-hover: oklch(0.505 0.245 286);
   --nk-color-primary-foreground: oklch(0.99 0 0);
-  --nk-color-focus: oklch(0.637 0.22 25);
+  --nk-color-focus: oklch(0.546 0.245 286);
 
   /* --- Colors: Semantic --- */
   --nk-color-success: oklch(0.648 0.15 160);
@@ -99,10 +99,10 @@
   --nk-color-border: oklch(0.265 0.006 286);
   --nk-color-border-subtle: oklch(0.22 0.005 286);
 
-  --nk-color-primary: oklch(0.7 0.2 25);
-  --nk-color-primary-hover: oklch(0.75 0.2 25);
+  --nk-color-primary: oklch(0.65 0.22 286);
+  --nk-color-primary-hover: oklch(0.7 0.22 286);
   --nk-color-primary-foreground: oklch(0.13 0.005 286);
-  --nk-color-focus: oklch(0.7 0.2 25);
+  --nk-color-focus: oklch(0.65 0.22 286);
 
   --nk-color-success: oklch(0.72 0.17 160);
   --nk-color-success-content: oklch(0.15 0.02 160);
@@ -180,8 +180,8 @@
   color: var(--nk-color-primary);
 }
 
-/* Purple accent: focus rings */
-#admin-shell :focus-visible {
+/* Purple accent: focus rings — exclude block editor inputs (they have their own focus states) */
+#admin-shell :focus-visible:not(textarea):not(input):not(select):not([contenteditable]) {
   outline: 2px solid var(--nk-color-focus);
   outline-offset: 2px;
   border-radius: var(--nk-radius-sm);

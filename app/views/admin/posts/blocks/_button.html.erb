@@ -1,6 +1,6 @@
 <% style = local_assigns[:data]&.dig("style").present? ? local_assigns[:data]["style"] : "primary" %>
 <div data-block-editor-target="block" data-type="button"
-     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+     class="group relative py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
   <%= render "admin/posts/blocks/toolbar" %>
   <div data-controller="choice-field" class="flex items-center gap-3">
     <input type="hidden" data-field="style" data-choice-field-target="input" value="<%= style %>">
@@ -17,9 +17,9 @@
     <input data-field="label" data-choice-field-target="preview"
            data-action="input->block-editor#onInput keydown->block-editor#onKeydown" type="text"
            value="<%= local_assigns[:data]&.dig("label") %>" placeholder="Button label"
-           class="button-preview flex-1 border-0 focus:ring-0 text-sm font-medium p-0">
+           class="button-preview flex-1 border-0 focus:ring-0 text-sm font-medium p-0 bg-transparent text-foreground placeholder:text-muted-foreground">
     <input data-field="url" data-action="input->block-editor#serialize" type="text"
            value="<%= local_assigns[:data]&.dig("url") %>" placeholder="https://…"
-           class="flex-1 border-0 focus:ring-0 text-sm text-gray-500 p-0">
+           class="flex-1 border-0 focus:ring-0 text-sm p-0 bg-transparent text-foreground placeholder:text-muted-foreground">
   </div>
 </div>

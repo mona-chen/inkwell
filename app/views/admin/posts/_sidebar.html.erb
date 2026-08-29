@@ -45,7 +45,7 @@
       <% Term.categories.each do |category| %>
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" name="post[category_ids][]" value="<%= category.id %>"
-                 <%= "checked" if post.categories.include?(category) %> class="rounded">
+                 <%= "checked" if post.categories.include?(category) %> class="accent-current">
           <%= category.name %>
         </label>
       <% end %>
@@ -58,14 +58,14 @@
       <% Term.tags.each do |tag| %>
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" name="post[tag_ids][]" value="<%= tag.id %>"
-                 <%= "checked" if post.tags.include?(tag) %> class="rounded">
+                 <%= "checked" if post.tags.include?(tag) %> class="accent-current">
           <%= tag.name %>
         </label>
       <% end %>
     </div>
   </div>
 
-  <%= f.submit "Save draft", name: "save_draft",
+  <%= f.submit post.status == "published" ? "Update" : "Save draft", name: "save_draft",
       class: "w-full bg-white border border-gray-200 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50 active:scale-[0.98] transition-colors cursor-pointer" %>
 
   <% unless post.new_record? %>

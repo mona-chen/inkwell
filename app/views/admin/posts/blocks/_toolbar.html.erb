@@ -1,25 +1,12 @@
-<%# Shared per-block floating toolbar: drag handle + reorder + insert + duplicate + delete.
-    Revealed on hover over its block (see .block-toolbar rules in application.css). %>
-<div class="block-toolbar absolute -left-8 top-4 z-50 flex flex-col rounded-lg border border-gray-200 bg-white shadow-sm py-1">
+<%# Per-block toolbar: drag handle + context menu. Hidden by default, revealed on hover/focus. %>
+<div class="block-toolbar absolute -left-8 top-1/2 -translate-y-1/2 z-50 flex flex-col rounded-lg border border-border bg-background shadow-sm py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
   <button type="button" data-block-editor-target="dragHandle"
-          class="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-gray-100 hover:text-gray-900 cursor-grab"
+          class="flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground hover:bg-muted cursor-grab rounded"
           title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
-  <button type="button" data-action="block-editor#insertAbove"
-          class="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-          title="Insert above" aria-label="Insert block above">↥</button>
-  <button type="button" data-action="block-editor#moveUp"
-          class="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-          title="Move up" aria-label="Move block up">↑</button>
-  <button type="button" data-action="block-editor#moveDown"
-          class="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-          title="Move down" aria-label="Move block down">↓</button>
-  <button type="button" data-action="block-editor#insertBelow"
-          class="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-          title="Insert below" aria-label="Insert block below">↧</button>
   <button type="button" data-action="block-editor#duplicateBlock"
-          class="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+          class="flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded opacity-0 group-hover:opacity-100 transition-opacity"
           title="Duplicate" aria-label="Duplicate block">⧉</button>
   <button type="button" data-action="block-editor#removeBlock"
-          class="flex items-center justify-center w-8 h-8 text-gray-500 hover:bg-red-50 hover:text-red-600"
+          class="flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
           title="Delete block" aria-label="Delete block">✕</button>
 </div>

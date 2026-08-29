@@ -1,5 +1,5 @@
 <div data-block-editor-target="block" data-type="list"
-     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+     class="group relative py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
   <%= render "admin/posts/blocks/toolbar" %>
   <div data-controller="choice-field" class="flex items-center gap-3 mb-2">
     <input type="checkbox" data-field="ordered" data-choice-field-target="input" class="hidden"
@@ -15,5 +15,5 @@
   </div>
   <textarea data-field="items" data-action="input->block-editor#onInput keydown->block-editor#onKeydown"
             rows="3" placeholder="One item per line&#10;Like this&#10;And this" 
-            class="w-full border-0 focus:ring-0 resize-none text-base leading-relaxed p-0"><%= local_assigns[:data]&.dig("items") %></textarea>
+            class="w-full border-0 focus:ring-0 resize-none text-base leading-relaxed p-0 bg-transparent text-foreground placeholder:text-muted-foreground"><%= local_assigns[:data]&.dig("items") %></textarea>
 </div>

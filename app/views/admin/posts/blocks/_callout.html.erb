@@ -1,6 +1,6 @@
 <% tone = local_assigns[:data]&.dig("tone").presence || "info" %>
 <div data-block-editor-target="block" data-type="callout"
-     class="group relative border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
+     class="group relative py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
   <%= render "admin/posts/blocks/toolbar" %>
   <div data-controller="choice-field">
     <input type="hidden" data-field="tone" data-choice-field-target="input" value="<%= tone %>">
@@ -14,7 +14,7 @@
     </div>
     <div data-choice-field-target="preview" class="callout-preview mt-2 rounded-r-lg border-l-4 p-3 text-sm leading-relaxed">
       <textarea data-field="text" data-action="input->block-editor#onInput keydown->block-editor#onKeydown" rows="2"
-                placeholder="Callout text" class="w-full border-0 focus:ring-0 resize-none text-sm leading-relaxed p-0 bg-transparent"><%= local_assigns[:data]&.dig("text") %></textarea>
+                placeholder="Callout text" class="w-full border-0 focus:ring-0 resize-none text-sm leading-relaxed p-0 bg-transparent text-foreground placeholder:text-muted-foreground"><%= local_assigns[:data]&.dig("text") %></textarea>
     </div>
   </div>
 </div>
