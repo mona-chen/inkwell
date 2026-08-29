@@ -4,7 +4,7 @@ module Admin
 
     def index
       @media_items = Current.site.media_items.includes(file_attachment: :blob)
-      @media_items = @media_items.select { |item| item.type == params[:type] } if params[:type].present? && %w[image document].include?(params[:type])
+      @media_items = @media_items.select { |item| item.kind == params[:type] } if params[:type].present? && %w[image document].include?(params[:type])
       @media_items = @media_items.where("active_storage_blobs.filename ILIKE ?", "%#{params[:q]}%") if params[:q].present?
       @media_items = @media_items.order(created_at: :desc).page(params[:page])
 
