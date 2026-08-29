@@ -5,8 +5,11 @@ module Admin
     def index
       @media_items = Current.site.media_items.includes(file_attachment: :blob)
       @media_items = @media_items.where("active_storage_blobs.filename ILIKE ?", "%#{params[:q]}%") if params[:q].present?
+      if params[:type].present? && %w[image document].include?(params[:type])
+        content_filter = params[:type] == "image" ? "active_storage_blobs.content_type LIKE 'image/%'" : "active_storage_blobs.content_type NOT LIKE 'image/%'"
+        @media_items = @media_items.where(content_filter)
+      end
       @media_items = @media_items.order(created_at: :desc).page(params[:page])
-      @media_items = @media_items.select { |item| item.kind == params[:type] } if params[:type].present? && %w[image document].include?(params[:type])
 
       if params[:picker].present?
         # Turbo Frame navigation sends the requesting frame id in the Turbo-Frame header;
