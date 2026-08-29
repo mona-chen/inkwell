@@ -12,7 +12,11 @@ module Admin
       render NitroKit::AppNavigation.new(label: "Admin navigation") do |nav|
         nav.header do
           div(class: "admin-brand flex items-center gap-2 px-4 py-3") do
-            strong(class: "text-lg font-bold tracking-tight") { "Inkwell" }
+            span(class: "admin-brand-mark") { "I" }
+            span(class: "min-w-0") do
+              strong(class: "block text-sm font-semibold tracking-tight") { "Inkwell" }
+              span(class: "block text-[10px] font-medium uppercase tracking-[0.14em] opacity-50") { "Studio" }
+            end
           end
         end
         nav.body do
