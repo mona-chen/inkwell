@@ -27,7 +27,7 @@ module Admin
         end
         body do
           render_flash
-          render NitroKit::AppShell.new(id: "admin-shell", layout: :sidebar) do |shell|
+          render NitroKit::AppShell.new(id: "admin-shell", layout: :hybrid) do |shell|
             shell.navigation do
               render Navigation.new(
                 groups: nav_groups,
