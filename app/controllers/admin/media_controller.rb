@@ -3,7 +3,7 @@ module Admin
     before_action :set_media_item, only: %i[update destroy]
 
     def index
-      @media_items = Current.site.media_items.includes(file_attachment: :blob)
+      @media_items = Current.site.media_items.joins(:file_attachment => :blob)
       @media_items = @media_items.where("active_storage_blobs.filename ILIKE ?", "%#{params[:q]}%") if params[:q].present?
       if params[:type].present? && %w[image document].include?(params[:type])
         content_filter = params[:type] == "image" ? "active_storage_blobs.content_type LIKE 'image/%'" : "active_storage_blobs.content_type NOT LIKE 'image/%'"
