@@ -7,6 +7,7 @@ module Newsletter
     def create
       subscriber = Newsletter::Subscriber.new(email: params[:email], site: Current.site)
       if subscriber.save
+        Inkwell::Hooks.fire(:newsletter_subscribed, subscriber)
         redirect_back fallback_location: main_app.root_path, notice: "Subscribed!"
       else
         redirect_back fallback_location: main_app.root_path, alert: subscriber.errors.full_messages.to_sentence

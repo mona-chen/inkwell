@@ -4,13 +4,12 @@ import ViewportManager from './ViewportManager.js';
 import NavigatorManager from './NavigatorManager.js';
 import FinderManager from './FinderManager.js';
 import { createCopilotTools } from './CopilotTools.js';
-import ImportedSiteEditor from './ImportedSiteEditor.js';
 import { installLucideIcons } from './editorIcons.js';
 import inkCanvasCss from '../styles/canvas.scss?asString';
 import inkMagicCss from '../styles/canvas-magic.scss?asString';
 
 const CANVAS_BASE_CSS = `
-:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#54595f;background:#fff}
+:root{--ink-color-primary:#6750ff;--ink-color-secondary:#64748b;--ink-color-text:#1f2328;--ink-color-accent:#8b5cf6;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink-color-text);background:#fff}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%}body{min-height:100vh}.ink-canvas-root{min-height:100vh}
 img,svg,video,canvas{display:block;max-width:100%}button,input,select,textarea{font:inherit}a{color:inherit}
 .ink-element{position:relative;min-width:0}.ink-editor-overlay,.ink-editor-empty,.ink-editor-root-empty,.ink-editor-context-menu,.ink-editor-drop-line{display:none}
@@ -22,13 +21,13 @@ body.ink-builder-design .ink-canvas-root:has(> .ink-element){padding-top:28px}
 body.ink-builder-design .ink-element:hover>.ink-editor-overlay{box-shadow:0 0 0 1px #a4afb7}
 body.ink-builder-design .ink-element[data-ink-kind="column"]:hover>.ink-editor-overlay{box-shadow:none}
 body.ink-builder-design .ink-element[data-ink-kind="column"]:hover>.ink-editor-overlay::after{content:"";position:absolute;inset:1px;outline:1px dashed #6d7882}
-body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay{box-shadow:0 0 0 2px var(--ink-editor-accent,#93003c)}
+body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay{box-shadow:0 0 0 2px var(--ink-editor-accent,#7467f0)}
 body.ink-builder-design .ink-element[data-ink-kind="column"].ink-is-selected>.ink-editor-overlay::after{display:none}
 body.ink-builder-design .ink-editor-toolbar{position:absolute;top:0;right:0;display:flex;height:24px;overflow:hidden;background:#54595f;color:#fff;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.12);opacity:0;transition:opacity .12s}
 body.ink-builder-design .ink-element:hover>.ink-editor-overlay>.ink-editor-toolbar,body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-editor-toolbar{opacity:1;pointer-events:auto}
-body.ink-builder-design .ink-element[data-ink-kind="widget"].ink-is-selected>.ink-editor-overlay>.ink-editor-toolbar{background:var(--ink-editor-accent,#93003c)}
+body.ink-builder-design .ink-element[data-ink-kind="widget"].ink-is-selected>.ink-editor-overlay>.ink-editor-toolbar{background:var(--ink-editor-accent,#7467f0)}
 body.ink-builder-design .ink-element[data-ink-kind="widget"]>.ink-editor-overlay>.ink-editor-toolbar{border-radius:0 0 0 3px}
-body.ink-builder-design .ink-element[data-ink-kind="section"]>.ink-editor-overlay>.ink-editor-toolbar{top:auto;right:auto;bottom:0;left:0;flex-direction:row-reverse;border-radius:0 3px 0 0;background:#93003c}
+body.ink-builder-design .ink-element[data-ink-kind="section"]>.ink-editor-overlay>.ink-editor-toolbar{top:auto;right:auto;bottom:0;left:0;flex-direction:row-reverse;border-radius:0 5px 0 0;background:var(--ink-editor-accent,#7467f0)}
 body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-editor-toolbar{top:auto;right:auto;bottom:0;left:0;flex-direction:row-reverse;border-radius:0 3px 0 0;background:#7a7a7a}
 body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-overlay{box-shadow:0 0 0 1px #e6a1ef}
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay{box-shadow:0 0 0 2px #e6a1ef}
@@ -42,9 +41,9 @@ body.ink-builder-design .ink-editor-toolbar .ink-canvas-action-icon{display:bloc
 /* Imported/native nodes keep their authored DOM pristine. Their editor chrome is portalled to
    the iframe body, so selection and actions behave like ordinary elements without becoming
    extra children that break captured :first-child/direct-child selectors. */
-body.ink-builder-design .ink-imported-floating-chrome{position:fixed;z-index:9992;display:block;border:2px solid var(--ink-editor-accent,#93003c);pointer-events:none}
+body.ink-builder-design .ink-imported-floating-chrome{position:fixed;z-index:9992;display:block;border:2px solid var(--ink-editor-accent,#7467f0);pointer-events:none}
 body.ink-builder-design .ink-imported-floating-chrome.is-container{border-color:#e6a1ef}
-body.ink-builder-design .ink-imported-floating-chrome>.ink-editor-toolbar{top:-24px;right:0;opacity:1;pointer-events:auto;background:var(--ink-editor-accent,#93003c)}
+body.ink-builder-design .ink-imported-floating-chrome>.ink-editor-toolbar{top:-24px;right:0;opacity:1;pointer-events:auto;background:var(--ink-editor-accent,#7467f0)}
 body.ink-builder-design .ink-imported-floating-chrome.is-container>.ink-editor-toolbar{left:50%;right:auto;padding-inline:8px;transform:translateX(-50%);background:#e6a1ef;color:#17191c;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 100%,0 100%)}
 
 /* Empty canvas/container insertion surface — Elementor's full-width dashed area */
@@ -53,7 +52,7 @@ body.ink-builder-design .ink-editor-root-empty{width:100%;max-width:1160px;min-h
 body.ink-builder-design .ink-editor-empty{width:100%;min-height:100px;margin:2px;padding:20px 12px;border-radius:4px}
 body.ink-builder-design .ink-empty-actions{display:flex;gap:10px;align-items:center;justify-content:center}
 body.ink-builder-design .ink-empty-action{display:flex;width:40px;height:40px;align-items:center;justify-content:center;border:0;border-radius:50%;background:#54595f;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:background .15s,transform .1s}
-body.ink-builder-design .ink-empty-action:hover{background:var(--ink-editor-accent,#93003c);transform:scale(1.06)}
+body.ink-builder-design .ink-empty-action:hover{background:var(--ink-editor-accent,#7467f0);transform:scale(1.06)}
 body.ink-builder-design .ink-empty-action .material-symbols-rounded{font-size:22px}
 body.ink-builder-design .ink-empty-caption{font-size:13px;font-style:italic}
 
@@ -66,11 +65,11 @@ body.ink-builder-design .ink-empty-back:hover{background:rgba(0,0,0,.06);color:#
 body.ink-builder-design .ink-empty-back .material-symbols-rounded{font-size:18px}
 body.ink-builder-design .ink-empty-presets-title{font-size:13px;font-weight:500;color:#495157}
 body.ink-builder-design .ink-empty-preset-list{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center}
-body.ink-builder-design .ink-empty-preset{display:flex;flex-direction:column;gap:6px;align-items:center;padding:8px 6px;border:0;background:transparent;color:#495157;font:11px Roboto,Arial,sans-serif;cursor:pointer}
-body.ink-builder-design .ink-empty-preset:hover{color:var(--ink-editor-accent,#93003c)}
+body.ink-builder-design .ink-empty-preset{display:flex;flex-direction:column;gap:6px;align-items:center;padding:8px 6px;border:0;background:transparent;color:#495157;font:11px/16px Inter,ui-sans-serif,system-ui,sans-serif;cursor:pointer}
+body.ink-builder-design .ink-empty-preset:hover{color:var(--ink-editor-accent,#7467f0)}
 body.ink-builder-design .ink-empty-preset-bars{display:flex;width:88px;height:40px;gap:3px;align-items:stretch}
 body.ink-builder-design .ink-empty-preset-bars i{display:block;border:1px solid #a4afb7;border-radius:2px;background:#fff;transition:background .15s,border-color .15s}
-body.ink-builder-design .ink-empty-preset:hover .ink-empty-preset-bars i{border-color:var(--ink-editor-accent,#93003c);background:color-mix(in srgb,var(--ink-editor-accent,#93003c) 12%,#fff)}
+body.ink-builder-design .ink-empty-preset:hover .ink-empty-preset-bars i{border-color:var(--ink-editor-accent,#7467f0);background:color-mix(in srgb,var(--ink-editor-accent,#7467f0) 12%,#fff)}
 
 /* Column resize handles + percentage feedback */
 body.ink-builder-design .ink-el-column-resize{position:absolute;z-index:2;top:0;bottom:0;width:9px;cursor:col-resize;pointer-events:auto}
@@ -78,34 +77,94 @@ body.ink-builder-design .ink-el-column-resize.is-e{right:-5px}
 body.ink-builder-design .ink-el-column-resize.is-w{left:-5px}
 body.ink-builder-design .ink-el-column-resize::after{content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;background:transparent;transition:background .15s}
 body.ink-builder-design .ink-element:hover>.ink-editor-overlay .ink-el-column-resize::after,body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay .ink-el-column-resize::after{background:rgba(255,255,255,.7)}
-body.ink-builder-design .ink-el-column-percent{position:fixed;z-index:9999;padding:4px 8px;border-radius:3px;background:#26292c;color:#fff;font:11px Roboto,Arial,sans-serif;pointer-events:none;opacity:0;transition:opacity .12s;transform:translate(-50%,-100%)}
+body.ink-builder-design .ink-el-column-percent{position:fixed;z-index:9999;padding:4px 8px;border-radius:5px;background:#2c2c2c;color:#fff;font:11px/16px Inter,ui-sans-serif,system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .12s;transform:translate(-50%,-100%)}
 
 /* Drag & drop indicators */
-body.ink-builder-design .ink-element[data-ink-drop-position="inside"]{box-shadow:0 0 0 2px var(--ink-editor-accent,#93003c)}
-body.ink-builder-design .ink-imported-element[data-ink-drop-position="inside"]{outline:2px solid var(--ink-editor-accent,#93003c);outline-offset:-2px}
+body.ink-builder-design .ink-element[data-ink-drop-position="inside"]{box-shadow:0 0 0 2px var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design .ink-imported-element[data-ink-drop-position="inside"]{outline:2px solid var(--ink-editor-accent,#7467f0);outline-offset:-2px}
 body.ink-builder-design .ink-element[data-ink-drop-position="inside"].ink-el-columns>*,body.ink-builder-design .ink-el-columns[data-ink-drop-position="inside"]{box-shadow:none}
-body.ink-builder-design [data-ink-drop-position="before"]{box-shadow:inset 0 4px 0 0 var(--ink-editor-accent,#93003c)}
-body.ink-builder-design [data-ink-drop-position="before"][data-ink-drop-axis="row"]{box-shadow:inset 4px 0 0 0 var(--ink-editor-accent,#93003c)}
-body.ink-builder-design [data-ink-drop-position="after"]{box-shadow:inset 0 -4px 0 0 var(--ink-editor-accent,#93003c)}
-body.ink-builder-design [data-ink-drop-position="after"][data-ink-drop-axis="row"]{box-shadow:inset -4px 0 0 0 var(--ink-editor-accent,#93003c)}
-body.ink-builder-design .ink-editor-drop-line{position:absolute;z-index:9995;display:block;background:var(--ink-editor-accent,#93003c);pointer-events:none;border-radius:2px}
+body.ink-builder-design [data-ink-drop-position="before"]{box-shadow:inset 0 4px 0 0 var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design [data-ink-drop-position="before"][data-ink-drop-axis="row"]{box-shadow:inset 4px 0 0 0 var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design [data-ink-drop-position="after"]{box-shadow:inset 0 -4px 0 0 var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design [data-ink-drop-position="after"][data-ink-drop-axis="row"]{box-shadow:inset -4px 0 0 0 var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design .ink-editor-drop-line{position:absolute;z-index:9995;display:block;background:var(--ink-editor-accent,#7467f0);pointer-events:none;border-radius:2px}
 body.ink-builder-design .ink-editor-drop-line.is-before{top:0;left:0;right:0;height:4px}
 body.ink-builder-design .ink-editor-drop-line.is-after{bottom:0;left:0;right:0;height:4px}
 
-body.ink-builder-design .ink-editor-context-menu{position:fixed;z-index:10000;display:flex;width:180px;flex-direction:column;padding:5px 0;border:1px solid #d5dadf;border-radius:3px;background:#fff;box-shadow:0 2px 15px rgba(0,0,0,.2);font:13px Roboto,Arial,sans-serif;color:#495157}
+body.ink-builder-design .ink-editor-context-menu{position:fixed;z-index:10000;display:flex;width:180px;flex-direction:column;padding:5px 0;border:1px solid #d5dadf;border-radius:5px;background:#fff;box-shadow:0 2px 15px rgba(0,0,0,.2);font:11px/16px Inter,ui-sans-serif,system-ui,sans-serif;color:#495157}
 body.ink-builder-design .ink-editor-context-menu button{display:flex;gap:10px;align-items:center;padding:8px 14px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
-body.ink-builder-design .ink-editor-context-menu button:hover{background:#f1f3f5;color:var(--ink-editor-accent,#93003c)}body.ink-builder-design .ink-editor-context-menu button:disabled{opacity:.4;cursor:not-allowed}body.ink-builder-design .ink-editor-context-menu span.material-symbols-rounded{font-size:16px}
+body.ink-builder-design .ink-editor-context-menu button:hover{background:#f1f3f5;color:var(--ink-editor-accent,#7467f0)}body.ink-builder-design .ink-editor-context-menu button:disabled{opacity:.4;cursor:not-allowed}body.ink-builder-design .ink-editor-context-menu span.material-symbols-rounded{font-size:16px}
 body.ink-builder-design .ink-editor-inline-toolbar{position:absolute;z-index:9996;display:flex;top:calc(100% + 2px);left:0;padding:2px;border-radius:3px;background:#26292c;color:#fff;pointer-events:auto;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 body.ink-builder-design .ink-editor-inline-toolbar button{display:flex;width:26px;height:26px;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:#fff;font-size:12px;cursor:pointer}
 body.ink-builder-design .ink-editor-inline-toolbar button:hover{background:rgba(255,255,255,.15)}
 
+body.ink-builder-design .ink-element[data-ink-hidden].ink-is-selected>.ink-editor-overlay::after{display:none}
+
+/* Rotate handle — a drag knob above the selection, Framer-style. Revealed only when the
+   element is selected and never in Preview. The stem connects the knob to the selection. */
+body.ink-builder-design .ink-rotate-handle{position:absolute;left:50%;top:-32px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--ink-editor-accent,#7467f0);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none;opacity:0;cursor:-webkit-grab;cursor:grab;transition:opacity .12s}
+body.ink-builder-design .ink-rotate-handle::before{content:"";position:absolute;left:50%;bottom:-8px;width:1px;height:8px;background:var(--ink-editor-accent,#7467f0);transform:translateX(-50%)}
+body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-rotate-handle{opacity:1;pointer-events:auto}
+body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-rotate-handle{display:none}
+body.ink-builder-design .ink-rotate-tooltip{position:fixed;z-index:10000;transform:translate(-50%,calc(-100% - 8px));padding:2px 5px;border-radius:3px;background:#17191c;color:#fff;font:10px/14px Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.01em;pointer-events:none;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.22)}
+/* Resize handles — corner squares and edge bars, shown on selection */
+body.ink-builder-design .ink-resize-handle{position:absolute;pointer-events:none;opacity:0;transition:opacity .12s}
+body.ink-builder-design .ink-resize-handle.is-corner{width:7px;height:7px;background:#fff;border:1.5px solid var(--ink-editor-accent,#7467f0);z-index:9991}
+body.ink-builder-design .ink-resize-handle.is-edge{background:var(--ink-editor-accent,#7467f0);z-index:9991}
+body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="n"],body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="s"]{left:20%;right:20%;height:4px;border-radius:2px}
+body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="e"],body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="w"]{top:20%;bottom:20%;width:4px;border-radius:2px}
+body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="n"]{top:-2px}
+body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="s"]{bottom:-2px}
+body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="e"]{right:-2px}
+body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="w"]{left:-2px}
+body.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle="nw"]{top:-4px;left:-4px}
+body.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle="ne"]{top:-4px;right:-4px}
+body.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle="se"]{bottom:-4px;right:-4px}
+body.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle="sw"]{bottom:-4px;left:-4px}
+body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-resize-handle{opacity:1;pointer-events:auto}
+body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-resize-handle{display:none}
+/* Radius handle — drag knob inset from the top-right corner, Framer-style.
+   Offset inward to avoid colliding with the NE resize handle. */
+body.ink-builder-design .ink-radius-handle{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--ink-editor-accent,#7467f0);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none;opacity:0;cursor:crosshair;z-index:9991;transition:opacity .12s}
+body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-radius-handle{opacity:1;pointer-events:auto}
+body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-radius-handle{display:none}
+body.ink-builder-design.ink-is-resizing,body.ink-builder-design.ink-is-resizing *{cursor:inherit!important;user-select:none!important}
+body.ink-builder-design.ink-is-resizing .ink-resize-handle.is-corner[data-ink-resize-handle="nw"]{cursor:nwse-resize!important}
+body.ink-builder-design.ink-is-resizing .ink-resize-handle.is-corner[data-ink-resize-handle="ne"]{cursor:nesw-resize!important}
+body.ink-builder-design.ink-is-resizing .ink-resize-handle.is-corner[data-ink-resize-handle="se"]{cursor:nwse-resize!important}
+body.ink-builder-design.ink-is-resizing .ink-resize-handle.is-corner[data-ink-resize-handle="sw"]{cursor:nesw-resize!important}
+body.ink-builder-design.ink-is-resizing .ink-resize-handle.is-edge[data-ink-resize-handle="n"],body.ink-builder-design.ink-is-resizing .ink-resize-handle.is-edge[data-ink-resize-handle="s"]{cursor:ns-resize!important}
+body.ink-builder-design.ink-is-resizing .ink-resize-handle.is-edge[data-ink-resize-handle="e"],body.ink-builder-design.ink-is-resizing .ink-resize-handle.is-edge[data-ink-resize-handle="w"]{cursor:ew-resize!important}
+body.ink-builder-design.ink-is-resizing .ink-radius-handle{cursor:crosshair!important}
+body.ink-builder-design .ink-resize-tooltip{position:fixed;z-index:10000;transform:translate(-50%,calc(-100% - 8px));padding:2px 5px;border-radius:3px;background:#17191c;color:#fff;font:10px/14px Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.01em;pointer-events:none;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.22)}
+body.ink-builder-design.ink-is-rotating,body.ink-builder-design.ink-is-rotating *{cursor:grabbing!important;user-select:none!important}
+
 /* Hidden + locked element states (Phase 4 navigator toggles) */
 body.ink-builder-design .ink-element[data-ink-hidden]{opacity:.4}
 body.ink-builder-design .ink-element[data-ink-hidden]>.ink-editor-overlay{box-shadow:inset 0 0 0 1px dashed #6d7882}
-body.ink-builder-design .ink-element[data-ink-hidden]>.ink-editor-overlay::after{content:"hidden";position:absolute;top:2px;left:2px;padding:1px 5px;border-radius:2px;background:rgba(84,89,95,.85);color:#fff;font:9px Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.6px}
+body.ink-builder-design .ink-element[data-ink-hidden]>.ink-editor-overlay::after{content:"hidden";position:absolute;top:2px;left:2px;padding:1px 5px;border-radius:2px;background:rgba(84,89,95,.85);color:#fff;font:9px/12px Inter,ui-sans-serif,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.6px}
 body.ink-builder-design .ink-editor-overlay.is-locked{background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.04) 0 6px,transparent 6px 12px)}
 body.ink-builder-design .ink-editor-overlay.is-locked::after{content:"lock";font-family:"Material Symbols Rounded";position:absolute;right:2px;bottom:2px;font-size:15px;color:#6d7882}
 body.ink-builder-design .ink-element[data-ink-locked]{cursor:not-allowed}
+body.ink-builder-design.ink-is-position-dragging,body.ink-builder-design.ink-is-position-dragging *{cursor:grabbing!important;user-select:none!important}
+body.ink-builder-design .ink-element.ink-is-position-dragging>.ink-editor-overlay{box-shadow:0 0 0 2px var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design.ink-is-drawing-frame,body.ink-builder-design.ink-is-drawing-frame *{cursor:crosshair!important;user-select:none!important}
+body.ink-builder-design .ink-frame-draw-preview{position:fixed;z-index:10001;border:1px solid #55b7ff;background:rgba(85,183,255,.12);pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.75) inset}
+body.ink-builder-design .ink-marquee-selection{position:fixed;z-index:10001;border:1px solid var(--ink-editor-accent,#7467f0);background:color-mix(in srgb,var(--ink-editor-accent,#7467f0) 14%,transparent);pointer-events:none}
+body.ink-builder-design .ink-position-tooltip{position:fixed;z-index:10000;transform:translate(-50%,calc(-100% - 8px));padding:3px 7px;border-radius:4px;background:#17191c;color:#fff;font:11px/16px Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.01em;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.28)}
+body.ink-builder-design .ink-snap-guide{position:fixed;z-index:9998;background:#ff4ec7;pointer-events:none}
+body.ink-builder-design .ink-snap-guide.is-vertical{width:1px}
+body.ink-builder-design .ink-snap-guide.is-horizontal{height:1px}
+body.ink-builder-design .ink-snap-guide.is-parent-center{background:#55b7ff}
+body.ink-builder-design .ink-distance-measure{position:fixed;z-index:9999;color:#ff4ec7;pointer-events:none}
+body.ink-builder-design .ink-distance-measure.is-horizontal{height:1px;border-top:1px solid currentColor}
+body.ink-builder-design .ink-distance-measure.is-vertical{width:1px;border-left:1px solid currentColor}
+body.ink-builder-design .ink-distance-measure::before,body.ink-builder-design .ink-distance-measure::after{content:"";position:absolute;background:currentColor}
+body.ink-builder-design .ink-distance-measure.is-horizontal::before,body.ink-builder-design .ink-distance-measure.is-horizontal::after{top:-3px;width:1px;height:7px}
+body.ink-builder-design .ink-distance-measure.is-horizontal::before{left:0}body.ink-builder-design .ink-distance-measure.is-horizontal::after{right:0}
+body.ink-builder-design .ink-distance-measure.is-vertical::before,body.ink-builder-design .ink-distance-measure.is-vertical::after{left:-3px;width:7px;height:1px}
+body.ink-builder-design .ink-distance-measure.is-vertical::before{top:0}body.ink-builder-design .ink-distance-measure.is-vertical::after{bottom:0}
+body.ink-builder-design .ink-distance-measure span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:1px 4px;border-radius:3px;background:#17191c;color:#fff;font:10px/14px Inter,ui-sans-serif,system-ui,sans-serif;white-space:nowrap}
 `;
 
 export default class BuilderV2 {
@@ -146,7 +205,6 @@ export default class BuilderV2 {
         };
         this.finder = new FinderManager(this.runtime).mount();
         this.copilotTools = createCopilotTools(this.runtime, this);
-        this.importedSiteEditor = new ImportedSiteEditor(this.runtime, this, this.settingsContainer);
         this.customCode.injectEffectStyles(document);
         this.customCode.inject();
         this.save = typeof window.saveToInkwell === 'function' ? window.saveToInkwell.bind(window) : null;
@@ -172,6 +230,9 @@ export default class BuilderV2 {
         this.viewport = new ViewportManager(this).mount(this.mainContainer);
         this.canvasRoot = this.iframeDoc.querySelector('[data-ink-canvas-root]');
         this.canvasRoot.addEventListener('click', (event) => { if (event.target === this.canvasRoot) this.runtime?.selection.clear(); });
+        // Canvas focus lives inside the iframe; mirror the document hotkeys here so Group /
+        // Ungroup works while users are actively arranging layers on the canvas.
+        this.iframeDoc.addEventListener('keydown', this.onKeyDown);
     }
 
     bindEditorState() {
@@ -195,7 +256,11 @@ export default class BuilderV2 {
     // Top-bar entry points: route the main left panel and bring it to the front.
     openPanelScreen(screen, { preserveSelection = false } = {}) {
         const panel = this.runtime?.panel;
-        if (panel && ['elements', 'site', 'history'].includes(screen)) { panel.route = screen; panel.render(); }
+        if (panel && ['elements', 'site', 'history'].includes(screen)) {
+            if (screen === 'elements' && !preserveSelection) panel.insertionParentId = null;
+            panel.route = screen;
+            panel.render();
+        }
         if (window.sidebarTabManager) window.sidebarTabManager.openTab(document.querySelector('[data-tab="widgets"]'));
         if (!preserveSelection) this.runtime.selection.clear();
         return panel;
@@ -230,10 +295,18 @@ export default class BuilderV2 {
             event.preventDefault(); this.runtime.history.redo();
         } else if (commandKey && event.key.toLowerCase() === 'd' && this.runtime.selection.selectedId) {
             event.preventDefault(); this.runtime.duplicate(this.runtime.selection.selectedId);
+        } else if (commandKey && event.altKey && event.key.toLowerCase() === 'g') {
+            event.preventDefault(); this.runtime.frameSelection();
+        } else if (commandKey && event.key.toLowerCase() === 'g') {
+            event.preventDefault();
+            if (event.shiftKey) this.runtime.ungroup();
+            else this.runtime.groupSelection();
         } else if (commandKey && event.key.toLowerCase() === 'c' && this.runtime.selection.selectedId) {
-            event.preventDefault(); this.runtime.copy(this.runtime.selection.selectedId);
+            if (event.shiftKey) { event.preventDefault(); this.runtime.copyStyles(this.runtime.selection.selectedId); }
+            else { event.preventDefault(); this.runtime.copy(this.runtime.selection.selectedId); }
         } else if (commandKey && event.key.toLowerCase() === 'v') {
-            event.preventDefault(); this.runtime.paste(this.runtime.selection.selectedId);
+            if (event.shiftKey) { event.preventDefault(); this.runtime.pasteStyles(this.runtime.selection.selectedId); }
+            else { event.preventDefault(); this.runtime.paste(this.runtime.selection.selectedId); }
         } else if (commandKey && event.key.toLowerCase() === 's') {
             event.preventDefault(); this.save?.();
         } else if (event.key === 'Escape') {
@@ -250,9 +323,14 @@ export default class BuilderV2 {
             ['?', 'Show keyboard shortcuts'],
             ['⌘/Ctrl + Z', 'Undo'],
             ['⌘/Ctrl + Shift + Z / Ctrl + Y', 'Redo'],
+            ['⌘/Ctrl + G', 'Group selected sibling layers'],
+            ['⌘/Ctrl + Shift + G', 'Ungroup selected group'],
+            ['⌥ + ⌘/Ctrl + G', 'Frame selected sibling layers'],
             ['⌘/Ctrl + D', 'Duplicate selection'],
             ['⌘/Ctrl + C', 'Copy element'],
             ['⌘/Ctrl + V', 'Paste element'],
+            ['⌘/Ctrl + Shift + C', 'Copy styles'],
+            ['⌘/Ctrl + Shift + V', 'Paste styles'],
             ['⌘/Ctrl + S', 'Publish / save'],
             ['Delete / Backspace', 'Delete selection'],
             ['Shift / ⌘ + click', 'Multi-select'],
@@ -309,7 +387,6 @@ export default class BuilderV2 {
         // from the store when returning from Preview, then keep only CSS active while editing.
         if (this.mode === 'design' && previous === 'preview') this.runtime?.canvas?.render();
         this.customCode?.inject(this.iframeDoc, { executeJs: this.mode === 'preview' });
-        this.iframeDoc.querySelectorAll('.ink-el-site-snapshot').forEach((frame) => frame.contentWindow?.postMessage({ type: 'ink-site-mode', design: this.mode === 'design' }, '*'));
     }
     getMode() { return this.mode; }
     applyMode() { this.setMode(this.mode); }
@@ -494,5 +571,5 @@ export default class BuilderV2 {
         return '<!doctype html>' + clone.outerHTML;
     }
 
-    destroy() { document.removeEventListener('keydown', this.onKeyDown); this.canvasIconObserver?.disconnect(); this.finder?.destroy(); this.navigator?.destroy(); this.runtime?.contextMenu?.destroy(); this.runtime?.canvas.destroy(); this.runtime?.panel?.destroy(); this.runtime?.settingsPanel?.destroy(); this.mainContainer.replaceChildren(); }
+    destroy() { document.removeEventListener('keydown', this.onKeyDown); this.iframeDoc?.removeEventListener('keydown', this.onKeyDown); this.canvasIconObserver?.disconnect(); this.finder?.destroy(); this.navigator?.destroy(); this.runtime?.contextMenu?.destroy(); this.runtime?.canvas.destroy(); this.runtime?.panel?.destroy(); this.runtime?.settingsPanel?.destroy(); this.mainContainer.replaceChildren(); }
 }

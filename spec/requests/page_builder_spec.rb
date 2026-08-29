@@ -61,6 +61,30 @@ RSpec.describe "Page builder ↔ block editor", type: :request do
     expect(response.body).not_to include('<header class="sticky')
   end
 
+  it "keeps an imported original live while native Builder work remains independent" do
+    site = Site.create!(name: "S", domain: "s.test")
+    role = Role.create!(name: "admin")
+    user = User.create!(name: "A", email: "dual-track@example.com", password: "password123", site: site, role: role)
+    page = site.pages.create!(
+      title: "Imported", slug: "imported", status: "draft", template: "landing", author: user,
+      original_import_url: "https://example.test/",
+      original_import_html: "<html><head><base href=\"https://example.test/\"></head><body><main id=\"original\">Original source</main></body></html>"
+    )
+    page.update!(draft_content: [{ "type" => "page_builder", "data" => { "html" => "<main>Native work in progress</main>" } }])
+    sign_in user
+
+    post "/admin/pages/#{page.id}/publish_original_import"
+
+    expect(response).to redirect_to(edit_admin_page_path(page))
+    expect(page.reload).to have_attributes(status: "published", live_render_mode: "original_import")
+    expect(page.draft_content.first.dig("data", "html")).to include("Native work in progress")
+
+    get "/pages/imported"
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("Original source")
+    expect(response.body).not_to include("Native work in progress")
+  end
+
   it "shows a Visit page action for an already published record" do
     site = Site.create!(name: "S", domain: "s.test")
     role = Role.create!(name: "admin")

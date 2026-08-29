@@ -103,6 +103,24 @@ function renderShell(domDocument, node, rootClass, tag = 'div') {
     return root;
 }
 
+// Frames are the universal visual primitive. Unlike page Containers they do not impose
+// a page-width contract, but they do own a surface, an optional overlay, and a child-layout
+// root so Freeform, Stack, and Grid remain interchangeable without changing the tree.
+function renderFrame(domDocument, node) {
+    const link = typeof node.settings?.link === 'object' ? node.settings.link : { url: node.settings?.link };
+    const root = domDocument.createElement(link?.url ? 'a' : (node.settings.tag || 'div'));
+    root.className = 'ink-el-frame';
+    if (root.tagName === 'A' && link?.url) {
+        root.href = link.url;
+        root.target = link.isExternal ? '_blank' : '_self';
+        if (link.nofollow) root.rel = 'nofollow';
+    }
+    const overlay = domDocument.createElement('div'); overlay.className = 'ink-el-frame-overlay'; overlay.setAttribute('aria-hidden', 'true');
+    const inner = domDocument.createElement('div'); inner.className = 'ink-el-frame-inner'; inner.dataset.inkChildren = '';
+    root.append(overlay, inner);
+    return root;
+}
+
 const layoutControls = [
     { tab: 'content', target: 'styles', section: 'Layout', name: 'display', type: 'choose', label: 'Display', options: ['flex', 'grid', 'block'], responsive: true },
     { tab: 'content', target: 'styles', section: 'Layout', name: 'flex-direction', type: 'choose', label: 'Direction', options: ['row', 'column'], responsive: true, condition: { display: 'flex' } },
@@ -119,18 +137,10 @@ const layoutControls = [
 // Modern container controls. Child layout styles target the inner wrapper because it
 // is the direct parent of the elements placed inside a boxed or full-width container.
 const containerLayoutControls = [
-    { tab: 'content', target: 'styles', section: 'Container', name: 'display', type: 'select', label: 'Container Layout', options: [{ value: 'flex', label: 'Flexbox' }, { value: 'grid', label: 'Grid' }] },
+    { tab: 'content', target: 'styles', section: 'Container', name: '__layout-flow', type: 'layout-flow', label: 'Flow', responsive: true },
     { tab: 'content', section: 'Container', name: 'layout', type: 'select', label: 'Content Width', options: [{ value: 'boxed', label: 'Boxed' }, { value: 'full', label: 'Full Width' }] },
     { tab: 'content', target: 'styles', section: 'Container', name: 'boxed-width', type: 'slider', label: 'Width', min: 500, max: 1600, default: 1140, units: ['px', '%', 'em', 'rem', 'vw'], responsive: true, condition: { layout: 'boxed' } },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'width', type: 'slider', label: 'Width', min: 0, max: 100, default: 100, units: ['%', 'px', 'em', 'rem', 'vw'], responsive: true, condition: { layout: 'full' } },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'min-height', type: 'slider', label: 'Min Height', min: 0, max: 1440, default: 0, units: ['px', 'em', 'rem', 'vh'], responsive: true, description: 'To achieve full height Container use 100vh.' },
-    { tab: 'content', section: 'Container', name: '__items', type: 'heading', label: 'Items', text: 'Items', condition: { display: 'flex' } },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'flex-direction', type: 'choose', label: 'Direction', options: [{ value: 'row', label: 'Row — horizontal', icon: 'arrow_forward' }, { value: 'column', label: 'Column — vertical', icon: 'arrow_downward' }, { value: 'row-reverse', label: 'Row — reversed', icon: 'arrow_back' }, { value: 'column-reverse', label: 'Column — reversed', icon: 'arrow_upward' }], responsive: true, condition: { display: 'flex' } },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'justify-content', type: 'choose', label: 'Justify Content', options: [{ value: 'flex-start', label: 'Start', icon: 'align_horizontal_left' }, { value: 'center', label: 'Center', icon: 'align_horizontal_center' }, { value: 'flex-end', label: 'End', icon: 'align_horizontal_right' }, { value: 'space-between', label: 'Space Between', icon: 'space_bar' }, { value: 'space-around', label: 'Space Around', icon: 'density_medium' }, { value: 'space-evenly', label: 'Space Evenly', icon: 'drag_handle' }], responsive: true, condition: { display: 'flex' } },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'align-items', type: 'choose', label: 'Align Items', options: [{ value: 'flex-start', label: 'Start', icon: 'vertical_align_top' }, { value: 'center', label: 'Center', icon: 'vertical_align_center' }, { value: 'flex-end', label: 'End', icon: 'vertical_align_bottom' }, { value: 'stretch', label: 'Stretch', icon: 'height' }], responsive: true, condition: { display: 'flex' } },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'gap', type: 'gaps', label: 'Gaps', units: ['px', '%', 'em', 'rem', 'vw'], responsive: true },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'flex-wrap', type: 'choose', label: 'Wrap', options: [{ value: 'nowrap', label: 'No Wrap', icon: 'east' }, { value: 'wrap', label: 'Wrap', icon: 'keyboard_return' }], responsive: true, condition: { display: 'flex' }, description: 'Items can stay in a single line or wrap onto multiple lines.' },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'align-content', type: 'choose', label: 'Align Content', options: [{ value: 'flex-start', label: 'Start', icon: 'vertical_align_top' }, { value: 'center', label: 'Middle', icon: 'vertical_align_center' }, { value: 'flex-end', label: 'End', icon: 'vertical_align_bottom' }, { value: 'space-between', label: 'Space Between', icon: 'height' }], responsive: true, condition: { display: 'flex', 'flex-wrap': 'wrap' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: '__alignment-gap', type: 'alignment-gap', label: 'Alignment and gap', hideLabel: true, responsive: true, units: ['px', '%', 'em', 'rem', 'vw'] },
     { tab: 'content', target: 'styles', section: 'Container', name: 'grid-template-columns', type: 'text', label: 'Columns', responsive: true, condition: { display: 'grid' } },
     { tab: 'content', target: 'styles', section: 'Container', name: 'grid-template-rows', type: 'text', label: 'Rows', responsive: true, condition: { display: 'grid' } },
     { tab: 'content', target: 'styles', section: 'Container', name: 'grid-auto-flow', type: 'select', label: 'Auto Flow', options: ['row', 'column'], responsive: true, condition: { display: 'grid' } },
@@ -142,35 +152,46 @@ const containerLayoutControls = [
 const advancedControls = [
     { tab: 'advanced', target: 'styles', section: 'Spacing', name: 'margin', type: 'dimensions', label: 'Margin', units: ['px', 'rem', '%'], responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Spacing', name: 'padding', type: 'dimensions', label: 'Padding', units: ['px', 'rem', '%'], responsive: true },
-    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'width', type: 'size', label: 'Width', units: ['px', '%', 'vw'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: '__resizing', type: 'resizing', label: 'Resizing', hideLabel: true, responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'min-width', type: 'size', label: 'Minimum width', units: ['px', '%', 'vw', 'rem'], responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Layout', name: 'max-width', type: 'size', label: 'Maximum width', units: ['px', '%', 'vw', 'rem'], responsive: true },
-    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'height', type: 'size', label: 'Height', units: ['px', '%', 'vh'], responsive: true },
-    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'min-height', type: 'size', label: 'Minimum height', units: ['px', 'vh'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'min-height', type: 'size', label: 'Minimum height', units: ['px', '%', 'vh', 'rem'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'max-height', type: 'size', label: 'Maximum height', units: ['px', '%', 'vh', 'rem'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'aspect-ratio', type: 'text', label: 'Aspect ratio', placeholder: '16 / 9', responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Layout', name: 'overflow', type: 'select', label: 'Overflow', options: ['visible', 'hidden', 'auto', 'scroll', 'clip'], responsive: true },
-    { tab: 'advanced', target: 'styles', section: 'Positioning', name: 'position', type: 'select', label: 'Position', options: ['static', 'relative', 'absolute', 'fixed', 'sticky'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Positioning', name: '__positioning', type: 'positioning', label: 'Positioning', hideLabel: true, responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Positioning', name: 'z-index', type: 'number', label: 'Z-index', responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'translate', type: 'text', label: 'Translate', placeholder: '0px 0px', responsive: true, states: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'rotate', type: 'size', label: 'Rotate', units: ['deg', 'turn'], responsive: true, states: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'scale', type: 'number', label: 'Scale', responsive: true, states: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'transform', type: 'text', label: 'Skew / custom transform', placeholder: 'skew(8deg, 0deg)', responsive: true, states: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'transform-origin', type: 'text', label: 'Origin', placeholder: 'center center', responsive: true, states: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'perspective', type: 'size', label: 'Perspective', units: ['px', 'vw'], responsive: true, states: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'backface-visibility', type: 'choose', label: 'Backface', options: [{ value: 'visible', label: 'Visible' }, { value: 'hidden', label: 'Hidden' }], states: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'transform-style', type: 'choose', label: '3D children', options: [{ value: 'flat', label: 'Flat' }, { value: 'preserve-3d', label: 'Preserve 3D' }], states: true },
     { tab: 'advanced', target: 'styles', section: 'Flex item', name: 'align-self', type: 'select', label: 'Align self', options: ['auto', 'stretch', 'flex-start', 'center', 'flex-end'], responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Flex item', name: 'order', type: 'number', label: 'Order', responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Flex item', name: 'flex-grow', type: 'number', label: 'Grow', responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Flex item', name: 'flex-shrink', type: 'number', label: 'Shrink', responsive: true },
-    { tab: 'advanced', target: 'styles', section: 'Effects', name: 'opacity', type: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.05, responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Effects', name: 'opacity', type: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.05, default: 1, responsive: true, states: true },
     { tab: 'advanced', target: 'styles', section: 'Effects', name: 'filter', type: 'css-filters', label: 'CSS filters' },
+    { tab: 'advanced', target: 'styles', section: 'Interaction', name: 'cursor', type: 'select', label: 'Cursor', options: ['auto', 'default', 'pointer', 'text', 'grab', 'grabbing', 'crosshair', 'move', 'not-allowed', 'zoom-in', 'zoom-out', 'none'] },
     { tab: 'advanced', target: 'settings', section: 'Motion', name: 'motion', type: 'motion', label: 'Animation', description: 'Native keyframes run in Preview and published pages; Design mode stays stable and editable.' },
 ];
 
 const surfaceControls = [
-    { tab: 'style', target: 'styles', section: 'Background', name: 'background', type: 'background', label: 'Background', states: ['base', 'hover'] },
-    { tab: 'style', target: 'styles', section: 'Border', name: 'border', type: 'border', label: 'Border Type', states: ['base', 'hover'] },
-    { tab: 'style', target: 'styles', section: 'Border', name: 'border-radius', type: 'dimensions', label: 'Border Radius', units: ['px', '%', 'em', 'rem'], responsive: true, states: ['base', 'hover'] },
-    { tab: 'style', target: 'styles', section: 'Border', name: 'box-shadow', type: 'box-shadow', label: 'Box Shadow', states: ['base', 'hover'] },
+    { tab: 'style', target: 'styles', section: 'Fill', name: 'background', type: 'background', label: 'Fill', states: ['base', 'hover'] },
+    { tab: 'style', target: 'styles', section: 'Appearance', name: 'border-radius', type: 'dimensions', label: 'Corner radius', units: ['px', '%', 'em', 'rem'], responsive: true, states: ['base', 'hover'] },
+    { tab: 'style', target: 'styles', section: 'Stroke', name: 'border', type: 'border', label: 'Stroke', states: ['base', 'hover'] },
+    { tab: 'style', target: 'styles', section: 'Effects', name: 'box-shadow', type: 'box-shadow', label: 'Drop shadow', states: ['base', 'hover'] },
 ];
 
 const containerSurfaceControls = [
     surfaceControls[0],
-    { tab: 'style', target: 'settings', section: 'Background', name: 'importedBackgroundImageId', type: 'imported-background', label: 'Imported background image', condition: { importedBackgroundImageId: '__not_empty__' }, description: 'Changes the original imported artwork while preserving its mask, blend mode, placement, and responsive layout.' },
-    { tab: 'style', target: 'styles', section: 'Background Overlay', name: 'background-overlay', type: 'background', label: 'Background Overlay', part: 'overlay', states: ['base', 'hover'] },
+    { tab: 'style', target: 'settings', section: 'Fill', name: 'importedBackgroundImageId', type: 'imported-background', label: 'Imported image layer', condition: { importedBackgroundImageId: '__not_empty__' }, description: 'Changes the original imported artwork while preserving its mask, blend mode, placement, and responsive layout.' },
+    { tab: 'style', target: 'styles', section: 'Overlay', name: 'background-overlay', type: 'background', label: 'Overlay fill', part: 'overlay', states: ['base', 'hover'] },
     ...surfaceControls.slice(1),
-    { tab: 'style', target: 'settings', section: 'Shape Divider', name: 'shape-divider', type: 'shape-divider', label: 'Shape Divider' },
+    { tab: 'style', target: 'settings', section: 'Decorations', name: 'shape-divider', type: 'shape-divider', label: 'Shape divider' },
 ];
 
 // Single typography popover (Ink) writing to the element's style bucket.
@@ -216,14 +237,61 @@ export default function registerInkFoundationElements(registry) {
         controls: [
             ...containerLayoutControls,
             ...containerSurfaceControls,
-            ...advancedControls.filter((control) => !['width', 'min-height', 'overflow'].includes(control.name)),
+            ...advancedControls.filter((control) => !['__resizing', 'overflow'].includes(control.name)),
         ],
         render: ({ domDocument }, node) => renderShell(domDocument, node, 'ink-el-container', 'div'),
     });
     registry.register({
+        type: 'frame', title: 'Frame', icon: 'crop_landscape', category: 'Layout', acceptsChildren: true,
+        // A Frame is the universal visual/layout primitive. It starts in Freeform mode
+        // (the familiar Figma/Framer canvas behaviour); authors intentionally switch it
+        // to vertical/horizontal Stack or Grid with the Flow control when children should
+        // participate in document flow.
+        // Empty Frames are deliberate transparent layout/positioning surfaces, not legacy
+        // widget buckets. Selection chrome makes them discoverable; the author chooses whether
+        // to give them a fill, child content, or freeform absolute children.
+        defaults: { settings: { tag: 'div', label: 'Frame' }, styles: { base: { display: 'block', width: 'fit-content', height: 'fit-content', 'min-width': { size: 120, unit: 'px' }, 'min-height': { size: 80, unit: 'px' }, position: 'relative' } }, children: [] },
+        showEmptyView: false,
+        selectors: { root: '&', inner: '.ink-el-frame-inner', overlay: '.ink-el-frame-overlay' },
+        styleMap: {
+            display: { part: 'inner' }, 'flex-direction': { part: 'inner' }, 'flex-wrap': { part: 'inner' }, 'justify-content': { part: 'inner' }, 'align-items': { part: 'inner' }, 'align-content': { part: 'inner' }, gap: { part: 'inner' },
+            'grid-template-columns': { part: 'inner' }, 'grid-template-rows': { part: 'inner' }, 'grid-auto-flow': { part: 'inner' }, 'justify-items': { part: 'inner' },
+            'overlay-background-color': { part: 'overlay', property: 'background-color' }, 'overlay-background-image': { part: 'overlay', property: 'background-image' }, 'overlay-background-size': { part: 'overlay', property: 'background-size' }, 'overlay-background-position': { part: 'overlay', property: 'background-position' }, 'overlay-background-repeat': { part: 'overlay', property: 'background-repeat' }, 'overlay-opacity': { part: 'overlay', property: 'opacity' }, 'overlay-mix-blend-mode': { part: 'overlay', property: 'mix-blend-mode' }, 'overlay-filter': { part: 'overlay', property: 'filter' }, 'overlay-transition-duration': { part: 'overlay', property: '--ink-overlay-transition', transform: 'seconds' },
+        },
+        controls: [
+            { tab: 'content', target: 'styles', section: 'Frame', name: '__layout-flow', type: 'layout-flow', label: 'Flow', responsive: true },
+            { tab: 'content', target: 'styles', section: 'Frame', name: '__alignment-gap', type: 'alignment-gap', label: 'Alignment and gap', hideLabel: true, responsive: true, units: ['px', '%', 'em', 'rem', 'vw'] },
+            { tab: 'content', section: 'Link', name: 'link', type: 'url', label: 'Link to' },
+            { tab: 'content', section: 'Semantics', name: 'tag', type: 'select', label: 'HTML tag', options: ['div', 'a', 'section', 'article', 'header', 'footer', 'main', 'nav', 'aside'] },
+            surfaceControls[0],
+            { tab: 'style', target: 'styles', section: 'Overlay', name: 'background-overlay', type: 'background', label: 'Overlay fill', part: 'overlay', states: ['base', 'hover'] },
+            ...surfaceControls.slice(1),
+            ...advancedControls.filter((control) => control.name !== '__resizing'),
+        ],
+        render: ({ domDocument }, node) => renderFrame(domDocument, node),
+    });
+    registry.register({
+        // Groups are organizational only. They deliberately have no box, styling, layout,
+        // or drop-zone of their own: their bounds are the collection of their children.
+        // A real visual or layout container must be a Frame.
+        type: 'group', title: 'Group', icon: 'group', category: 'Organization', acceptsChildren: true, internal: true,
+        showEmptyView: false, showEditorOverlay: false,
+        defaults: { settings: { label: 'Group', grouping: true }, styles: { base: { display: 'contents' } }, children: [] },
+        controls: [
+            { tab: 'content', section: 'Group', name: 'label', type: 'text', label: 'Layer name' },
+        ],
+        render: ({ domDocument }) => { const element = domDocument.createElement('div'); element.className = 'ink-el-group'; element.dataset.inkChildren = ''; return element; },
+    });
+    registry.register({
         type: 'div', title: 'Div Block', icon: 'check_box_outline_blank', category: 'Layout', acceptsChildren: true,
-        defaults: { settings: {}, styles: { base: { display: 'block' } }, children: [] }, controls: [...layoutControls, ...surfaceControls, ...advancedControls],
-        render: ({ domDocument }) => { const el = domDocument.createElement('div'); el.dataset.inkChildren = ''; return el; },
+        defaults: { settings: { tag: 'div' }, styles: { base: { display: 'block' } }, children: [] },
+        controls: [
+            ...layoutControls,
+            { tab: 'content', section: 'Additional Options', name: 'tag', type: 'select', label: 'HTML tag', options: ['div', 'section', 'article', 'header', 'footer', 'main', 'nav', 'aside'] },
+            ...surfaceControls,
+            ...advancedControls,
+        ],
+        render: ({ domDocument }, node) => { const el = domDocument.createElement(node.settings.tag || 'div'); el.dataset.inkChildren = ''; return el; },
     });
     registry.register({
         type: 'heading', title: 'Heading', icon: 'title', category: 'Basic', inlineEditable: 'text',
@@ -270,28 +338,48 @@ export default function registerInkFoundationElements(registry) {
             typographyControls,
             { tab: 'style', target: 'styles', section: 'Typography', name: 'color', type: 'color', label: 'Color' },
             { tab: 'style', target: 'styles', section: 'Typography', name: 'text-align', type: 'choose', label: 'Alignment', options: [{ value: 'left', icon: 'format_align_left' }, { value: 'center', icon: 'format_align_center' }, { value: 'right', icon: 'format_align_right' }, { value: 'justify', icon: 'format_align_justify' }], responsive: true },
+            { tab: 'style', target: 'styles', section: 'Typography', name: 'text-shadow', type: 'text-shadow', label: 'Text shadow' },
+            { tab: 'style', target: 'styles', section: 'Typography', name: '-webkit-text-stroke', type: 'text-stroke', label: 'Text stroke' },
+            { tab: 'style', target: 'styles', section: 'Typography', name: 'mix-blend-mode', type: 'select', label: 'Blend mode', options: ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'difference', 'exclusion'] },
             ...advancedControls,
         ],
         render: ({ domDocument }, node) => text(domDocument, 'p', 'ink-el-paragraph', node.settings.text || ''),
     });
     registry.register({
-        type: 'button', title: 'Button', icon: 'smart_button', category: 'Basic',
-        defaults: { settings: { text: 'Click here', url: '#', target: '_self', size: 'sm', icon: '', iconPosition: 'before', align: '' }, styles: { base: {} } },
-        selectors: { root: '&', text: '.ink-el-button-text', icon: '.ink-el-button-icon' },
-        styleMap: { 'icon-gap': { property: '--ink-icon-gap', transform: (value) => `${Number(value.size) || 0}${value.unit || 'px'}` } },
+        type: 'button', title: 'Button', icon: 'smart_button', category: 'Basic', acceptsChildren: true, showEmptyView: false,
+        acceptsChild: (_parent, child) => ['inline-text', 'icon', 'svg', 'image', 'frame'].includes(child.type),
+        defaults: { settings: { text: 'Click here', url: '#', behavior: 'link', target: '_self', buttonType: 'button', icon: '', iconPosition: 'before', align: '' }, styles: { base: { width: 'fit-content', height: 'fit-content', color: '#ffffff', 'background-color': '#111827', padding: { top: 12, right: 24, bottom: 12, left: 24, unit: 'px' }, 'border-radius': { size: 8, unit: 'px' }, 'depth-size': { size: 0, unit: 'px' }, 'depth-color': 'transparent' } }, children: [] },
+        selectors: { root: '&', surface: '.ink-el-button-surface', text: '.ink-el-button-text', icon: '.ink-el-button-icon' },
+        styleMap: {
+            'icon-gap': { property: '--ink-icon-gap', transform: (value) => `${Number(value.size) || 0}${value.unit || 'px'}` },
+            'background-color': { part: 'surface', property: 'background-color' },
+            padding: { part: 'surface' },
+            'border-radius': { part: 'surface' },
+            border: { part: 'surface' },
+            // The colored, rounded part of a Button is its surface. A shadow belongs here,
+            // rather than on the wrapper that also reserves optional physical depth.
+            'box-shadow': { part: 'surface' },
+            'depth-color': { property: 'background-color' },
+            'depth-size': { property: '--ink-button-depth', transform: (value) => `${Number(value?.size ?? value) || 0}${value?.unit || 'px'}` },
+            'outer-radius': { property: 'border-radius' },
+        },
         controls: [
             { tab: 'content', section: 'Content', name: 'text', type: 'text', label: 'Text' },
+            { tab: 'content', section: 'Content', name: 'behavior', type: 'choose', label: 'Behavior', options: [{ value: 'link', label: 'Link' }, { value: 'action', label: 'Action' }] },
             { tab: 'content', section: 'Content', name: 'url', type: 'url', label: 'Link' },
             { tab: 'content', section: 'Content', name: 'target', type: 'select', label: 'Target', options: [{ value: '_self', label: 'Same window' }, { value: '_blank', label: 'New window' }] },
-            { tab: 'content', section: 'Layout', name: 'size', type: 'choose', label: 'Size', options: [{ value: 'xs', label: 'XS' }, { value: 'sm', label: 'SM' }, { value: 'md', label: 'MD' }, { value: 'lg', label: 'LG' }, { value: 'xl', label: 'XL' }] },
+            { tab: 'content', section: 'Content', name: 'buttonType', type: 'select', label: 'Action type', options: [{ value: 'button', label: 'Button' }, { value: 'submit', label: 'Submit' }, { value: 'reset', label: 'Reset' }], condition: { behavior: 'action' } },
             { tab: 'content', section: 'Layout', name: 'icon', type: 'text', label: 'Icon' },
             { tab: 'content', section: 'Layout', name: 'iconPosition', type: 'choose', label: 'Icon position', options: [{ value: 'before', label: 'Before' }, { value: 'after', label: 'After' }], condition: { icon: '__not_empty__' } },
             { tab: 'content', section: 'Layout', name: 'align', type: 'choose', label: 'Alignment', options: [{ value: '', icon: 'format_align_left', label: 'Left' }, { value: 'center', icon: 'format_align_center', label: 'Center' }, { value: 'right', icon: 'format_align_right', label: 'Right' }] },
             { tab: 'style', target: 'styles', section: 'Button', name: 'color', type: 'color', label: 'Text color', states: true, part: 'text' },
-            { tab: 'style', target: 'styles', section: 'Button', name: 'background-color', type: 'color', label: 'Background', states: true },
-            { tab: 'style', target: 'styles', section: 'Button', name: 'border-radius', type: 'size', label: 'Border radius', units: ['px', 'rem'] },
-            { tab: 'style', target: 'styles', section: 'Button', name: 'padding', type: 'dimensions', label: 'Inner padding', units: ['px', 'em', 'rem'], responsive: true },
-            { tab: 'style', target: 'styles', section: 'Button', name: 'border', type: 'border', label: 'Border', states: true },
+            { tab: 'style', target: 'styles', section: 'Surface', name: 'background-color', type: 'color', label: 'Fill', states: true, part: 'surface' },
+            { tab: 'style', target: 'styles', section: 'Surface', name: 'border-radius', type: 'size', label: 'Corner radius', units: ['px', 'rem'], part: 'surface' },
+            { tab: 'style', target: 'styles', section: 'Surface', name: 'padding', type: 'dimensions', label: 'Inner padding', units: ['px', 'em', 'rem'], responsive: true, part: 'surface' },
+            { tab: 'style', target: 'styles', section: 'Surface', name: 'border', type: 'border', label: 'Border', states: true, part: 'surface' },
+            { tab: 'style', target: 'styles', section: 'Depth', name: 'depth-color', type: 'color', label: 'Depth color', states: true },
+            { tab: 'style', target: 'styles', section: 'Depth', name: 'depth-size', type: 'size', label: 'Depth', min: 0, max: 40, units: ['px', 'rem'], responsive: true },
+            { tab: 'style', target: 'styles', section: 'Depth', name: 'outer-radius', type: 'size', label: 'Outer radius', units: ['px', 'rem'] },
             { tab: 'style', target: 'styles', section: 'Button', name: 'box-shadow', type: 'box-shadow', label: 'Box shadow', states: true },
             { tab: 'style', target: 'styles', section: 'Icon', name: 'icon-size', type: 'size', label: 'Icon size', units: ['px', 'em', 'rem'], property: 'font-size', part: 'icon' },
             { tab: 'style', target: 'styles', section: 'Icon', name: 'icon-gap', type: 'size', label: 'Icon spacing', units: ['px', 'em', 'rem'] },
@@ -302,19 +390,19 @@ export default function registerInkFoundationElements(registry) {
             { tab: 'advanced', section: 'Custom attributes', name: 'customAttributes', type: 'text', label: 'Custom attributes' },
         ],
         render: ({ domDocument }, node) => {
-            const el = domDocument.createElement('a');
+            const el = domDocument.createElement(node.settings.behavior === 'action' ? 'button' : 'a');
             el.className = 'ink-el-button';
-            if (node.settings.size) el.classList.add(`is-size-${node.settings.size}`);
             if (node.settings.align) el.classList.add(`is-align-${node.settings.align}`);
-            el.href = node.settings.url || '#'; el.target = node.settings.target || '_self';
+            if (el.tagName === 'A') { el.href = node.settings.url || '#'; el.target = node.settings.target || '_self'; }
+            else el.type = ['button', 'submit', 'reset'].includes(node.settings.buttonType) ? node.settings.buttonType : 'button';
+            const surface = domDocument.createElement('span'); surface.className = 'ink-el-button-surface'; surface.dataset.inkChildren = '';
             const label = domDocument.createElement('span'); label.className = 'ink-el-button-text'; label.textContent = node.settings.text || '';
-            if (node.settings.icon) {
+            if (!(node.children || []).length && node.settings.icon) {
                 const iconEl = domDocument.createElement('span'); iconEl.className = 'ink-el-button-icon'; iconEl.appendChild(renderIcon(domDocument, node.settings.icon));
-                if (node.settings.iconPosition === 'after') { iconEl.classList.add('is-after'); el.appendChild(label); el.appendChild(iconEl); }
-                else { el.appendChild(iconEl); el.appendChild(label); }
-            } else {
-                el.appendChild(label);
-            }
+                if (node.settings.iconPosition === 'after') { iconEl.classList.add('is-after'); surface.append(label, iconEl); }
+                else surface.append(iconEl, label);
+            } else if (!(node.children || []).length) surface.appendChild(label);
+            el.appendChild(surface);
             return el;
         },
     });
@@ -322,12 +410,24 @@ export default function registerInkFoundationElements(registry) {
         type: 'image', title: 'Image', icon: 'image', category: 'Basic',
         defaults: { settings: { src: '', alt: '', link: '', caption: '', align: '' }, styles: { base: { 'max-width': '100%', height: 'auto' } } },
         selectors: { root: '&', figure: '.ink-el-image-figure', image: '.ink-el-image', link: '.ink-el-image-link', caption: 'figcaption' },
+        styleMap: {
+            'image-width': { part: 'image', property: 'width' },
+            'image-height': { part: 'image', property: 'height' },
+            'image-max-width': { part: 'image', property: 'max-width' },
+            'image-max-height': { part: 'image', property: 'max-height' },
+            'image-aspect-ratio': { part: 'image', property: 'aspect-ratio' },
+        },
         controls: [
             { tab: 'content', section: 'Image', name: 'src', type: 'media', label: 'Image' },
             { tab: 'content', section: 'Image', name: 'alt', type: 'text', label: 'Alternative text' },
             { tab: 'content', section: 'Image', name: 'link', type: 'url', label: 'Link' },
             { tab: 'content', section: 'Image', name: 'caption', type: 'text', label: 'Caption' },
             { tab: 'content', section: 'Image', name: 'align', type: 'choose', label: 'Alignment', options: [{ value: '', icon: 'format_align_left', label: 'Left' }, { value: 'center', icon: 'format_align_center', label: 'Center' }, { value: 'right', icon: 'format_align_right', label: 'Right' }] },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'image-width', type: 'size', label: 'Image width', units: ['px', '%', 'vw'], responsive: true },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'image-height', type: 'size', label: 'Image height', units: ['px', 'vh'], responsive: true },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'image-max-width', type: 'size', label: 'Maximum width', units: ['px', '%', 'vw'], responsive: true },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'image-max-height', type: 'size', label: 'Maximum height', units: ['px', 'vh'], responsive: true },
+            { tab: 'style', target: 'styles', section: 'Image', name: 'image-aspect-ratio', type: 'text', label: 'Aspect ratio' },
             { tab: 'style', target: 'styles', section: 'Image', name: 'object-fit', type: 'select', label: 'Object fit', options: ['cover', 'contain', 'fill', 'none'], part: 'image' },
             { tab: 'style', target: 'styles', section: 'Image', name: 'object-position', type: 'select', label: 'Object position', options: ['center', 'top', 'bottom', 'left', 'right'], part: 'image' },
             { tab: 'style', target: 'styles', section: 'Image', name: 'filter', type: 'css-filters', label: 'CSS filters', states: true, part: 'image' },

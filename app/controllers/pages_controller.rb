@@ -3,6 +3,10 @@ class PagesController < ApplicationController
 
   def show
     @page = Current.site.pages.published.friendly.find(params[:id])
+    if @page.live_render_mode == "original_import" && @page.original_import_available?
+      response.headers["Content-Security-Policy"] = ""
+      return render html: @page.original_import_html.html_safe, layout: false, content_type: "text/html"
+    end
     render template: "pages/#{@page.template}", locals: { page: @page }
   rescue ActionView::MissingTemplate
     render "pages/default", locals: { page: @page }

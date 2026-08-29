@@ -254,8 +254,8 @@ export default class CanvasRenderer {
         if (imported) this.appendImportedChildren(element, node);
         else if (definition.appendChildren) definition.appendChildren({ element, childrenRoot, node, create: (child) => this.create(child), domDocument: this.root.ownerDocument });
         else (node.children || []).forEach((child) => childrenRoot.appendChild(this.create(child)));
-        if (!node.children?.length && definition.acceptsChildren && !definition.preserveMarkup && !imported) childrenRoot.appendChild(this.emptyView(node, kind));
-        if (!definition.preserveMarkup && !imported) element.appendChild(this.overlay(node, kind));
+        if (!node.children?.length && definition.acceptsChildren && definition.showEmptyView !== false && !definition.preserveMarkup && !imported) childrenRoot.appendChild(this.emptyView(node, kind));
+        if (!definition.preserveMarkup && !imported && definition.showEditorOverlay !== false) element.appendChild(this.overlay(node, kind));
         if (node.type === 'columns') this.attachColumnResizes(element);
         const instance = { element, definition, node };
         this.instances.set(node.id, instance);
@@ -413,6 +413,29 @@ export default class CanvasRenderer {
             toolbar.appendChild(button);
         });
         overlay.appendChild(toolbar);
+        // Rotate handle — a drag-to-rotate knob centred above the selection, Framer-style.
+        // Skipped for columns, whose left/right edges already own resize handles, and for
+        // locked elements (no direct manipulation). It is revealed on selection via CSS.
+        if (kind !== 'column' && !node.settings.locked) {
+            const knob = doc.createElement('div'); knob.className = 'ink-rotate-handle'; knob.dataset.inkRotateHandle = '';
+            knob.setAttribute('aria-label', 'Rotate'); knob.title = 'Rotate (Shift to snap to 15°)';
+            overlay.appendChild(knob);
+            // Corner-radius knob — a drag handle at the top-right corner, Framer-style.
+            const radius = doc.createElement('div'); radius.className = 'ink-radius-handle'; radius.dataset.inkRadiusHandle = '';
+            radius.setAttribute('aria-label', 'Corner radius'); radius.title = 'Corner radius (Shift: top-right only)';
+            overlay.appendChild(radius);
+            // Resize handles — 4 corners + 4 edges, Framer-style.
+            [['nw','nesw-resize'],['ne','nwse-resize'],['se','nwse-resize'],['sw','nesw-resize']].forEach(([corner, cursor]) => {
+                const h = doc.createElement('div'); h.className = 'ink-resize-handle is-corner'; h.dataset.inkResizeHandle = corner;
+                h.dataset.cursor = cursor; h.setAttribute('aria-label', `Resize ${corner}`);
+                overlay.appendChild(h);
+            });
+            [['n','ns-resize'],['e','ew-resize'],['s','ns-resize'],['w','ew-resize']].forEach(([edge, cursor]) => {
+                const h = doc.createElement('div'); h.className = 'ink-resize-handle is-edge'; h.dataset.inkResizeHandle = edge;
+                h.dataset.cursor = cursor; h.setAttribute('aria-label', `Resize ${edge}`);
+                overlay.appendChild(h);
+            });
+        }
         return overlay;
     }
 

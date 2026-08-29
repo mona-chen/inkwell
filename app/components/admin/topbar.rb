@@ -8,7 +8,7 @@ module Admin
     end
 
     def view_template
-      div(class: "flex items-center justify-between gap-4 w-full h-full") do
+      div(class: "admin-topbar-content flex items-center justify-between gap-4 w-full h-full") do
         h1(class: "text-base font-semibold text-foreground truncate") { @title }
 
         div(class: "flex items-center gap-3 text-sm") do

@@ -352,10 +352,9 @@ if (manifest.format === "ink-site-capture-v2") {
     const sourcePath = path.join(pageDirectory, "source.html");
     let documentHtml = fs.readFileSync(sourcePath, "utf8");
     const styleParts = [];
-    const styleLinks = [];
     const scriptEntries = [];
     documentHtml = documentHtml.replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi, (_match, attributes, content) => { styleParts.push({ attributes: attributes.trim(), content }); return ""; });
-    documentHtml = documentHtml.replace(/<link\b([^>]*\brel=["']?stylesheet["']?[^>]*)>/gi, (match) => { styleLinks.push(match); return ""; });
+    documentHtml = documentHtml.replace(/<link\b([^>]*\brel=["']?stylesheet["']?[^>]*)>/gi, "");
     documentHtml = documentHtml.replace(/<script([^>]*)>([\s\S]*?)<\/script>/gi, (_match, attributes, content) => {
       const cleanAttributes = attributes.trim();
       const type = cleanAttributes.match(/\btype=["']([^"']+)["']/i)?.[1]?.toLowerCase() || "";
@@ -364,15 +363,6 @@ if (manifest.format === "ink-site-capture-v2") {
     });
     const base = `<base href="${String(page.url).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}">`;
     documentHtml = /<head[^>]*>/i.test(documentHtml) ? documentHtml.replace(/<head([^>]*)>/i, `<head$1>${base}`) : `${base}${documentHtml}`;
-    const viewportReports = JSON.parse(fs.readFileSync(path.join(pageDirectory, "manifest.json"), "utf8")).viewports || [];
-    const fallbackHeight = Math.max(900, ...viewportReports.map((report) => Number(report.document?.height) || 0));
-    const fidelityPayload = {
-      settings: { title, sourceUrl: page.url, importMode: "fidelity" },
-      children: [{ type: "site-snapshot", settings: { title, sourceUrl: page.url, documentHtml, stylesheetText: styleParts.map((part) => part.content).join("\n\n"), styleEntries: styleParts, styleLinks, scriptEntries, pageScript: scriptEntries.filter((entry) => !/\bsrc\s*=/i.test(entry.attributes) && (!entry.attributes.match(/\btype=["']([^"']+)["']/i) || /\b(?:text|application)\/javascript\b|\bmodule\b/i.test(entry.attributes))).map((entry, scriptIndex) => `/* Imported inline script ${scriptIndex + 1} */\n${entry.content.trim()}`).join("\n\n"), fallbackHeight } }],
-      customCss: "",
-      customJs: "",
-      importReport: { ...payload.importReport, mode: "fidelity", semanticNodesAvailable: true },
-    };
     const parsed = parse5.parse(documentHtml);
     const body = findElement(parsed, "body");
     const htmlElement = findElement(parsed, "html");
@@ -460,9 +450,9 @@ if (manifest.format === "ink-site-capture-v2") {
       customCss: importedCss,
       customJs: nativeRuntime(scriptEntries, page.url),
       initialHtml,
-      importReport: { ...payload.importReport, mode: "native-lossless", nativeNodes: (() => { let count = 0; const visit = (item) => { count += 1; (item.children || []).forEach(visit); }; deduplicatedNativeChildren.forEach(visit); return count; })(), fidelityFallbackAvailable: true },
+      importReport: { ...payload.importReport, mode: "native-lossless", nativeNodes: (() => { let count = 0; const visit = (item) => { count += 1; (item.children || []).forEach(visit); }; deduplicatedNativeChildren.forEach(visit); return count; })() },
     };
-    return { source: page.url, title, slug: routes[routeKey(page.url)], depth: page.depth, parentSource: page.parent, payload: nativePayload, fidelityPayload, semanticPayload: payload };
+    return { source: page.url, title, slug: routes[routeKey(page.url)], depth: page.depth, parentSource: page.parent, payload: nativePayload };
   });
   // Global header/footer nodes bring component-specific responsive classes with them. Their
   // CSS is part of the site part, not the destination route's page stylesheet, so every page

@@ -593,6 +593,10 @@ module AiWriter
         an enhancement layer, never a substitute for editable content.
 
         OPERATING CONTRACT
+        0. Treat every design, rewrite, add-section, layout, styling, animation, or code request
+           as an execution request. You must make a mutating tool call before replying. Never
+           answer one of those requests with a question, proposal, or "how can I help" message.
+           Ask a question only when a user explicitly requests advice and no page change.
         1. For any build, rewrite, or add-section request, call get_capabilities first. Never
            invent element types or setting names. For a surgical edit, call read_design and
            read_element/read_custom_code as needed. In design/rewrite mode the current tree is

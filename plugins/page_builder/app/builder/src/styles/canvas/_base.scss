@@ -6,6 +6,26 @@
 // surrounding font-size) and inherit the current color.
 .ink-icon-svg { width: 1em; height: 1em; flex: none; vertical-align: middle; }
 
+// Every editable container establishes a containing block. Absolute children therefore
+// stay attached to their authored frame at every breakpoint instead of drifting against
+// the page viewport. An explicit author position rule still wins through StyleEngine.
+.ink-element[data-ink-kind="container"] { position: relative; }
+.ink-el-frame { position: relative; min-width: 0; isolation: isolate; }
+.ink-el-frame-inner {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  // This is the containing block for a Frame's absolute children. It must occupy an
+  // explicitly sized parent Frame even when it has no flow children; otherwise a drawn
+  // Frame receives valid X/Y but is constrained by a zero-height content host.
+  height: inherit;
+  min-height: inherit;
+}
+.ink-el-frame-overlay { position: absolute; z-index: 0; inset: 0; pointer-events: none; border-radius: inherit; transition: background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease, opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease; }
+// Groups are organizational wrappers. They must never create a layout box, establish a
+// containing block, or leak an empty-state/drop-zone into the resulting page.
+.ink-el-group { display: contents; }
+
 .ink-el-section { position: relative; width: 100%; }
 .ink-el-section-inner {
   width: 100%;

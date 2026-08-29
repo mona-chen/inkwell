@@ -27,6 +27,7 @@ Rails.application.routes.draw do
     resources :taxonomies, only: [:index, :create, :update, :destroy]
     resources :pages do
       member { post :publish }
+      member { post :publish_original_import }
     end
     resources :media, only: [:index, :create, :update, :destroy]
     resources :comments, only: [:index, :update, :destroy]

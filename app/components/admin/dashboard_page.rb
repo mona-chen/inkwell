@@ -29,7 +29,7 @@ module Admin
     end
 
     def view_template
-      div(class: "space-y-8") do
+      div(class: "admin-dashboard space-y-6") do
         render_header
         render_editorial_stats
         render_queue_band

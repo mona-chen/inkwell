@@ -40,14 +40,3 @@
   .ink-el-icon-box, .ink-el-image-box { align-items: center; text-align: center; }
   .ink-el-image-box > img { width: 100%; }
 }
-.ink-el-site-snapshot {
-  display: block;
-  width: 100%;
-  min-height: 320px;
-  border: 0;
-  background: #fff;
-}
-
-/* The imported-document bridge owns design-mode selection inside this frame. Keeping
-   pointer events enabled is what makes the captured DOM directly selectable/editable. */
-body.ink-builder-design .ink-el-site-snapshot { pointer-events: auto; }

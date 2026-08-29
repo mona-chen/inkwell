@@ -27,6 +27,25 @@ class Page < ApplicationRecord
   scope :published, -> { where(status: "published") }
   scope :ordered, -> { order(:menu_order) }
 
+  LIVE_RENDER_MODES = %w[native original_import].freeze
+
+  validates :live_render_mode, inclusion: { in: LIVE_RENDER_MODES }
+
+  def original_import_available?
+    original_import_html.present? && original_import_url.present?
+  end
+
+  def publish_native!
+    publish_draft!
+    update!(live_render_mode: "native")
+  end
+
+  def publish_original_import!
+    raise ActiveRecord::RecordInvalid, self unless original_import_available?
+
+    update!(status: "published", live_render_mode: "original_import")
+  end
+
   def layout_label
     LAYOUTS.find { |l| l[:value] == template }&.dig(:label) || template.humanize
   end

@@ -1,4 +1,6 @@
-const DEFAULTS = { desktop: { width: '100%', height: '100%' }, tablet: { width: 768, height: 1024 }, mobile: { width: 375, height: 667 } };
+// Every preview mode owns a real virtual viewport. Using the leftover editor width for
+// desktop lets a narrow panel/stage accidentally trigger tablet or mobile media queries.
+const DEFAULTS = { desktop: { width: 1440, height: 900 }, tablet: { width: 768, height: 1024 }, mobile: { width: 375, height: 667 } };
 
 export default class ViewportManager {
     constructor(builder) { this.builder = builder; this.device = 'desktop'; this.scale = 1; }
@@ -36,18 +38,11 @@ export default class ViewportManager {
         this.device = device; this.container.dataset.inkViewportDevice = device;
         this.bar.querySelectorAll('[data-device]').forEach((button) => button.classList.toggle('is-active', button.dataset.device === device));
         const dimensions = DEFAULTS[device]; this.setScale(1);
-        if (device === 'desktop') {
-            this.container.style.width = '100%'; this.container.style.height = '';
-            this.builder.iframe.style.width = '100%';
-            this.builder.iframe.style.height = '100%';
-        } else {
-            this.setSize(dimensions.width, dimensions.height);
-            this.fitScale();
-        }
+        this.setSize(dimensions.width, dimensions.height);
+        this.fitScale();
     }
 
     setSize(width, height) {
-        if (this.device === 'desktop') return;
         width = Math.max(240, Math.min(1920, width || DEFAULTS[this.device].width)); height = Math.max(320, Math.min(2160, height || DEFAULTS[this.device].height));
         this.container.style.width = `${width}px`; this.container.style.height = `${height + 40}px`; this.builder.iframe.style.width = '100%'; this.builder.iframe.style.height = `${height}px`;
         this.widthInput.value = width; this.heightInput.value = height;

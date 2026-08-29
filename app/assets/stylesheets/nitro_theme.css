@@ -4,9 +4,11 @@
 
 :root,
 [data-theme="light"] {
-  --nk-color-focus: oklch(0.439 0 0);
-  --nk-color-primary: oklch(0.269 0 0);
-  --nk-color-primary-foreground: oklch(0.97 0 0);
+  --nk-color-focus: oklch(0.61 0.18 315);
+  --nk-color-primary: oklch(0.51 0.21 315);
+  --nk-color-primary-foreground: oklch(0.985 0 0);
+  --nk-app-shell-sidebar-width: 15rem;
+  --nk-app-shell-topbar-height: 3.25rem;
 }
 
 @media (prefers-color-scheme: dark) {

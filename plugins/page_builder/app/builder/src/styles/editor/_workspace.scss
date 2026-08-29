@@ -74,14 +74,14 @@
   margin: 0 auto;
   padding: clamp(24px, 4vw, 56px);
   color: var(--ink-editor-text);
-  font-family: Roboto, Inter, sans-serif;
+  font-family: var(--ink-editor-font);
 }
 .ink-pages-canvas[hidden] { display: none; }
 .ink-pages-canvas > header { display: flex; gap: 24px; align-items: flex-end; justify-content: space-between; margin-bottom: 34px; }
 .ink-pages-canvas h1 { margin: 3px 0 5px; font-size: 28px; letter-spacing: -.03em; }
 .ink-pages-canvas p { margin: 0; color: var(--ink-editor-muted); font-size: 12px; }
 .ink-pages-eyebrow { color: var(--ink-editor-accent-bright); font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
-.ink-pages-canvas header button { display: flex; height: 32px; gap: 6px; align-items: center; padding: 0 10px; border: 1px solid var(--ink-editor-border); border-radius: 3px; background: var(--ink-editor-surface); color: var(--ink-editor-text); font: 500 11px Roboto, sans-serif; cursor: pointer; }
+.ink-pages-canvas header button { display: flex; height: 28px; gap: 6px; align-items: center; padding: 0 9px; border: 1px solid var(--ink-editor-border); border-radius: 5px; background: var(--ink-editor-surface); color: var(--ink-editor-text); font: 550 11px/16px var(--ink-editor-font); cursor: pointer; }
 .ink-pages-canvas header .material-symbols-rounded { font-size: 16px; }
 .ink-pages-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(320px,1fr)); gap: 28px; align-items: start; }
 .ink-page-card { display: block; overflow: hidden; border: 1px solid var(--ink-editor-border); border-radius: 7px; background: var(--ink-editor-panel); color: var(--ink-editor-text); text-decoration: none; box-shadow: 0 12px 30px rgba(0,0,0,.22); transition: border-color .15s,transform .15s; }
@@ -104,7 +104,7 @@
   background: var(--ink-editor-panel);
   color: var(--ink-editor-text);
   box-shadow: 0 28px 90px rgba(0,0,0,.55);
-  font-family: Roboto, Inter, sans-serif;
+  font-family: var(--ink-editor-font);
 }
 .ink-capture-dialog::backdrop { background: rgba(4,5,6,.76); backdrop-filter: blur(5px); }
 .ink-capture-dialog > header,.ink-capture-dialog > footer { display: flex; gap: 18px; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--ink-editor-border); }

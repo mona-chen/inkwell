@@ -10,6 +10,7 @@ export const GOOGLE_FONTS = [
     { value: 'Montserrat', label: 'Montserrat', weights: '300;400;500;600;700;800;900' },
     { value: 'Poppins', label: 'Poppins', weights: '300;400;500;600;700' },
     { value: 'Oswald', label: 'Oswald', weights: '300;400;500;600;700' },
+    { value: 'Tiny5', label: 'Tiny5', weights: '400' },
     { value: 'Raleway', label: 'Raleway', weights: '300;400;500;600;700;800' },
     { value: 'Nunito', label: 'Nunito', weights: '300;400;600;700;800;900' },
     { value: 'Work Sans', label: 'Work Sans', weights: '300;400;500;600;700' },
@@ -27,6 +28,28 @@ export const GOOGLE_FONTS = [
 ];
 
 const BY_NAME = new Map(GOOGLE_FONTS.map((font) => [font.value, font]));
+
+const cssString = (value) => String(value || '').replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+
+export function customFonts(document) {
+    const fonts = document?.data?.settings?.customFonts;
+    if (!Array.isArray(fonts)) return [];
+    return fonts.filter((font) => {
+        if (!font || typeof font.family !== 'string' || !font.family.trim() || typeof font.url !== 'string') return false;
+        const url = font.url.trim();
+        return /^(https?:\/\/|\/)/i.test(url);
+    }).map((font) => ({
+        family: font.family.trim(),
+        url: font.url.trim(),
+        weight: String(font.weight || '400'),
+        style: ['normal', 'italic', 'oblique'].includes(font.style) ? font.style : 'normal',
+        display: ['auto', 'block', 'swap', 'fallback', 'optional'].includes(font.display) ? font.display : 'swap',
+    }));
+}
+
+export function customFontFaces(document) {
+    return customFonts(document).map((font) => `@font-face{font-family:"${cssString(font.family)}";src:url("${cssString(font.url)}") format("woff2");font-style:${font.style};font-weight:${font.weight};font-display:${font.display}}`).join('');
+}
 
 // The @import url(...) fragment for a single font family (CSS2 API).
 export function fontImportUrl(family) {
@@ -54,4 +77,8 @@ export function usedFonts(document) {
         if (BY_NAME.has(primary)) families.add(primary);
     }
     return [...families];
+}
+
+export function availableFonts(document) {
+    return [...new Set([...GOOGLE_FONTS.map((font) => font.value), ...customFonts(document).map((font) => font.family)])];
 }

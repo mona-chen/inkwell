@@ -21,5 +21,7 @@
   <footer class="border-t border-green-900 py-6 mt-16 text-xs text-green-700">
     <div class="max-w-2xl mx-auto px-4">// <%= render "site/nav", location: "footer" %></div>
   </footer>
+
+  <%= raw Inkwell::Hooks.filter(:body_scripts, "", site: Current.site) %>
 </body>
 </html>

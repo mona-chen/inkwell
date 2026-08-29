@@ -3,6 +3,7 @@ class PagePolicy < ApplicationPolicy
   def update? = user.can?(:edit_pages) || user.admin?
   def destroy? = user.admin? || user.can?(:edit_pages)
   def publish? = update?
+  def publish_original_import? = publish?
 
   class Scope < Scope
     def resolve

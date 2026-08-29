@@ -9,6 +9,28 @@ const spacing = [
     { tab: 'advanced', target: 'styles', section: 'Spacing', name: 'margin', type: 'dimensions', label: 'Margin', units: ['px', 'rem', '%'], responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Spacing', name: 'padding', type: 'dimensions', label: 'Padding', units: ['px', 'rem', '%'], responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Layout', name: 'width', type: 'size', label: 'Width', units: ['px', '%', 'vw'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'min-width', type: 'size', label: 'Minimum width', units: ['px', '%', 'vw', 'rem'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'max-width', type: 'size', label: 'Maximum width', units: ['px', '%', 'vw', 'rem'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'height', type: 'size', label: 'Height', units: ['px', '%', 'vh'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'min-height', type: 'size', label: 'Minimum height', units: ['px', '%', 'vh'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'max-height', type: 'size', label: 'Maximum height', units: ['px', '%', 'vh'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'aspect-ratio', type: 'text', label: 'Aspect ratio', placeholder: '16 / 9', responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Layout', name: 'overflow', type: 'select', label: 'Overflow', options: ['visible', 'hidden', 'auto', 'scroll', 'clip'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Interaction', name: 'cursor', type: 'select', label: 'Cursor', options: ['auto', 'default', 'pointer', 'text', 'grab', 'grabbing', 'crosshair', 'move', 'not-allowed', 'zoom-in', 'zoom-out', 'none'] },
+];
+const vectorAdvanced = [
+    { tab: 'advanced', target: 'styles', section: 'Positioning', name: 'position', type: 'select', label: 'Position', options: ['static', 'relative', 'absolute', 'fixed', 'sticky'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Positioning', name: 'top', type: 'size', label: 'Top', units: ['px', '%', 'vh', 'rem'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Positioning', name: 'right', type: 'size', label: 'Right', units: ['px', '%', 'vw', 'rem'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Positioning', name: 'bottom', type: 'size', label: 'Bottom', units: ['px', '%', 'vh', 'rem'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Positioning', name: 'left', type: 'size', label: 'Left', units: ['px', '%', 'vw', 'rem'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Positioning', name: 'z-index', type: 'number', label: 'Z-index', responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'translate', type: 'text', label: 'Translate', placeholder: '0px 0px', responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'rotate', type: 'size', label: 'Rotate', units: ['deg', 'turn'], responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Transform', name: 'scale', type: 'number', label: 'Scale', responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Effects', name: 'opacity', type: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.05, responsive: true },
+    { tab: 'advanced', target: 'styles', section: 'Effects', name: 'filter', type: 'css-filters', label: 'CSS filters' },
+    { tab: 'advanced', target: 'settings', section: 'Motion', name: 'motion', type: 'motion', label: 'Animation', description: 'Native keyframes run in Preview and published pages; Design mode stays stable and editable.' },
 ];
 
 // Single typography popover (Ink) writing to the element's style bucket.
@@ -176,6 +198,9 @@ export default function registerInkElements(registry) {
             typographyControls, alignmentControl,
             { tab: 'style', target: 'styles', section: 'Link', name: 'color', type: 'color', label: 'Color', states: true },
             { tab: 'style', target: 'styles', section: 'Link', name: 'background', type: 'background', label: 'Background' },
+            { tab: 'style', target: 'styles', section: 'Link', name: 'text-shadow', type: 'text-shadow', label: 'Text shadow' },
+            { tab: 'style', target: 'styles', section: 'Link', name: '-webkit-text-stroke', type: 'text-stroke', label: 'Text stroke' },
+            { tab: 'style', target: 'styles', section: 'Link', name: 'mix-blend-mode', type: 'select', label: 'Blend mode', options: ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'difference', 'exclusion'] },
             ...spacing,
         ],
         inlineEditable: { setting: 'text' },
@@ -190,6 +215,9 @@ export default function registerInkElements(registry) {
             typographyControls,
             { tab: 'style', target: 'styles', section: 'Text', name: 'color', type: 'color', label: 'Color', states: true },
             { tab: 'style', target: 'styles', section: 'Text', name: 'background', type: 'background', label: 'Background' },
+            { tab: 'style', target: 'styles', section: 'Text', name: 'text-shadow', type: 'text-shadow', label: 'Text shadow' },
+            { tab: 'style', target: 'styles', section: 'Text', name: '-webkit-text-stroke', type: 'text-stroke', label: 'Text stroke' },
+            { tab: 'style', target: 'styles', section: 'Text', name: 'mix-blend-mode', type: 'select', label: 'Blend mode', options: ['normal', 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'color-burn', 'difference', 'exclusion'] },
             ...spacing,
         ],
         inlineEditable: { setting: 'text' },
@@ -273,13 +301,30 @@ export default function registerInkElements(registry) {
         inlineEditable: { setting: 'text' },
         render: ({ domDocument }, node) => { const root = make(domDocument, 'label', 'ink-el-label', node.settings.text || ''); if (node.settings.forId) root.htmlFor = node.settings.forId; return root; },
     });
+    const appendSafeSvgMarkup = (domDocument, root, markup) => {
+        if (!markup || typeof markup !== 'string') return;
+        const parser = new domDocument.defaultView.DOMParser();
+        const parsed = parser.parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`, 'image/svg+xml');
+        const source = parsed.documentElement;
+        const blocked = new Set(['script', 'foreignobject', 'iframe', 'object', 'embed', 'link', 'style']);
+        [...source.querySelectorAll('*')].forEach((element) => {
+            if (blocked.has(element.localName.toLowerCase())) { element.remove(); return; }
+            [...element.attributes].forEach((attribute) => {
+                const name = attribute.name.toLowerCase();
+                const value = attribute.value.trim().toLowerCase();
+                if (name.startsWith('on') || ((name === 'href' || name === 'xlink:href') && value.startsWith('javascript:'))) element.removeAttribute(attribute.name);
+            });
+        });
+        [...source.childNodes].forEach((child) => root.appendChild(domDocument.importNode(child, true)));
+    };
     const svgElement = (type, title, tag, controls = [], acceptsChildren = false, internal = true) => register(registry, {
         type, title, icon: 'polyline', category: 'Vector', acceptsChildren, internal,
         defaults: { settings: {}, styles: { base: {} }, ...(acceptsChildren ? { children: [] } : {}) },
-        controls: [...controls, { tab: 'style', target: 'styles', section: 'Vector', name: 'fill', type: 'color', label: 'Fill' }, { tab: 'style', target: 'styles', section: 'Vector', name: 'stroke', type: 'color', label: 'Stroke' }, ...spacing],
-        render: ({ domDocument }, node) => { const root = domDocument.createElementNS('http://www.w3.org/2000/svg', tag); Object.entries(node.settings || {}).forEach(([name, value]) => { if (!['cssClasses', 'cssId'].includes(name) && value !== '' && value != null) root.setAttribute(name, String(value)); }); if (acceptsChildren) root.dataset.inkChildren = ''; return root; },
+        controls: [...controls, { tab: 'style', target: 'styles', section: 'Vector', name: 'fill', type: 'color', label: 'Fill' }, { tab: 'style', target: 'styles', section: 'Vector', name: 'stroke', type: 'color', label: 'Stroke' }, ...spacing, ...vectorAdvanced],
+        render: ({ domDocument }, node) => { const root = domDocument.createElementNS('http://www.w3.org/2000/svg', tag); Object.entries(node.settings || {}).forEach(([name, value]) => { if (!['cssClasses', 'cssId', 'markup'].includes(name) && value !== '' && value != null) root.setAttribute(name, String(value)); }); if (tag === 'svg') appendSafeSvgMarkup(domDocument, root, node.settings.markup); if (acceptsChildren) root.dataset.inkChildren = ''; return root; },
     });
     svgElement('svg', 'SVG', 'svg', [
+        { tab: 'content', section: 'Vector', name: 'markup', type: 'code', label: 'SVG markup' },
         { tab: 'content', section: 'Vector', name: 'viewBox', type: 'text', label: 'View box' },
         { tab: 'content', section: 'Vector', name: 'preserveAspectRatio', type: 'select', label: 'Fit', options: [{ value: 'xMidYMid meet', label: 'Contain' }, { value: 'xMidYMid slice', label: 'Cover' }, { value: 'none', label: 'Stretch' }] },
         { tab: 'content', section: 'Vector', name: 'width', type: 'text', label: 'Width' },
@@ -340,44 +385,6 @@ export default function registerInkElements(registry) {
             const appendText = (value) => { if (value != null && value !== '') element.appendChild(domDocument.createTextNode(String(value))); };
             appendText(segments[0]);
             children.forEach((child, index) => { element.appendChild(create(child)); appendText(segments[index + 1]); });
-        },
-    });
-    register(registry, {
-        type: 'site-snapshot', title: 'Imported Site Page', icon: 'language', category: 'Layout',
-        defaults: { settings: { sourceUrl: '', title: 'Imported page', documentHtml: '<!doctype html><html><body></body></html>', stylesheetText: '', styleEntries: [], styleLinks: [], scriptEntries: [], pageScript: '', edits: [], fallbackHeight: 900 }, styles: { base: { width: '100%' } } },
-        controls: [
-            { tab: 'content', section: 'Captured page', name: 'title', type: 'text', label: 'Page title' },
-            { tab: 'content', section: 'Captured page', name: 'sourceUrl', type: 'text', label: 'Original URL' },
-            { tab: 'content', section: 'Captured page', name: 'documentHtml', type: 'code', label: 'Captured document' },
-            ...spacing,
-        ],
-        render: ({ domDocument }, node) => {
-            const frame = domDocument.createElement('iframe');
-            frame.className = 'ink-el-site-snapshot';
-            frame.title = node.settings.title || 'Imported site page';
-            frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads');
-            frame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-            frame.style.height = `${Math.max(320, Number(node.settings.fallbackHeight) || 900)}px`;
-            const edits = JSON.stringify(node.settings.edits || []).replace(/</g, '\\u003c');
-            const bridge = `<script>(function(){var id=${JSON.stringify(node.id)},design=false,edits=${edits};var q=function(p){try{return document.querySelector(p)}catch(e){return null}},path=function(el){var out=[];while(el&&el!==document.body){var n=1,s=el;while((s=s.previousElementSibling))n++;out.unshift(el.tagName.toLowerCase()+':nth-child('+n+')');el=el.parentElement}return 'body>'+out.join('>')},ownText=function(el){var w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),n;while(n=w.nextNode())if(n.nodeValue.trim())return n;return null},patch=function(p,x){var el=q(p);if(!el)return;if(x.text!=null){var t=ownText(el);if(t)t.nodeValue=x.text;else el.textContent=x.text}if(x.href!=null)el.setAttribute('href',x.href);if(x.src!=null)el.setAttribute('src',x.src);if(x.className!=null)el.className=x.className;if(x.style!=null)el.setAttribute('style',x.style)},apply=function(){edits.forEach(function(e){patch(e.path,e.patch||{})})},send=function(){parent.postMessage({type:'ink-site-snapshot-height',id:id,height:Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0)},'*')};apply();addEventListener('message',function(e){var m=e.data||{};if(m.type==='ink-site-mode'){design=!!m.design;if(!design)document.querySelectorAll('[data-ink-site-active]').forEach(function(el){el.removeAttribute('data-ink-site-active')})}if(m.type==='ink-site-patch')patch(m.path,m.patch||{})});addEventListener('click',function(e){if(!design)return;var el=e.target.closest('a,button,img,h1,h2,h3,h4,h5,h6,p,li,blockquote,label,input,textarea,section,header,footer,nav,article,div');if(!el)return;e.preventDefault();e.stopPropagation();document.querySelectorAll('[data-ink-site-active]').forEach(function(x){x.removeAttribute('data-ink-site-active')});el.setAttribute('data-ink-site-active','');var tag=el.tagName.toLowerCase(),text=ownText(el);parent.postMessage({type:'ink-site-select',snapshotId:id,path:path(el),descriptor:{tag:tag,label:(el.getAttribute('data-framer-name')||el.getAttribute('aria-label')||(text&&text.nodeValue.trim().slice(0,60))||tag),text:text?text.nodeValue.trim():'',editableText:/^(a|button|h[1-6]|p|li|blockquote|label|span)$/.test(tag),href:el.hasAttribute('href')?el.getAttribute('href'):null,src:el.hasAttribute('src')?el.getAttribute('src'):null,className:el.className||'',style:el.getAttribute('style')||''}},'*')},true);var css=document.createElement('style');css.textContent='[data-ink-site-active]{outline:2px solid #e94688!important;outline-offset:2px!important}';document.head.appendChild(css);addEventListener('load',send);new ResizeObserver(send).observe(document.documentElement);setTimeout(send,250);setTimeout(send,1500)})()<\/script>`;
-            const escapedStyle = String(node.settings.stylesheetText || '').replace(/<\/style/gi, '<\\/style');
-            const styleAssets = `${(node.settings.styleLinks || []).join('\n')}<style data-ink-imported-styles>${escapedStyle}</style>`;
-            const runtimeScripts = (node.settings.scriptEntries || []).map((entry) => `<script${entry.attributes ? ` ${entry.attributes}` : ''}>${String(entry.content || '').replace(/<\/script/gi, '<\\/script')}<\/script>`).join('\n');
-            const pageScript = node.settings.pageScript ? `<script data-ink-imported-page-script>${String(node.settings.pageScript).replace(/<\/script/gi, '<\\/script')}<\/script>` : '';
-            let html = String(node.settings.documentHtml || '');
-            html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${styleAssets}</head>`) : `${styleAssets}${html}`;
-            frame.srcdoc = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, `${runtimeScripts}${pageScript}${bridge}</body>`) : `${html}${runtimeScripts}${pageScript}${bridge}`;
-            const onMessage = (event) => {
-                if (event.source !== frame.contentWindow || event.data?.type !== 'ink-site-snapshot-height' || event.data?.id !== node.id) return;
-                const height = Math.max(320, Math.min(200000, Number(event.data.height) || 0));
-                if (height) frame.style.height = `${height}px`;
-            };
-            domDocument.defaultView.addEventListener('message', onMessage);
-            frame.addEventListener('load', () => {
-                frame.contentWindow?.postMessage({ type: 'ink-site-mode', design: domDocument.body.classList.contains('ink-builder-design') }, '*');
-                if (!frame.isConnected) domDocument.defaultView.removeEventListener('message', onMessage);
-            }, { once: true });
-            return frame;
         },
     });
     register(registry, {

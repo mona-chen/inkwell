@@ -14,6 +14,7 @@ module Admin
     end
 
     def view_template
+      div(class: "admin-pages") do
       render Toolbar.new do |toolbar|
         toolbar.leading do
           render ToolbarTitle.new(
@@ -28,10 +29,11 @@ module Admin
 
       render_filters
 
-      if @pages.empty?
-        render_empty
-      else
-        render_page_list
+        if @pages.empty?
+          render_empty
+        else
+          render_page_list
+        end
       end
     end
 
@@ -81,6 +83,11 @@ module Admin
               class: "truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary"
             ) { page.title }
             render Badge.new(page.status, color: page.status == "published" ? :success : :neutral, size: :xs)
+            if page.live_render_mode == "original_import"
+              render Badge.new("original live", color: :info, size: :xs)
+            elsif page.status == "published"
+              render Badge.new("native live", color: :neutral, size: :xs)
+            end
           end
           div(class: "mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground") do
             span { "by #{page.author&.name || "unknown"}" }

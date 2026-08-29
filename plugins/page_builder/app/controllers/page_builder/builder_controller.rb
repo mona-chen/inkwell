@@ -141,6 +141,7 @@ module PageBuilder
       attributes = { content: blocks }
       if ActiveModel::Type::Boolean.new.cast(params[:publish])
         attributes[:status] = "published"
+        attributes[:live_render_mode] = "native" if @record.is_a?(Page)
         attributes[:draft_content] = nil if @record.has_attribute?(:draft_content)
       end
       @record.update!(attributes)
@@ -152,6 +153,15 @@ module PageBuilder
         public_url: public_record_url,
         preview_url: preview_record_url
       }
+    end
+
+    def publish_original_import
+      return render json: { error: "Only imported pages have an original publication track." }, status: :unprocessable_entity unless @record.is_a?(Page) && @record.original_import_available?
+
+      @record.publish_original_import!
+      render json: { ok: true, status: @record.status, live_render_mode: @record.live_render_mode, public_url: public_record_url }
+    rescue ActiveRecord::RecordInvalid
+      render json: { error: @record.errors.full_messages.to_sentence.presence || "Original import cannot be published." }, status: :unprocessable_entity
     end
 
     # Builder.js assetUploadHandler: accepts a multipart file upload, stores it in the
@@ -258,7 +268,10 @@ module PageBuilder
             hide_title: true,
             menu_order: index,
             content: [block],
-            meta: { "import_source" => page_payload["source"], "import_capture" => capture_id }
+            meta: { "import_source" => page_payload["source"], "import_capture" => capture_id },
+            original_import_html: imported_source_html(capture_id, page_payload["source"]),
+            original_import_url: page_payload["source"],
+            live_render_mode: "native"
           )
           page.save!
           by_source[page_payload["source"]] = page
@@ -285,6 +298,32 @@ module PageBuilder
         suffix += 1
       end
       candidate
+    end
+
+    # The native store is editable, but the captured source is also a deliberate publication
+    # artifact. Persist it on the Page during import so the public original track never relies
+    # on tmp/site-captures surviving a deploy. Its base URL keeps original CSS, fonts, media,
+    # and runtime dependencies resolving while the native version is rebuilt.
+    def imported_source_html(capture_id, source_url)
+      manifest_path = Dir.glob(site_captures_root.join(capture_id, "pages", "*", "manifest.json").to_s).find do |path|
+        JSON.parse(File.read(path))["source"] == source_url
+      rescue JSON::ParserError
+        false
+      end
+      return nil unless manifest_path
+
+      source_path = Pathname.new(manifest_path).dirname.join("source.html")
+      return nil unless source_path.file?
+
+      html = source_path.read
+      base = %(<base href="#{ERB::Util.html_escape(source_url)}">)
+      return html if html.match?(/<base\b/i)
+
+      if html.match?(/<head([^>]*)>/i)
+        html.sub(/<head([^>]*)>/i, "<head\\1>#{base}")
+      else
+        "<!doctype html><html><head>#{base}</head><body>#{html}</body></html>"
+      end
     end
 
     def rewrite_import_links!(nodes, slugs)

@@ -68,7 +68,14 @@
     </div>
     <div class="ink-appbar-end">
       <button type="button" data-action="finder" title="Finder (⌘K)" aria-label="Finder"><span class="material-symbols-rounded">search</span></button>
-      <button type="button" id="structureButton" data-action="structure" title="Structure" aria-label="Structure"><span class="material-symbols-rounded">account_tree</span></button>
+      <button type="button" id="structureButton" class="ink-appbar-navigator" data-action="structure" title="Navigator (Layers)" aria-label="Open Navigator">
+        <svg class="ink-appbar-lucide" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/>
+          <path d="m22 12.5-9.17 4.17a2 2 0 0 1-1.66 0L2 12.5"/>
+          <path d="m22 17.5-9.17 4.17a2 2 0 0 1-1.66 0L2 17.5"/>
+        </svg>
+        <span class="ink-appbar-action-label">Navigator</span>
+      </button>
       <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
         <button type="button" id="copilotButton" data-action="copilot" title="Copilot" aria-label="Copilot"><span class="material-symbols-rounded">sparkles</span></button>
       <% end %>
@@ -80,6 +87,9 @@
         <button type="button" data-smenu="code" onclick="enterBuilderMode('code')"><span class="material-symbols-rounded">code</span><span>Code editor</span></button>
         <button type="button" onclick="saveDraftToInkwell()"><span class="material-symbols-rounded">save</span><span>Save draft</span></button>
         <button type="button" onclick="previewDraftPage()"><span class="material-symbols-rounded">preview</span><span>Preview page</span></button>
+        <% if @record.is_a?(Page) && @record.original_import_available? %>
+          <button type="button" onclick="publishOriginalImport()"><span class="material-symbols-rounded">history</span><span>Keep original import live</span></button>
+        <% end %>
         <button id="visitPageButton" type="button" onclick="visitPublishedPage()"<%= " hidden" unless @record.status == "published" %>><span class="material-symbols-rounded">open_in_new</span><span>Visit page</span></button>
         <button type="button" onclick="openCaptureImporter()"><span class="material-symbols-rounded">language</span><span>Import captured site</span></button>
         <button type="button" onclick="builder?.toggleHotkeys?.()"><span class="material-symbols-rounded">help</span><span>Keyboard shortcuts</span></button>
@@ -191,6 +201,7 @@
     var recordId = <%= params[:record_id].to_json.html_safe %>;
     var recordTitle = <%= @record.title.to_json.html_safe %>;
     var publicPageUrl = <%= (@record.status == "published" ? (@record.is_a?(Page) ? "/pages/#{@record.slug}" : "/posts/#{@record.slug}") : nil).to_json.html_safe %>;
+    var originalImportAvailable = <%= (@record.is_a?(Page) && @record.original_import_available?).to_json.html_safe %>;
     var previewPageUrl = <%= "/builder/#{@record.is_a?(Page) ? 'page' : 'post'}/#{@record.id}/preview".to_json.html_safe %>;
     var themeUrl = '/page_builder_theme';
 
@@ -309,6 +320,21 @@
         btn.innerHTML = '<span class="material-symbols-rounded">error</span><span>Retry publish</span>';
         console.error(error);
       });
+    }
+
+    function publishOriginalImport() {
+      if (!originalImportAvailable) return;
+      if (!window.confirm('Keep the captured original version live? Your native Builder changes will remain a draft until you publish them.')) return;
+      fetch('/builder/publish_original_import', {
+        method: 'POST',
+        headers: { 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ record_type: recordType, record_id: recordId })
+      }).then(function (response) { return response.json().then(function (payload) { if (!response.ok || !payload.ok) throw new Error(payload.error || 'Could not publish original import'); return payload; }); })
+        .then(function (payload) {
+          publicPageUrl = payload.public_url || publicPageUrl;
+          var visitButton = document.getElementById('visitPageButton');
+          if (visitButton && publicPageUrl) visitButton.hidden = false;
+        }).catch(function (error) { console.error(error); });
     }
 
     function saveDraftToInkwell() {
@@ -598,17 +624,10 @@
       if (!window.builder) return null;
       return builder.iframeDoc || (builder.iframe && builder.iframe.contentDocument) || null;
     }
-    function importedSnapshotNode() {
-      var children = window.builder?.runtime?.document?.data?.children || [];
-      return children.length === 1 && children[0].type === 'site-snapshot' ? children[0] : null;
-    }
     function syncCodeEditors() {
       var doc = canvasDoc();
       var html = '';
-      var snapshot = importedSnapshotNode();
-      if (snapshot) {
-        html = snapshot.settings.documentHtml || '';
-      } else if (builder.getSourceHtml) {
+      if (builder.getSourceHtml) {
         html = builder.getSourceHtml();
       } else if (builder.getHtml) {
         var full = builder.getHtml();
@@ -619,9 +638,9 @@
       }
       codeEditorSyncing = true;
       setCodeFileValue('html', html);
-      setCodeFileValue('css', snapshot ? (snapshot.settings.stylesheetText || '') : document.getElementById('customCss').value);
-      setCodeFileValue('js', snapshot ? (snapshot.settings.pageScript || '') : document.getElementById('customJs').value);
-      if (codeMirrors.html) codeMirrors.html.setOption('readOnly', snapshot ? false : 'nocursor');
+      setCodeFileValue('css', document.getElementById('customCss').value);
+      setCodeFileValue('js', document.getElementById('customJs').value);
+      if (codeMirrors.html) codeMirrors.html.setOption('readOnly', 'nocursor');
       codeEditorSyncing = false;
       codeEditorsSynced = true;
       Promise.all(['html', 'css', 'js'].map(formatCodeFile)).then(function () {
@@ -634,7 +653,6 @@
       var html = codeFileValue('html');
       var css = codeFileValue('css');
       var js = codeFileValue('js');
-      var snapshot = importedSnapshotNode();
 
       // Prohibit inline <style>/<script>: hoist every style block into the CSS file and
       // every script block into the JS file, so the builder keeps one clean source. The
@@ -651,12 +669,6 @@
       if (scriptParts.length) js = (js.trim() ? js.trim() + ';\n\n' : '') + scriptParts.join(';\n');
       setCodeFileValue('css', css);
       setCodeFileValue('js', js);
-      if (snapshot) {
-        builder.runtime.update(snapshot.id, { settings: { documentHtml: html, stylesheetText: css, pageScript: js } }, 'Edit imported source files');
-        markCodeFileDirty('html', false); markCodeFileDirty('css', false); markCodeFileDirty('js', false);
-        if (save) saveToInkwell();
-        return;
-      }
       document.getElementById('customCss').value = css;
       document.getElementById('customJs').value = js;
       markCodeFileDirty('css', false);

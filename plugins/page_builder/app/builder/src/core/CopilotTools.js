@@ -46,7 +46,9 @@ export function createCopilotTools(runtime, builder) {
     const sharedStyleControls = new Set([
         'typography', 'color', 'background', 'background-overlay', 'background-color', 'border',
         'border-radius', 'box-shadow', 'text-shadow', 'margin', 'padding', 'width', 'max-width',
-        'height', 'min-height', 'overflow', 'position', 'z-index', 'align-self', 'order', 'flex-grow',
+        'min-width', 'height', 'min-height', 'max-height', 'overflow', 'position', 'top', 'right',
+        'bottom', 'left', 'z-index', 'align-self', 'order', 'flex-grow', 'depth-color', 'depth-size',
+        'outer-radius',
         'flex-shrink', 'opacity', 'filter', 'text-align', 'font-size', 'icon-size', 'icon-gap',
     ]);
     const compactDefinition = (definition) => {
@@ -64,7 +66,7 @@ export function createCopilotTools(runtime, builder) {
 
     const capabilities = () => {
         const groups = {};
-        runtime.elements.list().forEach((definition) => {
+        runtime.elements.list().filter((definition) => !definition.internal).forEach((definition) => {
             const category = definition.category || 'Other';
             (groups[category] ||= []).push(compactDefinition(definition));
         });
@@ -73,7 +75,15 @@ export function createCopilotTools(runtime, builder) {
             elements: groups,
             styleShape: { desktop: { base: { color: '#111827', padding: { top: 24, right: 24, bottom: 24, left: 24, unit: 'px' } } }, tablet: { base: {} }, mobile: { base: {} } },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },
-            composition: { maximumNodes: MAX_TREE_NODES, recursiveChildren: true, atomicUndo: true },
+            composition: {
+                maximumNodes: MAX_TREE_NODES,
+                recursiveChildren: true,
+                atomicUndo: true,
+                nativeFrames: ['frame', 'container'],
+                sizing: ['fixed', 'relative', 'fit-content', 'fill-container'],
+                constraints: ['top', 'right', 'bottom', 'left', 'min-width', 'max-width', 'min-height', 'max-height'],
+                guidance: 'Compose layered visuals as recursive native Frame trees. Frames own visual surfaces and layout modes (Freeform, Stack, Grid); Groups are editor-only organizational layers created from a user selection. Use parent-relative constraints for floating layers and Button surface/depth controls for dimensional CTAs; custom CSS is an escape hatch, not the primary layout model.',
+            },
         };
     };
 
@@ -81,6 +91,7 @@ export function createCopilotTools(runtime, builder) {
     const materialize = (spec, parent = null) => {
         if (!spec || typeof spec !== 'object' || !spec.type) throw new TypeError('Every tree node requires a type.');
         if (!runtime.elements.has(spec.type)) throw new TypeError(`Unknown element type: ${spec.type}`);
+        if (runtime.elements.get(spec.type).internal) throw new TypeError(`${spec.type} is an editor-only organizational layer; compose visual layouts with Frames instead.`);
         const definition = runtime.elements.get(spec.type);
         if (spec.children?.length && !definition.acceptsChildren) throw new TypeError(`${spec.type} cannot contain children.`);
         const node = runtime.create(spec.type, { settings: spec.settings || {}, styles: spec.styles || {} });

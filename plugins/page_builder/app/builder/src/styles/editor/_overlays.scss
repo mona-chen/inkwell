@@ -2,10 +2,10 @@
 
 .ink-finder { position: fixed; z-index: 1000; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: min(16vh, 140px); background: rgba(8, 9, 10, .55); backdrop-filter: blur(2px); }
 .ink-finder[hidden] { display: none; }
-.ink-finder-surface { width: min(540px, calc(100vw - 32px)); max-height: min(600px, 70vh); overflow: hidden; border: 1px solid var(--ink-editor-border); border-radius: 8px; background: var(--ink-editor-panel); box-shadow: var(--ink-editor-shadow); font: 13px Roboto, Inter, Arial, sans-serif; color: var(--ink-editor-text); }
+.ink-finder-surface { width: min(540px, calc(100vw - 32px)); max-height: min(600px, 70vh); overflow: hidden; border: 1px solid var(--ink-editor-border); border-radius: 8px; background: var(--ink-editor-panel); box-shadow: var(--ink-editor-shadow); font: 11px/16px var(--ink-editor-font); color: var(--ink-editor-text); }
 .ink-finder-search { display: flex; height: 50px; align-items: center; padding: 0 14px; border-bottom: 1px solid var(--ink-editor-border); }
 .ink-finder-search > .material-symbols-rounded { margin-right: 10px; color: var(--ink-editor-faint); }
-.ink-finder-search input { width: 100%; height: 100%; border: 0; outline: 0; background: transparent; color: var(--ink-editor-text); font: 14px Roboto, Inter, Arial, sans-serif; }
+.ink-finder-search input { width: 100%; height: 100%; border: 0; outline: 0; background: transparent; color: var(--ink-editor-text); font: 11px/16px var(--ink-editor-font); }
 .ink-finder-results { max-height: calc(min(600px, 70vh) - 50px); overflow: auto; padding: 8px; }
 .ink-finder-results h3 { margin: 10px 10px 6px; color: var(--ink-editor-faint); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
 .ink-finder-results section button { display: flex; width: 100%; gap: 12px; align-items: center; padding: 9px 10px; border: 0; border-radius: 4px; background: transparent; color: var(--ink-editor-muted); text-align: left; cursor: pointer; }
@@ -17,7 +17,7 @@
 
 .ink-hotkeys { position: fixed; z-index: 1000; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: min(14vh, 130px); background: rgba(8, 9, 10, .55); backdrop-filter: blur(2px); }
 .ink-hotkeys[hidden] { display: none; }
-.ink-hotkeys-surface { width: min(480px, calc(100vw - 32px)); overflow: hidden; border: 1px solid var(--ink-editor-border); border-radius: 8px; background: var(--ink-editor-panel); box-shadow: var(--ink-editor-shadow); font: 13px Roboto, Inter, Arial, sans-serif; color: var(--ink-editor-text); }
+.ink-hotkeys-surface { width: min(480px, calc(100vw - 32px)); overflow: hidden; border: 1px solid var(--ink-editor-border); border-radius: 8px; background: var(--ink-editor-panel); box-shadow: var(--ink-editor-shadow); font: 11px/16px var(--ink-editor-font); color: var(--ink-editor-text); }
 .ink-hotkeys-surface header { display: flex; height: 44px; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--ink-editor-border); }
 .ink-hotkeys-surface header strong { font-size: 14px; font-weight: 600; }
 .ink-hotkeys-surface header button { width: 28px; height: 28px; border: 0; border-radius: 3px; background: transparent; color: var(--ink-editor-muted); font-size: 18px; cursor: pointer; }
@@ -38,7 +38,7 @@
   border-radius: 4px;
   background: var(--ink-editor-accent);
   color: #fff;
-  font: 500 12px Roboto, Arial, sans-serif;
+  font: 550 11px/16px var(--ink-editor-font);
   pointer-events: none;
   opacity: .95;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .3);

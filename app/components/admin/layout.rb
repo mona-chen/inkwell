@@ -39,7 +39,7 @@ module Admin
               render Topbar.new(title: @title, user: @user, current_site: @current_site)
             end
             shell.main do
-              div(class: "p-6") { yield }
+              div(class: "admin-workspace") { yield }
             end
           end
         end

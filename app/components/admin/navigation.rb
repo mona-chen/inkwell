@@ -11,7 +11,7 @@ module Admin
     def view_template
       render NitroKit::AppNavigation.new(label: "Admin navigation") do |nav|
         nav.header do
-          div(class: "flex items-center gap-2 px-4 py-3") do
+          div(class: "admin-brand flex items-center gap-2 px-4 py-3") do
             strong(class: "text-lg font-bold tracking-tight") { "Inkwell" }
           end
         end

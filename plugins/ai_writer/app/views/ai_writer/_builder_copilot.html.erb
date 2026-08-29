@@ -1030,6 +1030,7 @@
         let finalContent = ""
         let lastContent = ""
         let changed = false
+        let mutationRetry = false
         let url = "/plugins/ai_writer/chat"
         let body = {
           mode: this.mode, prompt, env: "html", clientTools: true,
@@ -1049,6 +1050,15 @@
             const streamed = await this.streamResponse(resp)
             lastContent = streamed.content || lastContent
             if (!streamed.tools || !streamed.tools.calls || !streamed.tools.calls.length) {
+              // A design action without a builder mutation is never a successful Copilot run.
+              // Models occasionally answer conversationally despite having the full tool surface;
+              // give them one explicit recovery pass instead of showing the old generic prompt.
+              if (!changed && !mutationRetry && ["design", "rewrite", "add_section"].includes(this.mode)) {
+                mutationRetry = true
+                url = "/plugins/ai_writer/chat"
+                body = { ...body, prompt: prompt + "\n\nExecute this now with the mutating builder tools. Do not ask a follow-up question or only describe a proposal." }
+                continue
+              }
               finalContent = streamed.content || lastContent
               break
             }
@@ -1085,7 +1095,7 @@
           this.pushCheckpoint(text || "Design update")
           if (typeof window.applyCustomCode === "function") window.applyCustomCode()
         } else {
-          this.addAssistantMessage(text || "How can I help with the page?")
+          this.addAssistantMessage(text || "I couldn’t safely apply that request because no builder change was produced. Please retry; the page has been left untouched.")
         }
         this.history.push({ role: "user", content: this.promptTarget.value.trim() })
         this.history.push({ role: "assistant", content: text || "" })

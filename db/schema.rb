@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_20_190342) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_29_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -162,8 +162,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_190342) do
     t.datetime "created_at", null: false
     t.jsonb "draft_content"
     t.boolean "hide_title", default: false, null: false
+    t.string "live_render_mode", default: "native", null: false
     t.integer "menu_order", default: 0, null: false
     t.jsonb "meta", default: {}, null: false
+    t.text "original_import_html"
+    t.string "original_import_url"
     t.bigint "parent_id"
     t.bigint "site_id", null: false
     t.string "slug", null: false
@@ -172,6 +175,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_20_190342) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["author_id"], name: "index_pages_on_author_id"
+    t.index ["live_render_mode"], name: "index_pages_on_live_render_mode"
     t.index ["parent_id"], name: "index_pages_on_parent_id"
     t.index ["site_id", "slug"], name: "index_pages_on_site_id_and_slug", unique: true
     t.index ["site_id"], name: "index_pages_on_site_id"

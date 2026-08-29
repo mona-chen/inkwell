@@ -1,6 +1,6 @@
 module Admin
   class PagesController < BaseController
-    before_action :set_page, only: %i[edit update destroy publish]
+    before_action :set_page, only: %i[edit update destroy publish publish_original_import]
 
     def index
       @pages = Current.site.pages.includes(:author)
@@ -57,8 +57,16 @@ module Admin
       # The Publish button submits the main form, so persist the serialized draft from the
       # hidden field before committing it to live content (covers deletes made right before publish).
       @page.update!(draft_content: page_params[:draft_content]) if params.dig(:page, :draft_content).present?
-      @page.publish_draft!
+      @page.publish_native!
       redirect_to edit_admin_page_path(@page), notice: "Published."
+    end
+
+    def publish_original_import
+      authorize @page
+      @page.publish_original_import!
+      redirect_to edit_admin_page_path(@page), notice: "Original import is live. Your native Builder version remains a draft."
+    rescue ActiveRecord::RecordInvalid
+      redirect_to edit_admin_page_path(@page), alert: "This page has no persisted original import to publish."
     end
 
     private

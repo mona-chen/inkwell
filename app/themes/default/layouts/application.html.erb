@@ -142,5 +142,7 @@
       </div>
     </footer>
   <% end %>
+
+  <%= raw Inkwell::Hooks.filter(:body_scripts, "", site: Current.site) %>
 </body>
 </html>

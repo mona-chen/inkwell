@@ -1,6 +1,7 @@
 const STATE_PSEUDOS = { hover: 'hover', focus: 'focus', active: 'active' };
 const DEVICE_WIDTHS = { desktop: null, tablet: 'tablet', mobile: 'mobile' };
-import { usedFonts, fontImportUrl } from './fonts.js';
+import { usedFonts, fontImportUrl, customFontFaces } from './fonts.js';
+import { DEFAULT_THEME_COLORS, DEFAULT_THEME_TYPOGRAPHY, DEFAULT_THEME_SPACING } from './themeDefaults.js';
 
 export default class StyleEngine {
     constructor({ registry, responsive, events } = {}) {
@@ -9,7 +10,10 @@ export default class StyleEngine {
         this.events = events;
     }
 
-    selector(id, suffix = '') { return `.ink-el-${CSS.escape(id)}${suffix}`; }
+    // Prefixing with the canvas root gives authored values stable precedence over base component
+    // styles. The generated sheet is appended after the canvas vocabulary, so source order keeps
+    // explicit element data authoritative.
+    selector(id, suffix = '') { return `.ink-canvas-root .ink-el-${CSS.escape(id)}${suffix}`; }
 
     // Cached map of controlName -> { part, property } for each element type (built from element controls).
     controlMeta(definition) {
@@ -33,7 +37,10 @@ export default class StyleEngine {
     }
 
     value(value) {
-        if (value && typeof value === 'object' && ['blur', 'brightness', 'contrast', 'saturate', 'hue'].some((key) => key in value)) return `blur(${Number(value.blur) || 0}px) brightness(${Number(value.brightness) || 100}%) contrast(${Number(value.contrast) || 100}%) saturate(${Number(value.saturate) || 100}%) hue-rotate(${Number(value.hue) || 0}deg)`;
+        if (Array.isArray(value)) return value.map((item) => this.value(item)).filter(Boolean).join(', ');
+        // Shadow records also have a blur field. They must reach the x/y branch below;
+        // only a record without positional axes is a CSS-filter control value.
+        if (value && typeof value === 'object' && !('x' in value || 'y' in value) && ['blur', 'brightness', 'contrast', 'saturate', 'hue'].some((key) => key in value)) return `blur(${Number(value.blur) || 0}px) brightness(${Number(value.brightness) || 100}%) contrast(${Number(value.contrast) || 100}%) saturate(${Number(value.saturate) || 100}%) hue-rotate(${Number(value.hue) || 0}deg)`;
         if (value && typeof value === 'object' && 'strokeWidth' in value) return `${Number(value.strokeWidth) || 0}${value.unit || 'px'} ${value.color || 'currentColor'}`;
         if (value && typeof value === 'object' && 'size' in value) return `${value.size}${Object.hasOwn(value, 'unit') ? value.unit : 'px'}`;
         if (value && typeof value === 'object' && ['top', 'right', 'bottom', 'left'].some((side) => side in value)) {
@@ -130,19 +137,17 @@ export default class StyleEngine {
     compile(document) {
         const settings = document.data.settings || {};
         const theme = settings.theme || {};
-        const colors = {
-            primary: '#6ec1e4', secondary: '#54595f', text: '#7a7a7a', accent: '#61ce70',
-            ...(theme.colors || {}),
-        };
-        const typography = { fontFamily: 'Inter,ui-sans-serif,system-ui,sans-serif', baseSize: 16, lineHeight: 1.5, ...(theme.typography || {}) };
-        const spacing = { contentWidth: 1140, pageGutter: 10, sectionGap: 0, ...(theme.spacing || {}) };
-        let css = `:root{--ink-color-primary:${colors.primary};--ink-color-secondary:${colors.secondary};--ink-color-text:${colors.text};--ink-color-accent:${colors.accent};--ink-content-width:${Number(spacing.contentWidth) || 1140}px;--ink-page-gutter:${Number(spacing.pageGutter) || 0}px;--ink-section-gap:${Number(spacing.sectionGap) || 0}px}body{background:${settings.backgroundColor || '#ffffff'};color:var(--ink-color-text);font-family:${typography.fontFamily};font-size:${Number(typography.baseSize) || 16}px;line-height:${Number(typography.lineHeight) || 1.5}}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter)}`;
+        const colors = { ...DEFAULT_THEME_COLORS, ...(theme.colors || {}) };
+        const typography = { ...DEFAULT_THEME_TYPOGRAPHY, ...(theme.typography || {}) };
+        const spacing = { ...DEFAULT_THEME_SPACING, ...(theme.spacing || {}) };
+        let css = `:root{--ink-color-primary:${colors.primary};--ink-color-secondary:${colors.secondary};--ink-color-text:${colors.text};--ink-color-accent:${colors.accent};--ink-content-width:${Number(spacing.contentWidth) || DEFAULT_THEME_SPACING.contentWidth}px;--ink-page-gutter:${Number(spacing.pageGutter) || 0}px;--ink-section-gap:${Number(spacing.sectionGap) || 0}px}body{background:${settings.backgroundColor || '#ffffff'};color:var(--ink-color-text);font-family:${typography.fontFamily};font-size:${Number(typography.baseSize) || DEFAULT_THEME_TYPOGRAPHY.baseSize}px;line-height:${Number(typography.lineHeight) || DEFAULT_THEME_TYPOGRAPHY.lineHeight}}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter);color:inherit}`;
         const visit = (node) => { css += this.nodeRules(node); css += this.motionRules(node); (node.children || []).forEach(visit); };
         document.data.children.forEach(visit);
         css += document.data.settings.customCss || '';
         // Google Fonts: @import must be the first rules in the stylesheet so the font survives
         // published output (the body keeps this style tag; the head is dropped).
         const fonts = usedFonts(document);
+        css = customFontFaces(document) + css;
         if (fonts.length) css = fonts.map((family) => `@import url('${fontImportUrl(family)}');`).join('') + css;
         return css;
     }

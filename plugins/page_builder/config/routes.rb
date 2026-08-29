@@ -7,5 +7,6 @@ PageBuilder::Engine.routes.draw do
   get  ":record_type/:record_id/preview" => "builder#preview"
   get  ":record_type/:record_id" => "builder#edit"
   post "save"                    => "builder#save"
+  post "publish_original_import" => "builder#publish_original_import"
   post "upload_asset"            => "builder#upload_asset"
 end
