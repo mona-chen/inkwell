@@ -173,6 +173,32 @@
   --nk-radius-xl: inherit;
 }
 
+/* Purple accent: active nav item — subtle tinted background */
+#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-item-link"].is-active,
+#admin-shell [data-nk="app-navigation"] a[aria-current="page"] {
+  background: oklch(from var(--nk-color-primary) l c h / 0.12);
+  color: var(--nk-color-primary);
+}
+
+/* Purple accent: focus rings */
+#admin-shell :focus-visible {
+  outline: 2px solid var(--nk-color-focus);
+  outline-offset: 2px;
+  border-radius: var(--nk-radius-sm);
+}
+
+/* Purple accent: link hover */
+#admin-shell a:not([data-nk]):hover {
+  color: var(--nk-color-primary);
+}
+
+/* Transitions: hover states */
+#admin-shell .transition-colors {
+  transition-property: color, background-color, border-color;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Topbar: frosted glass, subtle border */
 #admin-shell [data-slot="app-shell-topbar"] {
   background: oklch(from var(--nk-color-canvas) l c h / 0.85);

@@ -128,7 +128,7 @@ module Admin
     def render_post_row(post)
       a(
         href: edit_admin_post_path(post),
-        class: "group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
+        class: "group flex items-center gap-3 px-4 py-2 transition-colors hover:bg-muted/30"
       ) do
         div(class: "min-w-0 flex-1") do
           div(class: "truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors") do
@@ -141,9 +141,8 @@ module Admin
           end
         end
         render status_badge(post.status)
-        div(class: "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100") do
+        div(class: "flex shrink-0 items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity") do
           render Button.new("Edit", href: edit_admin_post_path(post), variant: :ghost, size: :xs)
-          render Button.new("View", href: post_path(post), variant: :ghost, size: :xs, target: "_blank")
         end
       end
     end
