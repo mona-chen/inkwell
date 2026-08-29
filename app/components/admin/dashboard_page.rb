@@ -86,25 +86,19 @@ module Admin
       when :primary then "text-primary"
       else ""
       end
-      content = div(class: "flex items-baseline gap-1.5") do
-        if value.zero?
-          span(class: "text-muted-foreground") { "0" }
-        else
-          span(class: "font-semibold text-foreground #{color_class}") { value.to_s }
-        end
-        span(class: "text-muted-foreground") { label }
-      end
+      value_text = value.zero? ? "0" : value.to_s
+      value_class = value.zero? ? "text-muted-foreground" : "font-semibold text-foreground #{color_class}"
+
       if path
         a(href: path, class: "flex items-baseline gap-1.5 hover:underline transition-colors") do
-          if value.zero?
-            span(class: "text-muted-foreground") { "0" }
-          else
-            span(class: "font-semibold text-foreground #{color_class}") { value.to_s }
-          end
+          span(class: value_class) { value_text }
           span(class: "text-muted-foreground") { label }
         end
       else
-        content
+        div(class: "flex items-baseline gap-1.5") do
+          span(class: value_class) { value_text }
+          span(class: "text-muted-foreground") { label }
+        end
       end
     end
 
