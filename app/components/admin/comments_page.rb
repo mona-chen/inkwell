@@ -57,11 +57,11 @@ module Admin
       return unless @comments.respond_to?(:total_pages) && @comments.total_pages > 1
       div(class: "mt-8 flex items-center justify-center gap-4") do
         if @comments.prev_page
-          a(href: url_for(page: @comments.prev_page, status: @status), class: "btn btn-sm border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50") { "← Newer" }
+          a(href: url_for(page: @comments.prev_page, status: @status), class: "btn btn-sm border border-border rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted") { "← Newer" }
         end
-        span(class: "text-sm text-gray-400") { "Page #{@comments.current_page} of #{@comments.total_pages}" }
+        span(class: "text-sm text-muted-foreground") { "Page #{@comments.current_page} of #{@comments.total_pages}" }
         if @comments.next_page
-          a(href: url_for(page: @comments.next_page, status: @status), class: "btn btn-sm border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50") { "Older →" }
+          a(href: url_for(page: @comments.next_page, status: @status), class: "btn btn-sm border border-border rounded-lg px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted") { "Older →" }
         end
       end
     end

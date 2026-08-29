@@ -28,7 +28,7 @@ module Admin
               @menu.menu_items.each do |item|
                 li(
                   data: { menu_builder_target: "item", item_id: item.id },
-                  class: "flex items-center gap-2 bg-white border rounded-lg px-3 py-2 text-sm"
+                  class: "flex items-center gap-2 bg-background border rounded-lg px-3 py-2 text-sm"
                 ) do
                   span(class: "cursor-grab text-muted-foreground") { "⠿" }
                   span(class: "flex-1 text-foreground") { item.label }

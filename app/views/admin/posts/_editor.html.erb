@@ -52,9 +52,9 @@
     </div>
 
     <%# Floating slash-command ("/") insertion menu, positioned by the Stimulus controller %>
-    <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1"></div>
+    <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-background border border-border rounded-lg shadow-lg py-1"></div>
 
-    <p data-block-editor-target="emptyState" class="text-gray-400 text-sm italic py-8 text-center border-2 border-dashed rounded-lg <%= 'hidden' unless post.editing_blocks.empty? %>">
+    <p data-block-editor-target="emptyState" class="text-muted-foreground text-sm italic py-8 text-center border-2 border-dashed rounded-lg <%= 'hidden' unless post.editing_blocks.empty? %>">
       No blocks yet — click "+ Add block" to start writing.
     </p>
 

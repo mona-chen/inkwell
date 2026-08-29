@@ -41,7 +41,7 @@ module Admin
         button(
           type: "button",
           data: { action: "media-item#open" },
-          class: "rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-900 hover:bg-gray-100"
+          class: "rounded-md bg-background px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
         ) { "Details" }
 
         render ButtonTo.new(

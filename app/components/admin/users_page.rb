@@ -107,7 +107,7 @@ module Admin
       if user.deactivated?
         span(class: "rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-medium text-destructive") { "Deactivated" }
       else
-        span(class: "rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-700") { "Active" }
+        span(class: "rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-medium text-success") { "Active" }
       end
     end
   end

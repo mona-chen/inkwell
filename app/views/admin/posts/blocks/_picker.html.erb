@@ -9,15 +9,15 @@
 
   <div class="absolute right-0 z-10 mt-2 w-80 rounded-xl bg-background p-3 shadow-lg border border-border">
     <div class="relative mb-3">
-      <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400">
+      <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
         <%= render NitroKit::Icon.new(:search, size: :xs) %>
       </span>
       <input type="search" placeholder="Search blocks and patterns…"
              data-action="input->block-editor#filterPicker"
-             class="w-full rounded-md border border-gray-200 py-1.5 pl-8 pr-3 text-sm focus:border-gray-400 focus:ring-1 focus:ring-gray-300 outline-none">
+             class="w-full rounded-md border border-border py-1.5 pl-8 pr-3 text-sm outline-none">
     </div>
 
-    <p class="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Blocks</p>
+    <p class="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Blocks</p>
     <div class="grid grid-cols-3 gap-1.5">
       <% BlockRenderer.registered_types.each do |type| %>
         <button type="button"
@@ -25,14 +25,14 @@
                 data-block-editor-type-param="<%= type %>"
                 data-search-item="<%= type.titleize %>"
                 data-search-group="blocks"
-                class="flex flex-col items-center gap-1 rounded-lg p-2 text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+                class="flex flex-col items-center gap-1 rounded-lg p-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
           <%= render NitroKit::Icon.new(BlockRenderer.icon_for(type), size: :sm) %>
           <span><%= type.titleize %></span>
         </button>
       <% end %>
     </div>
 
-    <p class="mt-4 px-1 pb-1.5 pt-3 border-t border-gray-100 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Patterns</p>
+    <p class="mt-4 px-1 pb-1.5 pt-3 border-t border-border text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Patterns</p>
     <div class="grid grid-cols-3 gap-1.5">
       <% BlockRenderer.patterns.each do |name, pattern| %>
         <button type="button"
@@ -40,7 +40,7 @@
                 data-block-editor-pattern-param="<%= name %>"
                 data-search-item="<%= pattern["title"] %>"
                 data-search-group="patterns"
-                class="flex flex-col items-center gap-1 rounded-lg p-2 text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+                class="flex flex-col items-center gap-1 rounded-lg p-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
           <%= render NitroKit::Icon.new(pattern["icon"] || "sparkles", size: :sm) %>
           <span class="text-center leading-tight"><%= pattern["title"] %></span>
         </button>

@@ -12,25 +12,25 @@
     <input type="hidden" name="page[draft_content]" data-block-editor-target="hiddenField" value="<%= html_escape(page.editing_blocks.to_json) %>">
 
     <%# Editor toolbar: undo/redo + save status + add block %>
-    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-gray-50/90 backdrop-blur border-b border-gray-200 mb-4 flex items-center justify-between gap-3">
+    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-muted/50 backdrop-blur border-b border-border mb-4 flex items-center justify-between gap-3">
       <div class="flex items-center gap-1">
         <button type="button" data-action="block-editor#undo"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
                 data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">
           ↺ Undo
         </button>
         <button type="button" data-action="block-editor#redo"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
                 data-block-editor-target="redoButton" title="Redo (Ctrl+Y)" aria-label="Redo">
           ↻ Redo
         </button>
       </div>
 
       <div class="flex items-center gap-3">
-        <span data-block-editor-target="wordCount" class="text-xs text-gray-400">
+        <span data-block-editor-target="wordCount" class="text-xs text-muted-foreground">
           0 words · < 1 min read
         </span>
-        <span data-block-editor-target="saveStatus" class="text-xs text-gray-400">
+        <span data-block-editor-target="saveStatus" class="text-xs text-muted-foreground">
           <%= page.new_record? ? "New — not saved yet" : "Saved" %>
         </span>
         <%# Plugin-injected editor controls (e.g. the AI Writer plugin's button + dialog) %>
@@ -46,9 +46,9 @@
     </div>
 
     <%# Floating slash-command ("/") insertion menu, positioned by the Stimulus controller %>
-    <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-white border border-gray-200 rounded-lg shadow-lg py-1"></div>
+    <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-background border border-border rounded-lg shadow-lg py-1"></div>
 
-    <p data-block-editor-target="emptyState" class="text-gray-400 text-sm italic py-8 text-center border-2 border-dashed rounded-lg <%= 'hidden' unless page.editing_blocks.empty? %>">
+    <p data-block-editor-target="emptyState" class="text-muted-foreground text-sm italic py-8 text-center border-2 border-dashed rounded-lg <%= 'hidden' unless page.editing_blocks.empty? %>">
       No blocks yet — click "+ Add block" to start writing.
     </p>
 
@@ -57,22 +57,22 @@
   </div>
 
   <aside class="space-y-4">
-    <div class="admin-editor-sidebar bg-white rounded-lg shadow-sm p-4 space-y-4">
+    <div class="admin-editor-sidebar bg-background rounded-lg shadow-sm p-4 space-y-4">
       <div>
-        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Status</label>
+        <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</label>
         <%= f.select :status, %w[draft published], {}, class: "mt-1 w-full text-sm border rounded px-2 py-1.5" %>
       </div>
 
       <%# Layout — mirrors Elementor's Page Layout setting %>
       <div>
-        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Layout</label>
+        <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Layout</label>
         <div class="mt-1.5 space-y-1.5">
           <% Page::LAYOUTS.each do |layout| %>
-            <label class="flex items-start gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-colors <%= page.template == layout[:value] ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-300' %>">
-              <%= f.radio_button :template, layout[:value], class: "mt-0.5 accent-gray-900" %>
+            <label class="flex items-start gap-2.5 rounded-lg border p-2.5 cursor-pointer transition-colors <%= page.template == layout[:value] ? 'border-foreground bg-muted' : 'border-border hover:border-foreground' %>">
+              <%= f.radio_button :template, layout[:value], class: "mt-0.5 accent-primary" %>
               <span class="min-w-0">
-                <span class="block text-sm font-medium text-gray-800"><%= layout[:label] %></span>
-                <span class="block text-xs text-gray-400 mt-0.5 leading-snug"><%= layout[:description] %></span>
+                <span class="block text-sm font-medium text-foreground"><%= layout[:label] %></span>
+                <span class="block text-xs text-muted-foreground mt-0.5 leading-snug"><%= layout[:description] %></span>
               </span>
             </label>
           <% end %>
@@ -80,37 +80,37 @@
       </div>
 
       <div class="flex items-center justify-between">
-        <label for="page_hide_title" class="text-sm font-medium text-gray-700">Hide page title</label>
-        <%= f.check_box :hide_title, id: "page_hide_title", class: "rounded accent-gray-900" %>
+        <label for="page_hide_title" class="text-sm font-medium text-muted-foreground">Hide page title</label>
+        <%= f.check_box :hide_title, id: "page_hide_title", class: "rounded accent-primary" %>
       </div>
 
       <div>
-        <label class="text-xs font-medium text-gray-500 uppercase tracking-wide">Menu order</label>
+        <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Menu order</label>
         <%= f.number_field :menu_order, class: "mt-1 w-full text-sm border rounded px-2 py-1.5" %>
       </div>
       <%= f.submit "Save draft", name: "save_draft",
-          class: "w-full bg-white border border-gray-200 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50 active:scale-[0.98] transition-colors cursor-pointer" %>
+          class: "w-full bg-background border border-border text-muted-foreground rounded-lg py-2 text-sm font-medium hover:bg-muted active:scale-[0.98] transition-colors cursor-pointer" %>
 
       <% unless page.new_record? %>
         <button type="submit" formaction="<%= publish_admin_page_path(page) %>" formmethod="post"
-                class="w-full bg-gray-900 text-white rounded-lg py-2 text-sm font-medium shadow-sm hover:bg-black active:scale-[0.98] transition-colors cursor-pointer">
+                class="w-full bg-canvas text-white rounded-lg py-2 text-sm font-medium shadow-sm hover:bg-foreground active:scale-[0.98] transition-colors cursor-pointer">
           Publish native version
         </button>
       <% end %>
     </div>
 
     <% if page.original_import_available? %>
-      <section class="admin-import-track rounded-lg border border-violet-200 bg-violet-50/60 p-4 space-y-3" aria-labelledby="original-import-heading">
+      <section class="admin-import-track rounded-lg border border-primary/30 bg-primary/10 p-4 space-y-3" aria-labelledby="original-import-heading">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.12em] text-violet-700">Import source</p>
-          <h2 id="original-import-heading" class="mt-1 text-sm font-semibold text-gray-900">Original version</h2>
-          <p class="mt-1 text-xs leading-relaxed text-gray-600">
+          <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Import source</p>
+          <h2 id="original-import-heading" class="mt-1 text-sm font-semibold text-foreground">Original version</h2>
+          <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
             <%= page.live_render_mode == "original_import" ? "The captured original is public. Your Builder changes remain safely separate." : "The native Builder version is public. You can temporarily keep the captured original live while refining it." %>
           </p>
         </div>
-        <a href="<%= page.original_import_url %>" target="_blank" rel="noreferrer" class="block truncate text-xs font-medium text-violet-700 hover:underline"><%= page.original_import_url %></a>
+        <a href="<%= page.original_import_url %>" target="_blank" rel="noreferrer" class="block truncate text-xs font-medium text-primary hover:underline"><%= page.original_import_url %></a>
         <button type="submit" formaction="<%= publish_original_import_admin_page_path(page) %>" formmethod="post"
-                class="w-full rounded-lg border border-violet-300 bg-white py-2 text-sm font-semibold text-violet-800 transition-colors hover:bg-violet-100">
+                class="w-full rounded-lg border border-primary/30 bg-background py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10">
           <%= page.live_render_mode == "original_import" ? "Original version is live" : "Keep original import live" %>
         </button>
       </section>
