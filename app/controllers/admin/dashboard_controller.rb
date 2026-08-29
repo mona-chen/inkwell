@@ -1,7 +1,7 @@
 module Admin
   class DashboardController < BaseController
     def show
-      @recent_posts = Current.site.posts.includes(:author).order(updated_at: :desc).limit(6)
+      @recent_posts = Current.site.posts.where.not(status: "trashed").includes(:author).order(updated_at: :desc).limit(5)
       @published_posts = Current.site.posts.published.count
       @total_pages = Current.site.pages.count
       @pending_comments = Comment.pending.count

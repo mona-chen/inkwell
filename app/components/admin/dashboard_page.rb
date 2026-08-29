@@ -31,8 +31,8 @@ module Admin
       div(class: "admin-dashboard") do
         render_header
         render_stats_strip
-        render_recent_content
         render_moderation if @pending_comments.positive?
+        render_recent_content
       end
     end
 
@@ -42,11 +42,12 @@ module Admin
     def render_header
       div(class: "mb-8") do
         h1(class: "text-2xl font-semibold tracking-tight text-foreground") do
-          "Good #{greeting}, #{Current.user&.name&.split&.first || "there"}."
+          "Good #{greeting}, #{user_first_name}."
         end
         div(class: "mt-1 flex items-center gap-2 text-sm text-muted-foreground") do
           span { Current.site.name }
           if Current.site.domain.present?
+            span(class: "text-muted-foreground/40") { "·" }
             a(href: "https://#{Current.site.domain}", class: "inline-flex items-center gap-0.5 hover:text-foreground transition-colors", target: "_blank") do
               span { Current.site.domain }
               render Icon.new(:external_link, size: :xs)
@@ -59,6 +60,10 @@ module Admin
     def greeting
       hour = Time.current.hour
       hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening"
+    end
+
+    def user_first_name
+      Current.user&.name.to_s.strip.presence || "there"
     end
 
     # ── Stats strip ─────────────────────────────────────────────────────
@@ -112,7 +117,7 @@ module Admin
     def render_post_row(post)
       a(
         href: edit_admin_post_path(post),
-        class: "group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/30"
+        class: "group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30"
       ) do
         div(class: "min-w-0 flex-1") do
           div(class: "truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors") do
