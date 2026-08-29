@@ -46,9 +46,11 @@ module Admin
         end
         div(class: "mt-1 flex items-center gap-2 text-sm text-muted-foreground") do
           span { Current.site.name }
-          a(href: "/", class: "inline-flex items-center gap-0.5 hover:text-foreground transition-colors", target: "_blank") do
-            span { Current.site.host || "site" }
-            render Icon.new(:external_link, size: :xs)
+          if Current.site.domain.present?
+            a(href: "https://#{Current.site.domain}", class: "inline-flex items-center gap-0.5 hover:text-foreground transition-colors", target: "_blank") do
+              span { Current.site.domain }
+              render Icon.new(:external_link, size: :xs)
+            end
           end
         end
       end
