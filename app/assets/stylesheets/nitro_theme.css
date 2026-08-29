@@ -227,18 +227,21 @@
   box-shadow: 0 1px 3px oklch(0 0 0 / 0.08);
 }
 
-/* Inputs */
+/* Inputs — respect theme, don't force dark */
 #admin-shell input,
 #admin-shell textarea,
 #admin-shell select {
-  border-color: oklch(0.3 0.006 286);
-  background-color: oklch(0.165 0.005 286);
-  color: oklch(0.935 0.001 286);
-  color-scheme: dark;
+  color-scheme: light;
 }
-#admin-shell input::placeholder,
-#admin-shell textarea::placeholder {
-  color: oklch(0.5 0.005 286);
+[data-theme="dark"] #admin-shell input,
+[data-theme="dark"] #admin-shell textarea,
+[data-theme="dark"] #admin-shell select,
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) #admin-shell input,
+  :root:not([data-theme]) #admin-shell textarea,
+  :root:not([data-theme]) #admin-shell select {
+    color-scheme: dark;
+  }
 }
 
 /* Hover states */

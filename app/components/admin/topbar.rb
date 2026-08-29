@@ -86,7 +86,7 @@ module Admin
               render Icon.new(:chevron_down, size: :xs)
             end
             div(
-              class: "hidden absolute right-0 z-50 mt-1 w-56 rounded-xl border border-border bg-elevated py-1 shadow-lg",
+              class: "hidden absolute right-0 z-50 mt-1 w-56 rounded-xl border border-border bg-background py-1 shadow-lg",
               data: { dropdown_target: "menu" }
             ) do
               div(class: "px-3 py-2 border-b border-border") do
