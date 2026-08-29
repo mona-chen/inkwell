@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_29_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_29_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -165,14 +165,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_29_140000) do
     t.string "live_render_mode", default: "native", null: false
     t.integer "menu_order", default: 0, null: false
     t.jsonb "meta", default: {}, null: false
+    t.boolean "nofollow", default: false
+    t.boolean "noindex", default: false
+    t.text "og_description"
+    t.string "og_image_url"
+    t.string "og_title"
     t.text "original_import_html"
     t.string "original_import_url"
     t.bigint "parent_id"
+    t.text "seo_description"
+    t.string "seo_focus_keyword"
+    t.string "seo_slug_override"
+    t.string "seo_title"
     t.bigint "site_id", null: false
     t.string "slug", null: false
     t.string "status", default: "draft", null: false
     t.string "template", default: "default", null: false
     t.string "title", null: false
+    t.string "twitter_card_type", default: "summary_large_image"
     t.datetime "updated_at", null: false
     t.index ["author_id"], name: "index_pages_on_author_id"
     t.index ["live_render_mode"], name: "index_pages_on_live_render_mode"
@@ -212,12 +222,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_29_140000) do
     t.string "featured_image_alt"
     t.bigint "featured_image_id"
     t.jsonb "meta", default: {}, null: false
+    t.boolean "nofollow", default: false
+    t.boolean "noindex", default: false
+    t.text "og_description"
+    t.string "og_image_url"
+    t.string "og_title"
     t.datetime "published_at"
     t.datetime "scheduled_for"
+    t.text "seo_description"
+    t.string "seo_focus_keyword"
+    t.string "seo_slug_override"
+    t.string "seo_title"
     t.bigint "site_id", null: false
     t.string "slug", null: false
     t.string "status", default: "draft", null: false
     t.string "title", null: false
+    t.string "twitter_card_type", default: "summary_large_image"
     t.datetime "updated_at", null: false
     t.index ["author_id"], name: "index_posts_on_author_id"
     t.index ["content"], name: "index_posts_on_content", using: :gin

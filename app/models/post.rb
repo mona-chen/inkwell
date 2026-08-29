@@ -64,6 +64,37 @@ class Post < ApplicationRecord
     featured_image&.url || content_blocks.find { |b| b["type"] == "image" }&.dig("data", "url")
   end
 
+  # --- SEO helpers (used by the SEO plugin's meta tag builder) ---
+
+  def seo_title_display
+    seo_title.presence || title
+  end
+
+  def seo_description_display
+    seo_description.presence || excerpt.presence || auto_meta_description
+  end
+
+  def seo_og_title
+    og_title.presence || title
+  end
+
+  def seo_og_description
+    og_description.presence || seo_description.presence || auto_meta_description
+  end
+
+  def seo_og_image
+    og_image_url.presence || featured_image_url
+  end
+
+  def canonical_url
+    "/posts/#{slug}"
+  end
+
+  def auto_meta_description
+    text = content_blocks.map { |b| b.dig("data", "text").to_s }.join(" ").truncate(300)
+    text.present? ? text : nil
+  end
+
   # Commit the working copy to the live content and publish. Creating a revision first captures
   # the previously-published version so the change is reversible.
   def publish_draft!

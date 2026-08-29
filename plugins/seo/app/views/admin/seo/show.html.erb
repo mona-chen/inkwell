@@ -1,0 +1,59 @@
+<div class="max-w-2xl">
+  <%= render Admin::ToolbarTitle.new(title: "SEO Settings", subtitle: "Configure how your site appears in search engines") %>
+
+  <%= form_with url: admin_seo_path, method: :patch, class: "space-y-6" do |f| %>
+    <section class="rounded-xl border border-border bg-background p-6">
+      <h2 class="text-sm font-semibold text-foreground mb-4">Title Template</h2>
+      <p class="text-xs text-muted-foreground mb-3">Use %title for the post title and %{site_name} for the site name.</p>
+      <%= f.text_field "seo[title_template]", value: @settings[:title_template],
+          class: "w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20" %>
+    </section>
+
+    <section class="rounded-xl border border-border bg-background p-6">
+      <h2 class="text-sm font-semibold text-foreground mb-4">Default Social Preview</h2>
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-medium text-muted-foreground">Default Description</label>
+          <p class="text-xs text-muted-foreground/60 mb-1">Used when a post has no custom description.</p>
+          <%= f.text_area "seo[default_description]", value: @settings[:default_description], rows: 3,
+              class: "w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none" %>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-muted-foreground">Default OG Image URL</label>
+          <p class="text-xs text-muted-foreground/60 mb-1">Fallback image for social sharing when a post has no featured image.</p>
+          <%= f.text_field "seo[default_og_image]", value: @settings[:default_og_image],
+              placeholder: "https://example.com/og-default.png",
+              class: "w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20" %>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-muted-foreground">Twitter Handle</label>
+          <%= f.text_field "seo[twitter_handle]", value: @settings[:twitter_handle],
+              placeholder: "@yourhandle",
+              class: "w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20" %>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-border bg-background p-6">
+      <h2 class="text-sm font-semibold text-foreground mb-4">Analytics</h2>
+      <div>
+        <label class="text-xs font-medium text-muted-foreground">Google Analytics ID</label>
+        <%= f.text_field "seo[google_analytics_id]", value: @settings[:google_analytics_id],
+            placeholder: "G-XXXXXXXXXX",
+            class: "w-full rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20" %>
+      </div>
+    </section>
+
+    <section class="rounded-xl border border-border bg-background p-6">
+      <h2 class="text-sm font-semibold text-foreground mb-4">Archives</h2>
+      <label class="flex items-center gap-2 text-sm text-foreground">
+        <%= f.check_box "seo[noindex_archives]", { checked: @settings[:noindex_archives] == "1", class: "rounded" } %>
+        Add noindex to category/tag archive pages
+      </label>
+    </section>
+
+    <div class="flex justify-end">
+      <%= f.submit "Save SEO settings", class: "rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-hover transition-colors cursor-pointer" %>
+    </div>
+  <% end %>
+</div>
