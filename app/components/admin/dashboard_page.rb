@@ -134,9 +134,9 @@ module Admin
 
     def status_badge(status)
       color = case status
-      when "published" then "bg-success/15 text-success"
-      when "scheduled" then "bg-info/15 text-info"
-      else "bg-muted text-muted-foreground"
+      when "published" then :success
+      when "scheduled" then :info
+      else :neutral
       end
       Badge.new(status, color: color, size: :xs)
     end
