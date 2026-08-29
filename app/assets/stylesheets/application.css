@@ -235,3 +235,27 @@
   color: var(--nk-color-foreground);
   background-color: oklch(from var(--nk-color-muted) l c h / 0.5);
 }
+/* Rich text WYSIWYG toolbar — hidden by default, shown on hover/focus */
+#admin-shell [data-rich-text-target="toolbar"] {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 150ms ease, max-height 150ms ease;
+}
+#admin-shell [data-block-editor-target="block"]:hover [data-rich-text-target="toolbar"],
+#admin-shell [data-block-editor-target="block"]:focus-within [data-rich-text-target="toolbar"] {
+  opacity: 1;
+  max-height: 200px;
+}
+#admin-shell .rich-text-btn {
+  color: var(--nk-color-muted-foreground);
+  transition: color 120ms ease, background-color 120ms ease;
+}
+#admin-shell .rich-text-btn:hover {
+  color: var(--nk-color-foreground);
+  background-color: oklch(from var(--nk-color-surface-hover) l c h / 0.5);
+}
+#admin-shell .rich-text-btn.is-active {
+  color: var(--nk-color-primary);
+  background-color: oklch(from var(--nk-color-primary) l c h / 0.1);
+}

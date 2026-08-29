@@ -18,25 +18,25 @@
     <input type="hidden" name="post[draft_content]" data-block-editor-target="hiddenField" value="<%= html_escape(post.editing_blocks.to_json) %>">
 
     <%# Editor toolbar: undo/redo + save status + add block %>
-    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-gray-50/90 backdrop-blur border-b border-gray-200 mb-4 flex items-center justify-between gap-3">
+    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-muted/50 backdrop-blur border-b border-border mb-4 flex items-center justify-between gap-3">
       <div class="flex items-center gap-1">
         <button type="button" data-action="block-editor#undo"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
                 data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">
           ↺ Undo
         </button>
         <button type="button" data-action="block-editor#redo"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-gray-500 hover:bg-white hover:text-gray-900 border border-transparent hover:border-gray-200 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
                 data-block-editor-target="redoButton" title="Redo (Ctrl+Y)" aria-label="Redo">
           ↻ Redo
         </button>
       </div>
 
       <div class="flex items-center gap-3">
-        <span data-block-editor-target="wordCount" class="text-xs text-gray-400">
+        <span data-block-editor-target="wordCount" class="text-xs text-muted-foreground">
           0 words · < 1 min read
         </span>
-        <span data-block-editor-target="saveStatus" class="text-xs text-gray-400">
+        <span data-block-editor-target="saveStatus" class="text-xs text-muted-foreground">
           <%= post.new_record? ? "New — not saved yet" : "Saved" %>
         </span>
         <%# Plugin-injected editor controls (e.g. the AI Writer plugin's button + dialog) %>
