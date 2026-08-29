@@ -3,6 +3,12 @@ module Admin
   # page content (passed as a block) and loads the Nitro Kit + app stylesheets.
   # Rendered from the ERB admin layout so existing page ERB can keep yielding here.
   class Layout < ApplicationComponent
+    # Default accent colors for light and dark modes
+    ACCENT_DEFAULTS = {
+      light: "oklch(0.637 0.22 25)",   # warm coral/red
+      dark:  "oklch(0.7 0.2 25)"
+    }.freeze
+
     def initialize(title: "Home", user: nil, current_site: nil)
       @title = title
       @user = user || (defined?(current_user) ? current_user : nil)
@@ -24,6 +30,10 @@ module Admin
           stylesheet_link_tag "tailwind", "data-turbo-track": "reload"
           stylesheet_link_tag "application", "data-turbo-track": "reload"
           javascript_importmap_tags
+          # Inject site-configurable accent color as CSS custom properties
+          if accent_css.present?
+            safe_join([tag.style(accent_css)], "\n")
+          end
         end
         body do
           render_flash
@@ -51,6 +61,38 @@ module Admin
     def render_flash
       return unless respond_to?(:flash) && flash.any?
       render NitroKit::Toast::FlashMessages.new(flash)
+    end
+
+    # Read the configured accent color from site settings, falling back to defaults.
+    # The value is an oklch() string. Injected as a CSS custom property on #admin-shell
+    # so the entire admin theme responds to the site's chosen accent.
+    def accent_css
+      accent = @current_site&.setting("accent_color")
+      return "" if accent.blank?
+
+      light = ACCENT_DEFAULTS[:light]
+      dark  = ACCENT_DEFAULTS[:dark]
+
+      # If the user set a single color, use it for both modes.
+      # If they set a hash { light: ..., dark: ... }, use each.
+      if accent.is_a?(Hash)
+        light = accent["light"] || light
+        dark  = accent["dark"]  || dark
+      else
+        light = accent
+        dark  = accent
+      end
+
+      <<~CSS.squish
+        --nk-color-primary: #{light};
+        --nk-color-primary-hover: #{light};
+        --nk-color-focus: #{light};
+        [data-theme="dark"] &, :root:not([data-theme]) & {
+          --nk-color-primary: #{dark};
+          --nk-color-primary-hover: #{dark};
+          --nk-color-focus: #{dark};
+        }
+      CSS
     end
 
     def nav_groups

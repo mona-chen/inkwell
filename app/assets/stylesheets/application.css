@@ -141,3 +141,81 @@
 @media (max-width: 640px) {
   .admin-workspace { padding: 1rem; }
 }
+
+/* --- Legacy block editor utilities (ERB templates use raw Tailwind classes) --- */
+/* These override hardcoded Tailwind utilities to match the dark theme.
+   Replace with token-based classes when block templates are migrated. */
+#admin-shell .bg-white,
+#admin-shell .bg-background {
+  background-color: var(--nk-color-surface);
+}
+#admin-shell .bg-gray-50,
+#admin-shell .bg-muted\/40,
+#admin-shell .bg-muted\/50,
+#admin-shell .bg-muted\/30,
+#admin-shell .bg-muted {
+  background-color: var(--nk-color-muted);
+}
+#admin-shell .bg-gray-900 {
+  background-color: var(--nk-color-canvas);
+}
+#admin-shell .border-gray-100,
+#admin-shell .border-gray-200,
+#admin-shell .border-gray-300,
+#admin-shell .border-border {
+  border-color: var(--nk-color-border);
+}
+#admin-shell .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+#admin-shell .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+#admin-shell .divide-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--nk-color-border);
+}
+#admin-shell .text-gray-900,
+#admin-shell .text-gray-800,
+#admin-shell .text-foreground {
+  color: var(--nk-color-foreground);
+}
+#admin-shell .text-gray-700,
+#admin-shell .text-gray-600,
+#admin-shell .text-gray-500,
+#admin-shell .text-gray-400,
+#admin-shell .text-muted-foreground {
+  color: var(--nk-color-muted-foreground);
+}
+#admin-shell .hover\:bg-gray-50:hover,
+#admin-shell .hover\:bg-gray-100:hover,
+#admin-shell .hover\:bg-muted:hover,
+#admin-shell .hover\:bg-muted\/50:hover {
+  background-color: var(--nk-color-surface-hover);
+}
+#admin-shell .hover\:text-gray-900:hover,
+#admin-shell .hover\:text-gray-700:hover,
+#admin-shell .hover\:text-foreground:hover {
+  color: var(--nk-color-foreground);
+}
+#admin-shell .hover\:border-gray-300:hover {
+  border-color: var(--nk-color-border);
+}
+/* Block editor specific */
+#admin-shell [data-block-editor-target="block"] {
+  background-color: var(--nk-color-surface);
+  border-color: var(--nk-color-border);
+}
+#admin-shell [data-block-editor-target="block"]:hover {
+  border-color: var(--nk-color-muted-foreground);
+}
+#admin-shell .heading-preview,
+#admin-shell textarea {
+  color: var(--nk-color-foreground);
+}
+#admin-shell .choice-btn {
+  background-color: var(--nk-color-muted);
+  color: var(--nk-color-foreground);
+}
+#admin-shell .choice-btn:hover {
+  background-color: var(--nk-color-surface-hover);
+}
+#admin-shell .choice-btn.is-active {
+  background-color: var(--nk-color-primary);
+  color: var(--nk-color-primary-foreground);
+}
