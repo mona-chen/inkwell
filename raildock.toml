@@ -1,0 +1,61 @@
+# ── Inkwell CMS ────────────────────────────────────────────────
+# WordPress-rethought CMS on Rails 8.1 + Hotwire
+# PostgreSQL only — Solid Queue/Cache/Cable replace Redis
+
+[[services]]
+name = "inkwell"
+category = "app"
+subtype = "rails"
+builder = "nixpacks"
+port = 3000
+
+[services.env]
+RAILS_ENV = "production"
+SECRET_KEY_BASE = "${{ shared.SECRET_KEY_BASE }}"
+RAILS_MASTER_KEY = "${{ shared.RAILS_MASTER_KEY }}"
+DATABASE_URL = "${{ linked.postgres.DATABASE_URL }}"
+SOLID_QUEUE_IN_PUMA = "true"
+RAILS_LOG_LEVEL = "info"
+RAILS_SERVE_STATIC_FILES = "true"
+PUBLIC_HOST = "${{ RAILDOCK_PUBLIC_DOMAIN }}"
+
+[[services.storage]]
+host = "inkwell-storage"
+container = "/rails/storage"
+
+[services.checks]
+enabled = true
+wait = 10
+timeout = 30
+attempts = 5
+
+[[services.cron]]
+command = "bin/rails solid_cache:prune_stale"
+schedule = "0 3 * * *"
+
+[services.scripts]
+predeploy = "bin/rails db:migrate"
+
+# ── PostgreSQL ─────────────────────────────────────────────────
+
+[[services]]
+name = "postgres"
+category = "database"
+subtype = "postgres"
+version = "16"
+
+[services.env]
+POSTGRES_USER = "${{ secret() }}"
+POSTGRES_PASSWORD = "${{ secret() }}"
+POSTGRES_DB = "inkwell_production"
+
+[[services.storage]]
+host = "inkwell-pg-data"
+container = "/var/lib/postgresql/data"
+
+# ── Links ──────────────────────────────────────────────────────
+
+[[links]]
+from = "inkwell"
+to = "postgres"
+alias = "db"
