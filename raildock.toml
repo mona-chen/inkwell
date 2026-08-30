@@ -26,12 +26,6 @@ PUBLIC_HOST = "${{ RAILDOCK_PUBLIC_DOMAIN }}"
 host = "inkwell-storage"
 container = "/rails/storage"
 
-[services.checks]
-enabled = true
-wait = 10
-timeout = 30
-attempts = 5
-
 [[services.cron]]
 command = "bin/rails solid_cache:prune_stale"
 schedule = "0 3 * * *"
