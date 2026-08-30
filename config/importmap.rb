@@ -2,6 +2,9 @@ pin "application"
 pin "@hotwired/turbo-rails", to: "turbo.min.js"
 pin "@hotwired/stimulus", to: "stimulus.min.js"
 pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"
+pin "controllers/refresh_controller", to: "refresh_controller.js"
+pin "controllers/appearance_controller", to: "appearance_controller.js"
+pin "controllers/dropdown_controller", to: "dropdown_controller.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
 
 # Sortable.js — the one drag/drop + animation library the editor and menu builder both lean
