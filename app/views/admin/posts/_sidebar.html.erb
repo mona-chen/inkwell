@@ -35,7 +35,7 @@
     </div>
   <% else %>
     <div class="rounded-lg border-2 border-dashed border-border p-6 text-center cursor-pointer hover:border-muted-foreground transition-colors">
-      <span class="material-symbols-rounded text-muted-foreground text-lg">add_photo_alternate</span>
+      <%= render NitroKit::Icon.new(:image, size: :md) %>
       <p class="text-xs text-muted-foreground mt-1">Add an image</p>
     </div>
   <% end %>
@@ -56,7 +56,7 @@
           </span>
         <% end %>
         <button type="button" class="inline-flex items-center gap-1 rounded-full border border-border text-xs px-2 py-0.5 text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors">
-          <span class="material-symbols-rounded text-[12px]">add</span>
+          <span class="text-[12px]">+</span>
         </button>
       </div>
     </div>
@@ -70,7 +70,7 @@
           </span>
         <% end %>
         <button type="button" class="inline-flex items-center gap-1 rounded-full border border-border text-xs px-2 py-0.5 text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors">
-          <span class="material-symbols-rounded text-[12px]">add</span>
+          <span class="text-[12px]">+</span>
         </button>
       </div>
     </div>
@@ -86,7 +86,7 @@
   <details class="group mb-2">
     <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
       <span>Excerpt</span>
-      <span class="material-symbols-rounded text-muted-foreground text-sm transition-transform group-open:rotate-90">chevron_right</span>
+      <%= render NitroKit::Icon.new(:chevron_right, size: :xs) %>
     </summary>
     <div class="mt-2 pl-0">
       <%= f.text_area :excerpt, rows: 4, placeholder: "A brief summary for search results and social cards…", class: "w-full text-sm border border-border rounded-lg px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring/20" %>
@@ -96,7 +96,7 @@
   <details class="group mb-2">
     <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
       <span>SEO</span>
-      <span class="material-symbols-rounded text-muted-foreground text-sm transition-transform group-open:rotate-90">chevron_right</span>
+      <%= render NitroKit::Icon.new(:chevron_right, size: :xs) %>
     </summary>
     <div class="mt-2 pl-0 space-y-3">
       <div>
@@ -121,7 +121,7 @@
   <details class="group">
     <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
       <span>Discussion</span>
-      <span class="material-symbols-rounded text-muted-foreground text-sm transition-transform group-open:rotate-90">chevron_right</span>
+      <%= render NitroKit::Icon.new(:chevron_right, size: :xs) %>
     </summary>
     <div class="mt-2 pl-0">
       <p class="text-xs text-muted-foreground">Comments: <%= post.comments.count %> total, <%= post.comments.pending.count %> pending</p>
@@ -132,11 +132,11 @@
 <hr class="border-border mb-4">
 
 <%# ── Advanced ──────────────────────────────────────────────────── %>
-<details class="group">
-  <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
-    <span>Advanced</span>
-    <span class="material-symbols-rounded text-muted-foreground text-sm transition-transform group-open:rotate-90">chevron_right</span>
-  </summary>
+  <details class="group">
+    <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
+      <span>Advanced</span>
+      <%= render NitroKit::Icon.new(:chevron_right, size: :xs) %>
+    </summary>
   <div class="mt-2 pl-0 space-y-3">
     <div>
       <label class="text-xs text-muted-foreground">Categories</label>
