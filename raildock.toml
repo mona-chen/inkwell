@@ -10,6 +10,7 @@ framework = "rails"
 builder = "nixpacks"
 source = { type = "git", repo = "https://github.com/mona-chen/inkwell.git", branch = "main" }
 port = 3000
+domains = ["blog.ruut.chat"]
 
 [services.env]
 RAILS_ENV = "production"
