@@ -2,7 +2,13 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   connect() {
+    this.boundSync = () => this.sync()
+    window.addEventListener("nitro-kit:appearance-change", this.boundSync)
     this.sync()
+  }
+
+  disconnect() {
+    window.removeEventListener("nitro-kit:appearance-change", this.boundSync)
   }
 
   toggle() {
@@ -12,18 +18,15 @@ export default class extends Controller {
   }
 
   apply(theme) {
-    document.documentElement.setAttribute("data-theme", theme)
-    localStorage.setItem("inkwell-theme", theme)
-    // Update the icon
-    this.element.querySelectorAll("[data-theme-icon]").forEach(icon => {
-      icon.style.display = icon.dataset.themeIcon === theme ? "" : "none"
-    })
+    window.dispatchEvent(new CustomEvent("nitro-kit:appearance-request", {
+      detail: { preference: theme }
+    }))
   }
 
   sync() {
-    const saved = localStorage.getItem("inkwell-theme")
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-    const theme = saved || (prefersDark ? "dark" : "light")
-    this.apply(theme)
+    const theme = document.documentElement.getAttribute("data-theme") || "light"
+    this.element.querySelectorAll("[data-theme-icon]").forEach(icon => {
+      icon.style.display = icon.dataset.themeIcon === theme ? "" : "none"
+    })
   }
 }

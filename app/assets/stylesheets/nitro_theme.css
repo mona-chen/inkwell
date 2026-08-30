@@ -11,6 +11,7 @@
    ----------------------------------------------------------------------- */
 [data-theme="dark"],
 :root:not([data-theme]) {
+  color-scheme: dark;
   /* --- Surface depth — conservative, works with NitroKit --- */
   --nk-color-canvas: oklch(0.13 0.005 286);
   --nk-color-surface: oklch(0.165 0.005 286);
@@ -99,8 +100,9 @@
 /* -----------------------------------------------------------------------
    LIGHT MODE
    ----------------------------------------------------------------------- */
-:root,
+:root:not([data-theme]),
 [data-theme="light"] {
+  color-scheme: light;
   --nk-color-canvas: oklch(0.985 0.001 286);
   --nk-color-surface: oklch(1 0 0);
   --nk-color-elevated: oklch(0.995 0 0);

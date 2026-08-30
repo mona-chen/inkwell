@@ -20,41 +20,41 @@
 
   <%# Chat window %>
   <div data-ai-writer-target="window"
-       class="hidden fixed bottom-24 right-4 z-[100] w-[380px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
-    <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+       class="hidden fixed bottom-24 right-4 z-[100] w-[380px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-9rem)] flex-col overflow-hidden rounded-2xl border border-border bg-background text-foreground shadow-2xl">
+    <div class="flex items-center justify-between border-b border-border px-4 py-3">
       <div class="flex items-center gap-2">
-        <span class="text-sm font-semibold text-gray-900">Copilot</span>
+        <span class="text-sm font-semibold text-foreground">Copilot</span>
         <span data-ai-writer-target="statusDot" class="hidden h-2 w-2 rounded-full bg-emerald-500"></span>
       </div>
       <div class="flex items-center gap-1">
         <button type="button" data-action="ai-writer#togglePreview"
-                class="rounded-md px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900">Preview</button>
-        <button type="button" data-action="ai-writer#close" class="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Close Copilot">✕</button>
+                class="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Preview</button>
+        <button type="button" data-action="ai-writer#close" class="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close Copilot">✕</button>
       </div>
     </div>
 
     <div data-ai-writer-target="chatView" class="flex min-h-0 flex-1 flex-col">
       <div data-ai-writer-target="transcript" class="flex-1 space-y-3 overflow-y-auto px-4 py-3 text-sm"></div>
 
-      <div class="space-y-2 border-t border-gray-100 px-4 py-3">
+      <div class="space-y-2 border-t border-border px-4 py-3">
         <div class="flex flex-wrap gap-1">
           <button type="button" data-ai-writer-target="mode" data-mode="draft" data-action="ai-writer#setMode"
-                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">Draft</button>
+                  class="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Draft</button>
           <button type="button" data-ai-writer-target="mode" data-mode="continue" data-action="ai-writer#setMode"
-                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">Continue</button>
+                  class="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Continue</button>
           <button type="button" data-ai-writer-target="mode" data-mode="rewrite_page" data-action="ai-writer#setMode"
-                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">Rewrite page</button>
+                  class="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Rewrite page</button>
           <button type="button" data-ai-writer-target="mode" data-mode="improve" data-action="ai-writer#setMode"
-                  class="rounded-full border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">Improve</button>
+                  class="rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Improve</button>
         </div>
         <textarea data-ai-writer-target="prompt" rows="2"
                   data-action="keydown->ai-writer#promptKeydown"
                   placeholder="Ask Copilot anything — it can draft, rewrite, or edit your page…"
-                  class="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300/40"></textarea>
+                  class="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"></textarea>
         <div class="flex items-center gap-2">
-          <span data-ai-writer-target="status" class="flex-1 text-xs text-gray-400"></span>
+          <span data-ai-writer-target="status" class="flex-1 text-xs text-muted-foreground"></span>
           <button type="button" data-ai-writer-target="send" data-action="ai-writer#send"
-                  class="rounded-md bg-gray-900 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-black disabled:opacity-50 cursor-pointer">
+                  class="rounded-md bg-primary px-3.5 py-1.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary-hover disabled:opacity-50 cursor-pointer">
             Send
           </button>
         </div>

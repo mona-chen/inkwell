@@ -29,6 +29,9 @@ Rails.application.routes.draw do
       member { post :publish }
       member { post :publish_original_import }
     end
+    resources :website_imports, only: %i[index new create show] do
+      resource :application, only: :create, module: :website_imports
+    end
     resources :media, only: [:index, :create, :update, :destroy]
     resources :comments, only: [:index, :update, :destroy]
     resources :menus do

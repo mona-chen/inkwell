@@ -34,3 +34,7 @@
 # Local AI tool state (never commit — may contain credentials)
 /.codex
 /.opencode
+
+# Ignore key files for decrypting credentials and more.
+/config/credentials/*.key
+

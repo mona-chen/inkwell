@@ -35,7 +35,8 @@ module Admin
         label: "Site",
         items: [
           { label: "Appearance", path: "/admin/themes", icon: "paint-brush" },
-          { label: "Navigation", path: "/admin/menus", icon: "bars-3" }
+          { label: "Navigation", path: "/admin/menus", icon: "bars-3" },
+          { label: "Import website", path: "/admin/website_imports", icon: "globe" }
         ]
       },
       {

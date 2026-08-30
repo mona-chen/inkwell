@@ -16,6 +16,7 @@ module Admin
       @scheduled_queue = Current.site.posts.scheduled.order(:scheduled_for).limit(5)
       @draft_queue = Current.site.posts.where(status: "draft").order(updated_at: :desc).limit(5)
       @storage_bytes = Current.site.media_items.sum { |m| m.file.blob.byte_size rescue 0 }
+      @setup_checklist = Current.site.setup_checklist
 
       render Admin::DashboardPage.new(
         recent_posts: @recent_posts,
@@ -32,7 +33,8 @@ module Admin
         recent_comments: @recent_comments,
         scheduled_queue: @scheduled_queue,
         draft_queue: @draft_queue,
-        storage_bytes: @storage_bytes
+        storage_bytes: @storage_bytes,
+        setup_checklist: @setup_checklist
       )
     end
   end

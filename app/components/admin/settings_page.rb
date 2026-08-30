@@ -4,29 +4,70 @@ module Admin
   # Site settings. Two SettingsSections: General (site identity) and Homepage (what the
   # front page shows — WordPress "Settings → Reading").
   class SettingsPage < ApplicationComponent
-    def initialize(site:)
+    SECTIONS = {
+      "general" => { label: "General", icon: :sliders_horizontal, subtitle: "Identity, regional preferences, and discussion defaults" },
+      "homepage" => { label: "Homepage", icon: :home, subtitle: "Choose the content visitors see first" },
+      "maintenance" => { label: "Maintenance", icon: :wrench, subtitle: "Caches, assets, and recovery tools" }
+    }.freeze
+
+    def initialize(site:, section: "general")
       @site = site
       @pages = site.pages.published.ordered
+      @section = SECTIONS.key?(section) ? section : "general"
     end
 
     def view_template
       render Toolbar.new do |toolbar|
         toolbar.leading do
-          render ToolbarTitle.new(title: "Settings", subtitle: "Site-wide configuration")
+          render ToolbarTitle.new(title: "Settings", subtitle: SECTIONS.fetch(@section).fetch(:subtitle))
+        end
+        if form_section?
+          toolbar.trailing do
+            render Button.new(
+              "Save changes",
+              variant: :primary,
+              size: :sm,
+              icon: :check,
+              type: :submit,
+              form: form_id,
+              submission_indicator: :spinner,
+              data: { turbo_submits_with: "Saving…" }
+            )
+          end
         end
       end
 
-      render_general_section
-      render_homepage_section
-      render_maintenance_section
+      render SettingsLayout.new(id: "site-settings") do |layout|
+        layout.navigation(label: "Settings sections") do |navigation|
+          SECTIONS.each do |key, item|
+            navigation.item(
+              item.fetch(:label),
+              href: admin_settings_path(section: key),
+              icon: item.fetch(:icon),
+              current: key == @section
+            )
+          end
+        end
+        layout.content { render_active_section }
+      end
     end
 
     private
 
     def render_general_section
-      render SettingsSection.new(title: "General", description: "Site-wide settings for #{@site.name}.") do |section|
+      render SettingsSection.new(
+        id: "general-settings",
+        title: "Site identity and defaults",
+        description: "The public identity and publishing defaults shared across #{@site.name}."
+      ) do |section|
         section.form do
-          form_with(url: admin_settings_path, method: :patch, scope: "settings", builder: NitroKit::FormBuilder) do |form|
+          form_with(
+            url: admin_settings_path(section: @section),
+            method: :patch,
+            scope: "settings",
+            builder: NitroKit::FormBuilder,
+            html: { id: form_id }
+          ) do |form|
             form.group do
               form.field(:site_title, value: setting_value("site_title"), label: "Site title")
               form.field(:tagline, value: setting_value("tagline"), label: "Tagline")
@@ -49,7 +90,7 @@ module Admin
               )
             end
             form.group do
-              form.submit("Save settings")
+              noscript { form.submit("Save settings") }
             end
           end
         end
@@ -124,11 +165,18 @@ module Admin
 
     def render_homepage_section
       render SettingsSection.new(
-        title: "Homepage",
-        description: "Choose what visitors see at your site's front page."
+        id: "homepage-settings",
+        title: "Homepage source",
+        description: "Choose what visitors see when they arrive at your site's root URL."
       ) do |section|
         section.form do
-          form_with(url: admin_settings_path, method: :patch, scope: "settings", builder: NitroKit::FormBuilder) do |form|
+          form_with(
+            url: admin_settings_path(section: @section),
+            method: :patch,
+            scope: "settings",
+            builder: NitroKit::FormBuilder,
+            html: { id: form_id }
+          ) do |form|
             form.group do
               render NitroKit::RadioButtonGroup.new(
                 legend: "Your homepage displays",
@@ -146,11 +194,12 @@ module Admin
                 as: :select,
                 label: "Homepage page",
                 options: @pages.map { |p| [ p.title, p.id.to_s ] },
-                include_blank: "Select a page…"
+                include_blank: "Select a page…",
+                value: setting_value("page_on_front")
               )
             end
             form.group do
-              form.submit("Save homepage")
+              noscript { form.submit("Save homepage") }
             end
           end
         end
@@ -177,6 +226,22 @@ module Admin
 
     def setting_value(key, default = nil)
       @site.setting(key, default)
+    end
+
+    def render_active_section
+      case @section
+      when "homepage" then render_homepage_section
+      when "maintenance" then render_maintenance_section
+      else render_general_section
+      end
+    end
+
+    def form_section?
+      @section != "maintenance"
+    end
+
+    def form_id
+      "#{@section}-settings-form"
     end
   end
 end

@@ -1,5 +1,5 @@
 module Admin
-  # The shell topbar: page title on the left, site + view-site + user actions on the right.
+  # Global command and account surface. Route titles belong to each page's Toolbar.
   class Topbar < ApplicationComponent
     def initialize(title:, user:, current_site: nil)
       @title = title
@@ -9,38 +9,10 @@ module Admin
 
     def view_template
       div(class: "admin-topbar-content flex items-center justify-between gap-4 w-full h-full", data: { controller: "appearance" }) do
-        h1(class: "text-base font-semibold text-foreground truncate") { @title }
+        render_command_palette
 
         div(class: "flex items-center gap-3 text-sm") do
-          # Global Create button
-          div(class: "relative", data: { controller: "dropdown" }) do
-            button(
-              type: "button",
-              class: "inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover",
-              data: { action: "click->dropdown#toggle" }
-            ) do
-              render Icon.new(:plus, size: :sm)
-              span(class: "hidden sm:inline") { "Create" }
-            end
-            div(
-              class: "hidden absolute right-0 z-50 mt-1 w-48 rounded-xl border border-border bg-elevated py-1 shadow-lg",
-              data: { dropdown_target: "menu" }
-            ) do
-              a(href: new_admin_post_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
-                render Icon.new(:file_text, size: :sm)
-                span { "New post" }
-              end
-              a(href: new_admin_page_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
-                render Icon.new(:layout, size: :sm)
-                span { "New page" }
-              end
-              div(class: "border-t border-border my-1") {}
-              a(href: admin_media_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
-                render Icon.new(:upload, size: :sm)
-                span { "Upload media" }
-              end
-            end
-          end
+          render_create_menu
 
           # Dark mode toggle
           button(
@@ -62,13 +34,8 @@ module Admin
 
           div(class: "h-5 w-px bg-border") {}
 
-          # Profile dropdown
-          div(class: "relative", data: { controller: "dropdown" }) do
-            button(
-              type: "button",
-              class: "flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-muted",
-              data: { action: "click->dropdown#toggle" }
-            ) do
+          render Dropdown.new(placement: :bottom_end) do |menu|
+            menu.trigger(variant: :ghost, size: :sm, label: "Account menu") do
               span(
                 class: "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
               ) do
@@ -77,31 +44,62 @@ module Admin
               span(class: "hidden md:inline text-sm font-medium text-foreground") { @user&.name || "Admin" }
               render Icon.new(:chevron_down, size: :xs)
             end
-            div(
-              class: "hidden absolute right-0 z-50 mt-1 w-56 rounded-xl border border-border bg-background py-1 shadow-lg",
-              data: { dropdown_target: "menu" }
-            ) do
-              div(class: "px-3 py-2 border-b border-border") do
+            menu.title do
+              div do
                 div(class: "text-sm font-medium text-foreground") { @user&.name || "Admin" }
                 div(class: "text-xs text-muted-foreground") { @current_site&.name || "Inkwell" }
               end
-              a(href: admin_settings_path, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
-                render Icon.new(:settings, size: :sm)
-                span { "Settings" }
-              end
-              a(href: "/", class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
-                render Icon.new(:external_link, size: :sm)
-                span { "View site" }
-              end
-              div(class: "border-t border-border mt-1") {}
-              a(href: "/users/sign_out", data: { turbo_method: :delete }, class: "flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors") do
-                render Icon.new(:log_out, size: :sm)
-                span { "Sign out" }
-              end
             end
+            menu.item("Settings", href: admin_settings_path, icon: :settings)
+            menu.item("View site", href: "/", icon: :external_link)
+            menu.separator
+            menu.item("Sign out", href: "/users/sign_out", icon: :log_out, variant: :destructive, data: { turbo_method: :delete })
           end
         end
       end
+    end
+
+    private
+
+    def render_create_menu
+      render Dropdown.new(placement: :bottom_end) do |menu|
+        menu.trigger("Create", variant: :primary, size: :sm, icon: :plus)
+        menu.item("New post", href: new_admin_post_path, icon: :file_text)
+        menu.item("New page", href: new_admin_page_path, icon: :layout)
+        menu.separator
+        menu.item("Upload media", href: admin_media_path, icon: :upload)
+      end
+    end
+
+    def render_command_palette
+      render CommandPalette.new(
+        id: "admin-command-palette",
+        label: "Search or jump to…",
+        placeholder: "Search pages, content, and settings…"
+      ) do |palette|
+        command_destinations.each do |destination|
+          palette.destination(
+            destination.fetch(:label),
+            href: destination.fetch(:href),
+            description: destination.fetch(:description)
+          )
+        end
+      end
+    end
+
+    def command_destinations
+      [
+        { label: "Dashboard", href: admin_root_path, description: "Site overview and recent activity" },
+        { label: "Posts", href: admin_posts_path, description: "Write and manage posts" },
+        { label: "Pages", href: admin_pages_path, description: "Design and publish pages" },
+        { label: "Media", href: admin_media_path, description: "Browse the media library" },
+        { label: "Comments", href: admin_comments_path, description: "Review conversations" },
+        { label: "Appearance", href: admin_themes_path, description: "Themes and visual identity" },
+        { label: "Navigation", href: admin_menus_path, description: "Menus and site structure" },
+        { label: "Plugins", href: admin_plugins_path, description: "Extend the platform" },
+        { label: "Users", href: admin_users_path, description: "People and access" },
+        { label: "Settings", href: admin_settings_path, description: "Site-wide configuration" }
+      ]
     end
   end
 end

@@ -222,71 +222,7 @@ module PageBuilder
     end
 
     def import_captured_pages!(site_payload, capture_id)
-      pages = site_payload.fetch("pages")
-      existing_by_source = Current.site.pages.where("meta ->> 'import_capture' = ?", capture_id).index_by { |page| page.meta["import_source"] }
-      reserved_slugs = Current.site.pages.pluck(:slug).to_set
-      desired_slugs = pages.to_h do |page|
-        existing = existing_by_source[page["source"]]
-        slug = existing&.slug || unique_import_slug(page.fetch("slug"), reserved_slugs)
-        reserved_slugs << slug
-        [page.fetch("slug"), slug]
-      end
-      by_source = {}
-
-      Page.transaction do
-        site_parts = site_payload.fetch("siteParts", {}).deep_dup
-        site_parts.each_value { |node| rewrite_import_links!([node], desired_slugs) }
-        Current.site.set_builder_site_parts!(site_parts.transform_values { |node| materialize_import_node(node) }) if site_parts.present?
-        pages.each_with_index do |page_payload, index|
-          payload = page_payload.fetch("payload").deep_dup
-          rewrite_import_links!(payload.fetch("children"), desired_slugs)
-          store = {
-            "version" => 2,
-            "type" => "page",
-            "settings" => payload.fetch("settings", {}).merge("title" => page_payload.fetch("title")),
-            "children" => payload.fetch("children").map { |node| materialize_import_node(node) }
-          }
-          block = {
-            "type" => "page_builder",
-            "data" => {
-              # The recursive store is the source of truth for editing. Keep the mapped body as
-              # an immediate first render so an imported draft/published page is never blank
-              # before its first builder save; the next save replaces this with renderer output.
-              "html" => ErbConverter.convert(rewrite_import_html_links(payload["initialHtml"].to_s, desired_slugs), document_root: "@page"),
-              "store" => store,
-              "custom_css" => payload["customCss"].to_s,
-              "custom_js" => payload["customJs"].to_s
-            }
-          }
-          page = existing_by_source[page_payload["source"]] || Current.site.pages.build(author: current_user)
-          page.assign_attributes(
-            author: current_user,
-            title: page_payload.fetch("title"),
-            slug: desired_slugs.fetch(page_payload.fetch("slug")),
-            status: "draft",
-            template: "landing",
-            hide_title: true,
-            menu_order: index,
-            content: [block],
-            meta: { "import_source" => page_payload["source"], "import_capture" => capture_id },
-            original_import_html: imported_source_html(capture_id, page_payload["source"]),
-            original_import_url: page_payload["source"],
-            live_render_mode: "native"
-          )
-          page.save!
-          by_source[page_payload["source"]] = page
-        end
-        pages.each do |page_payload|
-          page = by_source[page_payload["source"]]
-          parent = by_source[page_payload["parentSource"]]
-          page.update!(parent: parent) if parent && page.parent_id != parent.id
-        end
-      end
-
-      pages.map do |page_payload|
-        page = by_source.fetch(page_payload["source"])
-        { id: page.id, title: page.title, slug: page.slug, source: page_payload["source"], builder_url: "/builder/page/#{page.id}" }
-      end
+      CapturedSiteImporter.new(site: Current.site, user: current_user, capture_id: capture_id).import!(site_payload)
     end
 
     def unique_import_slug(desired, reserved = Set.new)

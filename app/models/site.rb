@@ -6,6 +6,7 @@ class Site < ApplicationRecord
   has_many :menus, dependent: :destroy
   has_many :media_items, dependent: :destroy
   has_many :widgets, dependent: :destroy
+  has_many :website_imports, dependent: :destroy
   has_many :options, dependent: :destroy
 
   validates :name, :domain, presence: true
@@ -41,6 +42,18 @@ class Site < ApplicationRecord
 
   def front_page?
     show_on_front == "page" && front_page.present?
+  end
+
+  # Durable setup progress derived from the site itself. There is no separate
+  # onboarding flag to drift out of sync with the workspace's real state.
+  def setup_checklist
+    {
+      identity: setting("site_title").present?,
+      page: pages.exists?,
+      homepage: options.exists?(key: "show_on_front"),
+      navigation: menus.joins(:menu_items).exists?,
+      publication: pages.published.exists? || posts.published.exists?
+    }
   end
 
   # Site logo — the id of a MediaItem in the media library (set via Settings → General).

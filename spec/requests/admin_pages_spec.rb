@@ -14,9 +14,23 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-nk=\"app-shell\"")
-    expect(body).to include("data-nk=\"stat-grid\"")
-    expect(body).to include("data-nk=\"card\"")
-    expect(body).to include("Your content")
+    expect(body).to include("Set up your site")
+    expect(body).to include("0 of 5")
+    expect(body).to include("Recent content")
+  end
+
+  it "hides the setup guide after the real setup milestones are complete" do
+    page = Page.create!(title: "Home", site: site, author: user, status: "published", template: "default")
+    menu = site.menus.create!(name: "Primary", location: "header")
+    menu.menu_items.create!(label: "Home", url: "/", position: 0)
+    site.set_setting!("site_title", "Test Site")
+    site.set_setting!("show_on_front", "page")
+    site.set_setting!("page_on_front", page.id)
+
+    get admin_root_path
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include("Set up your site")
   end
 
   it "renders the posts index with the Nitro shell" do

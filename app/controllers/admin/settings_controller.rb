@@ -1,5 +1,6 @@
 module Admin
   class SettingsController < BaseController
+    SECTIONS = %w[general homepage maintenance].freeze
     SETTINGS_SCHEMA = %w[
       site_title tagline site_url timezone posts_per_page comments_enabled site_logo
       show_on_front page_on_front
@@ -7,7 +8,7 @@ module Admin
 
     def show
       @site = Current.site
-      render Admin::SettingsPage.new(site: @site)
+      render Admin::SettingsPage.new(site: @site, section: settings_section)
     end
 
     def update
@@ -19,7 +20,7 @@ module Admin
       # Filter lets plugins persist their own settings alongside core ones from the same form,
       # e.g. the SEO plugin adds a "default meta description" field via this hook.
       Inkwell::Hooks.fire(:settings_updated, params[:settings])
-      redirect_to admin_settings_path, notice: "Settings saved."
+      redirect_to admin_settings_path(section: settings_section), status: :see_other, notice: "Settings saved."
     end
 
     # Maintenance: clear the application cache (fragments, Solid Cache in prod). Also bumps
@@ -32,7 +33,14 @@ module Admin
       if stylesheet_path.exist?
         File.utime(File.mtime(stylesheet_path), Time.now, stylesheet_path)
       end
-      redirect_to admin_settings_path, notice: "Cache cleared."
+      redirect_to admin_settings_path(section: "maintenance"), status: :see_other, notice: "Cache cleared."
+    end
+
+    private
+
+    def settings_section
+      section = params[:section].to_s
+      SECTIONS.include?(section) ? section : "general"
     end
   end
 end

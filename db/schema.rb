@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_29_150000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_30_153000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -432,6 +432,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_29_150000) do
     t.index ["site_id"], name: "index_users_on_site_id"
   end
 
+  create_table "website_imports", force: :cascade do |t|
+    t.string "capture_id", null: false
+    t.integer "captured_pages", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.text "error_message"
+    t.datetime "finished_at"
+    t.jsonb "imported_page_ids", default: [], null: false
+    t.integer "mapped_pages", default: 0, null: false
+    t.integer "max_depth", default: 6, null: false
+    t.integer "max_pages", default: 80, null: false
+    t.boolean "ownership_confirmed", default: false, null: false
+    t.jsonb "report", default: {}, null: false
+    t.bigint "site_id", null: false
+    t.string "source_url", null: false
+    t.datetime "started_at"
+    t.string "status", default: "queued", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["capture_id"], name: "index_website_imports_on_capture_id", unique: true
+    t.index ["site_id", "created_at"], name: "index_website_imports_on_site_id_and_created_at"
+    t.index ["site_id"], name: "index_website_imports_on_site_id"
+    t.index ["status"], name: "index_website_imports_on_status"
+    t.index ["user_id"], name: "index_website_imports_on_user_id"
+  end
+
   create_table "widgets", force: :cascade do |t|
     t.string "area"
     t.jsonb "config"
@@ -473,5 +498,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_29_150000) do
   add_foreign_key "terms", "sites"
   add_foreign_key "users", "roles"
   add_foreign_key "users", "sites"
+  add_foreign_key "website_imports", "sites"
+  add_foreign_key "website_imports", "users"
   add_foreign_key "widgets", "sites"
 end

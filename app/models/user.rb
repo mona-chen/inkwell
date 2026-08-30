@@ -6,6 +6,7 @@ class User < ApplicationRecord
   has_many :posts, foreign_key: :author_id, dependent: :nullify
   has_many :pages, foreign_key: :author_id, dependent: :nullify
   has_many :comments, dependent: :nullify
+  has_many :website_imports, dependent: :nullify
 
   validates :name, presence: true
 

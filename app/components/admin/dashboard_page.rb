@@ -8,7 +8,7 @@ module Admin
       recent_posts:, published_posts:, total_pages:, pending_comments:,
       media_count:, active_plugins:, draft_posts:, scheduled_posts:, total_posts:,
       recent_comments:, spam_comments: 0, total_users: 0, scheduled_queue: [],
-      draft_queue: [], storage_bytes: 0
+      draft_queue: [], storage_bytes: 0, setup_checklist: {}
     )
       @recent_posts = recent_posts
       @published_posts = published_posts
@@ -25,11 +25,13 @@ module Admin
       @scheduled_queue = scheduled_queue
       @draft_queue = draft_queue
       @storage_bytes = storage_bytes
+      @setup_checklist = setup_checklist
     end
 
     def view_template
       div(class: "admin-dashboard") do
         render_header
+        render_setup_guide unless setup_complete?
         render_stats_strip
         render_moderation if @pending_comments.positive?
         render_recent_content
@@ -37,6 +39,67 @@ module Admin
     end
 
     private
+
+    def render_setup_guide
+      completed = @setup_checklist.count { |_key, value| value }
+
+      section(class: "mb-8 overflow-hidden rounded-xl border border-border bg-background", aria: { labelledby: "setup-guide-title" }) do
+        div(class: "flex flex-col gap-4 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between") do
+          div do
+            h2(id: "setup-guide-title", class: "text-sm font-semibold text-foreground") { "Set up your site" }
+            p(class: "mt-1 text-sm text-muted-foreground") { "A short path from a fresh workspace to a published site." }
+          end
+          div(class: "flex items-center gap-3") do
+            span(class: "text-xs tabular-nums text-muted-foreground") { "#{completed} of #{setup_steps.size}" }
+            progress(value: completed, max: setup_steps.size, class: "h-1.5 w-24 overflow-hidden rounded-full accent-primary", aria: { label: "Setup progress" })
+          end
+        end
+
+        ol(class: "divide-y divide-border") do
+          setup_steps.each_with_index { |step, index| render_setup_step(step, index) }
+        end
+      end
+    end
+
+    def render_setup_step(step, index)
+      complete = @setup_checklist.fetch(step[:key], false)
+
+      li do
+        a(
+          href: step[:href],
+          class: "group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/30"
+        ) do
+          span(class: "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border #{complete ? 'border-success/40 bg-success/10 text-success' : 'border-border text-muted-foreground'}") do
+            if complete
+              render Icon.new(:check, size: :xs)
+            else
+              span(class: "text-[11px] font-medium tabular-nums") { index + 1 }
+            end
+          end
+          div(class: "min-w-0 flex-1") do
+            div(class: "text-sm font-medium #{complete ? 'text-muted-foreground line-through' : 'text-foreground'}") { step[:title] }
+            div(class: "mt-0.5 text-xs text-muted-foreground") { step[:description] }
+          end
+          span(class: "shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-foreground") do
+            render Icon.new(:arrow_right, size: :xs)
+          end
+        end
+      end
+    end
+
+    def setup_complete?
+      @setup_checklist.present? && @setup_checklist.values.all?
+    end
+
+    def setup_steps
+      [
+        { key: :identity, title: "Name and brand your site", description: "Set the public title, tagline, and identity.", href: admin_settings_path(section: "general") },
+        { key: :page, title: "Create your first page", description: "Start with a homepage, about page, or landing page.", href: new_admin_page_path },
+        { key: :homepage, title: "Choose the homepage", description: "Decide what visitors see at your root URL.", href: admin_settings_path(section: "homepage") },
+        { key: :navigation, title: "Build the navigation", description: "Create a menu and add the first destination.", href: new_admin_menu_path },
+        { key: :publication, title: "Publish something", description: "Make a page or post available to visitors.", href: admin_pages_path }
+      ]
+    end
 
     # ── Header ──────────────────────────────────────────────────────────
     def render_header
