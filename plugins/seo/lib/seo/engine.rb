@@ -13,6 +13,7 @@ module Seo
       register_meta_tag_hooks
       register_sitemap_hooks
       register_editor_panels
+      register_admin_styles
     end
 
     def on_deactivate
@@ -44,6 +45,33 @@ module Seo
 
     def register_sitemap_hooks
       # No additional hooks needed — sitemap is handled by the controller.
+    end
+
+    def register_admin_styles
+      # Inject SEO-specific admin CSS via the plugin stylesheet hook.
+      Inkwell::Hooks.on_filter(:admin_stylesheet_tags, source: plugin_slug) do |_tags|
+        [seo_admin_css]
+      end
+    end
+
+    def seo_admin_css
+      <<~CSS.squish
+        /* SEO plugin: SERP preview styling */
+        .ink-sep-preview{border:1px solid var(--nk-color-border);border-radius:0.75rem;padding:0.75rem;background:var(--nk-color-background)}
+        .ink-serp-url{font-size:0.625rem;color:var(--nk-color-muted-foreground);margin-bottom:0.25rem}
+        .ink-serp-title{font-size:0.875rem;color:#1a0dab;line-height:1.3;margin:0}
+        .ink-serp-desc{font-size:0.75rem;color:var(--nk-color-muted-foreground);line-height:1.4;margin-top:0.25rem}
+        /* Length indicators */
+        .ink-seo-length{font-size:0.625rem}
+        .ink-seo-length-good{color:var(--nk-color-success)}
+        .ink-seo-length-warn{color:var(--nk-color-warning)}
+        .ink-seo-length-bad{color:var(--nk-color-danger)}
+        /* Score badge */
+        .ink-seo-score{display:inline-flex;align-items:center;justify-content:center;width:1.25rem;height:1.25rem;border-radius:9999px;font-size:0.625rem;font-weight:700}
+        .ink-seo-score.is-good{background:var(--nk-color-success);color:var(--nk-color-success-content)}
+        .ink-seo-score.is-warn{background:var(--nk-color-warning);color:var(--nk-color-warning-content)}
+        .ink-seo-score.is-bad{background:var(--nk-color-danger);color:var(--nk-color-danger-content)}
+      CSS
     end
 
     def register_editor_panels
@@ -89,31 +117,25 @@ module Seo
           <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
             <span class="flex items-center gap-2">
               SEO
-              <span class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold text-#{score_color}-foreground bg-#{score_color}">#{score}</span>
+              <span class="ink-seo-score is-#{score_color}">#{score}</span>
             </span>
           </summary>
           <div class="mt-3 pl-0 space-y-4">
 
             <!-- SERP Preview -->
-            <div class="rounded-lg border border-border/50 bg-background p-3">
-              <div class="flex items-center gap-1.5 text-[10px] text-muted-foreground mb-2">
-                <span class="font-medium text-foreground">inkwell</span>
-                <span>›</span>
-                <span>#{record.respond_to?(:slug) ? record.slug : type}</span>
+            <div class="ink-sep-preview">
+              <div class="ink-serp-url">
+                <span class="font-medium text-foreground">#{site_domain}</span> › #{record.respond_to?(:slug) ? record.slug : type}
               </div>
-              <h4 class="text-sm text-primary font-normal leading-snug" style="color: #1a0dab;">
-                #{ERB::Util.html_escape(effective_title.truncate(60))}
-              </h4>
-              <p class="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                #{ERB::Util.html_escape(effective_desc.truncate(160))}
-              </p>
+              <h4 class="ink-serp-title">#{ERB::Util.html_escape(effective_title.truncate(60))}</h4>
+              <p class="ink-serp-desc">#{ERB::Util.html_escape(effective_desc.truncate(160))}</p>
             </div>
 
             <!-- Title field with length indicator -->
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="text-xs text-muted-foreground">Search title</label>
-                <span class="text-[10px] #{title_len > 60 ? 'text-danger' : title_len > 50 ? 'text-warning' : 'text-muted-foreground'}">#{title_len}/60</span>
+                <span class="ink-seo-length #{title_len > 60 ? 'ink-seo-length-bad' : title_len > 50 ? 'ink-seo-length-warn' : 'ink-seo-length-good'}">#{title_len}/60</span>
               </div>
               <input type="text" name="#{field_prefix}[seo_title]" value="#{ERB::Util.html_escape(title_value)}" placeholder="#{ERB::Util.html_escape(title_placeholder)}"
                 class="w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20">
@@ -123,7 +145,7 @@ module Seo
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="text-xs text-muted-foreground">Description</label>
-                <span class="text-[10px] #{desc_len > 155 ? 'text-danger' : desc_len > 120 ? 'text-warning' : 'text-muted-foreground'}">#{desc_len}/155</span>
+                <span class="ink-seo-length #{desc_len > 155 ? 'ink-seo-length-bad' : desc_len > 120 ? 'ink-seo-length-warn' : 'ink-seo-length-good'}">#{desc_len}/155</span>
               </div>
               <textarea name="#{field_prefix}[seo_description]" rows="2" placeholder="Auto-generated from content if left empty"
                 class="w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring/20">#{ERB::Util.html_escape(desc_value)}</textarea>
