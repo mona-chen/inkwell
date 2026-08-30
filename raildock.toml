@@ -6,6 +6,7 @@
 name = "inkwell"
 category = "app"
 subtype = "web"
+framework = "rails"
 builder = "nixpacks"
 port = 3000
 
