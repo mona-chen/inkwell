@@ -36,7 +36,7 @@ gem "thruster", require: false
 
 # UI
 gem "view_component"
-gem "nitro_kit", "2.0.0.alpha.3"
+gem "nitro_kit", "2.0.0.alpha.4"
 gem "phlex-rails"
 
 # Auth & authorization
@@ -44,7 +44,7 @@ gem "devise"
 gem "pundit"
 
 # Media
-gem "image_processing", "~> 1.2" # for ActiveStorage variants
+gem "image_processing", "~> 2.0" # for ActiveStorage variants
 
 # Editor content
 gem "friendly_id"      # slugs
