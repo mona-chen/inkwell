@@ -219,8 +219,7 @@
   border-color: oklch(from var(--nk-color-border) l c h / 0.4);
 }
 #admin-shell [data-block-editor-target="block"]:focus-within {
-  background-color: oklch(from var(--nk-color-surface) l c h / 0.6);
-  border-color: oklch(from var(--nk-color-border) l c h / 0.6);
+  border-color: oklch(from var(--nk-color-primary) l c h / 0.5);
 }
 /* Left-edge indicator on focused block */
 #admin-shell [data-block-editor-target="block"]:focus-within::before {

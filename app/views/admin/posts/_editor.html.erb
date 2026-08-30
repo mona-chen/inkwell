@@ -18,7 +18,7 @@
     <input type="hidden" name="post[draft_content]" data-block-editor-target="hiddenField" value="<%= html_escape(post.editing_blocks.to_json) %>">
 
     <%# Editor toolbar: undo/redo + save status + add block %>
-    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-muted/50 backdrop-blur border-b border-border mb-4 flex items-center justify-between gap-3">
+    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-canvas/80 backdrop-blur-sm border-b border-border/50 mb-4 flex items-center justify-between gap-3">
       <div class="flex items-center gap-1">
         <button type="button" data-action="block-editor#undo"
                 class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
