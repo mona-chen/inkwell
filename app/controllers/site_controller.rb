@@ -8,11 +8,13 @@ class SiteController < ApplicationController
     # page's template — same as PagesController — instead of the posts archive.
     if Current.site.front_page?
       @page = Current.site.front_page
+      @head_meta = Inkwell::Hooks.filter(:head_meta, [], post: @page)
       render template: "pages/#{@page.template}", locals: { page: @page }
       return
     end
 
     @posts = Current.site.posts.published.recent.limit(10)
+    @head_meta = Inkwell::Hooks.filter(:head_meta, [], post: nil)
     render "site/home"
   end
 
