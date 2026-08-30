@@ -6,26 +6,26 @@
 
 /* -----------------------------------------------------------------------
    DARK MODE (primary — editor-first product)
+   Semantic contrast system: chrome recedes, content stays bright.
    ----------------------------------------------------------------------- */
 [data-theme="dark"],
 :root:not([data-theme]) {
-  /* --- 5-level contrast --- */
-  /* BACKGROUND — the deepest layer, barely visible */
-  --nk-color-canvas: oklch(0.08 0.004 286);
-  /* SURFACE — slightly lifted, holds content */
-  --nk-color-surface: oklch(0.11 0.004 286);
-  --nk-color-elevated: oklch(0.14 0.004 286);
-  --nk-color-surface-hover: oklch(0.13 0.004 286);
-  /* PRIMARY TEXT — ~85-90% white, for headings and active items */
-  --nk-color-foreground: oklch(0.88 0.001 286);
-  /* SECONDARY TEXT — ~55-60%, for body copy and labels */
-  --nk-color-muted: oklch(0.12 0.004 286);
-  --nk-color-muted-foreground: oklch(0.52 0.004 286);
-  /* TERTIARY TEXT — ~35-40%, for section labels, timestamps, disabled */
-  /* (derived from muted-foreground with lower opacity in CSS) */
-  /* BORDERS — ~7-8% white, nearly invisible */
-  --nk-color-border: oklch(0.2 0.005 286);
-  --nk-color-border-subtle: oklch(0.17 0.004 286);
+  /* --- Surface depth — tiny differences, no loud borders --- */
+  --nk-color-canvas: oklch(0.055 0.004 286);           /* #0A0B0C — workspace */
+  --nk-color-surface: oklch(0.07 0.004 286);            /* #0D0E10 — sidebar/inspector */
+  --nk-color-elevated: oklch(0.09 0.004 286);           /* #121316 — hover/active surfaces */
+  --nk-color-surface-hover: oklch(0.085 0.004 286);     /* #151619 — subtle hover */
+
+  /* --- Text contrast hierarchy --- */
+  /* Primary: user content, headings, active items — 90% white */
+  --nk-color-foreground: oklch(0.90 0.001 286);
+  /* Secondary: body text, labels — 62% white */
+  --nk-color-muted: oklch(0.07 0.004 286);
+  --nk-color-muted-foreground: oklch(0.62 0.004 286);
+
+  /* --- Borders — nearly invisible, depth comes from surface color --- */
+  --nk-color-border: oklch(0.15 0.004 286);            /* ~7% white */
+  --nk-color-border-subtle: oklch(0.13 0.004 286);     /* ~5% white */
 
   /* --- Accent — purple as signal, not surface --- */
   --nk-color-primary: oklch(0.62 0.2 286);
@@ -43,11 +43,11 @@
   --nk-color-warning: oklch(0.78 0.14 75);
   --nk-color-warning-content: oklch(0.15 0.02 75);
 
-  /* --- Buttons — compact, professional --- */
-  --nk-button-default-background: oklch(0.17 0.005 286);
-  --nk-button-default-hover-background: oklch(0.2 0.005 286);
+  /* --- Buttons --- */
+  --nk-button-default-background: oklch(0.13 0.004 286);
+  --nk-button-default-hover-background: oklch(0.16 0.004 286);
   --nk-button-default-foreground: oklch(0.75 0.002 286);
-  --nk-button-default-border: oklch(0.24 0.005 286);
+  --nk-button-default-border: oklch(0.18 0.004 286);
 
   /* --- Shadows — very subtle --- */
   --nk-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.15);
@@ -86,15 +86,15 @@
   /* --- Content width --- */
   --nk-content-width: 72rem;
 
-  /* --- App shell --- */
+  /* --- App shell — sidebar slightly lighter than canvas --- */
   --nk-app-shell-sidebar-width: 14.5rem;
   --nk-app-shell-topbar-height: 3rem;
-  --nk-app-shell-background: oklch(0.08 0.004 286);
-  --nk-app-shell-sidebar-background: oklch(0.1 0.004 286);
-  --nk-app-shell-sidebar-foreground: oklch(0.6 0.002 286);
-  --nk-app-shell-sidebar-accent: oklch(0.16 0.004 286);
-  --nk-app-shell-sidebar-accent-foreground: oklch(0.9 0 0);
-  --nk-app-shell-border: oklch(0.18 0.004 286);
+  --nk-app-shell-background: oklch(0.055 0.004 286);
+  --nk-app-shell-sidebar-background: oklch(0.07 0.004 286);
+  --nk-app-shell-sidebar-foreground: oklch(0.52 0.002 286);
+  --nk-app-shell-sidebar-accent: oklch(0.13 0.004 286);
+  --nk-app-shell-sidebar-accent-foreground: oklch(0.90 0 0);
+  --nk-app-shell-border: oklch(0.14 0.004 286);
 }
 
 /* -----------------------------------------------------------------------

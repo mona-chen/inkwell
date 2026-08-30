@@ -34,9 +34,9 @@
       <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
     </div>
   <% else %>
-    <div class="rounded-lg border-2 border-dashed border-border p-6 text-center cursor-pointer hover:border-muted-foreground transition-colors">
-      <%= render NitroKit::Icon.new(:image, size: :md) %>
-      <p class="text-xs text-muted-foreground mt-1">Add an image</p>
+    <div class="rounded-lg border border-border/50 p-4 text-center cursor-pointer hover:border-border hover:bg-muted/30 transition-all">
+      <%= render NitroKit::Icon.new(:image, size: :sm, label: "Add image") %>
+      <p class="text-[10px] text-muted-foreground/60 mt-1">Add an image</p>
     </div>
   <% end %>
 </div>

@@ -26,9 +26,8 @@
 
 /* --- Topbar (frosted glass) --- */
 #admin-shell [data-slot="app-shell-topbar"] {
-  background: oklch(from var(--nk-color-canvas) l c h / 0.85);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  background: var(--nk-color-canvas);
+  border-bottom: 1px solid var(--nk-color-border);
 }
 
 /* --- Brand mark --- */
@@ -108,10 +107,10 @@
 #admin-shell [data-nk="app-navigation"] a[aria-current="page"],
 #admin-shell [data-nk="app-navigation"] .is-active {
   color: oklch(0.88 0.001 286);
-  background: oklch(from var(--nk-color-primary) l c h / 0.10);
+  background: rgba(124, 92, 255, .10);
 }
 #admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-section-label"] {
-  color: oklch(0.35 0.004 286);
+  color: oklch(0.40 0.004 286);
   font-size: 0.625rem;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -208,6 +207,10 @@
 #admin-shell .hover\:border-gray-300:hover {
   border-color: var(--nk-color-border);
 }
+/* Inspector details: ensure content collapses properly */
+#admin-shell details:not([open]) > :not(summary) {
+  display: none;
+}
 /* Block editor: writing surface (no borders, no backgrounds — content-first) */
 #admin-shell [data-block-editor-target="block"] {
   position: relative;
@@ -215,11 +218,13 @@
   transition: background-color 120ms ease, border-color 120ms ease;
 }
 #admin-shell [data-block-editor-target="block"]:hover {
-  background-color: oklch(from var(--nk-color-surface) l c h / 0.4);
-  border-color: oklch(from var(--nk-color-border) l c h / 0.4);
+  background-color: rgba(255, 255, 255, .025);
+  border-color: rgba(255, 255, 255, .06);
 }
 #admin-shell [data-block-editor-target="block"]:focus-within {
-  border-color: oklch(from var(--nk-color-primary) l c h / 0.5);
+  background-color: rgba(255, 255, 255, .035);
+  outline: 1px solid rgba(255, 255, 255, .10);
+  border-color: transparent;
 }
 /* Left-edge indicator on focused block */
 #admin-shell [data-block-editor-target="block"]:focus-within::before {
