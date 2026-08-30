@@ -17,7 +17,11 @@ module Inkwell
       # Called once at boot (config/initializers/inkwell.rb) — activates every plugin
       # that's marked active in the DB, wiring up its hooks for this process.
       def boot!
-        return unless InstalledPlugin.table_exists?
+        return unless begin
+          InstalledPlugin.table_exists?
+        rescue ActiveRecord::ConnectionNotEstablished, PG::ConnectionBad, ActiveRecord::StatementInvalid
+          false
+        end
 
         discovered.each do |engine_class|
           instance = engine_class.instance
