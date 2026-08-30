@@ -9,7 +9,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const puppeteer = require("puppeteer-core");
+// puppeteer-core v25+ is ESM-only; loaded via dynamic import inside the async main block below
 
 const args = process.argv.slice(2);
 const valueAfter = (flag) => { const index = args.indexOf(flag); return index >= 0 ? args[index + 1] : null; };
@@ -132,6 +132,7 @@ async function inspect(page) {
 }
 
 (async () => {
+  const puppeteer = (await import("puppeteer-core")).default;
   safeMkdir(output);
   safeMkdir(path.join(output, "assets"));
   const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ["--no-first-run", "--disable-background-networking", "--no-sandbox"] });
