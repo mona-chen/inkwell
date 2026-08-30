@@ -44,7 +44,7 @@ gem "devise"
 gem "pundit"
 
 # Media
-gem "image_processing", "~> 1.2" # for ActiveStorage variants
+gem "image_processing", "~> 2.0" # for ActiveStorage variants
 
 # Editor content
 gem "friendly_id"      # slugs
