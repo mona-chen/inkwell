@@ -6,61 +6,60 @@
 
 /* -----------------------------------------------------------------------
    DARK MODE (primary — editor-first product)
-   Semantic contrast system: chrome recedes, content stays bright.
+   Conservative tokens that work with NitroKit components.
+   Targeted overrides for Inkwell-specific elements.
    ----------------------------------------------------------------------- */
 [data-theme="dark"],
 :root:not([data-theme]) {
-  /* --- Surface depth — tiny differences, no loud borders --- */
-  --nk-color-canvas: oklch(0.055 0.004 286);           /* #0A0B0C — workspace */
-  --nk-color-surface: oklch(0.07 0.004 286);            /* #0D0E10 — sidebar/inspector */
-  --nk-color-elevated: oklch(0.09 0.004 286);           /* #121316 — hover/active surfaces */
-  --nk-color-surface-hover: oklch(0.085 0.004 286);     /* #151619 — subtle hover */
+  /* --- Surface depth — conservative, works with NitroKit --- */
+  --nk-color-canvas: oklch(0.13 0.005 286);
+  --nk-color-surface: oklch(0.165 0.005 286);
+  --nk-color-elevated: oklch(0.2 0.005 286);
+  --nk-color-surface-hover: oklch(0.195 0.005 286);
 
-  /* --- Text contrast hierarchy --- */
-  /* Primary: user content, headings, active items — 90% white */
-  --nk-color-foreground: oklch(0.90 0.001 286);
-  /* Secondary: body text, labels — 62% white */
-  --nk-color-muted: oklch(0.07 0.004 286);
-  --nk-color-muted-foreground: oklch(0.62 0.004 286);
+  /* --- Text contrast --- */
+  --nk-color-foreground: oklch(0.935 0.001 286);
+  --nk-color-muted: oklch(0.22 0.005 286);
+  --nk-color-muted-foreground: oklch(0.62 0.005 286);
 
-  /* --- Borders — nearly invisible, depth comes from surface color --- */
-  --nk-color-border: oklch(0.15 0.004 286);            /* ~7% white */
-  --nk-color-border-subtle: oklch(0.13 0.004 286);     /* ~5% white */
+  /* --- Borders --- */
+  --nk-color-border: oklch(0.265 0.006 286);
+  --nk-color-border-subtle: oklch(0.22 0.005 286);
 
-  /* --- Accent — purple as signal, not surface --- */
+  /* --- Accent --- */
   --nk-color-primary: oklch(0.62 0.2 286);
   --nk-color-primary-hover: oklch(0.67 0.2 286);
   --nk-color-primary-foreground: oklch(0.96 0 0);
   --nk-color-focus: oklch(0.62 0.2 286);
 
   /* --- Semantic --- */
-  --nk-color-success: oklch(0.68 0.15 160);
+  --nk-color-success: oklch(0.72 0.17 160);
   --nk-color-success-content: oklch(0.15 0.02 160);
-  --nk-color-info: oklch(0.65 0.12 250);
+  --nk-color-info: oklch(0.7 0.14 250);
   --nk-color-info-content: oklch(0.15 0.02 250);
-  --nk-color-danger: oklch(0.65 0.18 25);
+  --nk-color-danger: oklch(0.7 0.19 25);
   --nk-color-danger-content: oklch(0.15 0.02 25);
-  --nk-color-warning: oklch(0.78 0.14 75);
+  --nk-color-warning: oklch(0.82 0.14 75);
   --nk-color-warning-content: oklch(0.15 0.02 75);
 
   /* --- Buttons --- */
-  --nk-button-default-background: oklch(0.13 0.004 286);
-  --nk-button-default-hover-background: oklch(0.16 0.004 286);
-  --nk-button-default-foreground: oklch(0.75 0.002 286);
-  --nk-button-default-border: oklch(0.18 0.004 286);
+  --nk-button-default-background: oklch(0.22 0.005 286);
+  --nk-button-default-hover-background: oklch(0.26 0.005 286);
+  --nk-button-default-foreground: oklch(0.935 0.001 286);
+  --nk-button-default-border: oklch(0.3 0.006 286);
 
-  /* --- Shadows — very subtle --- */
-  --nk-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.15);
-  --nk-shadow-sm: 0 1px 3px oklch(0 0 0 / 0.18);
-  --nk-shadow-md: 0 4px 8px -2px oklch(0 0 0 / 0.2);
-  --nk-shadow-lg: 0 8px 16px -4px oklch(0 0 0 / 0.25);
-  --nk-shadow-xl: 0 16px 32px -8px oklch(0 0 0 / 0.3);
+  /* --- Shadows --- */
+  --nk-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.2);
+  --nk-shadow-sm: 0 1px 3px oklch(0 0 0 / 0.25), 0 1px 2px oklch(0 0 0 / 0.15);
+  --nk-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.25), 0 2px 4px -2px oklch(0 0 0 / 0.15);
+  --nk-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.3), 0 4px 6px -4px oklch(0 0 0 / 0.15);
+  --nk-shadow-xl: 0 20px 25px -5px oklch(0 0 0 / 0.35), 0 8px 10px -6px oklch(0 0 0 / 0.2);
 
   /* --- Typography --- */
   --nk-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --nk-font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
 
-  /* --- Spacing (4px grid) --- */
+  /* --- Spacing --- */
   --nk-space: 0.25rem;
 
   /* --- Radii --- */
@@ -77,7 +76,7 @@
   --nk-transition-normal: 180ms cubic-bezier(0.4, 0, 0.2, 1);
   --nk-transition-slow: 280ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* --- Control heights --- compact --- */
+  /* --- Control heights --- */
   --nk-control-height-xs: 1.625rem;
   --nk-control-height-sm: 1.875rem;
   --nk-control-height-md: 2rem;
@@ -86,15 +85,15 @@
   /* --- Content width --- */
   --nk-content-width: 72rem;
 
-  /* --- App shell — sidebar slightly lighter than canvas --- */
+  /* --- App shell --- */
   --nk-app-shell-sidebar-width: 14.5rem;
   --nk-app-shell-topbar-height: 3rem;
-  --nk-app-shell-background: oklch(0.055 0.004 286);
-  --nk-app-shell-sidebar-background: oklch(0.07 0.004 286);
-  --nk-app-shell-sidebar-foreground: oklch(0.52 0.002 286);
-  --nk-app-shell-sidebar-accent: oklch(0.13 0.004 286);
-  --nk-app-shell-sidebar-accent-foreground: oklch(0.90 0 0);
-  --nk-app-shell-border: oklch(0.14 0.004 286);
+  --nk-app-shell-background: oklch(0.13 0.005 286);
+  --nk-app-shell-sidebar-background: oklch(0.165 0.005 286);
+  --nk-app-shell-sidebar-foreground: oklch(0.55 0.002 286);
+  --nk-app-shell-sidebar-accent: oklch(0.2 0.005 286);
+  --nk-app-shell-sidebar-accent-foreground: oklch(1 0 0);
+  --nk-app-shell-border: oklch(0.24 0.005 286);
 }
 
 /* -----------------------------------------------------------------------

@@ -211,6 +211,29 @@
 #admin-shell details:not([open]) > :not(summary) {
   display: none;
 }
+/* Editor content: content must always be brightest thing on screen */
+#admin-shell [data-block-editor-target="block"] textarea,
+#admin-shell [data-block-editor-target="block"] input,
+#admin-shell [data-block-editor-target="block"] .heading-preview {
+  color: var(--nk-color-foreground) !important;
+}
+#admin-shell .text-3xl,
+#admin-shell .text-2xl,
+#admin-shell h1, #admin-shell h2, #admin-shell h3 {
+  color: var(--nk-color-foreground) !important;
+}
+#admin-shell .text-foreground {
+  color: var(--nk-color-foreground);
+}
+#admin-shell .text-muted-foreground {
+  color: var(--nk-color-muted-foreground);
+}
+/* Cards in dark mode: use surface, not background */
+#admin-shell [data-nk="card"],
+#admin-shell .rounded-xl.border.border-border {
+  background-color: var(--nk-color-surface);
+  border-color: var(--nk-color-border);
+}
 /* Block editor: writing surface (no borders, no backgrounds — content-first) */
 #admin-shell [data-block-editor-target="block"] {
   position: relative;
