@@ -21,8 +21,12 @@ class Page < ApplicationRecord
   extend FriendlyId
   friendly_id :title, use: :slugged
 
-  validates :title, presence: true
+  validates :title, presence: true, unless: :draft?
   validates :template, inclusion: { in: TEMPLATES }
+
+  def draft?
+    status == "draft" || status.blank?
+  end
 
   scope :published, -> { where(status: "published") }
   scope :ordered, -> { order(:menu_order) }

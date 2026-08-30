@@ -15,7 +15,12 @@ module Admin
     end
 
     def create
-      @page = Current.site.pages.build(page_params)
+      attrs = page_params.to_h
+      # "Save draft" should always create a draft, even if the form says published
+      attrs["status"] = "draft" if params[:save_draft].present?
+      # Allow blank title for drafts — default to Untitled so friendly_id works
+      attrs["title"] = "Untitled" if attrs["title"].blank? && attrs["status"] == "draft"
+      @page = Current.site.pages.build(attrs)
       @page.author = current_user
       authorize @page
 
@@ -32,7 +37,10 @@ module Admin
 
     def update
       authorize @page
-      if @page.update(page_params)
+      attrs = page_params.to_h
+      attrs["status"] = "draft" if params[:save_draft].present?
+      attrs["title"] = @page.title.presence || "Untitled" if attrs["title"].blank? && (attrs["status"] == "draft" || @page.draft?)
+      if @page.update(attrs)
         Inkwell::Hooks.fire(:post_updated, @page)
         respond_to do |format|
           format.json { render json: { ok: true, updated_at: @page.updated_at } }
