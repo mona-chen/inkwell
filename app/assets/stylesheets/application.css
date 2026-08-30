@@ -91,27 +91,39 @@
   border: 1px solid var(--nk-color-border);
 }
 
-/* --- Navigation --- */
+/* --- Navigation — compact, quiet, management density --- */
 #admin-shell [data-nk="app-navigation"] {
   font-size: 0.8125rem;
+  color: oklch(0.52 0.004 286); /* muted inactive text ~52% */
 }
 #admin-shell [data-nk="app-navigation"] a {
   border-radius: var(--nk-radius-md);
+  color: oklch(0.52 0.004 286);
+  transition: color 120ms ease, background 120ms ease;
+}
+#admin-shell [data-nk="app-navigation"] a:hover {
+  color: oklch(0.88 0.001 286);
+  background: oklch(0.16 0.004 286);
+}
+#admin-shell [data-nk="app-navigation"] a[aria-current="page"],
+#admin-shell [data-nk="app-navigation"] .is-active {
+  color: oklch(0.88 0.001 286);
+  background: oklch(from var(--nk-color-primary) l c h / 0.10);
 }
 #admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-section-label"] {
-  color: var(--nk-color-muted-foreground);
+  color: oklch(0.35 0.004 286);
   font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 #admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-item-link"] {
   display: grid;
-  grid-template-columns: 1.125rem minmax(0, 1fr) auto;
-  column-gap: 0.625rem;
-  min-block-size: 2.25rem;
+  grid-template-columns: 1rem minmax(0, 1fr) auto;
+  column-gap: 0.5rem;
+  min-block-size: 1.875rem;
   inline-size: 100%;
-  padding-inline: 0.625rem;
+  padding-inline: 0.5rem;
 }
 #admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-item-label"] {
   min-inline-size: 0;

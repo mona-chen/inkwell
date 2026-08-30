@@ -1,19 +1,107 @@
 /* ========================================================================
    Inkwell Admin — World-Class Design Tokens
-   Inspired by Framer, Notion, and Sanity's design language.
-   Overrides all documented public --nk-* tokens. Loaded after nitro_kit.css.
+   5-level contrast hierarchy. Framer/Notion calibration.
+   Nothing earns visual emphasis merely because it exists.
    ======================================================================== */
 
 /* -----------------------------------------------------------------------
-   LIGHT MODE (default)
+   DARK MODE (primary — editor-first product)
+   ----------------------------------------------------------------------- */
+[data-theme="dark"],
+:root:not([data-theme]) {
+  /* --- 5-level contrast --- */
+  /* BACKGROUND — the deepest layer, barely visible */
+  --nk-color-canvas: oklch(0.08 0.004 286);
+  /* SURFACE — slightly lifted, holds content */
+  --nk-color-surface: oklch(0.11 0.004 286);
+  --nk-color-elevated: oklch(0.14 0.004 286);
+  --nk-color-surface-hover: oklch(0.13 0.004 286);
+  /* PRIMARY TEXT — ~85-90% white, for headings and active items */
+  --nk-color-foreground: oklch(0.88 0.001 286);
+  /* SECONDARY TEXT — ~55-60%, for body copy and labels */
+  --nk-color-muted: oklch(0.12 0.004 286);
+  --nk-color-muted-foreground: oklch(0.52 0.004 286);
+  /* TERTIARY TEXT — ~35-40%, for section labels, timestamps, disabled */
+  /* (derived from muted-foreground with lower opacity in CSS) */
+  /* BORDERS — ~7-8% white, nearly invisible */
+  --nk-color-border: oklch(0.2 0.005 286);
+  --nk-color-border-subtle: oklch(0.17 0.004 286);
+
+  /* --- Accent — purple as signal, not surface --- */
+  --nk-color-primary: oklch(0.62 0.2 286);
+  --nk-color-primary-hover: oklch(0.67 0.2 286);
+  --nk-color-primary-foreground: oklch(0.96 0 0);
+  --nk-color-focus: oklch(0.62 0.2 286);
+
+  /* --- Semantic --- */
+  --nk-color-success: oklch(0.68 0.15 160);
+  --nk-color-success-content: oklch(0.15 0.02 160);
+  --nk-color-info: oklch(0.65 0.12 250);
+  --nk-color-info-content: oklch(0.15 0.02 250);
+  --nk-color-danger: oklch(0.65 0.18 25);
+  --nk-color-danger-content: oklch(0.15 0.02 25);
+  --nk-color-warning: oklch(0.78 0.14 75);
+  --nk-color-warning-content: oklch(0.15 0.02 75);
+
+  /* --- Buttons — compact, professional --- */
+  --nk-button-default-background: oklch(0.17 0.005 286);
+  --nk-button-default-hover-background: oklch(0.2 0.005 286);
+  --nk-button-default-foreground: oklch(0.75 0.002 286);
+  --nk-button-default-border: oklch(0.24 0.005 286);
+
+  /* --- Shadows — very subtle --- */
+  --nk-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.15);
+  --nk-shadow-sm: 0 1px 3px oklch(0 0 0 / 0.18);
+  --nk-shadow-md: 0 4px 8px -2px oklch(0 0 0 / 0.2);
+  --nk-shadow-lg: 0 8px 16px -4px oklch(0 0 0 / 0.25);
+  --nk-shadow-xl: 0 16px 32px -8px oklch(0 0 0 / 0.3);
+
+  /* --- Typography --- */
+  --nk-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --nk-font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* --- Spacing (4px grid) --- */
+  --nk-space: 0.25rem;
+
+  /* --- Radii --- */
+  --nk-radius-xs: 0.1875rem;
+  --nk-radius-sm: 0.375rem;
+  --nk-radius-md: 0.5rem;
+  --nk-radius-lg: 0.625rem;
+  --nk-radius-xl: 0.75rem;
+  --nk-radius-2xl: 1rem;
+  --nk-radius-full: 9999px;
+
+  /* --- Transitions --- */
+  --nk-transition-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
+  --nk-transition-normal: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --nk-transition-slow: 280ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* --- Control heights --- compact --- */
+  --nk-control-height-xs: 1.625rem;
+  --nk-control-height-sm: 1.875rem;
+  --nk-control-height-md: 2rem;
+  --nk-control-height-lg: 2.25rem;
+
+  /* --- Content width --- */
+  --nk-content-width: 72rem;
+
+  /* --- App shell --- */
+  --nk-app-shell-sidebar-width: 14.5rem;
+  --nk-app-shell-topbar-height: 3rem;
+  --nk-app-shell-background: oklch(0.08 0.004 286);
+  --nk-app-shell-sidebar-background: oklch(0.1 0.004 286);
+  --nk-app-shell-sidebar-foreground: oklch(0.6 0.002 286);
+  --nk-app-shell-sidebar-accent: oklch(0.16 0.004 286);
+  --nk-app-shell-sidebar-accent-foreground: oklch(0.9 0 0);
+  --nk-app-shell-border: oklch(0.18 0.004 286);
+}
+
+/* -----------------------------------------------------------------------
+   LIGHT MODE
    ----------------------------------------------------------------------- */
 :root,
 [data-theme="light"] {
-  /* --- Typography --- */
-  --nk-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --nk-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-  /* --- Colors: Neutral (zinc-based, warm-gray undertone) --- */
   --nk-color-canvas: oklch(0.985 0.001 286);
   --nk-color-surface: oklch(1 0 0);
   --nk-color-elevated: oklch(0.995 0 0);
@@ -24,13 +112,11 @@
   --nk-color-border: oklch(0.922 0.004 286);
   --nk-color-border-subtle: oklch(0.955 0.002 286);
 
-  /* --- Colors: Accent (vibrant purple, inkwell brand) --- */
   --nk-color-primary: oklch(0.546 0.245 286);
   --nk-color-primary-hover: oklch(0.505 0.245 286);
   --nk-color-primary-foreground: oklch(0.99 0 0);
   --nk-color-focus: oklch(0.546 0.245 286);
 
-  /* --- Colors: Semantic --- */
   --nk-color-success: oklch(0.648 0.15 160);
   --nk-color-success-content: oklch(0.985 0.01 160);
   --nk-color-info: oklch(0.623 0.14 250);
@@ -40,252 +126,40 @@
   --nk-color-warning: oklch(0.768 0.13 75);
   --nk-color-warning-content: oklch(0.985 0.02 75);
 
-  /* --- Buttons --- */
   --nk-button-default-background: oklch(0.965 0.001 286);
   --nk-button-default-hover-background: oklch(0.935 0.002 286);
   --nk-button-default-foreground: oklch(0.145 0.005 286);
   --nk-button-default-border: oklch(0.895 0.004 286);
 
-  /* --- Spacing (4px grid) --- */
+  --nk-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.04);
+  --nk-shadow-sm: 0 1px 3px oklch(0 0 0 / 0.06);
+  --nk-shadow-md: 0 4px 8px -2px oklch(0 0 0 / 0.06);
+  --nk-shadow-lg: 0 8px 16px -4px oklch(0 0 0 / 0.06);
+  --nk-shadow-xl: 0 16px 32px -8px oklch(0 0 0 / 0.06);
+
+  --nk-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --nk-font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
   --nk-space: 0.25rem;
 
-  /* --- Radii --- */
   --nk-radius-xs: 0.1875rem;
-  --nk-radius-sm: 0.25rem;
-  --nk-radius-md: 0.375rem;
-  --nk-radius-lg: 0.5rem;
+  --nk-radius-sm: 0.375rem;
+  --nk-radius-md: 0.5rem;
+  --nk-radius-lg: 0.625rem;
   --nk-radius-xl: 0.75rem;
   --nk-radius-2xl: 1rem;
   --nk-radius-full: 9999px;
 
-  /* --- Shadows (layered, subtle) --- */
-  --nk-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.04);
-  --nk-shadow-sm: 0 1px 3px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
-  --nk-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.06), 0 2px 4px -2px oklch(0 0 0 / 0.04);
-  --nk-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.06), 0 4px 6px -4px oklch(0 0 0 / 0.04);
-  --nk-shadow-xl: 0 20px 25px -5px oklch(0 0 0 / 0.06), 0 8px 10px -6px oklch(0 0 0 / 0.04);
+  --nk-transition-fast: 100ms cubic-bezier(0.4, 0, 0.2, 1);
+  --nk-transition-normal: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  --nk-transition-slow: 280ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* --- Transitions --- */
-  --nk-transition-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
-  --nk-transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-  --nk-transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --nk-control-height-xs: 1.625rem;
+  --nk-control-height-sm: 1.875rem;
+  --nk-control-height-md: 2rem;
+  --nk-control-height-lg: 2.25rem;
 
-  /* --- Control heights --- */
-  --nk-control-height-xs: 1.75rem;
-  --nk-control-height-sm: 2rem;
-  --nk-control-height-md: 2.25rem;
-  --nk-control-height-lg: 2.5rem;
-
-  /* --- Content width --- */
   --nk-content-width: 72rem;
-
-  /* --- App shell --- */
-  --nk-app-shell-sidebar-width: 15rem;
-  --nk-app-shell-topbar-height: 3.25rem;
-}
-
-/* -----------------------------------------------------------------------
-   DARK MODE
-   ----------------------------------------------------------------------- */
-[data-theme="dark"],
-:root:not([data-theme]) {
-  --nk-color-canvas: oklch(0.13 0.005 286);
-  --nk-color-surface: oklch(0.165 0.005 286);
-  --nk-color-elevated: oklch(0.2 0.005 286);
-  --nk-color-surface-hover: oklch(0.195 0.005 286);
-  --nk-color-foreground: oklch(0.935 0.001 286);
-  --nk-color-muted: oklch(0.2 0.005 286);
-  --nk-color-muted-foreground: oklch(0.55 0.005 286);
-  --nk-color-border: oklch(0.265 0.006 286);
-  --nk-color-border-subtle: oklch(0.22 0.005 286);
-
-  --nk-color-primary: oklch(0.65 0.22 286);
-  --nk-color-primary-hover: oklch(0.7 0.22 286);
-  --nk-color-primary-foreground: oklch(0.13 0.005 286);
-  --nk-color-focus: oklch(0.65 0.22 286);
-
-  --nk-color-success: oklch(0.72 0.17 160);
-  --nk-color-success-content: oklch(0.15 0.02 160);
-  --nk-color-info: oklch(0.7 0.14 250);
-  --nk-color-info-content: oklch(0.15 0.02 250);
-  --nk-color-danger: oklch(0.7 0.19 25);
-  --nk-color-danger-content: oklch(0.15 0.02 25);
-  --nk-color-warning: oklch(0.82 0.14 75);
-  --nk-color-warning-content: oklch(0.15 0.02 75);
-
-  --nk-button-default-background: oklch(0.22 0.005 286);
-  --nk-button-default-hover-background: oklch(0.26 0.005 286);
-  --nk-button-default-foreground: oklch(0.935 0.001 286);
-  --nk-button-default-border: oklch(0.3 0.006 286);
-
-  --nk-shadow-xs: 0 1px 2px oklch(0 0 0 / 0.2);
-  --nk-shadow-sm: 0 1px 3px oklch(0 0 0 / 0.25), 0 1px 2px oklch(0 0 0 / 0.15);
-  --nk-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.25), 0 2px 4px -2px oklch(0 0 0 / 0.15);
-  --nk-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.3), 0 4px 6px -4px oklch(0 0 0 / 0.15);
-  --nk-shadow-xl: 0 20px 25px -5px oklch(0 0 0 / 0.35), 0 8px 10px -6px oklch(0 0 0 / 0.2);
-
-  --nk-app-shell-background: oklch(0.115 0.005 286);
-  --nk-app-shell-sidebar-background: oklch(0.145 0.005 286);
-  --nk-app-shell-sidebar-foreground: oklch(0.9 0.001 286);
-  --nk-app-shell-sidebar-accent: oklch(0.22 0.005 286);
-  --nk-app-shell-sidebar-accent-foreground: oklch(1 0 0);
-  --nk-app-shell-border: oklch(0.24 0.005 286);
-}
-
-/* -----------------------------------------------------------------------
-   ADMIN SHELL OVERRIDES (consolidated from application.css)
-   ----------------------------------------------------------------------- */
-#admin-shell {
-  /* Colors: inherit from token system above */
-  --nk-color-canvas: inherit;
-  --nk-color-surface: inherit;
-  --nk-color-elevated: inherit;
-  --nk-color-foreground: inherit;
-  --nk-color-muted: inherit;
-  --nk-color-muted-foreground: inherit;
-  --nk-color-border: inherit;
-  --nk-color-primary: inherit;
-  --nk-color-primary-foreground: inherit;
-  --nk-color-focus: inherit;
-  --nk-color-success: inherit;
-  --nk-color-info: inherit;
-  --nk-color-danger: inherit;
-  --nk-color-warning: inherit;
-
-  /* Buttons */
-  --nk-button-default-background: inherit;
-  --nk-button-default-hover-background: inherit;
-  --nk-button-default-foreground: inherit;
-  --nk-button-default-border: inherit;
-
-  /* Shell chrome */
-  --nk-app-shell-background: inherit;
-  --nk-app-shell-sidebar-background: inherit;
-  --nk-app-shell-sidebar-foreground: inherit;
-  --nk-app-shell-sidebar-accent: inherit;
-  --nk-app-shell-sidebar-accent-foreground: inherit;
-  --nk-app-shell-border: inherit;
-
-  /* Radii */
-  --nk-radius-sm: inherit;
-  --nk-radius-md: inherit;
-  --nk-radius-lg: inherit;
-  --nk-radius-xl: inherit;
-}
-
-/* Purple accent: active nav item — subtle tinted background */
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-item-link"].is-active,
-#admin-shell [data-nk="app-navigation"] a[aria-current="page"] {
-  background: oklch(from var(--nk-color-primary) l c h / 0.12);
-  color: var(--nk-color-primary);
-}
-
-/* Purple accent: focus rings — exclude block editor inputs (they have their own focus states) */
-#admin-shell :focus-visible:not(textarea):not(input):not(select):not([contenteditable]) {
-  outline: 2px solid var(--nk-color-focus);
-  outline-offset: 2px;
-  border-radius: var(--nk-radius-sm);
-}
-
-/* Purple accent: link hover */
-#admin-shell a:not([data-nk]):hover {
-  color: var(--nk-color-primary);
-}
-
-/* Transitions: hover states */
-#admin-shell .transition-colors {
-  transition-property: color, background-color, border-color;
-  transition-duration: 150ms;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Topbar: frosted glass, subtle border */
-#admin-shell [data-slot="app-shell-topbar"] {
-  background: oklch(from var(--nk-color-canvas) l c h / 0.85);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border-bottom: 1px solid oklch(from var(--nk-color-border) l c h / 0.5);
-}
-
-/* Navigation */
-#admin-shell [data-nk="app-navigation"] {
-  font-size: 0.8125rem;
-}
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-section-label"] {
-  color: oklch(0.55 0.005 286);
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-body"] {
-  gap: 0.5rem;
-  padding: 0.75rem;
-}
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-section-list"] {
-  gap: 0.125rem;
-}
-
-/* Brand mark */
-.admin-brand-mark {
-  background: linear-gradient(135deg, oklch(0.65 0.22 286), oklch(0.5 0.28 286));
-  color: oklch(0.98 0 0);
-}
-
-/* Workspace */
-.admin-workspace {
-  box-sizing: border-box;
-  margin: 0 auto;
-  max-inline-size: 104rem;
-  min-block-size: 100%;
-  padding: clamp(1.25rem, 2.4vw, 2rem);
-}
-
-/* Dashboard stat cards */
-.admin-dashboard [data-slot="stat-grid-stat"] {
-  border-radius: 0.75rem;
-  padding: 1rem 1.125rem;
-}
-
-/* Cards */
-.admin-dashboard [data-nk="card"] {
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.08);
-}
-
-/* Inputs — respect theme, don't force dark */
-#admin-shell input,
-#admin-shell textarea,
-#admin-shell select {
-  color-scheme: light;
-}
-[data-theme="dark"] #admin-shell input,
-[data-theme="dark"] #admin-shell textarea,
-[data-theme="dark"] #admin-shell select,
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) #admin-shell input,
-  :root:not([data-theme]) #admin-shell textarea,
-  :root:not([data-theme]) #admin-shell select {
-    color-scheme: dark;
-  }
-}
-
-/* Hover states */
-#admin-shell .hover\:bg-muted:hover,
-#admin-shell .hover\:bg-muted\/50:hover {
-  background-color: oklch(0.22 0.005 286);
-}
-#admin-shell .hover\:text-foreground:hover {
-  color: oklch(1 0 0);
-}
-
-/* Import track */
-.admin-import-track {
-  border-color: oklch(0.65 0.22 286 / 0.4);
-  background: linear-gradient(135deg, oklch(0.5 0.28 286 / 0.2), oklch(0.15 0.005 286 / 0.3));
-}
-
-/* Responsive */
-@media (max-width: 640px) {
-  .admin-workspace { padding: 1rem; }
+  --nk-app-shell-sidebar-width: 14.5rem;
+  --nk-app-shell-topbar-height: 3rem;
 }

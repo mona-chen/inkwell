@@ -16,7 +16,7 @@ module Admin
           div(class: "relative", data: { controller: "dropdown" }) do
             button(
               type: "button",
-              class: "inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover",
+              class: "inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover",
               data: { action: "click->dropdown#toggle" }
             ) do
               render Icon.new(:plus, size: :sm)

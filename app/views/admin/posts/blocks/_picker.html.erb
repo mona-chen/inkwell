@@ -2,9 +2,9 @@
     page editors. Gutenberg-style: searchable, icon-per-item, grouped. Closes on outside click
     or after an insert (see block-editor#bindPickerOutsideClose / closePicker). %>
 <details data-block-editor-target="blockPicker" class="relative">
-  <summary class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium shadow-sm cursor-pointer hover:bg-primary-hover active:scale-[0.98] transition list-none">
-    <%= render NitroKit::Icon.new(:plus, size: :sm) %>
-    Add block
+  <summary class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-muted text-muted-foreground text-xs font-medium cursor-pointer hover:bg-muted/80 hover:text-foreground transition list-none">
+    <%= render NitroKit::Icon.new(:plus, size: :xs) %>
+    Add
   </summary>
 
   <div class="absolute right-0 z-10 mt-2 w-80 rounded-xl bg-background p-3 shadow-lg border border-border">
