@@ -8,6 +8,7 @@ category = "app"
 subtype = "web"
 framework = "rails"
 builder = "nixpacks"
+source = { type = "git", repo = "https://github.com/mona-chen/inkwell.git", branch = "main" }
 port = 3000
 
 [services.env]
