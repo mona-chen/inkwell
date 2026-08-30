@@ -83,7 +83,7 @@ module Admin
 
     def status_color
       return :success if %w[ready imported].include?(@website_import.status)
-      return :danger if @website_import.status == "failed"
+      return :destructive if @website_import.status == "failed"
       :neutral
     end
   end

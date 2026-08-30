@@ -41,7 +41,7 @@ module Admin
 
     def status_color(item)
       return :success if item.status == "imported" || item.status == "ready"
-      return :danger if item.status == "failed"
+      return :destructive if item.status == "failed"
       :neutral
     end
   end

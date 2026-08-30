@@ -128,7 +128,7 @@ module Admin
     def status_color(status)
       case status
       when "approved" then :success
-      when "spam" then :danger
+      when "spam" then :destructive
       when "trashed" then :neutral
       else :warning
       end

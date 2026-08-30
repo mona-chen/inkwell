@@ -9,7 +9,7 @@ class WebsiteImport < ApplicationRecord
   validates :status, inclusion: { in: STATUSES }
   validates :max_depth, numericality: { only_integer: true, in: 0..12 }
   validates :max_pages, numericality: { only_integer: true, in: 1..250 }
-  validates :ownership_confirmed, acceptance: true
+  validate :ownership_must_be_confirmed
   validate :source_must_be_http
 
   before_validation :normalize_source_url
@@ -72,5 +72,9 @@ class WebsiteImport < ApplicationRecord
     errors.add(:source_url, "must be a valid HTTP or HTTPS URL") unless uri.is_a?(URI::HTTP) && uri.host.present?
   rescue URI::InvalidURIError
     errors.add(:source_url, "must be a valid HTTP or HTTPS URL")
+  end
+
+  def ownership_must_be_confirmed
+    errors.add(:ownership_confirmed, "must be accepted") unless [ true, "1" ].include?(ownership_confirmed)
   end
 end
