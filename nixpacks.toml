@@ -12,6 +12,7 @@ cmds = [
 
 [phases.install]
 cmds = ["...", "cd plugins/page_builder/app/builder && npm ci --no-audit --no-fund"]
+onlyIncludeFiles = ["...", "plugins/page_builder/app/builder/package.json", "plugins/page_builder/app/builder/package-lock.json"]
 
 [variables]
 NIXPACKS_INSTALL_CACHE = "false"
