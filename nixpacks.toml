@@ -14,6 +14,9 @@ cmds = [
 cmds = ["...", "cd plugins/page_builder/app/builder && npm ci --no-audit --no-fund"]
 onlyIncludeFiles = ["...", "plugins/page_builder/app/builder/package.json", "plugins/page_builder/app/builder/package-lock.json"]
 
+[start]
+cmd = "docker/entrypoint.sh bundle exec bin/rails server -b 0.0.0.0 -p $PORT -e $RAILS_ENV"
+
 [variables]
 NIXPACKS_INSTALL_CACHE = "false"
 CHROME_BIN = "/usr/bin/google-chrome-stable"
