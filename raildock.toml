@@ -5,7 +5,8 @@
 [[services]]
 name = "inkwell"
 category = "app"
-subtype = "rails"
+subtype = "web"
+framework = "rails"
 builder = "nixpacks"
 port = 3000
 
