@@ -26,7 +26,7 @@ module Admin
         section.form do
           form_with(model: @website_import, url: admin_website_imports_path, id: FORM_ID, builder: NitroKit::FormBuilder) do |form|
             form.group do
-              form.field(:source_url, as: :url, label: "Website URL", placeholder: "https://example.com", required: true, autofocus: true)
+              form.field(:source_url, as: :url, label: "Website URL", placeholder: "https://example.com", required: true)
               form.field(:max_pages, as: :number, label: "Maximum pages", min: 1, max: 250, required: true)
               form.field(:max_depth, as: :number, label: "Link depth", min: 0, max: 12, required: true)
               form.field(
