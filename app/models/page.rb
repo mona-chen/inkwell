@@ -81,6 +81,37 @@ class Page < ApplicationRecord
     end
   end
 
+  # --- SEO helpers ---
+
+  def seo_title_display
+    seo_title.presence || title
+  end
+
+  def seo_description_display
+    seo_description.presence || auto_meta_description
+  end
+
+  def seo_og_title
+    og_title.presence || title
+  end
+
+  def seo_og_description
+    og_description.presence || seo_description.presence || auto_meta_description
+  end
+
+  def seo_og_image
+    og_image_url.presence
+  end
+
+  def canonical_url
+    "/pages/#{slug}"
+  end
+
+  def auto_meta_description
+    text = content_blocks.map { |b| b.dig("data", "text").to_s }.join(" ")
+    text.present? ? text.truncate(300) : nil
+  end
+
   def content=(value)
     super(parse_json_value(value))
   end

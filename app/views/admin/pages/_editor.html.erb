@@ -86,8 +86,14 @@
 
       <div>
         <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Menu order</label>
-        <%= f.number_field :menu_order, class: "mt-1 w-full text-sm border rounded px-2 py-1.5" %>
+        <%= f.number_field :menu_order, class: "mt-1 w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground" %>
       </div>
+
+      <%# Plugin-injected editor panels (e.g. SEO) %>
+      <% Inkwell::Hooks.filter(:page_editor_panels, [], page: page).each do |panel| %>
+        <%= raw panel %>
+      <% end %>
+
       <%= f.submit "Save draft", name: "save_draft",
           class: "w-full bg-background border border-border text-muted-foreground rounded-lg py-2 text-sm font-medium hover:bg-muted active:scale-[0.98] transition-colors cursor-pointer" %>
 

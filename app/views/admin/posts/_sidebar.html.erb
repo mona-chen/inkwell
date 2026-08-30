@@ -39,31 +39,10 @@
     <%= f.text_area :excerpt, rows: 3, class: "mt-1 w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground" %>
   </div>
 
-  <div class="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
-    <h3 class="text-xs font-semibold text-foreground">SEO</h3>
-    <div>
-      <label class="text-xs font-medium text-muted-foreground">SEO Title</label>
-      <p class="text-[10px] text-muted-foreground/60 mb-1">Override the page title for search engines.</p>
-      <%= f.text_field :seo_title, placeholder: post.title, class: "mt-0.5 w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground" %>
-    </div>
-    <div>
-      <label class="text-xs font-medium text-muted-foreground">Meta Description</label>
-      <p class="text-[10px] text-muted-foreground/60 mb-1">155 characters recommended for search snippets.</p>
-      <%= f.text_area :seo_description, rows: 2, placeholder: "Auto-generated from content if left empty", class: "w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground resize-none" %>
-    </div>
-    <div>
-      <label class="text-xs font-medium text-muted-foreground">Focus Keyword</label>
-      <%= f.text_field :seo_focus_keyword, placeholder: "e.g. customer support platforms", class: "mt-0.5 w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground" %>
-    </div>
-    <div class="flex items-center gap-4">
-      <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <%= f.check_box :noindex, class: "rounded accent-primary" %> Noindex
-      </label>
-      <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <%= f.check_box :nofollow, class: "rounded accent-primary" %> Nofollow
-      </label>
-    </div>
-  </div>
+  <%# Plugin-injected editor panels (e.g. SEO) %>
+  <% Inkwell::Hooks.filter(:post_editor_panels, [], post: post).each do |panel| %>
+    <%= raw panel %>
+  <% end %>
 
   <div>
     <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Categories</label>

@@ -78,7 +78,7 @@ module Admin
     end
 
     def post_params
-      params.require(:post).permit(:title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_alt, category_ids: [], tag_ids: [])
+      params.require(:post).permit(:title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_alt, :seo_title, :seo_description, :seo_focus_keyword, :noindex, :nofollow, category_ids: [], tag_ids: [])
     end
   end
 end
