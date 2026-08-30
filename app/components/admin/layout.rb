@@ -35,7 +35,7 @@ module Admin
             safe_join([tag.style(accent_css)], "\n")
           end
           # Inject plugin-specific admin CSS
-          plugin_css_tags = Inkwell::Hooks.filter(:admin_stylesheet_tags, [], {})
+          plugin_css_tags = Inkwell::Hooks.filter(:admin_stylesheet_tags, [])
           plugin_css_tags.each { |css| safe_join([tag.style(css)], "\n") }
         end
         body do
