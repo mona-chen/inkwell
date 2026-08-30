@@ -134,7 +134,7 @@ async function inspect(page) {
 (async () => {
   safeMkdir(output);
   safeMkdir(path.join(output, "assets"));
-  const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ["--no-first-run", "--disable-background-networking"] });
+  const browser = await puppeteer.launch({ executablePath: chrome, headless: true, args: ["--no-first-run", "--disable-background-networking", "--no-sandbox"] });
   const capturedAssets = new Map();
   const sitePages = [];
   const failures = [];

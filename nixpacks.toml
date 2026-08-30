@@ -1,5 +1,18 @@
+providers = ["ruby", "node"]
+
 [phases.setup]
-aptPkgs = ["procps", "libpq-dev", "git", "curl", "autoconf", "bison", "build-essential", "libssl-dev", "libyaml-dev", "libreadline6-dev", "zlib1g-dev", "libncurses5-dev", "libffi-dev", "libgdbm6", "libgdbm-dev", "libdb-dev", "libvips", "libvips-dev"]
+aptPkgs = ["procps", "libpq-dev", "git", "curl", "autoconf", "bison", "build-essential", "libssl-dev", "libyaml-dev", "libreadline6-dev", "zlib1g-dev", "libncurses5-dev", "libffi-dev", "libgdbm6", "libgdbm-dev", "libdb-dev", "libvips", "libvips-dev", "gnupg", "ca-certificates"]
+cmds = [
+  "...",
+  "curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg",
+  "echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main' > /etc/apt/sources.list.d/google-chrome.list",
+  "apt-get update -qq",
+  "apt-get install -y -qq google-chrome-stable",
+]
+
+[phases.install]
+cmds = ["...", "cd plugins/page_builder/app/builder && npm ci --no-audit --no-fund"]
 
 [variables]
 NIXPACKS_INSTALL_CACHE = "false"
+CHROME_BIN = "/usr/bin/google-chrome-stable"
