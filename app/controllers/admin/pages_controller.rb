@@ -84,7 +84,7 @@ module Admin
     end
 
     def page_params
-      params.require(:page).permit(:title, :content, :draft_content, :status, :template, :hide_title, :menu_order, :parent_id)
+      params.require(:page).permit(:title, :content, :draft_content, :status, :template, :hide_title, :menu_order, :parent_id, :seo_title, :seo_description, :seo_focus_keyword, :og_title, :og_description, :noindex, :nofollow)
     end
   end
 end

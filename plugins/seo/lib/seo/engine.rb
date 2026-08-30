@@ -97,19 +97,16 @@ module Seo
       desc_value = record.try(:seo_description) || ""
       noindex = record.try(:noindex?) || false
       nofollow = record.try(:nofollow?) || false
+      focus_keyword = record.try(:seo_focus_keyword) || ""
+      og_title = record.try(:og_title) || ""
+      og_desc = record.try(:og_description) || ""
 
-      # SEO score calculation
       score = calculate_seo_score(record)
       score_color = score >= 80 ? "success" : score >= 50 ? "warning" : "danger"
-      score_label = score >= 80 ? "Good" : score >= 50 ? "OK" : "Needs work"
-
-      # Title/description length analysis
-      effective_title = title_value.presence || record.respond_to?(:title) ? record.title : ""
+      effective_title = title_value.presence || (record.respond_to?(:title) ? record.title : "")
       effective_desc = desc_value.presence || record.try(:seo_description) || record.try(:auto_meta_description) || ""
       title_len = effective_title.length
       desc_len = effective_desc.length
-
-      # SERP preview domain
       site_domain = record.site&.domain || "example.com"
 
       <<~HTML.squish
@@ -121,8 +118,6 @@ module Seo
             </span>
           </summary>
           <div class="mt-3 pl-0 space-y-4">
-
-            <!-- SERP Preview -->
             <div class="ink-sep-preview">
               <div class="ink-serp-url">
                 <span class="font-medium text-foreground">#{site_domain}</span> › #{record.respond_to?(:slug) ? record.slug : type}
@@ -130,8 +125,11 @@ module Seo
               <h4 class="ink-serp-title">#{ERB::Util.html_escape(effective_title.truncate(60))}</h4>
               <p class="ink-serp-desc">#{ERB::Util.html_escape(effective_desc.truncate(160))}</p>
             </div>
-
-            <!-- Title field with length indicator -->
+            <div>
+              <label class="text-xs text-muted-foreground">Focus keyword</label>
+              <input type="text" name="#{field_prefix}[seo_focus_keyword]" value="#{ERB::Util.html_escape(focus_keyword)}" placeholder="e.g. customer support platforms"
+                class="mt-1 w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20">
+            </div>
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="text-xs text-muted-foreground">Search title</label>
@@ -140,8 +138,6 @@ module Seo
               <input type="text" name="#{field_prefix}[seo_title]" value="#{ERB::Util.html_escape(title_value)}" placeholder="#{ERB::Util.html_escape(title_placeholder)}"
                 class="w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20">
             </div>
-
-            <!-- Description field with length indicator -->
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="text-xs text-muted-foreground">Description</label>
@@ -150,8 +146,23 @@ module Seo
               <textarea name="#{field_prefix}[seo_description]" rows="2" placeholder="Auto-generated from content if left empty"
                 class="w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring/20">#{ERB::Util.html_escape(desc_value)}</textarea>
             </div>
-
-            <!-- Robots -->
+            <details class="group">
+              <summary class="flex items-center justify-between text-xs text-muted-foreground cursor-pointer py-1 hover:text-foreground transition-colors">
+                <span>Social preview</span>
+              </summary>
+              <div class="mt-2 pl-0 space-y-3">
+                <div>
+                  <label class="text-xs text-muted-foreground">OG title</label>
+                  <input type="text" name="#{field_prefix}[og_title]" value="#{ERB::Util.html_escape(og_title)}" placeholder="Falls back to SEO title"
+                    class="mt-1 w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20">
+                </div>
+                <div>
+                  <label class="text-xs text-muted-foreground">OG description</label>
+                  <textarea name="#{field_prefix}[og_description]" rows="2" placeholder="Falls back to meta description"
+                    class="w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring/20">#{ERB::Util.html_escape(og_desc)}</textarea>
+                </div>
+              </div>
+            </details>
             <div class="flex items-center gap-4">
               <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <input type="checkbox" name="#{field_prefix}[noindex]" value="1" #{"checked" if noindex} class="rounded accent-primary"> Noindex
