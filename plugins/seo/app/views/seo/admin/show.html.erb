@@ -1,7 +1,7 @@
 <div class="max-w-2xl">
   <%= render Admin::ToolbarTitle.new(title: "SEO Settings", subtitle: "Configure how your site appears in search engines") %>
 
-  <%= form_with url: seo_toolkit.seo_path, method: :patch, class: "space-y-6" do |f| %>
+  <%= form_with url: "/plugins/seo_toolkit/seo", method: :patch, class: "space-y-6" do |f| %>
     <section class="rounded-xl border border-border bg-background p-6">
       <h2 class="text-sm font-semibold text-foreground mb-4">Title Template</h2>
       <p class="text-xs text-muted-foreground mb-3">Use %title for the post title and %{site_name} for the site name.</p>
