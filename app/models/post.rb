@@ -87,7 +87,7 @@ class Post < ApplicationRecord
   end
 
   def canonical_url
-    "/posts/#{slug}"
+    canonical_url_override.presence || "/posts/#{seo_slug_override.presence || slug}"
   end
 
   def auto_meta_description

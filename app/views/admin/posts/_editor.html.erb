@@ -10,9 +10,9 @@
      data-block-editor-types-value="<%= BlockRenderer.registered_types.to_json %>"
      data-block-editor-save-url-value="<%= post.new_record? ? nil : admin_post_path(post) %>"
      data-block-editor-resource-key-value="post"
-     class="grid grid-cols-[1fr_280px] gap-6">
+     class="admin-block-editor grid gap-6">
 
-  <div class="relative min-w-0 max-w-[780px]">
+  <div class="relative min-w-0 w-full">
     <%# Hidden field carries the serialized draft blocks. Bound to draft_content so the
         form's "Save draft" persists them (autosave also PATCHes the same key). %>
     <input type="hidden" name="post[draft_content]" data-block-editor-target="hiddenField" value="<%= html_escape(post.editing_blocks.to_json) %>">
@@ -62,7 +62,12 @@
     <%= render "admin/posts/blocks/templates" %>
   </div>
 
-  <aside class="space-y-4">
+  <aside class="admin-block-editor__inspector min-w-0 space-y-4">
     <%= render "admin/posts/sidebar", f: f, post: post %>
   </aside>
 </div>
+
+<%# Full-width plugin workspaces belong after the editor, outside the narrow inspector. %>
+<% Array(Inkwell::Hooks.filter(:post_editor_after_content, [], post: post)).each do |panel| %>
+  <%= raw panel %>
+<% end %>

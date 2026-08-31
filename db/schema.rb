@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_30_153000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_31_091000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -158,7 +158,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_153000) do
 
   create_table "pages", force: :cascade do |t|
     t.bigint "author_id", null: false
+    t.string "breadcrumb_title"
+    t.string "canonical_url_override"
     t.jsonb "content", default: [], null: false
+    t.boolean "cornerstone", default: false, null: false
     t.datetime "created_at", null: false
     t.jsonb "draft_content"
     t.boolean "hide_title", default: false, null: false
@@ -173,6 +176,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_153000) do
     t.text "original_import_html"
     t.string "original_import_url"
     t.bigint "parent_id"
+    t.boolean "robots_noarchive", default: false, null: false
+    t.boolean "robots_noimageindex", default: false, null: false
+    t.boolean "robots_nosnippet", default: false, null: false
+    t.string "schema_article_type", default: "Article"
+    t.string "schema_page_type", default: "WebPage"
     t.text "seo_description"
     t.string "seo_focus_keyword"
     t.string "seo_slug_override"
@@ -183,6 +191,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_153000) do
     t.string "template", default: "default", null: false
     t.string "title", null: false
     t.string "twitter_card_type", default: "summary_large_image"
+    t.text "twitter_description"
+    t.string "twitter_image_url"
+    t.string "twitter_title"
     t.datetime "updated_at", null: false
     t.index ["author_id"], name: "index_pages_on_author_id"
     t.index ["live_render_mode"], name: "index_pages_on_live_render_mode"
@@ -215,7 +226,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_153000) do
 
   create_table "posts", force: :cascade do |t|
     t.bigint "author_id", null: false
+    t.string "breadcrumb_title"
+    t.string "canonical_url_override"
     t.jsonb "content", default: [], null: false
+    t.boolean "cornerstone", default: false, null: false
     t.datetime "created_at", null: false
     t.jsonb "draft_content"
     t.text "excerpt"
@@ -228,7 +242,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_153000) do
     t.string "og_image_url"
     t.string "og_title"
     t.datetime "published_at"
+    t.boolean "robots_noarchive", default: false, null: false
+    t.boolean "robots_noimageindex", default: false, null: false
+    t.boolean "robots_nosnippet", default: false, null: false
     t.datetime "scheduled_for"
+    t.string "schema_article_type", default: "Article"
+    t.string "schema_page_type", default: "WebPage"
     t.text "seo_description"
     t.string "seo_focus_keyword"
     t.string "seo_slug_override"
@@ -238,6 +257,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_153000) do
     t.string "status", default: "draft", null: false
     t.string "title", null: false
     t.string "twitter_card_type", default: "summary_large_image"
+    t.text "twitter_description"
+    t.string "twitter_image_url"
+    t.string "twitter_title"
     t.datetime "updated_at", null: false
     t.index ["author_id"], name: "index_posts_on_author_id"
     t.index ["content"], name: "index_posts_on_content", using: :gin

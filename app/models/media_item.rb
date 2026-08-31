@@ -18,7 +18,7 @@ class MediaItem < ApplicationRecord
   def url
     return unless file.attached?
 
-    Rails.application.routes.url_helpers.rails_blob_path(file, only_path: true)
+    Rails.application.routes.url_helpers.media_file_path(id)
   end
 
   def kind

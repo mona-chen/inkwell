@@ -24,6 +24,8 @@ class SiteController < ApplicationController
   end
 
   def sitemap
+    head :not_found and return unless Current.site.setting("seo_enable_sitemap", "1") == "1"
+
     @posts = Current.site.posts.published.order(published_at: :desc)
     @pages = Current.site.pages.published.ordered
     render xml: render_to_string(partial: "site/sitemap", formats: [:xml]), layout: false

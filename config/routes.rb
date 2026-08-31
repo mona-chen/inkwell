@@ -7,6 +7,7 @@ Rails.application.routes.draw do
   root to: "site#home"
   get "feed.xml", to: "site#feed", defaults: { format: "xml" }
   get "sitemap.xml", to: "site#sitemap", defaults: { format: "xml" }
+  get "media/:id/file", to: "media_files#show", as: :media_file
 
   resources :posts, only: [:index, :show], param: :id do
     resources :comments, only: [:create]

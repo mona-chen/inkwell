@@ -6,7 +6,7 @@ import { Controller } from "@hotwired/stimulus"
 // fields. The chosen value always lands in a hidden data-field="url" input so the block
 // editor serializes it like any other block.
 export default class extends Controller {
-  static targets = ["url", "alt", "caption", "file", "empty", "populated", "preview", "dropzone", "dialog", "frame"]
+  static targets = ["url", "alt", "caption", "file", "empty", "populated", "preview", "error", "errorUrl", "dropzone", "dialog", "frame"]
 
   connect() {
     this._onSelect = (event) => this.select(event)
@@ -23,7 +23,40 @@ export default class extends Controller {
     const url = this.urlTarget.value.trim()
     this.emptyTarget.classList.toggle("hidden", !!url)
     this.populatedTarget.classList.toggle("hidden", !url)
-    if (url) this.previewTarget.src = url
+    if (!url) {
+      this.previewTarget.removeAttribute("src")
+      this.clearError()
+      return
+    }
+
+    this.clearError()
+    this.previewTarget.alt = this.hasAltTarget ? this.altTarget.value.trim() : ""
+    let resolvedUrl
+    try {
+      resolvedUrl = new URL(url, document.baseURI).href
+    } catch (_error) {
+      this.failed()
+      return
+    }
+    if (this.previewTarget.src !== resolvedUrl) this.previewTarget.src = url
+  }
+
+  loaded() {
+    this.clearError()
+  }
+
+  failed() {
+    this.previewTarget.classList.add("hidden")
+    this.errorTarget.classList.remove("hidden")
+    this.errorTarget.classList.add("flex")
+    if (this.hasErrorUrlTarget) this.errorUrlTarget.textContent = this.urlTarget.value.trim()
+  }
+
+  clearError() {
+    this.previewTarget.classList.remove("hidden")
+    this.errorTarget.classList.add("hidden")
+    this.errorTarget.classList.remove("flex")
+    if (this.hasErrorUrlTarget) this.errorUrlTarget.textContent = ""
   }
 
   // ---- media picker dialog --------------------------------------------------

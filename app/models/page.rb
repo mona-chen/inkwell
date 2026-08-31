@@ -108,7 +108,7 @@ class Page < ApplicationRecord
   end
 
   def canonical_url
-    "/pages/#{slug}"
+    canonical_url_override.presence || "/pages/#{seo_slug_override.presence || slug}"
   end
 
   def auto_meta_description

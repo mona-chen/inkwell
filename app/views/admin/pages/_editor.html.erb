@@ -4,7 +4,7 @@
      data-block-editor-types-value="<%= BlockRenderer.registered_types.to_json %>"
      data-block-editor-save-url-value="<%= page.new_record? ? nil : admin_page_path(page) %>"
      data-block-editor-resource-key-value="page"
-     class="grid grid-cols-[1fr_280px] gap-6">
+     class="admin-block-editor grid gap-6">
 
   <div class="relative min-w-0">
     <%# Hidden field carries the serialized draft blocks. Bound to draft_content so the
@@ -56,7 +56,7 @@
     <%= render "admin/posts/blocks/templates" %>
   </div>
 
-  <aside class="space-y-4">
+  <aside class="admin-block-editor__inspector min-w-0 space-y-4">
     <div class="admin-editor-sidebar bg-background rounded-lg shadow-sm p-4 space-y-4">
       <div>
         <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</label>
@@ -90,7 +90,7 @@
       </div>
 
       <%# Plugin-injected editor panels (e.g. SEO) %>
-      <% Inkwell::Hooks.filter(:page_editor_panels, [], page: page).each do |panel| %>
+      <% Array(Inkwell::Hooks.filter(:page_editor_panels, [], page: page)).each do |panel| %>
         <%= raw panel %>
       <% end %>
 
@@ -123,3 +123,8 @@
     <% end %>
   </aside>
 </div>
+
+<%# Full-width plugin workspaces belong after the editor, outside the narrow inspector. %>
+<% Array(Inkwell::Hooks.filter(:page_editor_after_content, [], page: page)).each do |panel| %>
+  <%= raw panel %>
+<% end %>

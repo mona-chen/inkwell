@@ -44,6 +44,16 @@
   font-size: 0.875rem;
   letter-spacing: -0.015em;
 }
+.admin-topbar-content > [data-nk="command-palette"] {
+  flex: 0 1 30rem;
+  inline-size: min(30rem, 42vw);
+}
+@media (max-width: 760px) {
+  .admin-topbar-content > [data-nk="command-palette"] {
+    flex-basis: 12rem;
+    inline-size: min(12rem, 40vw);
+  }
+}
 
 /* --- Dashboard --- */
 .admin-dashboard [data-nk="card"] {
@@ -88,6 +98,62 @@
 }
 .admin-editor-sidebar {
   border: 1px solid var(--nk-color-border);
+}
+
+/* --- Structured editor layout and block containment --- */
+.admin-block-editor {
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 17.5rem);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+.admin-block-editor > *,
+.admin-block-editor [data-block-editor-target="list"],
+.admin-block-editor [data-block-editor-target="block"] {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+.admin-block-editor__inspector {
+  position: sticky;
+  top: 4.5rem;
+  align-self: start;
+  max-block-size: calc(100vh - 5.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.admin-block-editor input,
+.admin-block-editor textarea,
+.admin-block-editor select,
+.admin-block-editor img,
+.admin-block-editor pre {
+  max-inline-size: 100%;
+}
+.admin-block-editor textarea,
+.admin-block-editor pre {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.ink-image-block__preview {
+  display: grid;
+  min-block-size: 9rem;
+  max-block-size: 24rem;
+  place-items: center;
+}
+.ink-image-block__preview > img {
+  inline-size: auto;
+  block-size: auto;
+  max-block-size: 24rem;
+}
+@media (max-width: 68rem) {
+  .admin-block-editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-block-editor__inspector {
+    inline-size: 100%;
+    position: static;
+    max-block-size: none;
+    overflow: visible;
+  }
 }
 
 /* --- Navigation — compact, quiet, management density --- */

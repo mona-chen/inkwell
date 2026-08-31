@@ -78,7 +78,16 @@ module Admin
     end
 
     def post_params
-      params.require(:post).permit(:title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_alt, :seo_title, :seo_description, :seo_focus_keyword, :og_title, :og_description, :noindex, :nofollow, category_ids: [], tag_ids: [])
+      params.require(:post).permit(
+        :title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_alt,
+        :seo_title, :seo_description, :seo_focus_keyword, :seo_slug_override,
+        :og_title, :og_description, :og_image_url, :twitter_card_type,
+        :twitter_title, :twitter_description, :twitter_image_url,
+        :canonical_url_override, :breadcrumb_title, :cornerstone,
+        :schema_page_type, :schema_article_type,
+        :noindex, :nofollow, :robots_noarchive, :robots_noimageindex, :robots_nosnippet,
+        category_ids: [], tag_ids: []
+      )
     end
   end
 end

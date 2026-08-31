@@ -32,11 +32,11 @@ module Admin
           javascript_importmap_tags
           # Inject site-configurable accent color as CSS custom properties
           if accent_css.present?
-            safe_join([tag.style(accent_css)], "\n")
+            style { raw(safe(accent_css)) }
           end
           # Inject plugin-specific admin CSS
           plugin_css_tags = Inkwell::Hooks.filter(:admin_stylesheet_tags, [])
-          plugin_css_tags.each { |css| safe_join([tag.style(css)], "\n") }
+          Array(plugin_css_tags).each { |css| style { raw(safe(css.to_s)) } }
         end
         body do
           render_flash

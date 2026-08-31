@@ -13,9 +13,9 @@ module Seo
       tags += basic_meta
       tags += open_graph_tags
       tags += twitter_card_tags
-      tags += canonical_tag
-      tags += robots_tag
-      tags += json_ld
+      tags << canonical_tag
+      tags << robots_tag
+      tags << json_ld
       tags.compact
     end
 
@@ -27,13 +27,16 @@ module Seo
       [
         tag_meta("description", description),
         tag_meta("author", author_name),
+        tag_meta("google-site-verification", @site.setting("seo_google_verification", "")),
+        tag_meta("msvalidate.01", @site.setting("seo_bing_verification", "")),
       ].compact
     end
 
     def description
-      @record.seo_description.presence ||
-        @record.excerpt.presence ||
+      value = @record.seo_description.presence ||
+        @record.try(:excerpt).presence ||
         auto_description
+      value.to_s.truncate(160).presence
     end
 
     def auto_description
@@ -73,9 +76,10 @@ module Seo
 
     def og_image
       image = @record.seo_og_image
+      image = @site.setting("seo_default_og_image", "") if image.blank?
       return nil unless image.present?
 
-      image.start_with?("http") ? image : "#{@site.domain}#{image}"
+      absolute_image_url(image)
     end
 
     # --- Twitter Card ---
@@ -83,9 +87,10 @@ module Seo
     def twitter_card_tags
       [
         tag_meta("twitter:card", @record.twitter_card_type.presence || "summary_large_image"),
-        tag_meta("twitter:title", og_title),
-        tag_meta("twitter:description", og_description),
-        tag_meta("twitter:image", og_image),
+        tag_meta("twitter:title", @record.try(:twitter_title).presence || og_title),
+        tag_meta("twitter:description", @record.try(:twitter_description).presence || og_description),
+        tag_meta("twitter:image", absolute_image_url(@record.try(:twitter_image_url).presence) || og_image),
+        tag_meta("twitter:site", @site.setting("seo_twitter_handle", "")),
       ].compact
     end
 
@@ -101,15 +106,20 @@ module Seo
       return nil unless @site.domain.present?
 
       path = @record.respond_to?(:canonical_url) ? @record.canonical_url : "/#{@record.slug}"
-      "https://#{@site.domain}#{path}"
+      return path if path.match?(/\Ahttps?:\/\//i)
+
+      "#{site_origin}#{path.start_with?("/") ? path : "/#{path}"}"
     end
 
     # --- Robots ---
 
     def robots_tag
       directives = []
-      directives << "noindex" if @record.try(:noindex?)
+      directives << "noindex" if @record.try(:noindex?) || content_type_disabled?
       directives << "nofollow" if @record.try(:nofollow?)
+      directives << "noarchive" if @record.try(:robots_noarchive?)
+      directives << "noimageindex" if @record.try(:robots_noimageindex?)
+      directives << "nosnippet" if @record.try(:robots_nosnippet?)
       return nil if directives.empty?
 
       tag_meta("robots", directives.join(", "))
@@ -127,16 +137,20 @@ module Seo
     def build_json_ld_schema
       return nil unless @site.domain.present?
 
+      representation = @site.setting("seo_site_representation", "organization")
+      representation_name = @site.setting("seo_organization_name", "").presence || @site.setting("seo_site_name", "").presence || @site.name
+      representation_logo = @site.setting("seo_organization_logo", "").presence
+
       base = {
         "@context": "https://schema.org",
-        "@type": og_type.titleize,
+        "@type": schema_type,
         headline: og_title,
         description: og_description,
         author: author_name.present? ? { "@type": "Person", name: author_name } : nil,
         publisher: {
-          "@type": "Organization",
-          name: @site.name,
-          logo: @site.respond_to?(:logo_item) && @site.logo_item ? { "@type": "ImageObject", url: @site.logo_item.url } : nil
+          "@type": representation == "person" ? "Person" : "Organization",
+          name: representation_name,
+          logo: representation_logo.present? ? { "@type": "ImageObject", url: representation_logo } : (@site.respond_to?(:logo_item) && @site.logo_item ? { "@type": "ImageObject", url: @site.logo_item.url } : nil)
         },
         mainEntityOfPage: canonical_url,
         datePublished: @record.respond_to?(:published_at) ? @record.published_at&.iso8601 : nil,
@@ -154,7 +168,33 @@ module Seo
     def tag_meta(name, content)
       return nil if content.blank?
 
-      %(<meta name="#{ERB::Util.html_escape(name)}" content="#{ERB::Util.html_escape(content)}">)
+      attribute = name.start_with?("og:") ? "property" : "name"
+      %(<meta #{attribute}="#{ERB::Util.html_escape(name)}" content="#{ERB::Util.html_escape(content)}">)
+    end
+
+    def schema_type
+      if @is_page
+        @record.try(:schema_page_type).presence || "WebPage"
+      else
+        @record.try(:schema_article_type).presence || "Article"
+      end
+    end
+
+    def absolute_image_url(image)
+      return nil if image.blank?
+      return image if image.match?(/\Ahttps?:\/\//i)
+
+      "#{site_origin}#{image.start_with?("/") ? image : "/#{image}"}"
+    end
+
+    def site_origin
+      domain = @site.domain.to_s
+      domain.match?(/\Ahttps?:\/\//i) ? domain.sub(%r{/+\z}, "") : "https://#{domain}"
+    end
+
+    def content_type_disabled?
+      setting = @is_page ? "seo_index_pages" : "seo_index_posts"
+      @site.setting(setting, "1") != "1"
     end
   end
 end

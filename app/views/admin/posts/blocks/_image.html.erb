@@ -6,7 +6,7 @@
 <% frame_id = "media-picker-frame-#{SecureRandom.hex(4)}" %>
 <div data-block-editor-target="block" data-type="image"
      data-controller="image-block"
-     class="group relative py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
+     class="ink-image-block group relative min-w-0 max-w-full py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
   <%= render "admin/posts/blocks/toolbar" %>
   <input type="hidden" data-field="url" data-image-block-target="url"
          data-action="input->block-editor#serialize"
@@ -39,9 +39,17 @@
 
   <%# Populated state: large preview + replace/remove + alt/caption %>
   <div data-image-block-target="populated" class="hidden">
-    <div class="relative overflow-hidden rounded-lg bg-muted border border-border">
+    <div class="ink-image-block__preview relative overflow-hidden rounded-lg bg-muted border border-border">
       <img data-image-block-target="preview" src="" alt=""
-           class="mx-auto max-h-96 w-full object-contain">
+           data-action="load->image-block#loaded error->image-block#failed"
+           class="mx-auto block max-h-96 max-w-full object-contain">
+      <div data-image-block-target="error" class="hidden min-h-36 items-center justify-center p-6 text-center" role="status">
+        <div class="max-w-md">
+          <p class="text-sm font-medium text-foreground">Image unavailable</p>
+          <p class="mt-1 text-xs leading-5 text-muted-foreground">The source could not be loaded. Replace it, remove it, or correct the saved URL.</p>
+          <p data-image-block-target="errorUrl" class="mt-2 truncate font-mono text-[10px] text-muted-foreground"></p>
+        </div>
+      </div>
     </div>
     <div class="mt-2 flex items-center gap-2">
       <button type="button" data-action="image-block#openPicker"

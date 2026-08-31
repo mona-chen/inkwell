@@ -84,7 +84,15 @@ module Admin
     end
 
     def page_params
-      params.require(:page).permit(:title, :content, :draft_content, :status, :template, :hide_title, :menu_order, :parent_id, :seo_title, :seo_description, :seo_focus_keyword, :og_title, :og_description, :noindex, :nofollow)
+      params.require(:page).permit(
+        :title, :content, :draft_content, :status, :template, :hide_title, :menu_order, :parent_id,
+        :seo_title, :seo_description, :seo_focus_keyword, :seo_slug_override,
+        :og_title, :og_description, :og_image_url, :twitter_card_type,
+        :twitter_title, :twitter_description, :twitter_image_url,
+        :canonical_url_override, :breadcrumb_title, :cornerstone,
+        :schema_page_type, :schema_article_type,
+        :noindex, :nofollow, :robots_noarchive, :robots_noimageindex, :robots_nosnippet
+      )
     end
   end
 end
