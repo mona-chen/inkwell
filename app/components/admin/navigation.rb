@@ -1,6 +1,4 @@
 module Admin
-  # Nitro AppNavigation composed from application-owned nav groups + the current user's
-  # brand/footer. The active item is computed from the request path.
   class Navigation < ApplicationComponent
     def initialize(groups:, user:, current_site: nil)
       @groups = groups
@@ -9,44 +7,42 @@ module Admin
     end
 
     def view_template
-      render NitroKit::AppNavigation.new(label: "Admin navigation") do |nav|
-        nav.header do
-          div(class: "admin-brand flex items-center gap-2 px-4 py-3") do
-            span(class: "admin-brand-mark") { "I" }
-            span(class: "min-w-0") do
-              strong(class: "block text-sm font-semibold tracking-tight") { "Inkwell" }
-              span(class: "block text-[10px] font-medium uppercase tracking-[0.14em] opacity-50") { "Studio" }
-            end
-          end
-        end
-        nav.body do
-          nav.item("Home", href: "/admin", icon: :home, current: current?("/admin"))
-          @groups.each do |(label, items)|
-            nav.section(label: label) do
-              items.each { |item| nav_item(nav, item) }
-            end
-          end
-          nav.spacer
-        end
-        nav.footer do
-          # Footer is empty — profile moved to topbar
-        end
-      end
+      render Ink::Navigation.new(
+        groups: nav_items,
+        brand_title: "Inkwell",
+        brand_sub: "Studio",
+        footer: -> { render_user_footer }
+      )
     end
 
     private
 
-    def nav_item(nav, item)
-      attrs = { href: item[:path], icon: item[:icon], current: current?(item[:path]) }
-      if item[:badge]
-        attrs[:badge] = item[:badge]
-        attrs[:badge_color] = :warning
-      end
-      nav.item(item[:label], **attrs)
+    def nav_items
+      [{ label: nil, items: [{ label: "Home", path: "/admin", icon: :home, current: current?("/admin") }] }] +
+        @groups.map do |(label, items)|
+          { label: label, items: items.map { |item| nav_item(item) } }
+        end
     end
 
-    # Match the nav item's section: exact path, or any subpath beneath it. e.g. /admin/posts/123
-    # highlights "Posts" (its path is /admin/posts). "/admin" (dashboard) only matches exactly.
+    def nav_item(item)
+      attrs = { label: item[:label], path: item[:path], icon: item[:icon], current: current?(item[:path]) }
+      attrs[:badge] = item[:badge] if item[:badge]
+      attrs[:children] = item[:children] if item[:children]
+      attrs
+    end
+
+    def render_user_footer
+      div(class: "flex items-center gap-3") do
+        div(class: "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold") do
+          (@user&.name || "A")[0].upcase
+        end
+        div(class: "min-w-0 flex-1") do
+          div(class: "truncate text-xs font-semibold text-sidebar-foreground") { @user&.name || "Admin" }
+          div(class: "mt-0.5 truncate text-[11px] text-sidebar-foreground/42") { @current_site&.name || "Inkwell" }
+        end
+      end
+    end
+
     def current?(path)
       return current_path == path if path == "/admin"
       current_path == path || current_path.start_with?("#{path}/")

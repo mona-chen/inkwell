@@ -50,7 +50,7 @@ module Admin
             model: MenuItem.new,
             url: admin_menu_menu_items_path(@menu),
             local: true,
-            builder: NitroKit::FormBuilder
+            builder: Ink::FormBuilder
           ) do |f|
             f.group do
               f.field(:label, placeholder: "Label")

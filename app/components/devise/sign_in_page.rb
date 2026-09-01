@@ -1,6 +1,6 @@
 module Devise
   # Sign-in form in the AuthShell. Mirrors the standard Devise sessions/new view using
-  # NitroKit::FormBuilder.
+  # Ink::FormBuilder.
   class SignInPage < ApplicationComponent
     def initialize(resource:, resource_name:, devise_mapping:, submit_url:, forgot_url:)
       @resource = resource
@@ -12,15 +12,15 @@ module Devise
 
     def view_template
       render Devise::AuthLayout.new(title: "Sign in to your dashboard") do
-        render NitroKit::Card.new do |card|
+        render Ink::Card.new do |card|
           card.body do
             render_error_messages
-            form_for(@resource, as: @resource_name, url: @submit_url, builder: NitroKit::FormBuilder) do |form|
+            form_for(@resource, as: @resource_name, url: @submit_url, builder: Ink::FormBuilder) do |form|
               form.group do
                 form.field(:email, as: :email, control_html: { autofocus: true }, autocomplete: "email", label: "Email")
                 form.field(:password, as: :password, autocomplete: "current-password", label: "Password")
                 if @devise_mapping.rememberable?
-                  render NitroKit::Checkbox.new(
+                  render Ink::Checkbox.new(
                     label: "Remember me",
                     name: "#{@resource_name}[remember_me]",
                     value: "1",
@@ -43,7 +43,7 @@ module Devise
     def render_error_messages
       return if @resource.errors.empty?
       div(class: "mb-4") do
-        render NitroKit::Alert.new(variant: :error, title: "Unable to sign in") do
+        render Ink::Alert.new(variant: :error, title: "Unable to sign in") do
           @resource.errors.full_messages.each { |msg| p { msg } }
         end
       end

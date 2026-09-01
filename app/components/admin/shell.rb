@@ -1,7 +1,6 @@
 module Admin
-  # The authenticated admin frame: Nitro AppShell (sidebar layout) + AppNavigation.
-  # Navigation data is application-owned (static groups + plugin nav items); the shell
-  # owns chrome, mobile disclosure, and focus management.
+  # The authenticated admin frame. Navigation data stays application-owned while
+  # the Ink shell owns the responsive chrome and focus boundaries.
   class Shell < ApplicationComponent
     ICONS = {
       "home" => :home,
@@ -18,12 +17,14 @@ module Admin
       "users" => :users,
       "magnifying-glass" => :search,
       "layout" => :layout_dashboard,
+      "globe" => :globe_2,
+      "blocks" => :blocks,
       "default" => :circle
     }.freeze
 
     GROUPS = [
       {
-        label: "Content",
+        label: "Publish",
         items: [
           { label: "Posts", path: "/admin/posts", icon: "document-text" },
           { label: "Pages", path: "/admin/pages", icon: "document" },
@@ -36,6 +37,7 @@ module Admin
         items: [
           { label: "Appearance", path: "/admin/themes", icon: "paint-brush" },
           { label: "Navigation", path: "/admin/menus", icon: "bars-3" },
+          { label: "Widgets", path: "/admin/widgets", icon: "blocks" },
           { label: "Import website", path: "/admin/website_imports", icon: "globe" }
         ]
       },
@@ -46,7 +48,7 @@ module Admin
         ]
       },
       {
-        label: "Admin",
+        label: "Workspace",
         items: [
           { label: "Users", path: "/admin/users", icon: "users" },
           { label: "Settings", path: "/admin/settings", icon: "cog-6-tooth" }
@@ -70,15 +72,14 @@ module Admin
           title { "#{@title} — Inkwell Admin" }
           csrf_meta_tags
           csp_meta_tag
-          render NitroKit::AppearanceBootstrap.new(default: :light)
-          stylesheet_link_tag "nitro_kit", "data-turbo-track": "reload"
+          stylesheet_link_tag "ink", "data-turbo-track": "reload"
           stylesheet_link_tag "tailwind", "data-turbo-track": "reload"
           stylesheet_link_tag "application", "data-turbo-track": "reload"
           javascript_importmap_tags
         end
         body do
           render_flash
-          render AppShell.new(id: "admin-shell", layout: :sidebar) do |shell|
+          render Ink::Shell.new do |shell|
             shell.navigation do
               render Navigation.new(groups: @nav_groups, user: @user, current_site: @current_site)
             end
@@ -97,7 +98,7 @@ module Admin
 
     def render_flash
       return unless flash.any?
-      render NitroKit::Toast::FlashMessages.new(flash)
+      render Ink::Flash.new(flash)
     end
 
     def build_nav_groups

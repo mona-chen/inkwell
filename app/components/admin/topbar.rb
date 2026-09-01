@@ -1,5 +1,4 @@
 module Admin
-  # Global command and account surface. Route titles belong to each page's Toolbar.
   class Topbar < ApplicationComponent
     def initialize(title:, user:, current_site: nil)
       @title = title
@@ -8,45 +7,49 @@ module Admin
     end
 
     def view_template
-      div(class: "admin-topbar-content flex items-center justify-between gap-4 w-full h-full", data: { controller: "appearance" }) do
+      div(class: "flex h-full min-w-0 flex-1 items-center gap-3 sm:gap-5", data: { controller: "appearance" }) do
+        div(class: "hidden min-w-28 lg:block") do
+          div(class: "text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground") { "Workspace" }
+          div(class: "mt-0.5 truncate text-sm font-semibold text-foreground") { @title }
+        end
+
         render_command_palette
 
-        div(class: "flex items-center gap-3 text-sm") do
-          render_create_menu
+        div(class: "ml-auto flex shrink-0 items-center gap-1.5") do
+          div(class: "hidden sm:block") { render_create_menu }
 
-          # Dark mode toggle
           button(
             type: "button",
-            class: "flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+            class: "inline-flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
             data: { action: "click->appearance#toggle" },
             aria: { label: "Toggle dark mode" }
           ) do
-            render Icon.new(:sun, size: :sm)
+            span(data: { theme_icon: "light" }) { render Icon.new(:moon, size: :sm) }
+            span(class: "hidden", data: { theme_icon: "dark" }) { render Icon.new(:sun, size: :sm) }
           end
 
           a(
             href: "/",
-            class: "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            class: "hidden h-9 items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex",
+            target: "_blank"
           ) do
             span(class: "hidden sm:inline") { "View site" }
-            render Icon.new(:external_link, size: :sm)
+            render Icon.new(:external_link, size: :xs)
           end
 
-          div(class: "h-5 w-px bg-border") {}
+          div(class: "mx-1 hidden h-5 w-px bg-border sm:block") {}
 
           render Dropdown.new(placement: :bottom_end) do |menu|
             menu.trigger(variant: :ghost, size: :sm, label: "Account menu") do
-              span(
-                class: "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-              ) do
+              div(class: "flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground") do
                 (@user&.name || "A").first.upcase
               end
-              span(class: "hidden md:inline text-sm font-medium text-foreground") { @user&.name || "Admin" }
+              span(class: "hidden md:inline text-sm font-medium") { @user&.name || "Admin" }
               render Icon.new(:chevron_down, size: :xs)
             end
             menu.title do
               div do
-                div(class: "text-sm font-medium text-foreground") { @user&.name || "Admin" }
+                div(class: "text-sm font-medium") { @user&.name || "Admin" }
                 div(class: "text-xs text-muted-foreground") { @current_site&.name || "Inkwell" }
               end
             end
@@ -63,7 +66,7 @@ module Admin
 
     def render_create_menu
       render Dropdown.new(placement: :bottom_end) do |menu|
-        menu.trigger("Create", variant: :primary, size: :sm, icon: :plus)
+        menu.trigger("New", variant: :primary, size: :sm, icon: :plus)
         menu.item("New post", href: new_admin_post_path, icon: :file_text)
         menu.item("New page", href: new_admin_page_path, icon: :layout)
         menu.separator
@@ -77,12 +80,8 @@ module Admin
         label: "Search or jump to…",
         placeholder: "Search pages, content, and settings…"
       ) do |palette|
-        command_destinations.each do |destination|
-          palette.destination(
-            destination.fetch(:label),
-            href: destination.fetch(:href),
-            description: destination.fetch(:description)
-          )
+        command_destinations.each do |dest|
+          palette.destination(dest.fetch(:label), href: dest.fetch(:href), description: dest.fetch(:description))
         end
       end
     end

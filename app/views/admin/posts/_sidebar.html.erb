@@ -35,7 +35,7 @@
     </div>
   <% else %>
     <div class="rounded-lg border border-border/50 p-4 text-center cursor-pointer hover:border-border hover:bg-muted/30 transition-all">
-      <%= render NitroKit::Icon.new(:image, size: :sm, label: "Add image") %>
+      <%= render Ink::Icon.new(:image, size: :sm, label: "Add image") %>
       <p class="text-[10px] text-muted-foreground/60 mt-1">Add an image</p>
     </div>
   <% end %>
@@ -86,7 +86,7 @@
   <details class="group mb-2">
     <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
       <span>Excerpt</span>
-      <%= render NitroKit::Icon.new(:chevron_right, size: :xs) %>
+      <%= render Ink::Icon.new(:chevron_right, size: :xs) %>
     </summary>
     <div class="mt-2 pl-0">
       <%= f.text_area :excerpt, rows: 4, placeholder: "A brief summary for search results and social cards…", class: "w-full text-sm border border-border rounded-lg px-3 py-2 bg-background text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-2 focus:ring-ring/20" %>
@@ -101,7 +101,7 @@
   <details class="group">
     <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
       <span>Discussion</span>
-      <%= render NitroKit::Icon.new(:chevron_right, size: :xs) %>
+      <%= render Ink::Icon.new(:chevron_right, size: :xs) %>
     </summary>
     <div class="mt-2 pl-0">
       <p class="text-xs text-muted-foreground">Comments: <%= post.comments.count %> total, <%= post.comments.pending.count %> pending</p>
@@ -115,7 +115,7 @@
   <details class="group">
     <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
       <span>Advanced</span>
-      <%= render NitroKit::Icon.new(:chevron_right, size: :xs) %>
+      <%= render Ink::Icon.new(:chevron_right, size: :xs) %>
     </summary>
   <div class="mt-2 pl-0 space-y-3">
     <div>

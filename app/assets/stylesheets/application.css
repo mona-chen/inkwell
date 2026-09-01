@@ -283,9 +283,11 @@
 #admin-shell [data-block-editor-target="block"] .heading-preview {
   color: var(--nk-color-foreground) !important;
 }
-#admin-shell .text-3xl,
-#admin-shell .text-2xl,
-#admin-shell h1, #admin-shell h2, #admin-shell h3 {
+#admin-shell [data-block-editor-target="block"] .text-3xl,
+#admin-shell [data-block-editor-target="block"] .text-2xl,
+#admin-shell [data-block-editor-target="block"] h1,
+#admin-shell [data-block-editor-target="block"] h2,
+#admin-shell [data-block-editor-target="block"] h3 {
   color: var(--nk-color-foreground) !important;
 }
 #admin-shell .text-foreground {
@@ -353,6 +355,16 @@
   max-height: 200px;
 }
 #admin-shell .rich-text-btn {
+  display: inline-flex;
+  min-inline-size: 1.75rem;
+  block-size: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: .375rem;
+  padding-inline: .4rem;
+  font-size: .6875rem;
+  font-weight: 600;
+  line-height: 1;
   color: var(--nk-color-muted-foreground);
   transition: color 120ms ease, background-color 120ms ease;
 }
@@ -363,4 +375,92 @@
 #admin-shell .rich-text-btn.is-active {
   color: var(--nk-color-primary);
   background-color: oklch(from var(--nk-color-primary) l c h / 0.1);
+}
+#admin-shell .choice-field {
+  display: inline-flex;
+  gap: .125rem;
+  padding: .125rem;
+  border: 1px solid var(--nk-color-border);
+  border-radius: .5rem;
+  background: var(--nk-color-muted);
+}
+#admin-shell .choice-btn {
+  min-block-size: 1.75rem;
+  padding-inline: .625rem;
+  border-radius: .375rem;
+  color: var(--nk-color-muted-foreground);
+  font-size: .6875rem;
+  font-weight: 600;
+}
+#admin-shell .choice-btn[aria-checked="true"] {
+  background: var(--nk-color-surface);
+  color: var(--nk-color-foreground);
+  box-shadow: var(--nk-shadow-sm);
+}
+
+/* SEO editor workspace. Kept in the admin bundle so plugin workspaces are styled
+   on the first render as well as after Turbo navigation. */
+#admin-shell .seo-ws-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(17rem, .85fr);
+  gap: .75rem;
+  padding: .75rem;
+}
+#admin-shell .seo-ws-main,
+#admin-shell .seo-ws-side { display: flex; min-width: 0; flex-direction: column; gap: .75rem; }
+#admin-shell .seo-panel {
+  min-width: 0;
+  padding: .875rem;
+  border: 1px solid var(--nk-color-border);
+  border-radius: .625rem;
+  background: var(--nk-color-surface);
+}
+#admin-shell .seo-panel summary { list-style: none; cursor: pointer; }
+#admin-shell .seo-panel summary::-webkit-details-marker { display: none; }
+#admin-shell .seo-serp {
+  padding: .75rem;
+  border: 1px solid var(--nk-color-border);
+  border-radius: .5rem;
+  background: var(--nk-color-canvas);
+}
+#admin-shell .seo-serp-url { margin-bottom: .25rem; color: var(--nk-color-muted-foreground); font-size: .625rem; }
+#admin-shell .seo-serp-title { margin: 0; color: #8ab4f8; font-size: .875rem; line-height: 1.3; }
+#admin-shell .seo-serp-desc { margin-top: .25rem; color: var(--nk-color-muted-foreground); font-size: .75rem; line-height: 1.4; }
+#admin-shell .seo-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .625rem; }
+#admin-shell .seo-field-wide { grid-column: 1 / -1; }
+#admin-shell .seo-field label,
+#admin-shell .seo-label { display: block; margin-bottom: .2rem; color: var(--nk-color-muted-foreground); font-size: .6875rem; font-weight: 600; }
+#admin-shell .seo-field input,
+#admin-shell .seo-field textarea,
+#admin-shell .seo-field select,
+#admin-shell .seo-panel > div > input,
+#admin-shell .seo-panel > div > select {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-height: 2rem;
+  padding: .4rem .55rem;
+  border: 1px solid var(--nk-color-border);
+  border-radius: .45rem;
+  outline: none;
+  background: var(--nk-color-canvas);
+  color: var(--nk-color-foreground);
+  font-size: .75rem;
+}
+#admin-shell .seo-field input:focus,
+#admin-shell .seo-field textarea:focus,
+#admin-shell .seo-field select:focus { border-color: var(--nk-color-primary); box-shadow: 0 0 0 2px color-mix(in oklab, var(--nk-color-primary) 18%, transparent); }
+#admin-shell .seo-score { display: inline-flex; width: 1.25rem; height: 1.25rem; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 999px; font-size: .625rem; font-weight: 700; }
+#admin-shell .seo-length { font-size: .625rem; }
+#admin-shell .seo-length.good { color: var(--nk-color-success); }
+#admin-shell .seo-length.warn { color: var(--nk-color-warning); }
+#admin-shell .seo-length.bad { color: var(--nk-color-danger); }
+#admin-shell .seo-social { overflow: hidden; border: 1px solid var(--nk-color-border); border-radius: .5rem; background: var(--nk-color-canvas); }
+#admin-shell .seo-social-img { display: grid; min-height: 6rem; place-items: center; background: var(--nk-color-muted); background-position: center; background-size: cover; color: var(--nk-color-muted-foreground); font-size: .6875rem; }
+#admin-shell .seo-result { display: flex; gap: .5rem; font-size: .75rem; line-height: 1.35; }
+#admin-shell .seo-result-dot { width: .5rem; height: .5rem; flex: 0 0 auto; margin-top: .2rem; border-radius: 999px; }
+#admin-shell .seo-check { display: flex; align-items: flex-start; gap: .5rem; color: var(--nk-color-foreground); font-size: .75rem; }
+@media (max-width: 62rem) {
+  #admin-shell .seo-ws-body { grid-template-columns: minmax(0, 1fr); }
+  #admin-shell .seo-fields { grid-template-columns: minmax(0, 1fr); }
 }

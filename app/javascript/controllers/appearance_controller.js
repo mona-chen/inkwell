@@ -2,31 +2,26 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   connect() {
-    this.boundSync = () => this.sync()
-    window.addEventListener("nitro-kit:appearance-change", this.boundSync)
-    this.sync()
-  }
-
-  disconnect() {
-    window.removeEventListener("nitro-kit:appearance-change", this.boundSync)
+    const saved = localStorage.getItem("inkwell-theme")
+    const preferred = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    this.apply(saved || preferred, false)
   }
 
   toggle() {
     const current = document.documentElement.getAttribute("data-theme") || "light"
-    const next = current === "dark" ? "light" : "dark"
-    this.apply(next)
+    this.apply(current === "dark" ? "light" : "dark")
   }
 
-  apply(theme) {
-    window.dispatchEvent(new CustomEvent("nitro-kit:appearance-request", {
-      detail: { preference: theme }
-    }))
+  apply(theme, persist = true) {
+    document.documentElement.setAttribute("data-theme", theme)
+    document.documentElement.style.colorScheme = theme
+    if (persist) localStorage.setItem("inkwell-theme", theme)
+    this.sync(theme)
   }
 
-  sync() {
-    const theme = document.documentElement.getAttribute("data-theme") || "light"
-    this.element.querySelectorAll("[data-theme-icon]").forEach(icon => {
-      icon.style.display = icon.dataset.themeIcon === theme ? "" : "none"
+  sync(theme) {
+    this.element.querySelectorAll("[data-theme-icon]").forEach((icon) => {
+      icon.classList.toggle("hidden", icon.dataset.themeIcon !== theme)
     })
   }
 }

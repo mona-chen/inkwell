@@ -18,7 +18,7 @@ module MetaCapi
         end
       end
 
-      render NitroKit::SettingsSection.new(
+      render Ink::SettingsSection.new(
         title: "Connection",
         description: "Connect your Meta Pixel to send server-side events via the Conversions API. Events are sent from the server, bypassing ad blockers and browser limitations."
       ) do |section|
@@ -27,7 +27,7 @@ module MetaCapi
             url: MetaCapi::Engine.routes.url_helpers.settings_path,
             method: :post,
             scope: "meta_capi",
-            builder: NitroKit::FormBuilder
+            builder: Ink::FormBuilder
           ) do |form|
             form.group do
               form.field(
@@ -66,7 +66,7 @@ module MetaCapi
         end
       end
 
-      render NitroKit::SettingsSection.new(
+      render Ink::SettingsSection.new(
         title: "Events",
         description: "The plugin automatically sends the following events when the corresponding actions occur on your site."
       ) do |section|
@@ -89,7 +89,7 @@ module MetaCapi
     def event_row(event_name, description, source)
       div(class: "flex items-start gap-3 rounded-lg border border-border bg-muted/30 p-3") do
         div(class: "mt-0.5") do
-          render NitroKit::Badge.new(event_name, variant: :outline, size: :xs)
+          render Ink::Badge.new(event_name, variant: :outline, size: :xs)
         end
         div(class: "flex-1 min-w-0") do
           p(class: "text-sm text-foreground") { description }

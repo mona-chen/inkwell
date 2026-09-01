@@ -9,11 +9,11 @@ RSpec.describe "Admin shell renders", type: :request do
 
   before { sign_in user }
 
-  it "renders the admin dashboard with the Nitro shell" do
+  it "renders the admin dashboard with the Ink shell" do
     get admin_root_path
     expect(response).to have_http_status(:ok)
     body = response.body
-    expect(body).to include("data-nk=\"app-shell\"")
+    expect(body).to include("data-ink=\"shell\"")
     expect(body).to include("Inkwell")
   end
 end

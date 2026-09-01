@@ -19,7 +19,7 @@ module AiWriter
         description: "Base URL, model, and key for the block editor's AI assistant."
       ) do |section|
         section.form do
-          form_with(url: AiWriter::Engine.routes.url_helpers.settings_path, method: :post, scope: "ai_writer", builder: NitroKit::FormBuilder) do |form|
+          form_with(url: AiWriter::Engine.routes.url_helpers.settings_path, method: :post, scope: "ai_writer", builder: Ink::FormBuilder) do |form|
             form.group do
               form.field(:ai_base_url, value: setting_value("ai_base_url", Client::DEFAULT_BASE_URL), label: "API base URL")
               form.field(:ai_model, value: setting_value("ai_model", Client::DEFAULT_MODEL), label: "Model")
@@ -42,7 +42,7 @@ module AiWriter
         description: "Let the Copilot research real design systems before it designs. Connect a Model Context Protocol server such as DesignMD (add with `claude mcp add designmd --transport http <url> --header \"Authorization: Bearer <token>\"`)."
       ) do |section|
         section.form do
-          form_with(url: AiWriter::Engine.routes.url_helpers.settings_path, method: :post, scope: "ai_writer", builder: NitroKit::FormBuilder) do |form|
+          form_with(url: AiWriter::Engine.routes.url_helpers.settings_path, method: :post, scope: "ai_writer", builder: Ink::FormBuilder) do |form|
             form.group do
               form.field(:mcp_enabled, as: :switch, label: "Enable design research tools",
                                        value: "1", checked: setting_value("mcp_enabled") == "1")

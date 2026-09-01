@@ -1,6 +1,6 @@
 <%= turbo_stream.remove dom_id(@media_item) %>
 <%= turbo_stream.update "media_empty_state" do %>
   <% if Current.site.media_items.none? %>
-    <%= render NitroKit::EmptyState.new(title: "No media yet", description: "Upload images and documents to use across your site.", level: 3, variant: :borderless) %>
+    <%= render Ink::EmptyState.new(title: "No media yet", description: "Upload images and documents to use across your site.", level: 3, variant: :borderless) %>
   <% end %>
 <% end %>

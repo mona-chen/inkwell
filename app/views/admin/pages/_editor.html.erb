@@ -12,15 +12,15 @@
     <input type="hidden" name="page[draft_content]" data-block-editor-target="hiddenField" value="<%= html_escape(page.editing_blocks.to_json) %>">
 
     <%# Editor toolbar: undo/redo + save status + add block %>
-    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-muted/50 backdrop-blur border-b border-border mb-4 flex items-center justify-between gap-3">
+    <div class="sticky top-14 z-20 -mx-1 mb-5 flex min-h-10 items-center justify-between gap-3 border-y border-border/70 bg-background/90 px-1 py-1.5 backdrop-blur-xl">
       <div class="flex items-center gap-1">
         <button type="button" data-action="block-editor#undo"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">
           ↺ Undo
         </button>
         <button type="button" data-action="block-editor#redo"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 data-block-editor-target="redoButton" title="Redo (Ctrl+Y)" aria-label="Redo">
           ↻ Redo
         </button>

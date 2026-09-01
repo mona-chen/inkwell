@@ -1,0 +1,85 @@
+/* ========================================================================
+   Ink — Minimal CSS: backward-compat aliases + animations only
+   All component styles now use Tailwind utilities directly.
+   ======================================================================== */
+
+/* --- Animations --- */
+@keyframes ink-flash-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ink-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ink-command-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* --- Backward-compat: --nk-* aliases for application.css --- */
+:root, [data-theme="light"] {
+  --nk-color-canvas: var(--background);
+  --nk-color-foreground: var(--foreground);
+  --nk-color-surface: var(--card);
+  --nk-color-surface-hover: var(--muted);
+  --nk-color-muted: var(--muted);
+  --nk-color-muted-foreground: var(--muted-foreground);
+  --nk-color-border: var(--border);
+  --nk-color-border-subtle: var(--border);
+  --nk-color-primary: var(--primary);
+  --nk-color-primary-foreground: var(--primary-foreground);
+  --nk-color-primary-hover: var(--primary);
+  --nk-color-focus: var(--ring);
+  --nk-color-danger: var(--destructive);
+  --nk-color-danger-foreground: var(--primary-foreground);
+  --nk-color-danger-content: var(--primary-foreground);
+  --nk-color-success: oklch(0.596 0.145 163);
+  --nk-color-info: oklch(0.546 0.245 285);
+  --nk-color-warning: oklch(0.768 0.165 75);
+  --nk-radius-sm: var(--radius-sm);
+  --nk-radius-md: var(--radius-md);
+  --nk-radius-lg: var(--radius-lg);
+  --nk-radius-xl: var(--radius-xl);
+  --nk-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.04);
+  --nk-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.07);
+  --nk-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.08);
+  --nk-font-sans: var(--font-sans);
+  --nk-button-default-background: var(--secondary);
+  --nk-button-default-foreground: var(--secondary-foreground);
+  --nk-button-default-border: var(--border);
+  --nk-button-default-hover-background: var(--muted);
+}
+[data-theme="dark"] {
+  --nk-color-canvas: var(--background);
+  --nk-color-foreground: var(--foreground);
+  --nk-color-surface: var(--card);
+  --nk-color-surface-hover: var(--muted);
+  --nk-color-muted: var(--muted);
+  --nk-color-muted-foreground: var(--muted-foreground);
+  --nk-color-border: var(--border);
+  --nk-color-border-subtle: var(--border);
+  --nk-color-primary: var(--primary);
+  --nk-color-primary-foreground: var(--primary-foreground);
+  --nk-color-primary-hover: var(--primary);
+  --nk-color-focus: var(--ring);
+  --nk-color-danger: var(--destructive);
+  --nk-color-danger-foreground: var(--primary-foreground);
+  --nk-color-danger-content: var(--primary-foreground);
+  --nk-color-success: oklch(0.696 0.17 163);
+  --nk-color-info: oklch(0.646 0.222 41);
+  --nk-color-warning: oklch(0.828 0.189 84);
+  --nk-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
+  --nk-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.35);
+  --nk-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.4);
+}
+
+/* --- Select chevron (Tailwind can't do this) --- */
+.ink-select-chevron {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+  padding-right: 2rem;
+}

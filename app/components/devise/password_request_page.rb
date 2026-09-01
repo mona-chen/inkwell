@@ -10,10 +10,10 @@ module Devise
 
     def view_template
       render Devise::AuthLayout.new(title: "Reset your password") do
-        render NitroKit::Card.new do |card|
+        render Ink::Card.new do |card|
           card.body do
             render_error_messages
-            form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :post }, builder: NitroKit::FormBuilder) do |form|
+            form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :post }, builder: Ink::FormBuilder) do |form|
               form.group do
                 form.field(:email, as: :email, control_html: { autofocus: true }, autocomplete: "email", label: "Email")
                 form.submit("Send reset instructions")
@@ -32,7 +32,7 @@ module Devise
     def render_error_messages
       return if @resource.errors.empty?
       div(class: "mb-4") do
-        render NitroKit::Alert.new(variant: :error, title: "Unable to send reset instructions") do
+        render Ink::Alert.new(variant: :error, title: "Unable to send reset instructions") do
           @resource.errors.full_messages.each { |msg| p { msg } }
         end
       end

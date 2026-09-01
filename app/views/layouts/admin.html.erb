@@ -1,6 +1,24 @@
-<%# Admin layout: renders the Nitro Kit AppShell through the Phlex Admin::Layout component.
-    Page content (ERB) is yielded into the shell's main region. %>
-<%= render Admin::Layout.new(title: (content_for?(:title) ? yield(:title) : "Home"), user: (current_user if defined?(current_user))) do %>
+<%# Admin layout: page content is yielded into the application-owned Ink shell. %>
+<%
+  route_title = case request.path
+  when %r{\A/admin/posts} then "Posts"
+  when %r{\A/admin/pages} then "Pages"
+  when %r{\A/admin/media} then "Media"
+  when %r{\A/admin/comments} then "Comments"
+  when %r{\A/admin/themes} then "Appearance"
+  when %r{\A/admin/menus} then "Navigation"
+  when %r{\A/admin/widgets} then "Widgets"
+  when %r{\A/admin/website_imports} then "Import website"
+  when %r{\A/admin/plugins} then "Plugins"
+  when %r{\A/admin/users} then "Users"
+  when %r{\A/admin/settings} then "Settings"
+  when %r{\A/admin/taxonomies} then "Taxonomies"
+  when %r{\A/plugins/seo_toolkit} then "SEO"
+  else "Home"
+  end
+  admin_title = content_for?(:title) ? yield(:title) : route_title
+%>
+<%= render Admin::Layout.new(title: admin_title, user: (current_user if defined?(current_user))) do %>
   <% if notice %><div class="mb-6 px-4 py-3 bg-success/10 text-success rounded-lg text-sm border border-success/30"><%= notice %></div><% end %>
   <% if alert %><div class="mb-6 px-4 py-3 bg-danger/10 text-danger rounded-lg text-sm border border-danger/30"><%= alert %></div><% end %>
   <%= yield %>

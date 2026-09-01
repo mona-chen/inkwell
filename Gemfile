@@ -36,7 +36,7 @@ gem "thruster", require: false
 
 # UI
 gem "view_component"
-gem "nitro_kit", "2.0.0.alpha.4"
+gem "lucide-rails"
 gem "phlex-rails"
 
 # Auth & authorization

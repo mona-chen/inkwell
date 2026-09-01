@@ -10,6 +10,6 @@ RSpec.describe "Devise sign-in flow with Nitro", type: :request do
     expect(response).to have_http_status(:redirect)
     follow_redirect!
     expect(response).to have_http_status(:ok)
-    expect(response.body).to include("data-nk=\"app-shell\"")
+    expect(response.body).to include("data-ink=\"shell\"")
   end
 end

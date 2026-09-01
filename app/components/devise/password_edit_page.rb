@@ -10,10 +10,10 @@ module Devise
 
     def view_template
       render Devise::AuthLayout.new(title: "Choose a new password") do
-        render NitroKit::Card.new do |card|
+        render Ink::Card.new do |card|
           card.body do
             render_error_messages
-            form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :put }, builder: NitroKit::FormBuilder) do |form|
+            form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :put }, builder: Ink::FormBuilder) do |form|
               form.hidden_field(:reset_password_token)
               form.group do
                 form.field(
@@ -38,7 +38,7 @@ module Devise
     def render_error_messages
       return if @resource.errors.empty?
       div(class: "mb-4") do
-        render NitroKit::Alert.new(variant: :error, title: "Unable to change your password") do
+        render Ink::Alert.new(variant: :error, title: "Unable to change your password") do
           @resource.errors.full_messages.each { |msg| p { msg } }
         end
       end

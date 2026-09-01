@@ -28,9 +28,11 @@ export default class extends Controller {
       this.menuTarget.style.transform = "translateY(0)"
     })
     document.addEventListener("pointerdown", this.outsideClick, true)
+    this.trigger?.setAttribute("aria-expanded", "true")
   }
 
   close() {
+    if (!this.hasMenuTarget || this.menuTarget.classList.contains("hidden")) return
     this.menuTarget.style.opacity = "0"
     this.menuTarget.style.transform = "translateY(-4px)"
     setTimeout(() => {
@@ -39,6 +41,7 @@ export default class extends Controller {
       this.menuTarget.style.transform = ""
     }, 120)
     document.removeEventListener("pointerdown", this.outsideClick, true)
+    this.trigger?.setAttribute("aria-expanded", "false")
   }
 
   outsideClick(event) {
@@ -49,5 +52,9 @@ export default class extends Controller {
 
   disconnect() {
     document.removeEventListener("pointerdown", this.outsideClick, true)
+  }
+
+  get trigger() {
+    return this.element.querySelector("button[aria-haspopup='menu']")
   }
 }

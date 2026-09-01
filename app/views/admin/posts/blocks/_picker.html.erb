@@ -3,14 +3,14 @@
     or after an insert (see block-editor#bindPickerOutsideClose / closePicker). %>
 <details data-block-editor-target="blockPicker" class="relative">
   <summary class="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border/50 text-muted-foreground/60 text-[10px] font-medium cursor-pointer hover:border-border hover:text-muted-foreground transition list-none">
-    <%= render NitroKit::Icon.new(:plus, size: :xs) %>
+    <%= render Ink::Icon.new(:plus, size: :xs) %>
     Add
   </summary>
 
   <div class="absolute right-0 z-10 mt-2 w-80 rounded-xl bg-background p-3 shadow-lg border border-border">
     <div class="relative mb-3">
       <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
-        <%= render NitroKit::Icon.new(:search, size: :xs) %>
+        <%= render Ink::Icon.new(:search, size: :xs) %>
       </span>
       <input type="search" placeholder="Search blocks and patterns…"
              data-action="input->block-editor#filterPicker"
@@ -26,7 +26,7 @@
                 data-search-item="<%= type.titleize %>"
                 data-search-group="blocks"
                 class="flex flex-col items-center gap-1 rounded-lg p-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-          <%= render NitroKit::Icon.new(BlockRenderer.icon_for(type), size: :sm) %>
+          <%= render Ink::Icon.new(BlockRenderer.icon_for(type), size: :sm) %>
           <span><%= type.titleize %></span>
         </button>
       <% end %>
@@ -41,7 +41,7 @@
                 data-search-item="<%= pattern["title"] %>"
                 data-search-group="patterns"
                 class="flex flex-col items-center gap-1 rounded-lg p-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-          <%= render NitroKit::Icon.new(pattern["icon"] || "sparkles", size: :sm) %>
+          <%= render Ink::Icon.new(pattern["icon"] || "sparkles", size: :sm) %>
           <span class="text-center leading-tight"><%= pattern["title"] %></span>
         </button>
       <% end %>

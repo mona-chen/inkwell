@@ -15,16 +15,14 @@ module Devise
           title { "#{@title} — Inkwell" }
           csrf_meta_tags
           csp_meta_tag
-          render NitroKit::AppearanceBootstrap.new(default: :light)
-          stylesheet_link_tag "nitro_kit-tailwind-v4", "data-turbo-track": "reload"
-          stylesheet_link_tag "nitro_kit", "data-turbo-track": "reload"
+          stylesheet_link_tag "ink", "data-turbo-track": "reload"
           stylesheet_link_tag "nitro_theme", "data-turbo-track": "reload"
           stylesheet_link_tag "tailwind", "data-turbo-track": "reload"
           stylesheet_link_tag "application", "data-turbo-track": "reload"
           javascript_importmap_tags
         end
         body do
-          render NitroKit::AuthShell.new do
+          render Ink::AuthShell.new do
             div(class: "text-center") do
               h1(class: "text-2xl font-bold tracking-tight") { "Inkwell" }
               p(class: "text-sm text-muted-foreground mt-2") { @title }

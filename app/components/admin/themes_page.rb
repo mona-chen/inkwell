@@ -30,20 +30,22 @@ module Admin
     private
 
     def theme_card(theme)
+      name = theme[:name] || theme["name"]
+      description = theme[:description] || theme["description"]
       Card.new do |card|
         card.title do
           Flex(dir: :row, gap: 2, align: :center) do
             span(class: "flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground") do
               render Icon.new(:palette, size: :sm)
             end
-            span(class: "text-base font-semibold text-foreground") { theme[:name] }
+            span(class: "text-sm font-semibold text-foreground") { name }
             if theme[:slug] == @active_theme
               render Badge.new("Active", color: :success, size: :xs)
             end
           end
         end
         card.body do
-          p(class: "min-h-[3rem] text-sm leading-relaxed text-muted-foreground") { theme[:description] }
+          p(class: "min-h-[2.5rem] text-xs leading-5 text-muted-foreground") { description }
         end
         card.footer do
           render Grid.new(cols: "1 sm:2", gap: 3) do

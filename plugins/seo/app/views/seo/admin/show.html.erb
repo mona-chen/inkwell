@@ -1,51 +1,9 @@
 <% seo_path = "/plugins/seo_toolkit/seo" %>
 
-<style>
-  .ink-seo-settings { width: 100%; max-width: 72rem; min-inline-size: 0; margin-inline: auto; padding-bottom: 4rem; }
-  .ink-seo-settings__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--nk-color-border); }
-  .ink-seo-settings__layout { display: grid; grid-template-columns: 12.5rem minmax(0, 1fr); align-items: start; gap: 1.25rem; }
-  .ink-seo-settings__nav { position: sticky; top: 5rem; min-width: 0; }
-  .ink-seo-settings__content { min-width: 0; overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 2rem; }
-  .ink-seo-settings__content > section { display: none; margin: 0; }
-  .ink-seo-settings__content > section.is-active { display: block; }
-  .ink-seo-settings.section-site-basics #site-basics,
-  .ink-seo-settings.section-site-representation #site-representation,
-  .ink-seo-settings.section-connections #connections,
-  .ink-seo-settings.section-content-types #content-types,
-  .ink-seo-settings.section-categories-tags #categories-tags,
-  .ink-seo-settings.section-crawl #crawl,
-  .ink-seo-settings.section-social #social { display: block; }
-  .ink-seo-nav-link { display: flex; align-items: center; gap: .5rem; border-radius: .5rem; padding: .375rem .625rem; color: var(--nk-color-muted-foreground); line-height: 1.25rem; transition: color .15s ease, background .15s ease; }
-  .ink-seo-nav-link:hover { color: var(--nk-color-foreground); background: var(--nk-color-muted); }
-  .ink-seo-nav-link.is-active { color: var(--nk-color-primary); background: color-mix(in oklab, var(--nk-color-primary) 12%, transparent); font-weight: 600; }
-  .ink-seo-settings input.peer[type="checkbox"] { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-  .ink-seo-settings input.peer[type="checkbox"] + span { position: relative; display: inline-block; flex: 0 0 auto; width: 2.25rem; height: 1.25rem; border-radius: 999px; background: var(--nk-color-muted); box-shadow: inset 0 0 0 1px var(--nk-color-border); transition: background .15s ease, box-shadow .15s ease; }
-  .ink-seo-settings input.peer[type="checkbox"] + span::after { content: ""; position: absolute; top: .125rem; left: .125rem; width: 1rem; height: 1rem; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgb(0 0 0 / .28); transition: transform .15s ease; }
-  .ink-seo-settings input.peer[type="checkbox"]:checked + span { background-color: var(--nk-color-primary) !important; box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--nk-color-primary) 80%, black); }
-  .ink-seo-settings input.peer[type="checkbox"]:checked + span::after { transform: translateX(1rem); }
-  .ink-seo-settings input.peer[type="checkbox"]:focus-visible + span { outline: 2px solid var(--nk-color-primary); outline-offset: 2px; }
-  .ink-seo-settings__footer { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--nk-color-border); }
-  .ink-seo-settings__footer button { flex: 0 0 auto; white-space: nowrap; }
-  .ink-seo-settings.section-content-types #content-types > div > div { padding-block: .75rem; }
-  @media (max-width: 960px) {
-    .ink-seo-settings__header { align-items: flex-start; flex-direction: column; }
-    .ink-seo-settings__header > div:last-child { flex-wrap: wrap; }
-    .ink-seo-settings__layout { grid-template-columns: 1fr; gap: 1.5rem; }
-    .ink-seo-settings__nav { position: static; }
-    .ink-seo-settings__nav nav { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .625rem; }
-    .ink-seo-settings__nav nav > div { min-width: 0; }
-  }
-  @media (max-width: 600px) {
-    .ink-seo-settings__header { align-items: flex-start; flex-direction: column; }
-    .ink-seo-settings__nav nav { grid-template-columns: 1fr; }
-    .ink-seo-settings__footer { align-items: stretch; flex-direction: column; }
-  }
-</style>
-
-<div class="ink-seo-settings section-<%= @section %> mx-auto w-full max-w-6xl pb-16">
-  <header class="ink-seo-settings__header mb-6 flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
+<div class="mx-auto w-full max-w-6xl pb-16">
+  <header class="flex items-center justify-between border-b border-border pb-5 mb-6 flex-col gap-4 sm:flex-row sm:items-center">
     <div class="flex items-center gap-3">
-      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><%= render NitroKit::Icon.new(:search, size: :md, label: "SEO") %></div>
+      <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><%= render Ink::Icon.new(:search, size: :md, label: "SEO") %></div>
       <div><p class="text-xs font-semibold uppercase tracking-[.12em] text-primary">SEO Toolkit</p><h1 class="text-2xl font-semibold tracking-tight text-foreground">Settings</h1></div>
     </div>
     <div class="flex items-center gap-2">
@@ -56,48 +14,236 @@
 
   <%= form_with url: seo_path, method: :patch, id: "seo-settings-form" do |f| %>
     <input type="hidden" name="section" value="<%= @section %>">
-    <div class="ink-seo-settings__layout grid items-start gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
-      <aside class="ink-seo-settings__nav lg:sticky lg:top-20">
-        <nav aria-label="SEO settings" class="mt-2 space-y-3 text-sm">
-          <div><p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">General</p>
-            <a href="<%= seo_path %>?section=site-basics" class="ink-seo-nav-link <%= 'is-active' if @section == 'site-basics' %>"><%= render NitroKit::Icon.new(:settings, size: :xs) %> Site basics</a>
-            <a href="<%= seo_path %>?section=site-representation" class="ink-seo-nav-link <%= 'is-active' if @section == 'site-representation' %>"><%= render NitroKit::Icon.new(:building_2, size: :xs) %> Site representation</a>
-            <a href="<%= seo_path %>?section=connections" class="ink-seo-nav-link <%= 'is-active' if @section == 'connections' %>"><%= render NitroKit::Icon.new(:link, size: :xs) %> Site connections</a>
+    <div class="grid items-start gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <aside class="lg:sticky lg:top-20">
+        <nav aria-label="SEO settings" class="space-y-4 text-sm">
+          <div>
+            <p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">General</p>
+            <div class="space-y-0.5">
+              <a href="<%= seo_path %>?section=site-basics" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'site-basics' %>"><%= render Ink::Icon.new(:settings, size: :sm) %> Site basics</a>
+              <a href="<%= seo_path %>?section=site-representation" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'site-representation' %>"><%= render Ink::Icon.new(:building_2, size: :sm) %> Site representation</a>
+              <a href="<%= seo_path %>?section=connections" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'connections' %>"><%= render Ink::Icon.new(:link, size: :sm) %> Site connections</a>
+            </div>
           </div>
-          <div><p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Content</p>
-            <a href="<%= seo_path %>?section=content-types" class="ink-seo-nav-link <%= 'is-active' if @section == 'content-types' %>"><%= render NitroKit::Icon.new(:files, size: :xs) %> Content types</a>
-            <a href="<%= seo_path %>?section=categories-tags" class="ink-seo-nav-link <%= 'is-active' if @section == 'categories-tags' %>"><%= render NitroKit::Icon.new(:tags, size: :xs) %> Categories &amp; tags</a>
+          <div>
+            <p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Content</p>
+            <div class="space-y-0.5">
+              <a href="<%= seo_path %>?section=content-types" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'content-types' %>"><%= render Ink::Icon.new(:files, size: :sm) %> Content types</a>
+              <a href="<%= seo_path %>?section=categories-tags" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'categories-tags' %>"><%= render Ink::Icon.new(:tags, size: :sm) %> Categories &amp; tags</a>
+            </div>
           </div>
-          <div><p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Advanced</p>
-            <a href="<%= seo_path %>?section=crawl" class="ink-seo-nav-link <%= 'is-active' if @section == 'crawl' %>"><%= render NitroKit::Icon.new(:bot, size: :xs) %> Crawl &amp; indexing</a>
-            <a href="<%= seo_path %>?section=social" class="ink-seo-nav-link <%= 'is-active' if @section == 'social' %>"><%= render NitroKit::Icon.new(:share_2, size: :xs) %> Social sharing</a>
+          <div>
+            <p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Advanced</p>
+            <div class="space-y-0.5">
+              <a href="<%= seo_path %>?section=crawl" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'crawl' %>"><%= render Ink::Icon.new(:bot, size: :sm) %> Crawl &amp; indexing</a>
+              <a href="<%= seo_path %>?section=social" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'social' %>"><%= render Ink::Icon.new(:share_2, size: :sm) %> Social sharing</a>
+            </div>
           </div>
         </nav>
       </aside>
 
-      <main class="ink-seo-settings__content min-w-0 space-y-10">
+      <main class="min-w-0 space-y-8">
+        <%# ── Site basics ── %>
+        <% if @section == "site-basics" %>
         <section id="site-basics" class="scroll-mt-24">
-          <div class="mb-5"><h2 class="text-xl font-semibold text-foreground">Site basics</h2><p class="mt-1 text-sm text-muted-foreground">Set defaults used when individual content has no custom search appearance.</p></div>
-          <div class="overflow-hidden rounded-xl border border-border bg-background">
-            <div class="grid gap-5 border-b border-border p-5 md:grid-cols-[180px_1fr]"><div><label for="seo_site_name" class="text-sm font-medium text-foreground">Website name</label><p class="mt-1 text-xs leading-5 text-muted-foreground">The name search engines use for this website.</p></div><div class="space-y-3"><%= f.text_field "seo[site_name]", id: "seo_site_name", value: @settings[:site_name], placeholder: Current.site.name, class: "h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %><div><label for="seo_alternate_name" class="text-xs font-medium text-muted-foreground">Alternate website name</label><%= f.text_field "seo[alternate_name]", id: "seo_alternate_name", value: @settings[:alternate_name], placeholder: "Optional abbreviation", class: "mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %></div></div></div>
-            <div class="grid gap-5 border-b border-border p-5 md:grid-cols-[180px_1fr]"><div><label for="seo_title_template" class="text-sm font-medium text-foreground">SEO title template</label><p class="mt-1 text-xs leading-5 text-muted-foreground">Build the default search title with replacement variables.</p></div><div><%= f.text_field "seo[title_template]", id: "seo_title_template", value: @settings[:title_template], class: "h-10 w-full rounded-lg border border-border bg-background px-3 font-mono text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %><p class="mt-2 text-xs text-muted-foreground">Variables: <code class="rounded bg-muted px-1 py-0.5">%title</code> and <code class="rounded bg-muted px-1 py-0.5">%{site_name}</code></p></div></div>
-            <div class="grid gap-5 p-5 md:grid-cols-[180px_1fr]"><div><label for="seo_default_description" class="text-sm font-medium text-foreground">Meta description</label><p class="mt-1 text-xs leading-5 text-muted-foreground">Fallback for search and social previews.</p></div><div><%= f.text_area "seo[default_description]", id: "seo_default_description", value: @settings[:default_description], rows: 3, maxlength: 155, class: "w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %><p class="mt-1 text-right text-xs text-muted-foreground"><%= @settings[:default_description].to_s.length %>/155</p></div></div>
+          <div class="mb-5">
+            <h2 class="text-xl font-semibold text-foreground">Site basics</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Set defaults used when individual content has no custom search appearance.</p>
+          </div>
+          <div class="overflow-hidden rounded-lg bg-card shadow-xs ring-1 ring-border/60">
+            <div class="grid gap-5 border-b border-border/60 p-5 md:grid-cols-[180px_1fr]">
+              <div>
+                <label for="seo_site_name" class="text-sm font-medium text-foreground">Website name</label>
+                <p class="mt-1 text-xs text-muted-foreground">The name search engines use for this website.</p>
+              </div>
+              <div class="space-y-3">
+                <%= f.text_field "seo[site_name]", id: "seo_site_name", value: @settings[:site_name], placeholder: Current.site.name, class: "h-9 w-full rounded-md bg-transparent px-3 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+                <div>
+                  <label for="seo_alternate_name" class="text-xs font-medium text-muted-foreground">Alternate website name</label>
+                  <%= f.text_field "seo[alternate_name]", id: "seo_alternate_name", value: @settings[:alternate_name], placeholder: "Optional abbreviation", class: "mt-1 h-9 w-full rounded-md bg-transparent px-3 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+                </div>
+              </div>
+            </div>
+            <div class="grid gap-5 border-b border-border/60 p-5 md:grid-cols-[180px_1fr]">
+              <div>
+                <label for="seo_title_template" class="text-sm font-medium text-foreground">SEO title template</label>
+                <p class="mt-1 text-xs text-muted-foreground">Build the default search title with replacement variables.</p>
+              </div>
+              <div>
+                <%= f.text_field "seo[title_template]", id: "seo_title_template", value: @settings[:title_template], class: "h-9 w-full rounded-md bg-transparent px-3 font-mono text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+                <p class="mt-2 text-xs text-muted-foreground">Variables: <code class="rounded bg-muted px-1 py-0.5 text-[11px]">%title</code> and <code class="rounded bg-muted px-1 py-0.5 text-[11px]">%{site_name}</code></p>
+              </div>
+            </div>
+            <div class="grid gap-5 p-5 md:grid-cols-[180px_1fr]">
+              <div>
+                <label for="seo_default_description" class="text-sm font-medium text-foreground">Meta description</label>
+                <p class="mt-1 text-xs text-muted-foreground">Fallback for search and social previews.</p>
+              </div>
+              <div>
+                <%= f.text_area "seo[default_description]", id: "seo_default_description", value: @settings[:default_description], rows: 3, maxlength: 155, class: "w-full resize-none rounded-md bg-transparent px-3 py-2 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+                <p class="mt-1 text-right text-xs text-muted-foreground"><%= @settings[:default_description].to_s.length %>/155</p>
+              </div>
+            </div>
           </div>
         </section>
+        <% end %>
 
-        <section id="site-representation" class="scroll-mt-24 border-t border-border pt-9"><div class="mb-5"><h2 class="text-xl font-semibold text-foreground">Site representation</h2><p class="mt-1 text-sm text-muted-foreground">Tell search engines whether this site represents an organization or a person.</p></div><div class="rounded-xl border border-border bg-background p-5"><fieldset><legend class="text-sm font-medium text-foreground">This website represents</legend><div class="mt-3 grid gap-3 sm:grid-cols-2"><% [["organization", "Organization", "A company, team, nonprofit, or brand"], ["person", "Person", "An individual or personal brand"]].each do |value, label, description| %><label class="relative flex cursor-pointer gap-3 rounded-xl border border-border p-4 transition has-[:checked]:border-primary has-[:checked]:bg-primary/5"><input type="radio" name="seo[site_representation]" value="<%= value %>" <%= "checked" if @settings[:site_representation] == value %> class="mt-0.5 h-4 w-4 accent-primary"><span><span class="block text-sm font-medium text-foreground"><%= label %></span><span class="mt-0.5 block text-xs leading-5 text-muted-foreground"><%= description %></span></span></label><% end %></div></fieldset><div class="mt-5 grid gap-4 sm:grid-cols-2"><div><label for="seo_org_name" class="text-xs font-medium text-muted-foreground">Organization or person name</label><%= f.text_field "seo[organization_name]", id: "seo_org_name", value: @settings[:organization_name], placeholder: @settings[:site_name], class: "mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %></div><div><label for="seo_org_logo" class="text-xs font-medium text-muted-foreground">Logo URL</label><%= f.url_field "seo[organization_logo]", id: "seo_org_logo", value: @settings[:organization_logo], placeholder: "https://…", class: "mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %></div></div></div></section>
+        <%# ── Site representation ── %>
+        <% if @section == "site-representation" %>
+        <section id="site-representation" class="scroll-mt-24">
+          <div class="mb-5">
+            <h2 class="text-xl font-semibold text-foreground">Site representation</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Tell search engines whether this site represents an organization or a person.</p>
+          </div>
+          <div class="rounded-lg bg-card p-5 shadow-xs ring-1 ring-border/60">
+            <fieldset>
+              <legend class="text-sm font-medium text-foreground">This website represents</legend>
+              <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                <% [["organization", "Organization", "A company, team, nonprofit, or brand"], ["person", "Person", "An individual or personal brand"]].each do |value, label, description| %>
+                  <label class="relative flex cursor-pointer gap-3 rounded-lg border border-border p-4 transition has-[:checked]:border-primary has-[:checked]:bg-primary/5">
+                    <input type="radio" name="seo[site_representation]" value="<%= value %>" <%= "checked" if @settings[:site_representation] == value %> class="mt-0.5 h-4 w-4 accent-primary">
+                    <span>
+                      <span class="block text-sm font-medium text-foreground"><%= label %></span>
+                      <span class="mt-0.5 block text-xs text-muted-foreground"><%= description %></span>
+                    </span>
+                  </label>
+                <% end %>
+              </div>
+            </fieldset>
+            <div class="mt-5 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label for="seo_org_name" class="text-xs font-medium text-muted-foreground">Organization or person name</label>
+                <%= f.text_field "seo[organization_name]", id: "seo_org_name", value: @settings[:organization_name], placeholder: @settings[:site_name], class: "mt-1 h-9 w-full rounded-md bg-transparent px-3 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+              </div>
+              <div>
+                <label for="seo_org_logo" class="text-xs font-medium text-muted-foreground">Logo URL</label>
+                <%= f.url_field "seo[organization_logo]", id: "seo_org_logo", value: @settings[:organization_logo], placeholder: "https://…", class: "mt-1 h-9 w-full rounded-md bg-transparent px-3 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+              </div>
+            </div>
+          </div>
+        </section>
+        <% end %>
 
-        <section id="content-types" class="scroll-mt-24 border-t border-border pt-9"><div class="mb-5"><h2 class="text-xl font-semibold text-foreground">Content types</h2><p class="mt-1 text-sm text-muted-foreground">Control which content appears in search results.</p></div><div class="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background"><% [["index_posts", "Posts", "Articles and editorial content"], ["index_pages", "Pages", "Landing pages and site content"]].each do |key, label, description| %><div class="flex items-center justify-between gap-5 p-5"><div><h3 class="text-sm font-medium text-foreground"><%= label %></h3><p class="mt-1 text-xs text-muted-foreground"><%= description %></p></div><label class="relative inline-flex cursor-pointer items-center"><input type="hidden" name="seo[<%= key %>]" value="0"><input type="checkbox" name="seo[<%= key %>]" value="1" <%= "checked" if @settings[key.to_sym] == "1" %> class="peer sr-only"><span class="h-6 w-11 rounded-full bg-muted transition peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/30 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5"></span><span class="sr-only">Show <%= label.downcase %> in search</span></label></div><% end %></div></section>
+        <%# ── Content types ── %>
+        <% if @section == "content-types" %>
+        <section id="content-types" class="scroll-mt-24">
+          <div class="mb-5">
+            <h2 class="text-xl font-semibold text-foreground">Content types</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Control which content appears in search results.</p>
+          </div>
+          <div class="divide-y divide-border/60 overflow-hidden rounded-lg bg-card shadow-xs ring-1 ring-border/60">
+            <% [["index_posts", "Posts", "Articles and editorial content"], ["index_pages", "Pages", "Landing pages and site content"]].each do |key, label, description| %>
+              <div class="flex items-center justify-between gap-5 p-5">
+                <div>
+                  <h3 class="text-sm font-medium text-foreground"><%= label %></h3>
+                  <p class="mt-1 text-xs text-muted-foreground"><%= description %></p>
+                </div>
+                <label class="relative inline-flex cursor-pointer items-center">
+                  <input type="hidden" name="seo[<%= key %>]" value="0">
+                  <input type="checkbox" name="seo[<%= key %>]" value="1" <%= "checked" if @settings[key.to_sym] == "1" %> class="peer sr-only">
+                  <span class="h-6 w-11 rounded-full bg-border transition peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/30 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5"></span>
+                  <span class="sr-only">Show <%= label.downcase %> in search</span>
+                </label>
+              </div>
+            <% end %>
+          </div>
+        </section>
+        <% end %>
 
-        <section id="categories-tags" class="scroll-mt-24 border-t border-border pt-9"><div class="mb-5"><h2 class="text-xl font-semibold text-foreground">Categories &amp; tags</h2><p class="mt-1 text-sm text-muted-foreground">Choose whether archive pages can appear in search.</p></div><div class="rounded-xl border border-border bg-background p-5"><label class="flex items-start justify-between gap-5"><span><span class="block text-sm font-medium text-foreground">Show taxonomy archives in search results</span><span class="mt-1 block text-xs text-muted-foreground">Disable this to add <code>noindex</code> to category and tag archives.</span></span><span class="relative inline-flex cursor-pointer items-center"><input type="hidden" name="seo[noindex_archives]" value="1"><input type="checkbox" name="seo[noindex_archives]" value="0" <%= "checked" if @settings[:noindex_archives] != "1" %> class="peer sr-only"><span class="h-6 w-11 rounded-full bg-muted transition peer-checked:bg-primary after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5"></span></span></label></div></section>
+        <%# ── Categories & tags ── %>
+        <% if @section == "categories-tags" %>
+        <section id="categories-tags" class="scroll-mt-24">
+          <div class="mb-5">
+            <h2 class="text-xl font-semibold text-foreground">Categories &amp; tags</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Choose whether archive pages can appear in search.</p>
+          </div>
+          <div class="rounded-lg bg-card p-5 shadow-xs ring-1 ring-border/60">
+            <label class="flex items-start justify-between gap-5">
+              <span>
+                <span class="block text-sm font-medium text-foreground">Show taxonomy archives in search results</span>
+                <span class="mt-1 block text-xs text-muted-foreground">Disable this to add <code>noindex</code> to category and tag archives.</span>
+              </span>
+              <span class="relative inline-flex cursor-pointer items-center">
+                <input type="hidden" name="seo[noindex_archives]" value="1">
+                <input type="checkbox" name="seo[noindex_archives]" value="0" <%= "checked" if @settings[:noindex_archives] != "1" %> class="peer sr-only">
+                <span class="h-6 w-11 rounded-full bg-border transition peer-checked:bg-primary after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5"></span>
+              </span>
+            </label>
+          </div>
+        </section>
+        <% end %>
 
-        <section id="connections" class="scroll-mt-24 border-t border-border pt-9"><div class="mb-5"><h2 class="text-xl font-semibold text-foreground">Site connections</h2><p class="mt-1 text-sm text-muted-foreground">Verify ownership with search engine webmaster tools.</p></div><div class="grid gap-4 rounded-xl border border-border bg-background p-5 sm:grid-cols-2"><% [["google_verification", "Google"], ["bing_verification", "Bing"]].each do |key, label| %><div><label class="text-xs font-medium text-muted-foreground" for="seo_<%= key %>"><%= label %> verification code</label><%= f.text_field "seo[#{key}]", id: "seo_#{key}", value: @settings[key.to_sym], class: "mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %></div><% end %></div></section>
+        <%# ── Site connections ── %>
+        <% if @section == "connections" %>
+        <section id="connections" class="scroll-mt-24">
+          <div class="mb-5">
+            <h2 class="text-xl font-semibold text-foreground">Site connections</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Verify ownership with search engine webmaster tools.</p>
+          </div>
+          <div class="grid gap-4 rounded-lg bg-card p-5 shadow-xs ring-1 ring-border/60 sm:grid-cols-2">
+            <% [["google_verification", "Google"], ["bing_verification", "Bing"]].each do |key, label| %>
+              <div>
+                <label class="text-xs font-medium text-muted-foreground" for="seo_<%= key %>"><%= label %> verification code</label>
+                <%= f.text_field "seo[#{key}]", id: "seo_#{key}", value: @settings[key.to_sym], class: "mt-1 h-9 w-full rounded-md bg-transparent px-3 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+              </div>
+            <% end %>
+          </div>
+        </section>
+        <% end %>
 
-        <section id="crawl" class="scroll-mt-24 border-t border-border pt-9"><div class="mb-5"><h2 class="text-xl font-semibold text-foreground">Crawl &amp; indexing</h2><p class="mt-1 text-sm text-muted-foreground">Manage discovery features and archive behavior.</p></div><div class="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background"><% [["enable_sitemap", "XML sitemap", "Generate a sitemap for published content"], ["enable_breadcrumbs", "Breadcrumbs", "Expose breadcrumb schema and navigation data"], ["index_author_archives", "Author archives", "Allow author archive pages in search"], ["index_date_archives", "Date archives", "Allow date archive pages in search"]].each do |key, label, description| %><label class="flex items-center justify-between gap-5 p-5"><span><span class="block text-sm font-medium text-foreground"><%= label %></span><span class="mt-1 block text-xs text-muted-foreground"><%= description %></span></span><span class="relative inline-flex cursor-pointer items-center"><input type="hidden" name="seo[<%= key %>]" value="0"><input type="checkbox" name="seo[<%= key %>]" value="1" <%= "checked" if @settings[key.to_sym] == "1" %> class="peer sr-only"><span class="h-6 w-11 rounded-full bg-muted transition peer-checked:bg-primary after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5"></span></span></label><% end %></div></section>
+        <%# ── Crawl & indexing ── %>
+        <% if @section == "crawl" %>
+        <section id="crawl" class="scroll-mt-24">
+          <div class="mb-5">
+            <h2 class="text-xl font-semibold text-foreground">Crawl &amp; indexing</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Manage discovery features and archive behavior.</p>
+          </div>
+          <div class="divide-y divide-border/60 overflow-hidden rounded-lg bg-card shadow-xs ring-1 ring-border/60">
+            <% [["enable_sitemap", "XML sitemap", "Generate a sitemap for published content"], ["enable_breadcrumbs", "Breadcrumbs", "Expose breadcrumb schema and navigation data"], ["index_author_archives", "Author archives", "Allow author archive pages in search"], ["index_date_archives", "Date archives", "Allow date archive pages in search"]].each do |key, label, description| %>
+              <label class="flex items-center justify-between gap-5 p-5">
+                <span>
+                  <span class="block text-sm font-medium text-foreground"><%= label %></span>
+                  <span class="mt-1 block text-xs text-muted-foreground"><%= description %></span>
+                </span>
+                <span class="relative inline-flex cursor-pointer items-center">
+                  <input type="hidden" name="seo[<%= key %>]" value="0">
+                  <input type="checkbox" name="seo[<%= key %>]" value="1" <%= "checked" if @settings[key.to_sym] == "1" %> class="peer sr-only">
+                  <span class="h-6 w-11 rounded-full bg-border transition peer-checked:bg-primary after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5"></span>
+                </span>
+              </label>
+            <% end %>
+          </div>
+        </section>
+        <% end %>
 
-        <section id="social" class="scroll-mt-24 border-t border-border pt-9"><div class="mb-5"><h2 class="text-xl font-semibold text-foreground">Social sharing</h2><p class="mt-1 text-sm text-muted-foreground">Set fallback media and identity for social previews.</p></div><div class="grid gap-4 rounded-xl border border-border bg-background p-5 sm:grid-cols-2"><div class="sm:col-span-2"><label for="seo_default_og_image" class="text-xs font-medium text-muted-foreground">Default social image URL</label><%= f.url_field "seo[default_og_image]", id: "seo_default_og_image", value: @settings[:default_og_image], placeholder: "https://example.com/social-image.jpg", class: "mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %></div><div><label for="seo_twitter_handle" class="text-xs font-medium text-muted-foreground">X handle</label><%= f.text_field "seo[twitter_handle]", id: "seo_twitter_handle", value: @settings[:twitter_handle], placeholder: "@yourhandle", class: "mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %></div><div><label for="seo_google_analytics" class="text-xs font-medium text-muted-foreground">Google Analytics ID</label><%= f.text_field "seo[google_analytics_id]", id: "seo_google_analytics", value: @settings[:google_analytics_id], placeholder: "G-XXXXXXXXXX", class: "mt-1 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" %></div></div></section>
+        <%# ── Social sharing ── %>
+        <% if @section == "social" %>
+        <section id="social" class="scroll-mt-24">
+          <div class="mb-5">
+            <h2 class="text-xl font-semibold text-foreground">Social sharing</h2>
+            <p class="mt-1 text-sm text-muted-foreground">Set fallback media and identity for social previews.</p>
+          </div>
+          <div class="grid gap-4 rounded-lg bg-card p-5 shadow-xs ring-1 ring-border/60 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <label for="seo_default_og_image" class="text-xs font-medium text-muted-foreground">Default social image URL</label>
+              <%= f.url_field "seo[default_og_image]", id: "seo_default_og_image", value: @settings[:default_og_image], placeholder: "https://example.com/social-image.jpg", class: "mt-1 h-9 w-full rounded-md bg-transparent px-3 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+            </div>
+            <div>
+              <label for="seo_twitter_handle" class="text-xs font-medium text-muted-foreground">X handle</label>
+              <%= f.text_field "seo[twitter_handle]", id: "seo_twitter_handle", value: @settings[:twitter_handle], placeholder: "@yourhandle", class: "mt-1 h-9 w-full rounded-md bg-transparent px-3 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+            </div>
+            <div>
+              <label for="seo_google_analytics" class="text-xs font-medium text-muted-foreground">Google Analytics ID</label>
+              <%= f.text_field "seo[google_analytics_id]", id: "seo_google_analytics", value: @settings[:google_analytics_id], placeholder: "G-XXXXXXXXXX", class: "mt-1 h-9 w-full rounded-md bg-transparent px-3 text-sm ring-1 ring-inset ring-border focus:ring-2 focus:ring-primary/50 focus:outline-none" %>
+            </div>
+          </div>
+        </section>
+        <% end %>
 
-        <div class="ink-seo-settings__footer"><p class="text-xs text-muted-foreground">Settings apply site-wide unless overridden on individual content.</p><button type="submit" class="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">Save changes</button></div>
+        <div class="flex items-center justify-between gap-6 border-t border-border pt-6">
+          <p class="text-xs text-muted-foreground">Settings apply site-wide unless overridden on individual content.</p>
+          <button type="submit" class="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">Save changes</button>
+        </div>
       </main>
     </div>
   <% end %>
