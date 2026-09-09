@@ -8,7 +8,7 @@ module Ink
     end
 
     def view_template
-      div(class: "flex flex-col h-full bg-sidebar text-sidebar-foreground") do
+      div(class: "flex flex-col h-full bg-sidebar text-sidebar-foreground", data: { ink: "app-navigation" }) do
         render_brand
         nav(class: "flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-3 pt-1", aria: { label: "Admin navigation" }) do
           @groups.each do |group|

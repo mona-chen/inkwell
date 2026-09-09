@@ -24,7 +24,7 @@
           <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9z"/></svg>
         </span>
         <span class="bc-title">Copilot</span>
-        <span class="bc-badge">Design agent</span>
+
         <span data-builder-copilot-target="statusDot" class="bc-dot hidden"></span>
       </div>
       <button type="button" data-action="builder-copilot#close" class="bc-icon-btn" aria-label="Close Copilot">
@@ -39,13 +39,13 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3 14 9l6 2-6 2-2 6-2-6-6-2 6-2 2-6Z"/><path d="m18.5 3 .6 1.9L21 5.5l-1.9.6-.6 1.9-.6-1.9-1.9-.6 1.9-.6.6-1.9Z"/></svg>
           </span>
           <div class="bc-empty-copy">
-            <strong>What are we building?</strong>
-            <span>Describe the product, audience, desired action, and visual mood. Copilot will compose editable sections, responsive styles, and purposeful motion.</span>
+            <strong>What’s next?</strong>
+            <span>Start with an idea, or select a layer and make it better.</span>
           </div>
           <div class="bc-suggestions" aria-label="Example prompts">
-            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Design a premium landing page for a collaborative writing workspace for editorial teams. Make it warm, tactile, confident, and conversion-focused.">Editorial SaaS launch</button>
-            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Create a cinematic portfolio for an independent product designer. Use bold editorial typography, case-study proof, restrained motion, and a clear project inquiry CTA.">Designer portfolio</button>
-            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Build a distinctive waitlist page for a privacy-first personal finance app. Convey trust without generic fintech blue, explain the value clearly, and end with a strong signup CTA.">Product waitlist</button>
+            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Design a premium landing page for a collaborative writing workspace for editorial teams. Make it warm, tactile, confident, and conversion-focused.">Create a page</button>
+            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Create a cinematic portfolio for an independent product designer. Use bold editorial typography, case-study proof, restrained motion, and a clear project inquiry CTA.">Explore a direction</button>
+            <button type="button" data-action="builder-copilot#useSuggestion" data-prompt="Build an editable project dashboard with navigation, a project list, and a clear primary action. Mark example content as sample data.">Build an app screen</button>
           </div>
         </div>
       </div>
@@ -66,44 +66,13 @@
       </div>
 
       <div class="bc-input-area">
-        <div class="bc-brand-row">
-          <label class="bc-brand-label" for="bc-brand">Design language</label>
-          <span class="bc-brand-wrap">
-            <select data-builder-copilot-target="brand" id="bc-brand" class="bc-brand" aria-label="Design aesthetic">
-              <option value="">Auto — pick a fitting aesthetic</option>
-              <option value="linear.app">Linear — minimal, precise, lavender</option>
-              <option value="stripe">Stripe — purple gradients, elegant</option>
-              <option value="vercel">Vercel — black &amp; white precision</option>
-              <option value="cursor">Cursor — sleek dark, gradient accents</option>
-              <option value="framer">Framer — bold black &amp; blue, motion-first</option>
-              <option value="supabase">Supabase — dark emerald, code-first</option>
-              <option value="notion">Notion — warm minimalism, serif headings</option>
-              <option value="raycast">Raycast — dark chrome, vibrant accents</option>
-              <option value="posthog">PostHog — playful, developer dark UI</option>
-              <option value="resend">Resend — minimal dark, monospace accents</option>
-              <option value="airbnb">Airbnb — warm coral, rounded, photography</option>
-              <option value="spotify">Spotify — vibrant green on dark</option>
-              <option value="figma">Figma — vibrant multi-color, playful</option>
-              <option value="shopify">Shopify — dark-first cinematic, neon green</option>
-              <option value="coinbase">Coinbase — clean blue, institutional trust</option>
-              <option value="binance">Binance — bold yellow on monochrome</option>
-              <option value="apple">Apple — premium white space, cinematic</option>
-              <option value="nike">Nike — monochrome, massive display type</option>
-              <option value="tesla">Tesla — radical subtraction, cinematic</option>
-            </select>
-          </span>
-        </div>
-        <div class="bc-modes" role="group" aria-label="Design mode">
-          <button type="button" data-builder-copilot-target="mode" data-mode="design" data-action="builder-copilot#setMode" class="bc-mode">Design</button>
-          <button type="button" data-builder-copilot-target="mode" data-mode="add_section" data-action="builder-copilot#setMode" class="bc-mode">Add section</button>
-          <button type="button" data-builder-copilot-target="mode" data-mode="rewrite" data-action="builder-copilot#setMode" class="bc-mode">Rewrite</button>
-        </div>
+        <div class="bc-composer-context"><span aria-hidden="true">◇</span><span data-builder-copilot-target="scope">Current page</span></div>
         <textarea data-builder-copilot-target="prompt" rows="2" data-action="keydown->builder-copilot#promptKeydown"
-                  placeholder="Describe the page you want — tell me your site's story and I'll design it…" class="bc-prompt"></textarea>
+                  placeholder="Ask, design, or refine…" class="bc-prompt"></textarea>
         <div class="bc-input-row">
           <span data-builder-copilot-target="status" class="bc-status"></span>
-          <button type="button" data-builder-copilot-target="send" data-action="builder-copilot#send" class="bc-btn bc-btn-send" aria-label="Generate">
-            <span>Generate</span>
+          <button type="button" data-builder-copilot-target="send" data-action="builder-copilot#send" class="bc-btn bc-btn-send" aria-label="Send message">
+            <span>Send</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7"/></svg>
           </button>
         </div>
@@ -784,7 +753,7 @@
     }
 
     class BuilderCopilotController extends Controller {
-      static targets = ["fab", "window", "transcript", "prompt", "send", "status", "statusDot", "mode", "designView", "apply", "undoCheckpoint", "checkpoints", "brand"]
+      static targets = ["fab", "window", "transcript", "prompt", "send", "status", "statusDot", "mode", "designView", "apply", "undoCheckpoint", "checkpoints", "brand", "scope"]
       static values = { context: String, site: String, recordId: String, recordType: String }
 
       connect() {
@@ -795,6 +764,9 @@
         if (this.dock) {
           this.windowTarget.classList.add("bc-docked")
           this.fabTarget?.classList.add("hidden")
+          this.windowTarget.classList.remove("hidden")
+          this._tabOpen = () => { this.updateScope(); this.promptTarget?.focus() }
+          this.dock.addEventListener("ink:tab-open", this._tabOpen)
         } else if (this.element.parentElement !== document.body) {
           document.body.appendChild(this.element)
         }
@@ -802,7 +774,8 @@
           this._copilotToggle = () => this.toggle()
           this.copilotButton.addEventListener("click", this._copilotToggle)
         }
-        this.mode = "design"
+        this._selectionChanged = window.builder?.runtime?.events.on("selection:change", () => this.updateScope())
+        this.mode = "auto"
         this.history = []
         this.busy = false
         this.abortController = null
@@ -829,6 +802,8 @@
       }
 
       disconnect() {
+        this._selectionChanged?.()
+        this.dock?.removeEventListener("ink:tab-open", this._tabOpen)
         this.abortController?.abort()
         clearTimeout(this.requestTimer)
         if (this.copilotButton && this._copilotToggle) this.copilotButton.removeEventListener("click", this._copilotToggle)
@@ -836,14 +811,15 @@
         if (this.checkpointsTarget && this._checkpointClick) this.checkpointsTarget.removeEventListener("click", this._checkpointClick)
       }
 
-      toggle(event) { this.windowTarget.classList.contains("hidden") ? this.open(event) : this.close(event) }
+      toggle(event) {
+        const closed = this.dock ? this.dock.style.display === "none" : this.windowTarget.classList.contains("hidden")
+        closed ? this.open(event) : this.close(event)
+      }
 
       open(event) {
         event && event.preventDefault()
         if (this.dock) {
-          this.dock.hidden = false
-          this.windowTarget.classList.remove("hidden")
-          if (this.copilotButton) this.copilotButton.classList.add("is-active")
+          document.querySelector('[data-tab="copilot"]')?.click()
           this.promptTarget?.focus()
           return
         }
@@ -855,9 +831,7 @@
       close(event) {
         event && event.preventDefault()
         if (this.dock) {
-          this.dock.hidden = true
-          this.windowTarget.classList.add("hidden")
-          if (this.copilotButton) this.copilotButton.classList.remove("is-active")
+          document.querySelector('[data-tab="controls"]')?.click()
           return
         }
         this.windowTarget.classList.add("hidden")
@@ -892,6 +866,11 @@
         try { return (window.builder && window.builder.getData) ? window.builder.getData() : {} } catch { return {} }
       }
 
+      updateScope() {
+        const selected = [...(window.builder?.runtime?.selection?.selectedIds || [])]
+        if (this.hasScopeTarget) this.scopeTarget.textContent = selected.length ? `${selected.length} selected layer${selected.length === 1 ? "" : "s"}` : "Current page"
+      }
+
       async send() {
         if (this.busy) {
           this.stopReason = "cancelled"
@@ -900,15 +879,24 @@
         }
         const prompt = this.promptTarget.value.trim()
         if (!prompt) return
+        // Social messages never start the provider or gain permission to modify the page.
+        const greeting = /^(hi|hello|hey|hiya|good morning|good afternoon|good evening)[!. ,]*$/i.test(prompt)
+        const thanks = /^(thanks|thank you|cheers)[!. ,]*$/i.test(prompt)
+        if (greeting || thanks) {
+          const reply = greeting ? "Hi! What would you like to make or improve?" : "You're welcome."
+          this.addUserMessage(prompt); this.addAssistantMessage(reply)
+          this.history.push({ role: "user", content: prompt }, { role: "assistant", content: reply })
+          this.promptTarget.value = ""
+          return
+        }
+        this.updateScope()
         this.busy = true
         this.stopReason = null
         this.abortController = new AbortController()
         this.setSendRunning(true)
-        this.requestTimer = setTimeout(() => {
-          this.stopReason = "timeout"
-          this.abortController?.abort()
-        }, 180000)
-        this.setStatus("Thinking…", true)
+        this.requestStartedAt = Date.now()
+        this.armRequestTimeout()
+        this.setStatus("", true)
 
         const editIndex = this.targetSectionIndex(prompt)
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content
@@ -919,6 +907,7 @@
         const baseCss = this.customCss || (document.getElementById("customCss") ? document.getElementById("customCss").value : "")
         const baseJs = this.customJs || (document.getElementById("customJs") ? document.getElementById("customJs").value : "")
         this.addUserMessage(prompt)
+        this.promptTarget.value = ""
         this.beginThinking()
         // Client-driven loop: the AI edits the LIVE v2 store through builder.copilotTools.
         if (window.builder && window.builder.copilotTools) {
@@ -926,7 +915,7 @@
             await this.clientSend(prompt, this.abortController.signal)
           } catch (e) {
             this.endThinking()
-            if (e.name === "AbortError") this.addAssistantMessage(this.stopReason === "timeout" ? "The provider took too long, so I stopped this run safely. Try a more focused request or run it again." : "Generation stopped. No incomplete tool payload was applied.")
+            if (e.name === "AbortError") this.addAssistantMessage(this.stopReason === "timeout" ? "The provider took too long, so I stopped this run safely. Try a more focused request or run it again." : "Stopped. Completed changes remain editable; use Undo to step back.")
             else this.addError(e.message)
           } finally {
             clearTimeout(this.requestTimer)
@@ -971,12 +960,23 @@
         }
       }
 
+      armRequestTimeout() {
+        clearTimeout(this.requestTimer)
+        const remaining = Math.max(1, 600000 - (Date.now() - this.requestStartedAt))
+        this.requestTimer = setTimeout(() => {
+          this.stopReason = "timeout"
+          this.abortController?.abort()
+        }, Math.min(180000, remaining))
+      }
+
       setSendRunning(running) {
         const label = this.sendTarget.querySelector("span")
-        if (label) label.textContent = running ? "Stop" : "Generate"
-        this.sendTarget.setAttribute("aria-label", running ? "Stop generation" : "Generate")
+        if (label) label.textContent = running ? "Stop" : "Send"
+        this.sendTarget.setAttribute("aria-label", running ? "Stop response" : "Send message")
         this.sendTarget.classList.toggle("is-stopping", running)
         this.sendTarget.disabled = false
+        const icon = this.sendTarget.querySelector("svg")
+        if (icon) icon.innerHTML = running ? '<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>' : '<path d="M5 12h14m-7-7 7 7-7 7"/>'
       }
 
       // Read the SSE stream. reasoning_content (the model's thinking) is shown in the
@@ -994,6 +994,7 @@
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
+          this.armRequestTimeout()
           buffer += decoder.decode(value, { stream: true })
           const lines = buffer.split("\n")
           buffer = lines.pop()
@@ -1030,12 +1031,12 @@
         let finalContent = ""
         let lastContent = ""
         let changed = false
-        let mutationRetry = false
         let url = "/plugins/ai_writer/chat"
         let body = {
           mode: this.mode, prompt, env: "html", clientTools: true,
           context: this.contextValue, site: this.siteValue, brand: this.hasBrandTarget ? this.brandTarget.value : "",
           history: this.history, designIndex: window.builder.copilotTools.index(),
+          editorContext: window.builder.copilotTools.context(),
           tools: JSON.stringify(tools)
         }
         try {
@@ -1050,15 +1051,6 @@
             const streamed = await this.streamResponse(resp)
             lastContent = streamed.content || lastContent
             if (!streamed.tools || !streamed.tools.calls || !streamed.tools.calls.length) {
-              // A design action without a builder mutation is never a successful Copilot run.
-              // Models occasionally answer conversationally despite having the full tool surface;
-              // give them one explicit recovery pass instead of showing the old generic prompt.
-              if (!changed && !mutationRetry && ["design", "rewrite", "add_section"].includes(this.mode)) {
-                mutationRetry = true
-                url = "/plugins/ai_writer/chat"
-                body = { ...body, prompt: prompt + "\n\nExecute this now with the mutating builder tools. Do not ask a follow-up question or only describe a proposal." }
-                continue
-              }
               finalContent = streamed.content || lastContent
               break
             }
@@ -1070,7 +1062,7 @@
             url = "/plugins/ai_writer/tool_result"
             body = { session_id: streamed.tools.session_id, results }
           }
-          this.handleClientReply(finalContent || lastContent, changed)
+          this.handleClientReply(finalContent || lastContent, changed, prompt)
         } catch (e) {
           this.endThinking()
           throw e
@@ -1079,27 +1071,30 @@
 
       executeTool(name, args) {
         try {
-          const out = window.builder.copilotTools.apply(name, args || {})
+          const execution = window.builder.copilotTools.execute(name, args || {})
           this.appendToolTurn(name, args)
-          return { content: String(out), mutated: window.builder.copilotTools.isMutation(name) }
+          return execution
         } catch (e) { return { content: "tool error: " + e.message, mutated: false } }
       }
 
       // Client-tools path: edits already morphed the canvas live; checkpoint the v2 store only
       // when tools actually changed something (a plain chat reply gets no design checkpoint).
-      handleClientReply(text, changed) {
+      handleClientReply(text, changed, prompt) {
         this.endThinking()
         if (changed) {
           this.addAssistantMessage(text || "Updated the design.")
-          this.designViewTarget.classList.remove("hidden")
-          this.pushCheckpoint(text || "Design update")
+          this.designViewTarget.classList.add("hidden")
+          const undo = document.createElement("button")
+          undo.type = "button"; undo.className = "bc-inline-action"; undo.textContent = "Undo last change"
+          undo.addEventListener("click", () => { window.builder.runtime.history.undo(); undo.disabled = true; undo.textContent = "Undone" })
+          this.transcriptTarget.appendChild(undo)
           if (typeof window.applyCustomCode === "function") window.applyCustomCode()
         } else {
-          this.addAssistantMessage(text || "I couldn’t safely apply that request because no builder change was produced. Please retry; the page has been left untouched.")
+          this.addAssistantMessage(text || "I didn’t receive a reply. Please try again.")
         }
-        this.history.push({ role: "user", content: this.promptTarget.value.trim() })
+        this.history.push({ role: "user", content: prompt })
         this.history.push({ role: "assistant", content: text || "" })
-        this.promptTarget.value = ""
+        if (this.promptTarget.value.trim() === prompt) this.promptTarget.value = ""
       }
 
       // Apply a streamed design state to the canvas immediately (live editing). No checkpoint is
@@ -1655,7 +1650,7 @@
       beginThinking() {
         this.transcriptTarget.insertAdjacentHTML("beforeend",
           '<div data-builder-copilot-target="thinking" class="bc-thinking"><div class="bc-thinking-dot"></div>' +
-          '<div class="bc-thinking-body"><div class="bc-thinking-label">Designing</div>' +
+          '<div class="bc-thinking-body"><div class="bc-thinking-label">Working…</div>' +
           '<div class="bc-thinking-text"></div></div></div>')
         this.scrollTranscript()
       }
@@ -1690,22 +1685,13 @@
           set_custom_js: "Adding progressive interaction",
           css_edit: "Polishing visual details"
         }
-        body.textContent += (body.textContent ? "\n" : "") + (labels[name] || "Refining the design")
+        body.textContent = labels[name] || (name.startsWith("get_") ? "Reading element options" : "Updating the page")
         this.scrollTranscript()
       }
 
       endThinking() {
         const box = this.transcriptTarget.querySelector("[data-builder-copilot-target='thinking']")
         if (!box) return
-        const text = (box.querySelector(".bc-thinking-text") || {}).textContent || ""
-        // Keep a subtle completion record without exposing hidden reasoning or tool payloads.
-        if (text.trim()) {
-          this.transcriptTarget.insertAdjacentHTML("beforeend",
-            '<div class="bc-log"><span class="bc-log-arrow">✓</span><span>' +
-            (this._toolTurns && this._toolTurns.length ? "Completed " + this._toolTurns.length + " design step" + (this._toolTurns.length === 1 ? "" : "s") : "Design pass complete") +
-            "</span></div>")
-          this.scrollTranscript()
-        }
         box.remove()
         this._toolTurns = []
       }

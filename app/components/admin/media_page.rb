@@ -13,40 +13,42 @@ module Admin
     end
 
     def view_template
-      render Toolbar.new do |toolbar|
-        toolbar.leading do
-          render ToolbarTitle.new(
-            title: "Media library",
-            subtitle: "#{pluralize(@media_items.total_count, "file")} in your library"
-          )
+      div(class: "max-w-[1200px]") do
+        render Toolbar.new do |toolbar|
+          toolbar.leading do
+            render ToolbarTitle.new(
+              title: "Media library",
+              subtitle: "#{pluralize(@media_items.total_count, "file")} in your library"
+            )
+          end
         end
-      end
 
-      render_filters
+        render_filters
 
-      Grid(cols: "1 xl:4", gap: 6) do
-        div(class: "xl:col-span-3") do
-          render Grid.new(cols: "2 sm:3 lg:4", gap: 4, id: "media_grid") do
-            if @media_items.empty?
-              div(id: "media_empty_state", class: "col-span-full") do
-                render EmptyState.new(
-                  title: @q.present? ? "No results for “#{@q}”" : "No media yet",
-                  description: @q.present? ? "Try a different search or clear the filters." : "Upload images and documents to use across your site.",
-                  level: 3,
-                  variant: :borderless
-                )
-              end
-            else
-              @media_items.each do |item|
-                render MediaItem.new(item: item)
+        Grid(cols: "1 xl:4", gap: 6) do
+          div(class: "xl:col-span-3") do
+            render Grid.new(cols: "2 sm:3 lg:4", gap: 4, id: "media_grid") do
+              if @media_items.empty?
+                div(id: "media_empty_state", class: "col-span-full") do
+                  render EmptyState.new(
+                    title: @q.present? ? "No results for “#{@q}”" : "No media yet",
+                    description: @q.present? ? "Try a different search or clear the filters." : "Upload images and documents to use across your site.",
+                    level: 3,
+                    variant: :borderless
+                  )
+                end
+              else
+                @media_items.each do |item|
+                  render MediaItem.new(item: item)
+                end
               end
             end
+            render Pagination.new(pagy: @pagy) if @pagy
           end
-          render Pagination.new(pagy: @pagy) if @pagy
-        end
 
-        div(class: "xl:col-span-1") do
-          render_upload_zone
+          div(class: "xl:col-span-1") do
+            render_upload_zone
+          end
         end
       end
     end

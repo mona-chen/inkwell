@@ -1,11 +1,14 @@
 import EditorRuntime from './EditorRuntime.js';
 import CustomCodeManager from '../includes/CustomCodeManager.js';
 import ViewportManager from './ViewportManager.js';
+import StudioManager from './StudioManager.js';
+import CollaborationManager from './CollaborationManager.js';
 import NavigatorManager from './NavigatorManager.js';
 import FinderManager from './FinderManager.js';
 import { createCopilotTools } from './CopilotTools.js';
 import { installLucideIcons } from './editorIcons.js';
 import inkCanvasCss from '../styles/canvas.scss?asString';
+import inkCanvasEditorCss from '../styles/canvas-editor.scss?asString';
 import inkMagicCss from '../styles/canvas-magic.scss?asString';
 
 const CANVAS_BASE_CSS = `
@@ -21,30 +24,30 @@ body.ink-builder-design .ink-canvas-root:has(> .ink-element){padding-top:28px}
 body.ink-builder-design .ink-element:hover>.ink-editor-overlay{box-shadow:0 0 0 1px #a4afb7}
 body.ink-builder-design .ink-element[data-ink-kind="column"]:hover>.ink-editor-overlay{box-shadow:none}
 body.ink-builder-design .ink-element[data-ink-kind="column"]:hover>.ink-editor-overlay::after{content:"";position:absolute;inset:1px;outline:1px dashed #6d7882}
-body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay{box-shadow:0 0 0 2px var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay{box-shadow:0 0 0 2px var(--ink-editor-accent,#0099ff)}
 body.ink-builder-design .ink-element[data-ink-kind="column"].ink-is-selected>.ink-editor-overlay::after{display:none}
 body.ink-builder-design .ink-editor-toolbar{position:absolute;top:0;right:0;display:flex;height:24px;overflow:hidden;background:#54595f;color:#fff;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.12);opacity:0;transition:opacity .12s}
-body.ink-builder-design .ink-element:hover>.ink-editor-overlay>.ink-editor-toolbar,body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-editor-toolbar{opacity:1;pointer-events:auto}
-body.ink-builder-design .ink-element[data-ink-kind="widget"].ink-is-selected>.ink-editor-overlay>.ink-editor-toolbar{background:var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-editor-toolbar{opacity:1;pointer-events:auto}
+body.ink-builder-design .ink-element[data-ink-kind="widget"].ink-is-selected>.ink-editor-overlay>.ink-editor-toolbar{background:var(--ink-editor-accent,#0099ff)}
 body.ink-builder-design .ink-element[data-ink-kind="widget"]>.ink-editor-overlay>.ink-editor-toolbar{border-radius:0 0 0 3px}
-body.ink-builder-design .ink-element[data-ink-kind="section"]>.ink-editor-overlay>.ink-editor-toolbar{top:auto;right:auto;bottom:0;left:0;flex-direction:row-reverse;border-radius:0 5px 0 0;background:var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design .ink-element[data-ink-kind="section"]>.ink-editor-overlay>.ink-editor-toolbar{top:auto;right:auto;bottom:0;left:0;flex-direction:row-reverse;border-radius:0 5px 0 0;background:var(--ink-editor-accent,#0099ff)}
 body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-editor-toolbar{top:auto;right:auto;bottom:0;left:0;flex-direction:row-reverse;border-radius:0 3px 0 0;background:#7a7a7a}
-body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-overlay{box-shadow:0 0 0 1px #e6a1ef}
-body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay{box-shadow:0 0 0 2px #e6a1ef}
-body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{top:-24px;right:auto;left:50%;height:24px;transform:translateX(-50%);flex-direction:row;border-radius:0;background:#e6a1ef;color:#17191c;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 100%,0 100%);padding-inline:8px}
+body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-overlay{box-shadow:0 0 0 1px #0099ff}
+body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay{box-shadow:0 0 0 2px #0099ff}
+body.ink-builder-design .ink-element[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{top:-24px;right:auto;left:50%;height:24px;transform:translateX(-50%);flex-direction:row;border-radius:0;background:#0099ff;color:#17191c;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 100%,0 100%);padding-inline:8px}
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="section"]>.ink-editor-overlay>.ink-editor-toolbar,
 body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="column"]>.ink-editor-overlay>.ink-editor-toolbar,
-body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{background:#e6a1ef}
+body.ink-builder-design .ink-element.ink-is-selected[data-ink-kind="container"]>.ink-editor-overlay>.ink-editor-toolbar{background:#0099ff}
 body.ink-builder-design .ink-editor-toolbar button{display:flex;width:28px;height:24px;align-items:center;justify-content:center;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;pointer-events:auto}
 body.ink-builder-design .ink-editor-toolbar button:hover{background:rgba(0,0,0,.18)}body.ink-builder-design .ink-editor-toolbar .material-symbols-rounded{font-size:15px}
 body.ink-builder-design .ink-editor-toolbar .ink-canvas-action-icon{display:block;width:15px;height:15px;stroke:currentColor}
 /* Imported/native nodes keep their authored DOM pristine. Their editor chrome is portalled to
    the iframe body, so selection and actions behave like ordinary elements without becoming
    extra children that break captured :first-child/direct-child selectors. */
-body.ink-builder-design .ink-imported-floating-chrome{position:fixed;z-index:9992;display:block;border:2px solid var(--ink-editor-accent,#7467f0);pointer-events:none}
-body.ink-builder-design .ink-imported-floating-chrome.is-container{border-color:#e6a1ef}
-body.ink-builder-design .ink-imported-floating-chrome>.ink-editor-toolbar{top:-24px;right:0;opacity:1;pointer-events:auto;background:var(--ink-editor-accent,#7467f0)}
-body.ink-builder-design .ink-imported-floating-chrome.is-container>.ink-editor-toolbar{left:50%;right:auto;padding-inline:8px;transform:translateX(-50%);background:#e6a1ef;color:#17191c;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 100%,0 100%)}
+body.ink-builder-design .ink-imported-floating-chrome{position:fixed;z-index:9992;display:block;border:2px solid var(--ink-editor-accent,#0099ff);pointer-events:none}
+body.ink-builder-design .ink-imported-floating-chrome.is-container{border-color:#0099ff}
+body.ink-builder-design .ink-imported-floating-chrome>.ink-editor-toolbar{top:-24px;right:0;opacity:1;pointer-events:auto;background:var(--ink-editor-accent,#0099ff)}
+body.ink-builder-design .ink-imported-floating-chrome.is-container>.ink-editor-toolbar{left:50%;right:auto;padding-inline:8px;transform:translateX(-50%);background:#0099ff;color:#17191c;clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 100%,0 100%)}
 
 /* Empty canvas/container insertion surface — Elementor's full-width dashed area */
 body.ink-builder-design .ink-editor-empty,body.ink-builder-design .ink-editor-root-empty{position:relative;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;border:2px dashed #b7bcc7;background:rgba(255,255,255,.4);color:#a4afb7}
@@ -52,7 +55,7 @@ body.ink-builder-design .ink-editor-root-empty{width:100%;max-width:1160px;min-h
 body.ink-builder-design .ink-editor-empty{width:100%;min-height:100px;margin:2px;padding:20px 12px;border-radius:4px}
 body.ink-builder-design .ink-empty-actions{display:flex;gap:10px;align-items:center;justify-content:center}
 body.ink-builder-design .ink-empty-action{display:flex;width:40px;height:40px;align-items:center;justify-content:center;border:0;border-radius:50%;background:#54595f;color:#fff;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);transition:background .15s,transform .1s}
-body.ink-builder-design .ink-empty-action:hover{background:var(--ink-editor-accent,#7467f0);transform:scale(1.06)}
+body.ink-builder-design .ink-empty-action:hover{background:var(--ink-editor-accent,#0099ff);transform:scale(1.06)}
 body.ink-builder-design .ink-empty-action .material-symbols-rounded{font-size:22px}
 body.ink-builder-design .ink-empty-caption{font-size:13px;font-style:italic}
 
@@ -66,10 +69,10 @@ body.ink-builder-design .ink-empty-back .material-symbols-rounded{font-size:18px
 body.ink-builder-design .ink-empty-presets-title{font-size:13px;font-weight:500;color:#495157}
 body.ink-builder-design .ink-empty-preset-list{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:center}
 body.ink-builder-design .ink-empty-preset{display:flex;flex-direction:column;gap:6px;align-items:center;padding:8px 6px;border:0;background:transparent;color:#495157;font:11px/16px Inter,ui-sans-serif,system-ui,sans-serif;cursor:pointer}
-body.ink-builder-design .ink-empty-preset:hover{color:var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design .ink-empty-preset:hover{color:var(--ink-editor-accent,#0099ff)}
 body.ink-builder-design .ink-empty-preset-bars{display:flex;width:88px;height:40px;gap:3px;align-items:stretch}
 body.ink-builder-design .ink-empty-preset-bars i{display:block;border:1px solid #a4afb7;border-radius:2px;background:#fff;transition:background .15s,border-color .15s}
-body.ink-builder-design .ink-empty-preset:hover .ink-empty-preset-bars i{border-color:var(--ink-editor-accent,#7467f0);background:color-mix(in srgb,var(--ink-editor-accent,#7467f0) 12%,#fff)}
+body.ink-builder-design .ink-empty-preset:hover .ink-empty-preset-bars i{border-color:var(--ink-editor-accent,#0099ff);background:color-mix(in srgb,var(--ink-editor-accent,#0099ff) 12%,#fff)}
 
 /* Column resize handles + percentage feedback */
 body.ink-builder-design .ink-el-column-resize{position:absolute;z-index:2;top:0;bottom:0;width:9px;cursor:col-resize;pointer-events:auto}
@@ -80,20 +83,20 @@ body.ink-builder-design .ink-element:hover>.ink-editor-overlay .ink-el-column-re
 body.ink-builder-design .ink-el-column-percent{position:fixed;z-index:9999;padding:4px 8px;border-radius:5px;background:#2c2c2c;color:#fff;font:11px/16px Inter,ui-sans-serif,system-ui,sans-serif;pointer-events:none;opacity:0;transition:opacity .12s;transform:translate(-50%,-100%)}
 
 /* Drag & drop indicators */
-body.ink-builder-design .ink-element[data-ink-drop-position="inside"]{box-shadow:0 0 0 2px var(--ink-editor-accent,#7467f0)}
-body.ink-builder-design .ink-imported-element[data-ink-drop-position="inside"]{outline:2px solid var(--ink-editor-accent,#7467f0);outline-offset:-2px}
+body.ink-builder-design .ink-element[data-ink-drop-position="inside"]{box-shadow:0 0 0 2px var(--ink-editor-accent,#0099ff)}
+body.ink-builder-design .ink-imported-element[data-ink-drop-position="inside"]{outline:2px solid var(--ink-editor-accent,#0099ff);outline-offset:-2px}
 body.ink-builder-design .ink-element[data-ink-drop-position="inside"].ink-el-columns>*,body.ink-builder-design .ink-el-columns[data-ink-drop-position="inside"]{box-shadow:none}
-body.ink-builder-design [data-ink-drop-position="before"]{box-shadow:inset 0 4px 0 0 var(--ink-editor-accent,#7467f0)}
-body.ink-builder-design [data-ink-drop-position="before"][data-ink-drop-axis="row"]{box-shadow:inset 4px 0 0 0 var(--ink-editor-accent,#7467f0)}
-body.ink-builder-design [data-ink-drop-position="after"]{box-shadow:inset 0 -4px 0 0 var(--ink-editor-accent,#7467f0)}
-body.ink-builder-design [data-ink-drop-position="after"][data-ink-drop-axis="row"]{box-shadow:inset -4px 0 0 0 var(--ink-editor-accent,#7467f0)}
-body.ink-builder-design .ink-editor-drop-line{position:absolute;z-index:9995;display:block;background:var(--ink-editor-accent,#7467f0);pointer-events:none;border-radius:2px}
+body.ink-builder-design [data-ink-drop-position="before"]{box-shadow:inset 0 4px 0 0 var(--ink-editor-accent,#0099ff)}
+body.ink-builder-design [data-ink-drop-position="before"][data-ink-drop-axis="row"]{box-shadow:inset 4px 0 0 0 var(--ink-editor-accent,#0099ff)}
+body.ink-builder-design [data-ink-drop-position="after"]{box-shadow:inset 0 -4px 0 0 var(--ink-editor-accent,#0099ff)}
+body.ink-builder-design [data-ink-drop-position="after"][data-ink-drop-axis="row"]{box-shadow:inset -4px 0 0 0 var(--ink-editor-accent,#0099ff)}
+body.ink-builder-design .ink-editor-drop-line{position:absolute;z-index:9995;display:block;background:var(--ink-editor-accent,#0099ff);pointer-events:none;border-radius:2px}
 body.ink-builder-design .ink-editor-drop-line.is-before{top:0;left:0;right:0;height:4px}
 body.ink-builder-design .ink-editor-drop-line.is-after{bottom:0;left:0;right:0;height:4px}
 
 body.ink-builder-design .ink-editor-context-menu{position:fixed;z-index:10000;display:flex;width:180px;flex-direction:column;padding:5px 0;border:1px solid #d5dadf;border-radius:5px;background:#fff;box-shadow:0 2px 15px rgba(0,0,0,.2);font:11px/16px Inter,ui-sans-serif,system-ui,sans-serif;color:#495157}
 body.ink-builder-design .ink-editor-context-menu button{display:flex;gap:10px;align-items:center;padding:8px 14px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer}
-body.ink-builder-design .ink-editor-context-menu button:hover{background:#f1f3f5;color:var(--ink-editor-accent,#7467f0)}body.ink-builder-design .ink-editor-context-menu button:disabled{opacity:.4;cursor:not-allowed}body.ink-builder-design .ink-editor-context-menu span.material-symbols-rounded{font-size:16px}
+body.ink-builder-design .ink-editor-context-menu button:hover{background:#f1f3f5;color:var(--ink-editor-accent,#0099ff)}body.ink-builder-design .ink-editor-context-menu button:disabled{opacity:.4;cursor:not-allowed}body.ink-builder-design .ink-editor-context-menu span.material-symbols-rounded{font-size:16px}
 body.ink-builder-design .ink-editor-inline-toolbar{position:absolute;z-index:9996;display:flex;top:calc(100% + 2px);left:0;padding:2px;border-radius:3px;background:#26292c;color:#fff;pointer-events:auto;box-shadow:0 2px 10px rgba(0,0,0,.2)}
 body.ink-builder-design .ink-editor-inline-toolbar button{display:flex;width:26px;height:26px;align-items:center;justify-content:center;border:0;border-radius:3px;background:transparent;color:#fff;font-size:12px;cursor:pointer}
 body.ink-builder-design .ink-editor-inline-toolbar button:hover{background:rgba(255,255,255,.15)}
@@ -102,15 +105,15 @@ body.ink-builder-design .ink-element[data-ink-hidden].ink-is-selected>.ink-edito
 
 /* Rotate handle — a drag knob above the selection, Framer-style. Revealed only when the
    element is selected and never in Preview. The stem connects the knob to the selection. */
-body.ink-builder-design .ink-rotate-handle{position:absolute;left:50%;top:-32px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--ink-editor-accent,#7467f0);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none;opacity:0;cursor:-webkit-grab;cursor:grab;transition:opacity .12s}
-body.ink-builder-design .ink-rotate-handle::before{content:"";position:absolute;left:50%;bottom:-8px;width:1px;height:8px;background:var(--ink-editor-accent,#7467f0);transform:translateX(-50%)}
+body.ink-builder-design .ink-rotate-handle{position:absolute;left:50%;top:-32px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--ink-editor-accent,#0099ff);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none;opacity:0;cursor:-webkit-grab;cursor:grab;transition:opacity .12s}
+body.ink-builder-design .ink-rotate-handle::before{content:"";position:absolute;left:50%;bottom:-8px;width:1px;height:8px;background:var(--ink-editor-accent,#0099ff);transform:translateX(-50%)}
 body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-rotate-handle{opacity:1;pointer-events:auto}
 body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-rotate-handle{display:none}
 body.ink-builder-design .ink-rotate-tooltip{position:fixed;z-index:10000;transform:translate(-50%,calc(-100% - 8px));padding:2px 5px;border-radius:3px;background:#17191c;color:#fff;font:10px/14px Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.01em;pointer-events:none;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.22)}
 /* Resize handles — corner squares and edge bars, shown on selection */
 body.ink-builder-design .ink-resize-handle{position:absolute;pointer-events:none;opacity:0;transition:opacity .12s}
-body.ink-builder-design .ink-resize-handle.is-corner{width:7px;height:7px;background:#fff;border:1.5px solid var(--ink-editor-accent,#7467f0);z-index:9991}
-body.ink-builder-design .ink-resize-handle.is-edge{background:var(--ink-editor-accent,#7467f0);z-index:9991}
+body.ink-builder-design .ink-resize-handle.is-corner{width:7px;height:7px;background:#fff;border:1.5px solid var(--ink-editor-accent,#0099ff);z-index:9991}
+body.ink-builder-design .ink-resize-handle.is-edge{background:var(--ink-editor-accent,#0099ff);z-index:9991}
 body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="n"],body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="s"]{left:20%;right:20%;height:4px;border-radius:2px}
 body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="e"],body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="w"]{top:20%;bottom:20%;width:4px;border-radius:2px}
 body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle="n"]{top:-2px}
@@ -125,7 +128,7 @@ body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-re
 body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-resize-handle{display:none}
 /* Radius handle — drag knob inset from the top-right corner, Framer-style.
    Offset inward to avoid colliding with the NE resize handle. */
-body.ink-builder-design .ink-radius-handle{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--ink-editor-accent,#7467f0);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none;opacity:0;cursor:crosshair;z-index:9991;transition:opacity .12s}
+body.ink-builder-design .ink-radius-handle{position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;background:var(--ink-editor-accent,#0099ff);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2);pointer-events:none;opacity:0;cursor:crosshair;z-index:9991;transition:opacity .12s}
 body.ink-builder-design .ink-element.ink-is-selected>.ink-editor-overlay>.ink-radius-handle{opacity:1;pointer-events:auto}
 body.ink-builder-design .ink-element[data-ink-kind="column"]>.ink-editor-overlay>.ink-radius-handle{display:none}
 body.ink-builder-design.ink-is-resizing,body.ink-builder-design.ink-is-resizing *{cursor:inherit!important;user-select:none!important}
@@ -147,10 +150,10 @@ body.ink-builder-design .ink-editor-overlay.is-locked{background-image:repeating
 body.ink-builder-design .ink-editor-overlay.is-locked::after{content:"lock";font-family:"Material Symbols Rounded";position:absolute;right:2px;bottom:2px;font-size:15px;color:#6d7882}
 body.ink-builder-design .ink-element[data-ink-locked]{cursor:not-allowed}
 body.ink-builder-design.ink-is-position-dragging,body.ink-builder-design.ink-is-position-dragging *{cursor:grabbing!important;user-select:none!important}
-body.ink-builder-design .ink-element.ink-is-position-dragging>.ink-editor-overlay{box-shadow:0 0 0 2px var(--ink-editor-accent,#7467f0)}
+body.ink-builder-design .ink-element.ink-is-position-dragging>.ink-editor-overlay{box-shadow:0 0 0 2px var(--ink-editor-accent,#0099ff)}
 body.ink-builder-design.ink-is-drawing-frame,body.ink-builder-design.ink-is-drawing-frame *{cursor:crosshair!important;user-select:none!important}
 body.ink-builder-design .ink-frame-draw-preview{position:fixed;z-index:10001;border:1px solid #55b7ff;background:rgba(85,183,255,.12);pointer-events:none;box-shadow:0 0 0 1px rgba(255,255,255,.75) inset}
-body.ink-builder-design .ink-marquee-selection{position:fixed;z-index:10001;border:1px solid var(--ink-editor-accent,#7467f0);background:color-mix(in srgb,var(--ink-editor-accent,#7467f0) 14%,transparent);pointer-events:none}
+body.ink-builder-design .ink-marquee-selection{position:fixed;z-index:10001;border:1px solid var(--ink-editor-accent,#0099ff);background:color-mix(in srgb,var(--ink-editor-accent,#0099ff) 14%,transparent);pointer-events:none}
 body.ink-builder-design .ink-position-tooltip{position:fixed;z-index:10000;transform:translate(-50%,calc(-100% - 8px));padding:3px 7px;border-radius:4px;background:#17191c;color:#fff;font:11px/16px Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.01em;pointer-events:none;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.28)}
 body.ink-builder-design .ink-snap-guide{position:fixed;z-index:9998;background:#ff4ec7;pointer-events:none}
 body.ink-builder-design .ink-snap-guide.is-vertical{width:1px}
@@ -204,6 +207,8 @@ export default class BuilderV2 {
             if (button) button.classList.toggle('is-active', open);
         };
         this.finder = new FinderManager(this.runtime).mount();
+        this.studio = new StudioManager(this).mount();
+        if (this.options.collaboration) this.collaboration = new CollaborationManager(this, this.options.collaboration).mount();
         this.copilotTools = createCopilotTools(this.runtime, this);
         this.customCode.injectEffectStyles(document);
         this.customCode.inject();
@@ -222,7 +227,7 @@ export default class BuilderV2 {
         this.mainContainer.appendChild(this.iframe);
         this.iframeDoc = this.iframe.contentDocument;
         this.iframeDoc.open();
-        this.iframeDoc.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded"><style id="ink-canvas-base">${CANVAS_BASE_CSS}</style><style id="ink-canvas-styles">${inkCanvasCss}</style><style id="ink-magic-canvas-styles">${inkMagicCss}</style><style id="ink-editor-canvas-styles">${EDITOR_CANVAS_CSS}</style></head><body><main class="ink-canvas-root" data-ink-canvas-root></main></body></html>`);
+        this.iframeDoc.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded"><style id="ink-canvas-base">${CANVAS_BASE_CSS}</style><style id="ink-canvas-styles">${inkCanvasCss}</style><style id="ink-magic-canvas-styles">${inkMagicCss}</style><style id="ink-editor-canvas-styles">${EDITOR_CANVAS_CSS}${inkCanvasEditorCss}</style></head><body><main class="ink-canvas-root" data-ink-canvas-root></main></body></html>`);
         this.iframeDoc.close();
         this.canvasIconObserver = installLucideIcons(this.iframeDoc, {
             filter: (icon) => Boolean(icon.closest('.ink-editor-toolbar, .ink-editor-context-menu, .ink-editor-empty, .ink-empty-action, .ink-empty-back, .ink-lightbox')),
@@ -261,7 +266,8 @@ export default class BuilderV2 {
             panel.route = screen;
             panel.render();
         }
-        if (window.sidebarTabManager) window.sidebarTabManager.openTab(document.querySelector('[data-tab="widgets"]'));
+        if (this.studio) this.studio.openExplorer(screen === 'site' ? 'page' : screen === 'history' ? 'history' : 'insert');
+        else if (window.sidebarTabManager) window.sidebarTabManager.openTab(document.querySelector('[data-tab="widgets"]'));
         if (!preserveSelection) this.runtime.selection.clear();
         return panel;
     }
@@ -274,7 +280,7 @@ export default class BuilderV2 {
         collapse.addEventListener('click', () => { const collapsed = document.body.classList.toggle('ink-panel-collapsed'); collapse.textContent = collapsed ? '›' : '‹'; collapse.title = collapsed ? 'Show panel' : 'Hide panel'; });
         resizer.addEventListener('pointerdown', (event) => {
             event.preventDefault(); const start = event.clientX, width = sidebar.getBoundingClientRect().width;
-            const move = (pointer) => document.documentElement.style.setProperty('--ink-editor-panel-width', `${Math.max(240, Math.min(500, width + pointer.clientX - start))}px`);
+            const move = (pointer) => document.documentElement.style.setProperty('--ink-editor-panel-width', `${Math.max(240, Math.min(500, width - pointer.clientX + start))}px`);
             const stop = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', stop); };
             document.addEventListener('pointermove', move); document.addEventListener('pointerup', stop);
         });
@@ -282,12 +288,18 @@ export default class BuilderV2 {
     }
 
     onKeyDown(event) {
+        if (event.defaultPrevented) return;
+        const editable = event.target?.isContentEditable || event.target?.closest?.('input,textarea,select,[role="textbox"],.CodeMirror');
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); this.studio?.saveDraft(); return; }
+        if (editable) return;
+        if (this.studio?.onKeyDown(event)) return;
         if (event.key === 'Escape' && this.hotkeys && !this.hotkeys.hidden) { event.preventDefault(); this.hotkeys.hidden = true; return; }
         if (event.key === '?' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); this.toggleHotkeys(); return; }
         const commandKey = event.ctrlKey || event.metaKey;
         if (commandKey && event.key.toLowerCase() === 'k') { event.preventDefault(); this.finder.toggle(); return; }
         const tag = event.target?.tagName?.toLowerCase();
         if (['input', 'textarea', 'select'].includes(tag)) return;
+        if (this.mode !== 'design') return;
         if (commandKey && event.key.toLowerCase() === 'z') {
             event.preventDefault();
             event.shiftKey ? this.runtime.history.redo() : this.runtime.history.undo();
@@ -331,7 +343,13 @@ export default class BuilderV2 {
             ['⌘/Ctrl + V', 'Paste element'],
             ['⌘/Ctrl + Shift + C', 'Copy styles'],
             ['⌘/Ctrl + Shift + V', 'Paste styles'],
-            ['⌘/Ctrl + S', 'Publish / save'],
+            ['⌘/Ctrl + S', 'Save draft'],
+            ['V / H', 'Select / pan'],
+            ['Space + drag', 'Pan canvas temporarily'],
+            ['Arrow / Shift + Arrow', 'Nudge positioned layers 1 / 10 px'],
+            ['F / T / I', 'Frame / text / insert'],
+            ['Shift + 1 / Shift + 2', 'Fit canvas / zoom to selection'],
+            ['+ / − / 0', 'Zoom in / out / actual size'],
             ['Delete / Backspace', 'Delete selection'],
             ['Shift / ⌘ + click', 'Multi-select'],
             ['Double-click text', 'Inline edit'],
@@ -381,12 +399,16 @@ export default class BuilderV2 {
     setMode(mode) {
         const previous = this.mode;
         this.mode = mode === 'design' ? 'design' : 'preview';
+        if (previous === 'design' && this.mode === 'preview') this.designCamera = { x: this.viewport.x, y: this.viewport.y, scale: this.viewport.scale, fitted: this.viewport.fitted };
         this.iframeDoc.body.classList.toggle('ink-builder-design', this.mode === 'design');
         // Custom/imported runtime code is a preview/publish capability. Framework hydration in
         // Design mode can replace builder-owned nodes and silently remove IDs/listeners. Repaint
         // from the store when returning from Preview, then keep only CSS active while editing.
         if (this.mode === 'design' && previous === 'preview') this.runtime?.canvas?.render();
         this.customCode?.inject(this.iframeDoc, { executeJs: this.mode === 'preview' });
+        document.body.classList.toggle('ink-studio-preview', this.mode === 'preview');
+        this.runtime?.events.emit('editor:mode', { mode: this.mode });
+        if (previous === 'preview' && this.mode === 'design' && this.designCamera) { Object.assign(this.viewport, this.designCamera); this.viewport.applyCamera(); }
     }
     getMode() { return this.mode; }
     applyMode() { this.setMode(this.mode); }
@@ -529,6 +551,7 @@ export default class BuilderV2 {
         const clone = this.iframeDoc.documentElement.cloneNode(true);
         this.customCode.injectIntoClone(clone);
         clone.querySelector('#ink-editor-canvas-styles')?.remove();
+        clone.style.removeProperty('--ink-editor-canvas-scale');
         clone.querySelectorAll('[data-ink-editor-only]').forEach((element) => element.remove());
         clone.querySelectorAll('[data-ink-hidden]').forEach((element) => element.remove());
         clone.querySelectorAll('[data-ink-element-id],[data-ink-element-type],[data-ink-children],[data-ink-drop-position]').forEach((element) => {
@@ -571,5 +594,5 @@ export default class BuilderV2 {
         return '<!doctype html>' + clone.outerHTML;
     }
 
-    destroy() { document.removeEventListener('keydown', this.onKeyDown); this.iframeDoc?.removeEventListener('keydown', this.onKeyDown); this.canvasIconObserver?.disconnect(); this.finder?.destroy(); this.navigator?.destroy(); this.runtime?.contextMenu?.destroy(); this.runtime?.canvas.destroy(); this.runtime?.panel?.destroy(); this.runtime?.settingsPanel?.destroy(); this.mainContainer.replaceChildren(); }
+    destroy() { this.collaboration?.destroy(); this.breakpoints?.destroy(); this.studio?.destroy(); this.viewport?.resizeObserver?.disconnect(); document.removeEventListener('keydown', this.onKeyDown); this.iframeDoc?.removeEventListener('keydown', this.onKeyDown); this.canvasIconObserver?.disconnect(); this.finder?.destroy(); this.navigator?.destroy(); this.runtime?.contextMenu?.destroy(); this.runtime?.canvas.destroy(); this.runtime?.panel?.destroy(); this.runtime?.settingsPanel?.destroy(); this.mainContainer.replaceChildren(); }
 }

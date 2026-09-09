@@ -1,6 +1,6 @@
 # Application-wide Phlex base. Inherits from Ink::Component so all descendants
 # get Ink's helpers. Constant aliases let existing unqualified component references
-# (Button, Card, Badge, …) resolve to Ink components without NitroKit.
+# (Button, Card, Badge, …) resolve to application-owned Ink components.
 class ApplicationComponent < Ink::Component
   # ActionView helpers the admin shell needs in its <head>. Included here so descendants
   # can call them directly instead of the deprecated `helpers.` view-context access.

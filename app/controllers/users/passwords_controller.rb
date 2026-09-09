@@ -1,4 +1,6 @@
 class Users::PasswordsController < Devise::PasswordsController
+  layout false
+
   # Render the application-owned password pages instead of the ERB views.
   def new
     self.resource = resource_class.new

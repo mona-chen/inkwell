@@ -257,9 +257,38 @@ export default function registerInkElements(registry) {
         { tab: 'content', section: 'Form', name: 'action', type: 'url', label: 'Action' },
         { tab: 'content', section: 'Form', name: 'method', type: 'select', label: 'Method', options: ['get', 'post'] },
     ]);
-    nativeContainer('unordered-list', 'Unordered List', 'ul', 'Basic');
-    nativeContainer('ordered-list', 'Ordered List', 'ol', 'Basic');
-    nativeContainer('list-item', 'List Item', 'li', 'Basic');
+
+    // Lists are semantic elements, not generic empty containers. A freshly inserted list
+    // must be visible and editable immediately, and its saved output must remain ul/ol > li
+    // rather than a stack of visually list-like divs.
+    const inlineTextNode = (value) => ({
+        id: crypto.randomUUID(), type: 'inline-text',
+        settings: { tag: 'span', text: value }, styles: { base: {} },
+    });
+    const listItemNode = (value) => ({
+        id: crypto.randomUUID(), type: 'list-item', settings: {}, styles: { base: {} },
+        children: [inlineTextNode(value)],
+    });
+    const registerList = (type, title, tag) => register(registry, {
+        type, title, icon: tag === 'ol' ? 'format_list_numbered' : 'format_list_bulleted', category: 'Basic',
+        acceptsChildren: true,
+        acceptsChild: (_parent, child) => child.type === 'list-item',
+        defaults: () => ({
+            settings: {}, styles: { base: {} },
+            children: [listItemNode('First item'), listItemNode('Second item'), listItemNode('Third item')],
+        }),
+        controls: [typographyControls, ...spacing],
+        render: ({ domDocument }) => { const root = make(domDocument, tag, `ink-el-${type}`); root.dataset.inkChildren = ''; return root; },
+    });
+    registerList('unordered-list', 'Unordered List', 'ul');
+    registerList('ordered-list', 'Ordered List', 'ol');
+    register(registry, {
+        type: 'list-item', title: 'List Item', icon: 'list', category: 'Basic', acceptsChildren: true,
+        canBeChildOf: (_child, parent) => ['unordered-list', 'ordered-list'].includes(parent.type),
+        defaults: () => ({ settings: {}, styles: { base: {} }, children: [inlineTextNode('List item')] }),
+        controls: [typographyControls, ...spacing],
+        render: ({ domDocument }) => { const root = make(domDocument, 'li', 'ink-el-list-item'); root.dataset.inkChildren = ''; return root; },
+    });
     register(registry, {
         type: 'media-source', title: 'Media Source', icon: 'perm_media', category: 'Media',
         defaults: { settings: { src: '', srcset: '', type: '', media: '' }, styles: { base: {} } },

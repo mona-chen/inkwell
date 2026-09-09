@@ -1,4 +1,6 @@
 class Users::SessionsController < Devise::SessionsController
+  layout false
+
   # Render the application-owned sign-in page instead of the ERB view.
   def new
     self.resource = resource_class.new(sign_in_params)

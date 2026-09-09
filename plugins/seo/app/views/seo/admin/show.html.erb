@@ -1,6 +1,6 @@
 <% seo_path = "/plugins/seo_toolkit/seo" %>
 
-<div class="mx-auto w-full max-w-6xl pb-16">
+<div class="w-full max-w-[1100px] pb-12">
   <header class="flex items-center justify-between border-b border-border pb-5 mb-6 flex-col gap-4 sm:flex-row sm:items-center">
     <div class="flex items-center gap-3">
       <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><%= render Ink::Icon.new(:search, size: :md, label: "SEO") %></div>
@@ -14,29 +14,29 @@
 
   <%= form_with url: seo_path, method: :patch, id: "seo-settings-form" do |f| %>
     <input type="hidden" name="section" value="<%= @section %>">
-    <div class="grid items-start gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div class="grid items-start gap-6 lg:grid-cols-[210px_minmax(0,1fr)]">
       <aside class="lg:sticky lg:top-20">
-        <nav aria-label="SEO settings" class="space-y-4 text-sm">
+        <nav aria-label="SEO settings" class="space-y-3 text-[13px]">
           <div>
             <p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">General</p>
             <div class="space-y-0.5">
-              <a href="<%= seo_path %>?section=site-basics" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'site-basics' %>"><%= render Ink::Icon.new(:settings, size: :sm) %> Site basics</a>
-              <a href="<%= seo_path %>?section=site-representation" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'site-representation' %>"><%= render Ink::Icon.new(:building_2, size: :sm) %> Site representation</a>
-              <a href="<%= seo_path %>?section=connections" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'connections' %>"><%= render Ink::Icon.new(:link, size: :sm) %> Site connections</a>
+              <a href="<%= seo_path %>?section=site-basics" class="flex items-center gap-2 rounded-md px-2 py-1.5 font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'site-basics' %>"><%= render Ink::Icon.new(:settings, size: :sm) %> Site basics</a>
+              <a href="<%= seo_path %>?section=site-representation" class="flex items-center gap-2 rounded-md px-2 py-1.5 font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'site-representation' %>"><%= render Ink::Icon.new(:building_2, size: :sm) %> Site representation</a>
+              <a href="<%= seo_path %>?section=connections" class="flex items-center gap-2 rounded-md px-2 py-1.5 font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'connections' %>"><%= render Ink::Icon.new(:link, size: :sm) %> Site connections</a>
             </div>
           </div>
           <div>
             <p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Content</p>
             <div class="space-y-0.5">
-              <a href="<%= seo_path %>?section=content-types" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'content-types' %>"><%= render Ink::Icon.new(:files, size: :sm) %> Content types</a>
-              <a href="<%= seo_path %>?section=categories-tags" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'categories-tags' %>"><%= render Ink::Icon.new(:tags, size: :sm) %> Categories &amp; tags</a>
+              <a href="<%= seo_path %>?section=content-types" class="flex items-center gap-2 rounded-md px-2 py-1.5 font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'content-types' %>"><%= render Ink::Icon.new(:files, size: :sm) %> Content types</a>
+              <a href="<%= seo_path %>?section=categories-tags" class="flex items-center gap-2 rounded-md px-2 py-1.5 font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'categories-tags' %>"><%= render Ink::Icon.new(:tags, size: :sm) %> Categories &amp; tags</a>
             </div>
           </div>
           <div>
             <p class="mb-1 px-2 text-[11px] font-semibold uppercase tracking-[.08em] text-muted-foreground">Advanced</p>
             <div class="space-y-0.5">
-              <a href="<%= seo_path %>?section=crawl" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'crawl' %>"><%= render Ink::Icon.new(:bot, size: :sm) %> Crawl &amp; indexing</a>
-              <a href="<%= seo_path %>?section=social" class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'social' %>"><%= render Ink::Icon.new(:share_2, size: :sm) %> Social sharing</a>
+              <a href="<%= seo_path %>?section=crawl" class="flex items-center gap-2 rounded-md px-2 py-1.5 font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'crawl' %>"><%= render Ink::Icon.new(:bot, size: :sm) %> Crawl &amp; indexing</a>
+              <a href="<%= seo_path %>?section=social" class="flex items-center gap-2 rounded-md px-2 py-1.5 font-medium transition-colors text-muted-foreground hover:bg-muted hover:text-foreground <%= 'bg-primary/10 text-primary' if @section == 'social' %>"><%= render Ink::Icon.new(:share_2, size: :sm) %> Social sharing</a>
             </div>
           </div>
         </nav>
@@ -133,7 +133,7 @@
           </div>
           <div class="divide-y divide-border/60 overflow-hidden rounded-lg bg-card shadow-xs ring-1 ring-border/60">
             <% [["index_posts", "Posts", "Articles and editorial content"], ["index_pages", "Pages", "Landing pages and site content"]].each do |key, label, description| %>
-              <div class="flex items-center justify-between gap-5 p-5">
+              <div class="flex items-center justify-between gap-5 p-4">
                 <div>
                   <h3 class="text-sm font-medium text-foreground"><%= label %></h3>
                   <p class="mt-1 text-xs text-muted-foreground"><%= description %></p>
@@ -141,7 +141,7 @@
                 <label class="relative inline-flex cursor-pointer items-center">
                   <input type="hidden" name="seo[<%= key %>]" value="0">
                   <input type="checkbox" name="seo[<%= key %>]" value="1" <%= "checked" if @settings[key.to_sym] == "1" %> class="peer sr-only">
-                  <span class="h-6 w-11 rounded-full bg-border transition peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/30 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5"></span>
+                  <span class="h-5 w-9 rounded-full bg-border transition peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/30 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-4"></span>
                   <span class="sr-only">Show <%= label.downcase %> in search</span>
                 </label>
               </div>

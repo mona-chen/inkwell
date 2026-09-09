@@ -56,34 +56,32 @@ module Seo
 
     def seo_admin_css
       <<~CSS.squish
-        .seo-ws-body{display:grid;grid-template-columns:1.6fr 1fr;gap:0.75rem;padding:0.5rem}
-        .seo-ws-main{display:flex;flex-direction:column;gap:0.75rem;min-width:0}
-        .seo-ws-side{display:flex;flex-direction:column;gap:0.75rem;min-width:0}
-        .seo-panel{border:1px solid var(--border);border-radius:0.5rem;background:var(--card);padding:0.75rem}
-        .seo-panel summary{list-style:none;cursor:pointer}
-        .seo-panel summary::-webkit-details-marker{display:none}
-        .seo-serp{border:1px solid var(--border);border-radius:0.375rem;padding:0.625rem;background:var(--muted);color:var(--foreground)}
-        .seo-serp-url{font-size:0.625rem;color:var(--muted-foreground);margin-bottom:0.25rem}
-        .seo-serp-title{font-size:0.875rem;color:#1a0dab;line-height:1.3;margin:0}
-        .seo-serp-desc{font-size:0.75rem;color:var(--muted-foreground);line-height:1.4;margin-top:0.25rem}
-        .seo-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0.625rem}
-        .seo-field-wide{grid-column:1/-1}
-        .seo-field label{display:block;margin-bottom:0.125rem;font-size:0.6875rem;font-weight:600;color:var(--muted-foreground)}
-        .seo-field input,.seo-field textarea,.seo-field select{box-sizing:border-box;width:100%;max-width:100%;height:2rem;border:none;border-radius:0.375rem;background:var(--muted);color:var(--foreground);font-size:0.75rem;padding:0 0.5rem;outline:none;transition:box-shadow .15s}
-        .seo-field textarea{height:auto;padding:0.375rem 0.5rem;resize:vertical}
-        .seo-field input:focus,.seo-field textarea:focus,.seo-field select:focus{box-shadow:0 0 0 2px var(--primary)}
-        .seo-label{display:block;margin-bottom:0.125rem;font-size:0.6875rem;font-weight:600;color:var(--muted-foreground)}
-        .seo-score{display:inline-flex;align-items:center;justify-content:center;width:1.25rem;height:1.25rem;border-radius:9999px;font-size:0.625rem;font-weight:700}
-        .seo-length{font-size:0.625rem}
-        .seo-length.good{color:var(--success)}
-        .seo-length.warn{color:var(--warning)}
-        .seo-length.bad{color:var(--destructive)}
-        .seo-social{overflow:hidden;border:1px solid var(--border);border-radius:0.375rem;background:var(--background)}
-        .seo-social-img{display:grid;min-height:6rem;place-items:center;background:var(--muted);color:var(--muted-foreground);font-size:0.6875rem;background-position:center;background-size:cover}
-        .seo-result{display:flex;gap:0.5rem;font-size:0.75rem;line-height:1.35}
-        .seo-result-dot{flex:0 0 auto;margin-top:3px;width:0.5rem;height:0.5rem;border-radius:999px}
-        .seo-check{display:flex;align-items:flex-start;gap:0.5rem;font-size:0.75rem;color:var(--foreground)}
-        @media(max-width:62rem){.seo-ws-body{grid-template-columns:1fr}.seo-fields{grid-template-columns:1fr}}
+        #admin-shell #seo-optimization{scroll-margin-block-start:5rem}
+        #admin-shell .seo-ws-body{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(17rem,.85fr);gap:.75rem;padding:.75rem}
+        #admin-shell .seo-ws-main,#admin-shell .seo-ws-side{display:flex;min-width:0;flex-direction:column;gap:.75rem}
+        #admin-shell .seo-panel{min-width:0;padding:.875rem;border:1px solid var(--border);border-radius:.625rem;background:var(--card)}
+        #admin-shell .seo-panel summary{list-style:none;cursor:pointer}
+        #admin-shell .seo-panel summary::-webkit-details-marker{display:none}
+        #admin-shell .seo-serp{padding:.75rem;border:1px solid var(--border);border-radius:.5rem;background:var(--background)}
+        #admin-shell .seo-serp-url{margin-bottom:.25rem;color:var(--muted-foreground);font-size:.625rem}
+        #admin-shell .seo-serp-title{margin:0;color:#8ab4f8;font-size:.875rem;line-height:1.3}
+        #admin-shell .seo-serp-desc{margin-top:.25rem;color:var(--muted-foreground);font-size:.75rem;line-height:1.4}
+        #admin-shell .seo-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.625rem}
+        #admin-shell .seo-field-wide{grid-column:1/-1}
+        #admin-shell .seo-field label,#admin-shell .seo-label{display:block;margin-bottom:.2rem;color:var(--muted-foreground);font-size:.6875rem;font-weight:600}
+        #admin-shell .seo-field input,#admin-shell .seo-field textarea,#admin-shell .seo-field select,#admin-shell .seo-panel>div>input,#admin-shell .seo-panel>div>select{box-sizing:border-box;width:100%;max-width:100%;min-height:2rem;padding:.4rem .55rem;border:1px solid var(--border);border-radius:.45rem;outline:none;background:var(--background);color:var(--foreground);font-size:.75rem}
+        #admin-shell .seo-field input:focus,#admin-shell .seo-field textarea:focus,#admin-shell .seo-field select:focus{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in oklab,var(--primary) 18%,transparent)}
+        #admin-shell .seo-score{display:inline-flex;width:1.25rem;height:1.25rem;flex:0 0 auto;align-items:center;justify-content:center;border-radius:999px;font-size:.625rem;font-weight:700}
+        #admin-shell .seo-length{font-size:.625rem}
+        #admin-shell .seo-length.good{color:var(--success)}
+        #admin-shell .seo-length.warn{color:var(--warning)}
+        #admin-shell .seo-length.bad{color:var(--destructive)}
+        #admin-shell .seo-social{overflow:hidden;border:1px solid var(--border);border-radius:.5rem;background:var(--background)}
+        #admin-shell .seo-social-img{display:grid;min-height:6rem;place-items:center;background:var(--muted);background-position:center;background-size:cover;color:var(--muted-foreground);font-size:.6875rem}
+        #admin-shell .seo-result{display:flex;gap:.5rem;font-size:.75rem;line-height:1.35}
+        #admin-shell .seo-result-dot{width:.5rem;height:.5rem;flex:0 0 auto;margin-top:.2rem;border-radius:999px}
+        #admin-shell .seo-check{display:flex;align-items:flex-start;gap:.5rem;color:var(--foreground);font-size:.75rem}
+        @media(max-width:62rem){#admin-shell .seo-ws-body{grid-template-columns:minmax(0,1fr)}#admin-shell .seo-fields{grid-template-columns:minmax(0,1fr)}}
       CSS
     end
 
@@ -187,7 +185,7 @@ module Seo
       preview_og_image = og_image.presence || record.try(:seo_og_image).to_s
       preview_twitter_image = twitter_image.presence || preview_og_image
       escaped_og_image = ERB::Util.html_escape(og_image)
-      escaped_twitter_image = ERB::Util.html_escape(preview_twitter_image)
+      escaped_twitter_image = ERB::Util.html_escape(twitter_image)
       og_image_style = preview_image_style(preview_og_image)
       twitter_image_style = preview_image_style(preview_twitter_image)
 
@@ -221,7 +219,7 @@ module Seo
               <div class="mb-3"><h3 class="text-sm font-semibold text-foreground">Social appearance</h3><p class="text-xs text-muted-foreground">Dedicated Open Graph and X cards override the search fallback.</p></div>
               <div class="grid gap-3 lg:grid-cols-2">
                 <div class="space-y-2.5"><div class="seo-social"><div class="seo-social-img"#{og_image_style}>#{preview_og_image.present? ? '' : 'Facebook / LinkedIn image'}</div><div class="p-2.5"><p class="truncate text-xs font-semibold" data-seo-editor-target="ogPreviewTitle">#{ERB::Util.html_escape(og_title.presence || effective_title)}</p><p class="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground" data-seo-editor-target="ogPreviewDescription">#{ERB::Util.html_escape(og_desc.presence || effective_desc)}</p></div></div><div class="seo-field"><label>Open Graph title</label><input name="#{field_prefix}[og_title]" value="#{ERB::Util.html_escape(og_title)}" placeholder="Falls back to SEO title" data-seo-editor-target="ogTitle"></div><div class="seo-field"><label>Open Graph description</label><textarea name="#{field_prefix}[og_description]" rows="2" placeholder="Falls back to meta description" data-seo-editor-target="ogDescription">#{ERB::Util.html_escape(og_desc)}</textarea></div><div class="seo-field"><label>Open Graph image URL</label><input type="url" name="#{field_prefix}[og_image_url]" value="#{escaped_og_image}" placeholder="Uses the featured image by default"></div></div>
-                <div class="space-y-2.5"><div class="seo-social"><div class="seo-social-img"#{twitter_image_style}>#{escaped_twitter_image.present? ? '' : 'X card image'}</div><div class="p-2.5"><p class="truncate text-xs font-semibold" data-seo-editor-target="xPreviewTitle">#{ERB::Util.html_escape(twitter_title.presence || og_title.presence || effective_title)}</p><p class="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground" data-seo-editor-target="xPreviewDescription">#{ERB::Util.html_escape(twitter_desc.presence || og_desc.presence || effective_desc)}</p></div></div><div class="seo-field"><label>X title</label><input name="#{field_prefix}[twitter_title]" value="#{ERB::Util.html_escape(twitter_title)}" placeholder="Falls back to Open Graph" data-seo-editor-target="xTitle"></div><div class="seo-field"><label>X description</label><textarea name="#{field_prefix}[twitter_description]" rows="2" placeholder="Falls back to Open Graph" data-seo-editor-target="xDescription">#{ERB::Util.html_escape(twitter_desc)}</textarea></div><div class="seo-field"><label>X image URL</label><input type="url" name="#{field_prefix}[twitter_image_url]" value="#{escaped_twitter_image}" placeholder="Falls back to Open Graph image"></div><div class="seo-field"><label>Card type</label><select name="#{field_prefix}[twitter_card_type]"><option value="summary_large_image" #{'selected' if twitter_card == 'summary_large_image'}>Large image</option><option value="summary" #{'selected' if twitter_card == 'summary'}>Summary</option></select></div></div>
+                <div class="space-y-2.5"><div class="seo-social"><div class="seo-social-img"#{twitter_image_style}>#{preview_twitter_image.present? ? '' : 'X card image'}</div><div class="p-2.5"><p class="truncate text-xs font-semibold" data-seo-editor-target="xPreviewTitle">#{ERB::Util.html_escape(twitter_title.presence || og_title.presence || effective_title)}</p><p class="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground" data-seo-editor-target="xPreviewDescription">#{ERB::Util.html_escape(twitter_desc.presence || og_desc.presence || effective_desc)}</p></div></div><div class="seo-field"><label>X title</label><input name="#{field_prefix}[twitter_title]" value="#{ERB::Util.html_escape(twitter_title)}" placeholder="Falls back to Open Graph" data-seo-editor-target="xTitle"></div><div class="seo-field"><label>X description</label><textarea name="#{field_prefix}[twitter_description]" rows="2" placeholder="Falls back to Open Graph" data-seo-editor-target="xDescription">#{ERB::Util.html_escape(twitter_desc)}</textarea></div><div class="seo-field"><label>X image URL</label><input type="url" name="#{field_prefix}[twitter_image_url]" value="#{escaped_twitter_image}" placeholder="Falls back to Open Graph image"></div><div class="seo-field"><label>Card type</label><select name="#{field_prefix}[twitter_card_type]"><option value="summary_large_image" #{'selected' if twitter_card == 'summary_large_image'}>Large image</option><option value="summary" #{'selected' if twitter_card == 'summary'}>Summary</option></select></div></div>
               </div>
             </section>
           </div>

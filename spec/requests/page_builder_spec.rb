@@ -19,7 +19,7 @@ RSpec.describe "Page builder ↔ block editor", type: :request do
       record_type: "page", record_id: page.id,
       html: "<html><body><p>new</p></body></html>",
       store: {
-        version: 2, type: "page", settings: { title: "About" },
+        version: 2, type: "page", settings: { title: "About our team" },
         children: [{ id: "heading-1", type: "heading", settings: { text: "New" }, styles: { base: { color: "#123456" } } }]
       },
       custom_css: ".a { color: blue }",
@@ -28,6 +28,8 @@ RSpec.describe "Page builder ↔ block editor", type: :request do
 
     expect(response).to have_http_status(:ok)
     block = page.reload.content_blocks.find { |b| b["type"] == "page_builder" }
+    expect(page.title).to eq("About our team")
+    expect(page.status).not_to eq("published")
     expect(block["data"]["html"]).to include("<p>new</p>")
     expect(block.dig("data", "store", "version")).to eq(2)
     expect(block.dig("data", "store", "children", 0, "type")).to eq("heading")

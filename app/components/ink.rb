@@ -1,3 +1,3 @@
-# Ink — the application-owned component library. Replaces NitroKit.
+# Ink — the application-owned component library.
 module Ink
 end

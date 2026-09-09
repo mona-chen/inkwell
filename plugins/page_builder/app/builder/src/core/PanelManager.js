@@ -21,7 +21,7 @@ const captureFocusState = (body) => {
     const section = row.closest?.('details[data-section]')?.dataset.section || '';
     const value = (el.value !== undefined && el.value !== null) ? String(el.value) : null;
     const caret = (el.selectionStart != null) ? el.selectionStart : null;
-    return { control, section, value, caret, type: el.type };
+    return { control, section, value, caret, type: el.type, index: [...row.querySelectorAll('input, select, textarea')].indexOf(el) };
 };
 
 const restoreFocusState = (body, state) => {
@@ -32,7 +32,7 @@ const restoreFocusState = (body, state) => {
         if (sectionEl) sectionEl.open = true;
     }
     if (!row) return;
-    const input = row.querySelector('input, select, textarea');
+    const input = row.querySelectorAll('input, select, textarea')[state.index || 0];
     if (!input || (state.value !== null && String(input.value) !== state.value)) return;
     input.focus();
     if (state.caret != null && typeof input.setSelectionRange === 'function') { try { input.setSelectionRange(state.caret, state.caret); } catch (_) {} }
@@ -45,7 +45,8 @@ export default class PanelManager {
         this.container = container;
         this.role = role; // 'main' (left panel: elements/site/history) | 'settings' | 'navigator' (Navigator window)
         this.route = role === 'settings' ? 'settings' : role === 'navigator' ? 'navigator' : 'elements';
-        this.activeTab = 'content';
+        this.activeTab = 'all';
+        this.openSections = new Map();
         this.activeState = 'base'; // 'base' | 'hover' | 'focus' (Elementor Normal/Hover/Focus)
         this.sectionStates = new Map();
         this.shapeDividerSides = new Map();
@@ -59,6 +60,8 @@ export default class PanelManager {
         try { const saved = JSON.parse(localStorage.getItem('inkwell_builder_nav_expanded') || '[]'); if (Array.isArray(saved)) this.expandedNodes = new Set(saved); } catch (_) {}
         this.navigatorDragId = null;
         this.unsubscribers = [];
+        this.abort = new AbortController();
+        this.renderAbort = new AbortController();
     }
 
     mount() {
@@ -78,8 +81,9 @@ export default class PanelManager {
         if (this.role !== 'settings') this.unsubscribers.push(this.runtime.events.on('document:update', () => this.render()));
         this.unsubscribers.push(this.runtime.events.on('document:settings', () => { if (this.route === 'site') this.render(); }));
         this.unsubscribers.push(this.runtime.events.on('history:change', () => { if (this.route === 'history') this.render(); }));
-        if (this.role !== 'settings') this.unsubscribers.push(this.runtime.events.on('responsive:change', () => this.render()));
+        this.unsubscribers.push(this.runtime.events.on('responsive:change', () => this.render()));
         if (this.role === 'navigator') {
+            this.unsubscribers.push(this.runtime.events.on('navigator:expansion', ({ source, ids }) => { if (source !== this) { this.expandedNodes = new Set(ids); this.render(); } }));
             this.unsubscribers.push(this.runtime.events.on('document:insert', () => this.render()));
             this.unsubscribers.push(this.runtime.events.on('document:remove', () => this.render()));
             this.unsubscribers.push(this.runtime.events.on('document:move', () => this.render()));
@@ -91,7 +95,7 @@ export default class PanelManager {
             this.route = 'elements';
             this.render();
         }));
-        document.addEventListener('click', () => this.closeNavigatorMenu());
+        document.addEventListener('click', () => this.closeNavigatorMenu(), { signal: this.abort.signal });
         this.render();
         return this;
     }
@@ -114,6 +118,7 @@ export default class PanelManager {
     }
 
     render({ preserveScroll = true, restoreFocus = true } = {}) {
+        if (this.scrubbing) return;
         // A live control edit (type/click in Scale, Radius, Rotate, …) fires document:update,
         // which re-runs render() and would otherwise wipe the scroll container (replaceChildren)
         // and jolt the panel back to the top. Capture the previous scroll position and the
@@ -122,6 +127,7 @@ export default class PanelManager {
         const priorBody = this.container.querySelector('.ink-v2-panel-body');
         const priorScrollTop = preserveScroll ? priorBody?.scrollTop || 0 : 0;
         const priorFocus = restoreFocus ? captureFocusState(priorBody) : null;
+        this.renderAbort.abort(); this.renderAbort = new AbortController();
         this.container.replaceChildren();
         const body = document.createElement('div');
         body.className = 'ink-v2-panel-body';
@@ -326,8 +332,12 @@ export default class PanelManager {
         const node = this.runtime.document.get(this.runtime.selection.selectedId);
         if (!node) {
             const empty = document.createElement('div');
-            empty.className = 'ink-v2-panel-empty';
-            empty.innerHTML = '<span class="material-symbols-rounded">touch_app</span><p>Select an element on the canvas to edit it.</p>';
+            empty.className = 'ink-studio-empty';
+            empty.innerHTML = '<span class="material-symbols-rounded">touch_app</span><h2>Make it yours</h2><p>Select a layer to adjust its layout, appearance, and behavior. Double-click text to write directly on the canvas.</p><button type="button" data-start="frame">Draw a frame <kbd>F</kbd></button><button type="button" data-start="heading">Add text <kbd>T</kbd></button><button type="button" data-start="elements">Explore elements <kbd>I</kbd></button>';
+            empty.querySelectorAll('[data-start]').forEach((button) => button.addEventListener('click', () => {
+                if (button.dataset.start === 'elements') this.runtime.events.emit('library:open', {});
+                else this.runtime.panel.insertDefinition(button.dataset.start);
+            }));
             return empty;
         }
         const definition = this.runtime.elements.get(node.type);
@@ -336,22 +346,84 @@ export default class PanelManager {
         const wrapper = document.createElement('div');
         wrapper.innerHTML = `<div class="ink-v2-element-title"><button type="button" data-back aria-label="Back to elements"><span class="material-symbols-rounded">arrow_back</span></button><span class="ink-v2-edit-label">Edit</span><strong>${definition.title}${titleSuffix}</strong></div><div class="ink-v2-control-tabs"></div><div class="ink-v2-controls"></div>`;
         wrapper.querySelector('[data-back]').addEventListener('click', () => { this.runtime.selection.clear(); if (window.sidebarTabManager) window.sidebarTabManager.openTab(document.querySelector('[data-tab="widgets"]')); const main = this.runtime.panel; if (main) { main.route = 'elements'; main.render(); } });
+        const identity = document.createElement('div'); identity.className = 'ink-inspector-identity';
+        const name = document.createElement('input'); name.type = 'text'; name.value = node.settings.label || definition.title; name.setAttribute('aria-label', 'Layer name');
+        name.addEventListener('change', () => this.runtime.update(node.id, { settings: { label: name.value.trim() || definition.title } }, 'Rename layer'));
+        const path = document.createElement('nav'); path.className = 'ink-inspector-path'; path.setAttribute('aria-label', 'Selection ancestors');
+        const ancestors = this.runtime.document.pathTo(node.id).slice(0, -1);
+        const page = document.createElement('button'); page.type = 'button'; page.textContent = 'Page'; page.addEventListener('click', () => this.runtime.selection.clear()); path.appendChild(page);
+        ancestors.forEach((ancestor) => {
+            const button = document.createElement('button'); button.type = 'button'; button.textContent = ancestor.settings.label || this.runtime.elements.get(ancestor.type).title;
+            button.addEventListener('click', () => this.runtime.selection.select(ancestor.id)); path.append('›', button);
+        });
+        identity.append(name, path); wrapper.querySelector('.ink-v2-element-title').replaceWith(identity);
+        if (['div', 'section', 'column'].includes(node.type) && !definition.controls.some((control) => control.type === 'layout-flow')) {
+            const layout = document.createElement('section'); layout.className = 'ink-inspector-layout'; layout.innerHTML = '<strong>Layout</strong><div role="group" aria-label="Layout mode"></div>';
+            const device = this.runtime.responsive.device;
+            const base = { ...node.styles.desktop?.base, ...(device === 'tablet' || device === 'mobile' ? node.styles.tablet?.base : {}), ...(device === 'mobile' ? node.styles.mobile?.base : {}) };
+            const active = base.display === 'flex' ? (base['flex-direction'] === 'row' ? 'Row' : 'Stack') : base.display === 'grid' ? 'Grid' : 'Flow';
+            [['Flow', { display: 'block' }], ['Row', { display: 'flex', 'flex-direction': 'row' }], ['Stack', { display: 'flex', 'flex-direction': 'column' }], ['Grid', { display: 'grid', 'grid-template-columns': 'repeat(2, minmax(0, 1fr))' }]].forEach(([label, patch]) => {
+                const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.setAttribute('aria-pressed', String(active === label));
+                button.addEventListener('click', () => this.runtime.update(node.id, { styles: { [device]: { base: patch } } }, `Set ${label.toLowerCase()} layout`)); layout.querySelector('div').appendChild(button);
+            });
+            identity.after(layout);
+        }
         const tabs = wrapper.querySelector('.ink-v2-control-tabs');
-        const availableTabs = ['content', 'style', 'advanced'].filter((tab) => definition.controls.some((control) => control.tab === tab));
+        const availableTabs = ['all', ...['content', 'style', 'advanced'].filter((tab) => definition.controls.some((control) => control.tab === tab))];
         if (!availableTabs.includes(this.activeTab)) this.activeTab = availableTabs[0] || 'content';
         availableTabs.forEach((tab) => {
-            const labels = { content: 'Content', style: 'Style', advanced: 'Advanced', ...(definition.tabLabels || {}) };
-            const icons = { content: 'edit', style: 'contrast', advanced: 'settings', ...(definition.tabIcons || {}) };
+            const labels = { all: 'All', content: 'Content', style: 'Style', advanced: 'Advanced', ...(definition.tabLabels || {}) };
+            const icons = { all: 'sliders-horizontal', content: 'edit', style: 'contrast', advanced: 'settings', ...(definition.tabIcons || {}) };
             const button = document.createElement('button'); button.type = 'button'; button.className = tab === this.activeTab ? 'is-active' : '';
             button.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${icons[tab]}</span><span>${labels[tab]}</span>`;
             button.addEventListener('click', () => { this.activeTab = tab; this.render(); }); tabs.appendChild(button);
         });
+        const filter = document.createElement('details'); filter.className = 'ink-inspector-filter';
+        const filterLabel = document.createElement('summary'); filterLabel.textContent = this.activeTab === 'all' ? 'All properties' : `${this.activeTab[0].toUpperCase()}${this.activeTab.slice(1)} properties`;
+        tabs.replaceWith(filter); filter.append(filterLabel, tabs);
         const controlsHost = wrapper.querySelector('.ink-v2-controls');
         const sections = new Map();
-        const tabControls = definition.controls.filter((control) => control.tab === this.activeTab && this.controlIsActive(control, node));
+        let tabControls = definition.controls.filter((control) => (this.activeTab === 'all' || control.tab === this.activeTab) && this.controlIsActive(control, node));
+        if (['all', 'style'].includes(this.activeTab) && node.type !== 'shader' && !tabControls.some((control) => control.type === 'background')) {
+            tabControls = tabControls.filter((control) => !['background-color', 'background-image'].includes(control.name));
+            tabControls.push({ name: 'background', type: 'background', target: 'styles', tab: 'style', section: 'Fill', label: 'Fill' });
+        }
+        // Named style metadata resolves to the explicit part. Rendering the inherited
+        // advanced version too produces two editors for the very same property.
+        tabControls = tabControls.filter((control) => control.part || !definition.controls.some((other) => other.part && other.name === control.name && other.target === control.target));
+        if (this.activeTab === 'all') {
+            const combinedLayout = tabControls.some((control) => control.type === 'alignment-gap');
+            tabControls = tabControls.filter((control) => !(combinedLayout && ['padding', 'overflow'].includes(control.name)));
+            tabControls = tabControls.map((control) => {
+                let section = control.section;
+                if (['Container', 'Frame'].includes(section)) section = 'Layout';
+                if (control.target === 'styles') {
+                    if (['min-width', 'max-width', 'min-height', 'max-height', 'aspect-ratio'].includes(control.name)) section = 'Constraints';
+                    if (['opacity', 'border-radius'].includes(control.name)) section = 'Appearance';
+                    if (control.name === 'rotate') section = 'Positioning';
+                    if (['background', 'background-color', 'background-image'].includes(control.name)) section = 'Fill';
+                }
+                if (control.type === 'resizing' || (control.target === 'styles' && ['width', 'height'].includes(control.name))) section = 'Layout';
+                if (control.type === 'css-filters' || ['box-shadow', 'text-shadow', 'backdrop-filter'].includes(control.name)) section = 'Effects';
+                if (control.type === 'border') section = 'Stroke';
+                if (node.type === 'image') {
+                    if (['image-width', 'image-height'].includes(control.name)) section = 'Image sizing';
+                    if (['image-max-width', 'image-max-height', 'image-aspect-ratio'].includes(control.name)) section = 'Constraints';
+                    if (['caption', 'caption-color'].includes(control.name)) section = 'Caption';
+                    if (control.name === 'link') section = 'Link';
+                }
+                return { ...control, section };
+            });
+            const order = ['Positioning', 'Layout', 'Image', 'Shader', 'Content', 'Text', 'Heading', 'Typography', 'Appearance', 'Fill', 'Background', 'Stroke', 'Border', 'Effects'];
+            tabControls.sort((a, b) => { const rank = (section) => order.includes(section) ? order.indexOf(section) : 99; return rank(a.section) - rank(b.section); });
+        }
         tabControls.forEach((control) => {
             if (!sections.has(control.section)) {
-                const section = document.createElement('details'); section.className = 'ink-v2-control-section'; section.dataset.section = String(control.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'); section.open = control.section !== 'Additional Options'; section.innerHTML = `<summary><span>${control.section}</span><span class="ink-v2-section-chevron" aria-hidden="true">⌄</span></summary>`;
+                const section = document.createElement('details'); section.className = 'ink-v2-control-section'; section.dataset.section = String(control.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'); section.open = control.section !== 'Additional Options'; section.innerHTML = `<summary><span>${control.section === 'Positioning' ? 'Position' : control.section}</span><span class="ink-v2-section-chevron" aria-hidden="true">⌄</span></summary>`;
+                const key = `${node.type}:${this.activeTab}:${control.section}`;
+                if (this.openSections.has(key)) section.open = this.openSections.get(key);
+                else if (this.activeTab === 'all') section.open = ['Appearance', 'Layout', 'Positioning', 'Typography', 'Text', 'Content', 'Heading', 'Button', 'Image', 'Shader'].includes(control.section);
+                section.addEventListener('toggle', () => { if (section.isConnected) this.openSections.set(key, section.open); });
                 sections.set(control.section, section); controlsHost.appendChild(section);
             }
             const section = sections.get(control.section);
@@ -360,13 +432,15 @@ export default class PanelManager {
                 const stateOptions = [...new Set(available)];
                 const active = stateOptions.includes(this.sectionStates.get(control.section)) ? this.sectionStates.get(control.section) : stateOptions[0];
                 this.sectionStates.set(control.section, active);
-                const states = document.createElement('div'); states.className = 'ink-v2-states'; states.style.setProperty('--ink-state-count', stateOptions.length);
+                const states = document.createElement('div'); states.className = 'ink-v2-states';
                 const labels = { base: 'Normal', hover: 'Hover', focus: 'Focus', active: 'Active' };
-                stateOptions.forEach((state) => {
-                    const button = document.createElement('button'); button.type = 'button'; button.textContent = labels[state] || state; button.className = active === state ? 'is-active' : '';
-                    button.addEventListener('click', () => { this.sectionStates.set(control.section, state); this.render(); }); states.appendChild(button);
-                });
-                section.appendChild(states);
+                const select = document.createElement('select'); select.setAttribute('aria-label', `${control.section} state`);
+                stateOptions.forEach((state) => select.add(new Option(labels[state] || state, state)));
+                select.value = active;
+                select.addEventListener('click', (event) => event.stopPropagation());
+                select.addEventListener('change', () => { this.sectionStates.set(control.section, select.value); this.render(); });
+                states.appendChild(select);
+                section.querySelector('summary').insertBefore(states, section.querySelector('.ink-v2-section-chevron'));
             }
             const state = control.states ? (this.sectionStates.get(control.section) || 'base') : control.state;
             section.appendChild(this.renderControl(state ? { ...control, state } : control, node));
@@ -377,7 +451,9 @@ export default class PanelManager {
     controlIsActive(control, node) {
         if (!control.condition) return true;
         const test = (conditions) => Object.entries(conditions).every(([name, expected]) => {
-            const actual = node.settings[name] ?? node.styles.desktop?.base?.[name] ?? node.styles.base?.[name];
+            const device = this.runtime.responsive.device;
+            const styles = { ...node.styles.base, ...node.styles.desktop?.base, ...(device !== 'desktop' ? node.styles.tablet?.base : {}), ...(device === 'mobile' ? node.styles.mobile?.base : {}) };
+            const actual = styles[name] ?? node.settings[name];
             if (Array.isArray(expected)) return expected.includes(actual);
             if (expected === '__not_empty__') return actual !== undefined && actual !== null && actual !== '';
             return actual === expected;
@@ -429,6 +505,22 @@ export default class PanelManager {
         });
     }
 
+    // A continuous gesture previews live, keeps its DOM/focus, and becomes one undo step.
+    scrubValue(control, node, value, finish = false) {
+        if (!this.scrubbing) {
+            this.scrubbing = true;
+            this.ownsScrubTransaction = !this.runtime.history.transaction;
+            if (this.ownsScrubTransaction) this.runtime.history.begin(`Change ${control.label}`);
+        }
+        this.setValue(control, node, value);
+        if (finish) {
+            this.scrubbing = false;
+            if (this.ownsScrubTransaction) this.runtime.history.commit();
+            this.ownsScrubTransaction = false;
+            this.render();
+        }
+    }
+
     mediaValue(control, value, url) {
         return value && typeof value === 'object' && !Array.isArray(value) ? { ...value, url } : url;
     }
@@ -446,7 +538,7 @@ export default class PanelManager {
             popover.appendChild(button);
         });
         trigger.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); holder.classList.toggle('is-open'); });
-        document.addEventListener('click', (event) => { if (!holder.contains(event.target)) holder.classList.remove('is-open'); });
+        document.addEventListener('click', (event) => { if (!holder.contains(event.target)) holder.classList.remove('is-open'); }, { signal: this.renderAbort.signal });
         holder.append(trigger, popover);
         return holder;
     }
@@ -488,6 +580,7 @@ export default class PanelManager {
     renderControl(control, node) {
         const row = document.createElement('div'); row.className = 'ink-v2-control';
         // Stable identifier so render() can restore focus to the same control after a live edit.
+        row.dataset.controlType = control.type;
         row.dataset.inkControl = String(control.name || control.label || '').replace(/[^a-z0-9-]+/gi, '-');
         // Thread the active Normal/Hover/Focus state into state-capable controls.
         if (control.states && !control.state) control = { ...control, state: this.sectionStates.get(control.section) || 'base' };
@@ -581,7 +674,7 @@ export default class PanelManager {
             toggle.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.toggleNavigatorCollapse(node.id); }); row.appendChild(toggle);
             const button = document.createElement('button'); button.type = 'button'; button.dataset.inkNavigatorId = node.id; button.draggable = true; button.tabIndex = 0;
             const elementIcon = renderIcon(document, `lucide:${lucideName(definition.icon)}`, 'ink-v2-navigator-icon');
-            const elementLabel = document.createElement('span'); elementLabel.dataset.inkNavigatorLabel = ''; elementLabel.textContent = node.settings.label || node.settings.text || definition.title;
+            const elementLabel = document.createElement('span'); elementLabel.dataset.inkNavigatorLabel = ''; elementLabel.textContent = node.settings.label || node.settings.text || definition.title; elementLabel.title = elementLabel.textContent; button.title = elementLabel.textContent;
             button.append(elementIcon, elementLabel);
             if (node.id === this.runtime.selection.selectedId) button.classList.add('is-active');
             if (node.settings.hidden) button.classList.add('is-hidden');
@@ -637,6 +730,7 @@ export default class PanelManager {
 
     persistNavigatorExpansion() {
         try { localStorage.setItem('inkwell_builder_nav_expanded', JSON.stringify([...this.expandedNodes])); } catch (_) {}
+        this.runtime.events.emit('navigator:expansion', { source: this, ids: [...this.expandedNodes] });
     }
 
     scrollCanvasTo(id) {
@@ -733,5 +827,5 @@ export default class PanelManager {
         }
     }
 
-    destroy() { this.unsubscribers.forEach((unsubscribe) => unsubscribe()); this.unsubscribers = []; this.container.replaceChildren(); }
+    destroy() { this.abort.abort(); this.renderAbort.abort(); this.unsubscribers.forEach((unsubscribe) => unsubscribe()); this.unsubscribers = []; this.container.replaceChildren(); }
 }

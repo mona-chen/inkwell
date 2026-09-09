@@ -10,15 +10,11 @@ module Devise
 
     def view_template
       render Devise::AuthLayout.new(title: "Reset your password") do
-        render Ink::Card.new do |card|
-          card.body do
-            render_error_messages
-            form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :post }, builder: Ink::FormBuilder) do |form|
-              form.group do
-                form.field(:email, as: :email, control_html: { autofocus: true }, autocomplete: "email", label: "Email")
-                form.submit("Send reset instructions")
-              end
-            end
+        render_error_messages
+        form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :post }, builder: Ink::FormBuilder) do |form|
+          form.group do
+            form.field(:email, as: :email, control_html: { autofocus: true }, autocomplete: "email", label: "Email")
+            form.submit("Send reset instructions")
           end
         end
         div(class: "text-center mt-4") do

@@ -17,7 +17,7 @@ module Admin
         role_id: params[:role_id]
       )
       if user.save
-        redirect_to admin_users_path, notice: "#{user.name} invited."
+        redirect_to admin_users_path, notice: "#{user.name}'s account was created."
       else
         redirect_to admin_users_path, alert: user.errors.full_messages.to_sentence
       end

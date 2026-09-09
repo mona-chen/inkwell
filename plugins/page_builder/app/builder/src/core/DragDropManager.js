@@ -129,9 +129,11 @@ export default class DragDropManager {
     }
 
     cancelFrameDraw() {
+        const wasDrawing = Boolean(this.frameDraw);
         this.frameDrawPreview?.remove(); this.frameDrawPreview = null;
         this.frameDraw = null;
         this.iframeDoc?.body.classList.remove('ink-is-drawing-frame');
+        if (wasDrawing) this.runtime.events.emit('frame:draw-end', {});
     }
 
     // ------------------------------------------------------- Marquee selection
@@ -190,12 +192,13 @@ export default class DragDropManager {
             if (node && this.runtime.elements.get(node.type)?.acceptsChildren) return { node, element, childHost: childHost(element) };
             element = element.parentElement?.closest?.('[data-ink-element-id]') || null;
         }
-        return null;
+        return { node: this.runtime.document.data, element: this.canvas, childHost: this.canvas };
     }
 
     onFrameDrawPointerDown(event) {
         if (!this.frameDraw || event.button !== 0 || !this.iframeDoc.body.classList.contains('ink-builder-design')) return false;
-        if (event.target.closest?.('[data-ink-editor-only],input,textarea,select,[contenteditable="true"]')) return true;
+        if (event.target.closest?.('button,input,textarea,select,[contenteditable="true"]')) return true;
+        if (event.target.closest?.('[data-ink-editor-only]') && !event.target.closest('.ink-editor-empty,.ink-editor-root-empty')) return true;
         const parent = this.resolveFrameDrawParent(event);
         if (!parent) return true;
         event.preventDefault(); event.stopPropagation();
@@ -218,8 +221,8 @@ export default class DragDropManager {
         const finish = (pointer) => {
             update(pointer);
             const bounds = this.frameDraw?.bounds || { left: start.x - originX, top: start.y - originY, width: 0, height: 0 };
-            const width = Math.max(120, Math.round(bounds.width || 240)), height = Math.max(80, Math.round(bounds.height || 160));
-            const node = this.runtime.insert('frame', { parentId: parent.node.id, index: parent.node.children?.length || 0 }, { settings: { label: 'Frame' }, styles: { desktop: { base: { position: 'absolute', left: { size: Math.round(bounds.left), unit: 'px' }, top: { size: Math.round(bounds.top), unit: 'px' }, width: { size: width, unit: 'px' }, height: { size: height, unit: 'px' } } } } });
+            const width = Math.max(1, Math.round(bounds.width || 240)), height = Math.max(1, Math.round(bounds.height || 160));
+            const node = this.runtime.insert('frame', { parentId: parent.node.id, index: parent.node.children?.length || 0 }, { settings: { label: 'Frame' }, styles: { desktop: { base: { position: 'absolute', left: { size: Math.round(bounds.left), unit: 'px' }, top: { size: Math.round(bounds.top), unit: 'px' }, width: { size: width, unit: 'px' }, height: { size: height, unit: 'px' }, 'min-width': { size: 0, unit: 'px' }, 'min-height': { size: 0, unit: 'px' } } } } });
             this.runtime.selection.select(node.id); this.cancelFrameDraw();
         };
         let clean = () => {};

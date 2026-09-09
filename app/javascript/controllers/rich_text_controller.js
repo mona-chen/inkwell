@@ -23,11 +23,14 @@ export default class extends Controller {
     })
 
     this.bindToolbar()
+    this.refreshToolbar()
 
     // Let the surrounding block editor know our serialized value changed.
     this.editorTarget.addEventListener("focusin", () => {
       this.element.dispatchEvent(new CustomEvent("focusin", { bubbles: true }))
     })
+    this.editorTarget.addEventListener("keyup", () => this.refreshToolbar())
+    this.editorTarget.addEventListener("mouseup", () => this.refreshToolbar())
   }
 
   disconnect() {
@@ -39,10 +42,37 @@ export default class extends Controller {
     this.toolbarTarget.querySelectorAll("[data-command]").forEach((btn) => {
       const command = btn.dataset.command
       const arg = btn.dataset.arg
+      btn.addEventListener("mousedown", (e) => e.preventDefault())
       btn.addEventListener("click", (e) => {
         e.preventDefault()
         this.runCommand(command, arg)
+        this.refreshToolbar()
       })
+    })
+  }
+
+  refreshToolbar() {
+    if (!this.hasToolbarTarget || !this.editor) return
+    const stateNames = {
+      setParagraph: "paragraph",
+      toggleHeading: "heading",
+      toggleBold: "bold",
+      toggleItalic: "italic",
+      toggleUnderline: "underline",
+      toggleStrike: "strike",
+      toggleCode: "code",
+      toggleBulletList: "bulletList",
+      toggleOrderedList: "orderedList",
+      toggleBlockquote: "blockquote",
+      toggleCodeBlock: "codeBlock",
+      toggleLink: "link",
+    }
+
+    this.toolbarTarget.querySelectorAll("[data-command]").forEach((button) => {
+      const stateName = stateNames[button.dataset.command]
+      const attributes = button.dataset.arg ? { level: parseInt(button.dataset.arg, 10) } : undefined
+      button.classList.toggle("is-active", Boolean(stateName && this.editor.isActive(stateName, attributes)))
+      button.setAttribute("aria-pressed", stateName ? String(this.editor.isActive(stateName, attributes)) : "false")
     })
   }
 

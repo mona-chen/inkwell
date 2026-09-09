@@ -19,4 +19,10 @@ export default class extends Controller {
   backdropClose(event) {
     if (event.target === this.dialogTarget) this.dialogTarget.close()
   }
+
+  imageError(event) {
+    const image = event.currentTarget
+    image.classList.add("hidden")
+    image.nextElementSibling?.classList.remove("hidden")
+  }
 }

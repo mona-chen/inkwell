@@ -1,3 +1,5 @@
+import { attachShaderFill } from './shaderPresets.js';
+import { SHADER_RUNTIME } from './shaderRuntime.js';
 import { renderIcon } from './icons.js';
 
 // Inline widget-behavior runtime. Emitted once per canvas render inside the canvas root so it
@@ -257,6 +259,7 @@ export default class CanvasRenderer {
         if (!node.children?.length && definition.acceptsChildren && definition.showEmptyView !== false && !definition.preserveMarkup && !imported) childrenRoot.appendChild(this.emptyView(node, kind));
         if (!definition.preserveMarkup && !imported && definition.showEditorOverlay !== false) element.appendChild(this.overlay(node, kind));
         if (node.type === 'columns') this.attachColumnResizes(element);
+        attachShaderFill(element, node);
         const instance = { element, definition, node };
         this.instances.set(node.id, instance);
         definition.mount?.({ element, node, document: this.document });
@@ -372,7 +375,7 @@ export default class CanvasRenderer {
         const doc = this.root.ownerDocument;
         const script = doc.createElement('script');
         script.dataset.inkWidgetRuntime = '';
-        script.textContent = WIDGET_RUNTIME;
+        script.textContent = WIDGET_RUNTIME + SHADER_RUNTIME;
         return script;
     }
 

@@ -2,7 +2,7 @@
 
 module Admin
   class PostsPage < ApplicationComponent
-    STATUSES = [["All", nil], ["Published", "published"], ["Draft", "draft"], ["Scheduled", "scheduled"]].freeze
+    STATUSES = [["All", nil], ["Published", "published"], ["Draft", "draft"], ["Scheduled", "scheduled"], ["Trash", "trashed"]].freeze
 
     def initialize(posts:, status: nil, q: nil, pagy: nil)
       @posts = posts
@@ -26,28 +26,32 @@ module Admin
     private
 
     def render_header
-      div(class: "mb-6 flex items-center justify-between") do
-        div do
-          h1(class: "text-2xl font-bold tracking-tight") { "Posts" }
-          p(class: "mt-1 text-sm text-muted-foreground") { "#{pluralize(@posts.total_count, "post")} · your publishing queue" }
+      render Toolbar.new do |toolbar|
+        toolbar.leading do
+          render ToolbarTitle.new(
+            title: "Posts",
+            subtitle: "#{pluralize(@posts.total_count, "post")} · your publishing queue"
+          )
         end
-        render Button.new("New post", href: new_admin_post_path, variant: :primary, icon: :plus)
+        toolbar.trailing do
+          render Button.new("New post", href: new_admin_post_path, variant: :primary, icon: :plus)
+        end
       end
     end
 
     def render_filters
       div(class: "mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between") do
-        div(class: "flex flex-wrap items-center gap-1 rounded-lg border border-border bg-muted/50 p-1") do
+        div(class: "flex flex-wrap items-center gap-1 rounded-lg border border-border bg-muted/40 p-1") do
           STATUSES.each do |(label, value)|
             current = @status == value || (value.nil? && @status.nil?)
             a(
               href: admin_posts_path(status: value, q: @q),
-              class: "rounded-md px-3 py-1.5 text-sm font-medium transition-all #{current ? "bg-card text-foreground shadow-sm border border-border/50" : "text-muted-foreground hover:text-foreground hover:bg-card/50"}"
+              class: "rounded-md px-3 py-1.5 text-sm font-medium transition-colors #{current ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}"
             ) { label }
           end
         end
 
-        form_with(url: admin_posts_path, method: :get, class: "sm:w-72") do |f|
+        form_with(url: admin_posts_path, method: :get, class: "sm:w-64") do |f|
           div(class: "relative") do
             span(class: "pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground") do
               render Icon.new(:search, size: :sm)
@@ -55,7 +59,7 @@ module Admin
             f.search_field :q,
               value: @q,
               placeholder: "Search posts…",
-              class: "w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
+              class: "w-full rounded-lg border border-border bg-background py-1.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
           end
         end
       end

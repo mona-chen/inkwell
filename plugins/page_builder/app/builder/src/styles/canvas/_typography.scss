@@ -16,6 +16,22 @@
 .ink-el-text-editor { line-height: 1.6; }
 .ink-el-text-editor p:first-child { margin-top: 0; }
 .ink-el-text-editor p:last-child { margin-bottom: 0; }
+.ink-el-text-editor :where(ul, ol),
+.ink-el-unordered-list,
+.ink-el-ordered-list {
+  margin: 0 0 1em;
+  padding-inline-start: 1.5em;
+}
+.ink-el-text-editor ul,
+.ink-el-unordered-list { list-style: disc outside; }
+.ink-el-text-editor ol,
+.ink-el-ordered-list { list-style: decimal outside; }
+.ink-el-text-editor li,
+.ink-el-list-item {
+  display: list-item;
+  padding-inline-start: .2em;
+}
+.ink-el-text-editor :where(ul, ol) :where(ul, ol) { margin-block: .35em; }
 
 .ink-el-divider { width: 100%; max-width: 100%; border: 0; border-top: 1px solid #7a7a7a; height: 1px; }
 .ink-el-spacer { display: block; }

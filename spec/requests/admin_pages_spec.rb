@@ -38,8 +38,8 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
-    expect(body).to include("data-nk=\"empty-state\"")
+    expect(body).to include("data-ink=\"toolbar\"")
+    expect(body).to include("data-ink=\"empty-state\"")
     expect(body).to include("Posts")
   end
 
@@ -48,7 +48,7 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
+    expect(body).to include("data-ink=\"toolbar\"")
     expect(body).to include("Pages")
   end
 
@@ -57,8 +57,8 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
-    expect(body).to include("data-nk=\"card\"")
+    expect(body).to include("data-ink=\"toolbar\"")
+    expect(body).to include("data-ink=\"card\"")
   end
 
   it "renders the comments index with the Ink shell" do
@@ -66,8 +66,8 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
-    expect(body).to include("data-nk=\"empty-state\"")
+    expect(body).to include("data-ink=\"toolbar\"")
+    expect(body).to include("data-ink=\"empty-state\"")
     expect(body).to include("Comments")
   end
 
@@ -76,8 +76,8 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
-    expect(body).to include("data-nk=\"grid\"")
+    expect(body).to include("data-ink=\"toolbar\"")
+    expect(body).to include("data-ink=\"grid\"")
     expect(body).to include("Menus")
   end
 
@@ -86,8 +86,8 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
-    expect(body).to include("data-nk=\"settings-section\"")
+    expect(body).to include("data-ink=\"toolbar\"")
+    expect(body).to include("data-ink=\"settings-section\"")
   end
 
   it "renders the plugins index with the Ink shell" do
@@ -95,8 +95,8 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
-    expect(body).to include("data-nk=\"grid\"")
+    expect(body).to include("data-ink=\"toolbar\"")
+    expect(body).to include("data-ink=\"grid\"")
     expect(body).to include("Plugins")
   end
 
@@ -105,8 +105,8 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
-    expect(body).to include("data-nk=\"grid\"")
+    expect(body).to include("data-ink=\"toolbar\"")
+    expect(body).to include("data-ink=\"grid\"")
     expect(body).to include("Themes")
   end
 
@@ -128,8 +128,8 @@ RSpec.describe "Admin pages render", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
     expect(body).to include("data-ink=\"shell\"")
-    expect(body).to include("data-nk=\"toolbar\"")
-    expect(body).to include("data-nk=\"data-section\"")
+    expect(body).to include("data-ink=\"toolbar\"")
+    expect(body).to include("data-ink=\"data-section\"")
     expect(body).to include("Revision history")
   end
 end

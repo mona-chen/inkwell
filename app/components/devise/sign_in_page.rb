@@ -12,24 +12,20 @@ module Devise
 
     def view_template
       render Devise::AuthLayout.new(title: "Sign in to your dashboard") do
-        render Ink::Card.new do |card|
-          card.body do
-            render_error_messages
-            form_for(@resource, as: @resource_name, url: @submit_url, builder: Ink::FormBuilder) do |form|
-              form.group do
-                form.field(:email, as: :email, control_html: { autofocus: true }, autocomplete: "email", label: "Email")
-                form.field(:password, as: :password, autocomplete: "current-password", label: "Password")
-                if @devise_mapping.rememberable?
-                  render Ink::Checkbox.new(
-                    label: "Remember me",
-                    name: "#{@resource_name}[remember_me]",
-                    value: "1",
-                    unchecked_value: "0"
-                  )
-                end
-                form.submit("Sign in")
-              end
+        render_error_messages
+        form_for(@resource, as: @resource_name, url: @submit_url, builder: Ink::FormBuilder) do |form|
+          form.group do
+            form.field(:email, as: :email, control_html: { autofocus: true }, autocomplete: "email", label: "Email")
+            form.field(:password, as: :password, autocomplete: "current-password", label: "Password")
+            if @devise_mapping.rememberable?
+              render Ink::Checkbox.new(
+                label: "Remember me",
+                name: "#{@resource_name}[remember_me]",
+                value: "1",
+                unchecked_value: "0"
+              )
             end
+            form.submit("Sign in")
           end
         end
         div(class: "text-center mt-4") do

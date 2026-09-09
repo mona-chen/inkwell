@@ -4,25 +4,37 @@ module Ink
       @template.tag.div(class: "flex flex-col gap-3", &block)
     end
 
-    def field(name, as: :text, label: nil, **html)
+    def field(name, as: :text, label: nil, description: nil, control_html: {}, **html)
+      return switch_field(name, html, label: label) if as == :switch
+
       @template.tag.div(class: "mb-3") do
         safe = []
         safe << @template.label(object_name, name, label || name.to_s.humanize, for: field_id(name), class: "mb-1.5 block text-xs font-medium text-foreground") if label != false
-        safe << input(name, as, html)
+        safe << input(name, as, html.merge(control_html))
+        safe << @template.content_tag(:p, description, class: "mt-1 text-xs text-muted-foreground") if description.present?
         @template.safe_join(safe)
       end
     end
 
+    def submit(value = nil, options = {})
+      supplied_class = options.delete(:class)
+      options[:class] = [
+        "inline-flex h-9 cursor-pointer items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50",
+        supplied_class
+      ].compact.join(" ")
+      super(value, options)
+    end
+
     def switch_field(name, opts = {}, label: nil)
       label_text = label || opts.delete(:label) || name.to_s.humanize
-      checked = object&.public_send("#{name}?") rescue false
+      checked = opts.key?(:checked) ? opts.delete(:checked) : (object&.public_send("#{name}?") rescue false)
+      value = opts.delete(:value) || "1"
       hidden = @template.hidden_field_tag("#{object_name}[#{name}]", "0", id: nil)
-      toggle = @template.check_box_tag("#{object_name}[#{name}]", "1", checked, class: "peer sr-only", id: field_id(name))
-      @template.tag.div(class: "flex items-center justify-between py-1") do
-        @template.content_tag(:span, label_text, class: "text-xs font-medium text-foreground")
-        @template.content_tag(:span, class: "relative inline-flex cursor-pointer items-center") do
-          [hidden, toggle, @template.content_tag(:span, "", class: "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-sm ring-0 transition-transform peer-checked:translate-x-5 peer-checked:bg-primary dark:peer-checked:bg-primary")].join.html_safe
-        end.html_safe
+      toggle = @template.check_box_tag("#{object_name}[#{name}]", value, checked, class: "peer sr-only", id: field_id(name))
+      @template.tag.label(for: field_id(name), class: "flex cursor-pointer items-center justify-between gap-4 rounded-lg py-1") do
+        label_node = @template.content_tag(:span, label_text, class: "text-xs font-medium text-foreground")
+        control = @template.content_tag(:span, "", class: "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-border transition-colors after:absolute after:left-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-focus-visible:ring-2 peer-focus-visible:ring-ring/30 peer-checked:bg-primary peer-checked:after:translate-x-4")
+        @template.safe_join([hidden, toggle, label_node, control])
       end
     end
 

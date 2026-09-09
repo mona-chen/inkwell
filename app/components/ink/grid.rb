@@ -8,7 +8,8 @@ module Ink
     end
 
     def view_template(&block)
-      div(class: grid_classes, **@html) { (@block || block)&.call }
+      html = @html.merge(data: (@html[:data] || {}).merge(ink: "grid"))
+      div(class: grid_classes, **html) { (@block || block)&.call }
     end
 
     private

@@ -1,3 +1,4 @@
+import { SHADER_PRESETS, CUSTOM_SHADER_EXAMPLE, normalizeShader, validateCustomShader } from '../shaderPresets.js';
 // Standalone control renderers — independent implementations with a uniform contract:
 //   render(panel, control, node, value, row) => row
 // PanelManager stays thin: renderControl() delegates here via the ControlRegistry.
@@ -81,9 +82,12 @@ export function slider(panel, control, node, value, row) {
     range.value = initial; number.value = range.value;
     const unit = control.units ? document.createElement('select') : null;
     if (unit) { unit.className = 'ink-v2-unit'; control.units.forEach((name) => unit.add(new Option(name, name))); unit.value = value?.unit || control.units[0]; }
-    const commit = (source) => { if (source) { range.value = source.value; number.value = source.value; } panel.setValue(control, node, unit ? { size: Number(number.value), unit: unit.value } : Number(number.value)); };
-    range.addEventListener('input', () => { number.value = range.value; });
-    range.addEventListener('change', () => commit(range)); number.addEventListener('change', () => commit(number)); unit?.addEventListener('change', () => commit());
+    const commit = (source) => { if (source) { range.value = source.value; number.value = range.value; } panel.setValue(control, node, unit ? { size: Number(number.value), unit: unit.value } : Number(number.value)); };
+    range.setAttribute('aria-label', control.label || control.name); number.setAttribute('aria-label', `${control.label || control.name} value`);
+    const scrub = (finish) => { number.value = range.value; panel.scrubValue(control, node, unit ? { size: Number(range.value), unit: unit.value } : Number(range.value), finish); };
+    range.addEventListener('input', () => scrub(false));
+    range.addEventListener('change', () => scrub(true)); range.addEventListener('blur', () => { if (panel.scrubbing) scrub(true); });
+    commitOnFinish(number, () => commit(number)); unit?.addEventListener('change', () => commit());
     host.append(range, number); if (unit) host.appendChild(unit); row.appendChild(host); return row;
 }
 
@@ -158,19 +162,21 @@ const renderResizingFields = (panel, control, node) => {
         [['fixed', 'Fixed'], ['relative', 'Relative'], ['hug', 'Hug contents'], ['fill', 'Fill container']].forEach(([nextMode, label]) => {
             const option = document.createElement('button'); option.type = 'button'; option.dataset.mode = nextMode; option.classList.toggle('is-active', inferred === nextMode); option.innerHTML = `<span>${inferred === nextMode ? '✓' : ''}</span>${label}`;
             option.addEventListener('click', () => {
+                const element = panel.runtime.canvas.instances.get(node.id)?.element;
+                const parent = element?.parentElement;
+                const parentStyle = parent && parent.ownerDocument.defaultView.getComputedStyle(parent);
+                const mainAxis = parentStyle?.display === 'flex' && (parentStyle.flexDirection.startsWith('row') ? 'width' : 'height');
+                const measured = element?.getBoundingClientRect()[property];
                 panel.runtime.history.begin(`Set ${property} to ${label}`);
-                if (nextMode === 'hug') {
-                    panel.setValue(c(property), node, 'fit-content');
-                    if (property === 'width') panel.setValue(c('flex-grow'), node, 0);
-                } else if (nextMode === 'fill') {
-                    panel.setValue(c(property), node, '100%');
-                    if (property === 'width') panel.setValue(c('flex-grow'), node, 1);
-                } else if (nextMode === 'relative') {
-                    panel.setValue(c(property), node, { size: Number(number.value) || 100, unit: '%' });
-                    if (property === 'width') panel.setValue(c('flex-grow'), node, 0);
-                } else {
-                    panel.setValue(c(property), node, { size: Number(number.value) || (property === 'width' ? 320 : 200), unit: 'px' });
-                    if (property === 'width') panel.setValue(c('flex-grow'), node, 0);
+                if (nextMode === 'hug') panel.setValue(c(property), node, 'fit-content');
+                else if (nextMode === 'fill') panel.setValue(c(property), node, '100%');
+                else if (nextMode === 'relative') panel.setValue(c(property), node, { size: 100, unit: '%' });
+                else panel.setValue(c(property), node, { size: Math.round(measured || (property === 'width' ? 320 : 200)), unit: 'px' });
+                if (mainAxis === property) {
+                    panel.setValue(c('flex-grow'), node, nextMode === 'fill' ? 1 : 0);
+                    panel.setValue(c('flex-basis'), node, nextMode === 'fill' ? '0px' : 'auto');
+                    panel.setValue(c('flex-shrink'), node, nextMode === 'fixed' ? 0 : 1);
+                    if (nextMode === 'fill') panel.setValue(c(`min-${property}`), node, { size: 0, unit: 'px' });
                 }
                 panel.runtime.history.commit();
             });
@@ -302,7 +308,24 @@ export function alignmentGap(panel, control, node, _value, row) {
 }
 
 export function dimensions(panel, control, node, value, row) {
-    const dimensions = value && typeof value === 'object' ? value : {};
+    const scalar = value && typeof value === 'object' ? value.size : typeof value === 'number' ? value : undefined;
+    const dimensions = scalar !== undefined ? { top: scalar, right: scalar, bottom: scalar, left: scalar, unit: value?.unit || 'px', linked: true } : value && typeof value === 'object' ? value : {};
+    if (control.name === 'border-radius') {
+        const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-radius-control';
+        const number = document.createElement('input'); number.type = 'number'; number.min = 0;
+        const sides = ['top', 'right', 'bottom', 'left']; const equal = sides.every((side) => (dimensions[side] || 0) === (dimensions.top || 0));
+        number.value = equal ? dimensions.top || 0 : ''; number.placeholder = 'Mixed'; number.setAttribute('aria-label', 'Corner radius');
+        const unit = document.createElement('select'); (control.units || ['px']).forEach((name) => unit.add(new Option(name, name))); unit.value = dimensions.unit || 'px'; unit.setAttribute('aria-label', 'Radius unit');
+        const individual = document.createElement('button'); individual.type = 'button'; individual.textContent = '⌗'; individual.title = 'Individual corners'; individual.setAttribute('aria-label', individual.title);
+        const fields = document.createElement('div'); fields.className = 'ink-v2-radius-corners'; fields.hidden = equal;
+        const inputs = sides.map((side, index) => { const label = document.createElement('label'); label.textContent = ['Top left', 'Top right', 'Bottom right', 'Bottom left'][index]; const input = document.createElement('input'); input.type = 'number'; input.min = 0; input.value = dimensions[side] || 0; input.setAttribute('aria-label', label.textContent); label.appendChild(input); fields.appendChild(label); return input; });
+        const commitAll = () => panel.setValue(control, node, { ...Object.fromEntries(sides.map((side) => [side, Math.max(0, Number(number.value) || 0)])), unit: unit.value, linked: true });
+        commitOnFinish(number, commitAll);
+        unit.addEventListener('change', () => panel.setValue(control, node, { ...dimensions, unit: unit.value }));
+        individual.setAttribute('aria-expanded', String(!fields.hidden)); individual.addEventListener('click', () => { fields.hidden = !fields.hidden; individual.setAttribute('aria-expanded', String(!fields.hidden)); });
+        inputs.forEach((input) => commitOnFinish(input, () => panel.setValue(control, node, { ...Object.fromEntries(sides.map((side, index) => [side, Math.max(0, Number(inputs[index].value) || 0)])), unit: unit.value, linked: false })));
+        wrapper.append(number, unit, individual, fields); row.appendChild(wrapper); return row;
+    }
     const inputs = document.createElement('div'); inputs.className = 'ink-v2-dimensions';
     let linked = dimensions.linked !== false;
     ['top', 'right', 'bottom', 'left'].forEach((side) => {
@@ -412,11 +435,29 @@ export function color(panel, control, node, value, row) {
 export function cssFilters(panel, control, node, value, row) {
     const filters = value && typeof value === 'object' ? value : {};
     const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-css-filters';
-    [['blur', 0, 20, 1], ['brightness', 0, 200, 5], ['contrast', 0, 200, 5], ['saturate', 0, 200, 5], ['hue', 0, 360, 5]].forEach(([name, min, max, step]) => {
-        const label = document.createElement('label'); label.textContent = name; const input = document.createElement('input'); input.type = 'range'; input.min = min; input.max = max; input.step = step; input.value = filters[name] ?? (name === 'blur' || name === 'hue' ? 0 : 100); input.dataset.filter = name; label.appendChild(input); wrapper.appendChild(label);
+    const read = () => Object.fromEntries([...wrapper.querySelectorAll('[data-filter]')].map((input) => [input.dataset.filter, Number(input.value)]));
+    const definitions = [['blur', 0, 20, 1], ['brightness', 0, 200, 5], ['contrast', 0, 200, 5], ['saturate', 0, 200, 5], ['hue', 0, 360, 5]];
+    const add = document.createElement('select'); add.setAttribute('aria-label', 'Add filter'); add.add(new Option('Add filter…', ''));
+    definitions.filter(([name]) => filters[name] === undefined).forEach(([name]) => add.add(new Option(name[0].toUpperCase() + name.slice(1), name)));
+    add.disabled = add.options.length === 1;
+    add.addEventListener('change', () => { if (add.value) panel.setValue(control, node, { ...filters, [add.value]: ['blur', 'hue'].includes(add.value) ? 0 : 100 }); });
+    wrapper.appendChild(add);
+    definitions.filter(([name]) => filters[name] !== undefined).forEach(([name, min, max, step]) => {
+        const label = document.createElement('label'); label.textContent = name;
+        const input = document.createElement('input'); input.type = 'range'; input.min = min; input.max = max; input.step = step;
+        input.value = filters[name] ?? (name === 'blur' || name === 'hue' ? 0 : 100); input.dataset.filter = name;
+        input.setAttribute('aria-label', `${name} filter`);
+        const number = document.createElement('input'); number.type = 'number'; number.min = min; number.max = max; number.step = step; number.value = input.value;
+        number.setAttribute('aria-label', `${name} value`); number.title = name === 'blur' ? 'Pixels' : name === 'hue' ? 'Degrees' : 'Percent';
+        const scrub = (finish) => { number.value = input.value; panel.scrubValue(control, node, read(), finish); };
+        input.addEventListener('input', () => scrub(false)); input.addEventListener('change', () => scrub(true));
+        input.addEventListener('blur', () => { if (panel.scrubbing) scrub(true); });
+        commitOnFinish(number, () => { input.value = number.value; panel.setValue(control, node, read()); });
+        const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove ${name} filter`);
+        remove.addEventListener('click', () => { const next = { ...filters }; delete next[name]; panel.setValue(control, node, next); });
+        label.append(input, number, remove); wrapper.appendChild(label);
     });
-    const commit = () => { const next = {}; wrapper.querySelectorAll('[data-filter]').forEach((input) => { next[input.dataset.filter] = Number(input.value); }); panel.setValue(control, node, next); };
-    wrapper.querySelectorAll('input').forEach((input) => input.addEventListener('change', commit)); row.appendChild(wrapper); return row;
+    row.appendChild(wrapper); return row;
 }
 
 export function textStroke(panel, control, node, value, row) {
@@ -711,28 +752,43 @@ export function background(panel, control, node, value, row) {
         const image = styleValue(`${prefix}background-image`);
         const imageValue = typeof image === 'object' ? image?.url : image;
         if (/^(linear|radial|conic)-gradient\(/i.test(String(imageValue || '').trim())) mode = 'gradient';
-        else if (imageValue || styleValue(`${prefix}background-color`)) mode = 'classic';
+        else if (imageValue) mode = 'image';
+        else if (styleValue(`${prefix}background-color`)) mode = 'classic';
     }
+    if (!overlay && node.settings.shaderFill?.enabled) mode = 'shader';
+    const displayedMode = mode;
+    mode ||= 'classic';
     const typeRow = document.createElement('div'); typeRow.className = 'ink-v2-background-type';
-    const label = document.createElement('span'); label.textContent = 'Background Type';
+    const label = document.createElement('span'); label.textContent = 'Fill type';
     const choices = document.createElement('div'); choices.className = 'ink-v2-background-choices'; choices.setAttribute('role', 'radiogroup'); choices.setAttribute('aria-label', overlay ? 'Overlay fill type' : 'Fill type');
     const backgroundChoices = [
-        ['classic', 'square', 'Classic'],
+        ['classic', 'square', 'Solid'],
         ['gradient', 'blend', 'Gradient'],
+        ['image', 'image', 'Image'],
+        ['pattern', 'grid-2x2', 'Pattern'],
     ];
-    if (!overlay && (control.state || 'base') === 'base') backgroundChoices.push(['video', 'square-play', 'Video'], ['slideshow', 'images', 'Slideshow']);
+    if (!overlay && (control.state || 'base') === 'base') backgroundChoices.push(['video', 'square-play', 'Video'], ['slideshow', 'images', 'Slideshow'], ['shader', 'waves', 'Shader']);
     backgroundChoices.forEach(([choiceValue, iconName, title]) => {
         const button = document.createElement('button'); button.type = 'button'; button.title = title; button.setAttribute('aria-label', title); button.setAttribute('role', 'radio'); button.setAttribute('aria-checked', mode === choiceValue ? 'true' : 'false'); button.setAttribute('aria-pressed', mode === choiceValue ? 'true' : 'false'); button.classList.toggle('is-active', mode === choiceValue);
         button.appendChild(renderIcon(document, `lucide:${iconName}`, 'ink-v2-background-choice-icon'));
-        button.addEventListener('click', () => panel.setValue(modeControl, node, mode === choiceValue ? '' : choiceValue));
+        button.addEventListener('click', () => {
+            panel.runtime.history.begin('Change fill type');
+            try {
+                if (!overlay) panel.runtime.update(node.id, { settings: { shaderFill: { ...normalizeShader(node.settings.shaderFill), enabled: choiceValue === 'shader' }, ...(choiceValue !== 'video' ? { backgroundVideo: null, backgroundVideoUrl: '', backgroundVideoFallback: '' } : {}), ...(choiceValue !== 'slideshow' ? { backgroundSlideshow: null, backgroundSlideshowImages: [] } : {}) } }, 'Change fill');
+                if (choiceValue === 'classic' || choiceValue === 'image') panel.setValue({ ...control, name: `${prefix}background-image` }, node, '');
+                if (choiceValue === 'gradient') panel.setValue({ ...control, name: `${prefix}background-image` }, node, 'linear-gradient(135deg, #8369d8 0%, #8fe3c5 100%)');
+                panel.setValue(modeControl, node, choiceValue);
+                panel.runtime.history.commit();
+            } catch (error) { panel.runtime.history.rollback(); throw error; }
+        });
         choices.appendChild(button);
     });
     typeRow.append(label, choices); wrapper.appendChild(typeRow);
     const sub = (partial) => panel.renderControl({ tab: control.tab, target: control.target, section: control.section, state: control.state, part: control.part, ...partial }, node);
     const settingSub = (partial) => panel.renderControl({ tab: control.tab, target: 'settings', section: control.section, ...partial }, node);
-    if (mode === 'classic') {
+    if (mode === 'classic' || mode === 'image') {
         wrapper.appendChild(sub({ name: `${prefix}background-color`, type: 'color', label: 'Color' }));
-        wrapper.appendChild(sub({ name: `${prefix}background-image`, type: 'media', label: 'Image' }));
+        if (mode === 'image') wrapper.appendChild(sub({ name: `${prefix}background-image`, type: 'media', label: 'Image' }));
         if (panel.currentValue({ ...control, name: `${prefix}background-image` }, node)) {
             wrapper.appendChild(sub({ name: `${prefix}background-position`, type: 'select', label: 'Position', options: ['center center', 'center top', 'center bottom', 'left top', 'left center', 'left bottom', 'right top', 'right center', 'right bottom'] }));
             wrapper.appendChild(sub({ name: `${prefix}background-attachment`, type: 'select', label: 'Attachment', options: ['scroll', 'fixed', 'local'] }));
@@ -741,6 +797,19 @@ export function background(panel, control, node, value, row) {
         }
     } else if (mode === 'gradient') {
         wrapper.appendChild(sub({ name: `${prefix}background-image`, type: 'gradient', label: 'Gradient' }));
+    } else if (mode === 'pattern') {
+        const patterns = [
+            ['Dots', 'radial-gradient(circle, #81818a 1px, transparent 1px)', '12px 12px'],
+            ['Lines', 'repeating-linear-gradient(45deg, transparent 0px 9px, #81818a 9px 10px)', 'auto'],
+            ['Grid', 'linear-gradient(#81818a 1px, transparent 1px), linear-gradient(90deg, #81818a 1px, transparent 1px)', '20px 20px'],
+            ['Checker', 'conic-gradient(#81818a 25%, transparent 0% 50%, #81818a 0% 75%, transparent 0%)', '24px 24px'],
+        ];
+        const gallery = document.createElement('div'); gallery.className = 'ink-shader-gallery';
+        patterns.forEach(([title, image, size]) => { const button = document.createElement('button'); button.type = 'button'; button.textContent = title; button.style.backgroundImage = image; button.style.backgroundSize = size; button.addEventListener('click', () => { panel.runtime.history.begin('Apply pattern fill'); panel.setValue({ ...control, name: `${prefix}background-image` }, node, image); panel.setValue({ ...control, name: `${prefix}background-size` }, node, size); panel.runtime.history.commit(); }); gallery.appendChild(button); }); wrapper.appendChild(gallery);
+        wrapper.appendChild(sub({ name: `${prefix}background-color`, type: 'color', label: 'Base color' }));
+        wrapper.appendChild(sub({ name: `${prefix}background-size`, type: 'text', label: 'Tile size', placeholder: '20px 20px' }));
+    } else if (!overlay && mode === 'shader') {
+        renderShaderFill(panel, node, wrapper);
     } else if (!overlay && mode === 'video') {
         wrapper.appendChild(settingSub({ name: 'backgroundVideoUrl', type: 'url', label: 'Video Link', description: 'YouTube, Vimeo, or a direct MP4/WebM URL.' }));
         wrapper.appendChild(settingSub({ name: 'backgroundVideoStart', type: 'number', label: 'Start Time (seconds)', default: 0 }));
@@ -769,7 +838,50 @@ export function background(panel, control, node, value, row) {
         wrapper.appendChild(sub({ name: 'overlay-mix-blend-mode', type: 'select', label: 'Blend Mode', options: [{ value: '', label: 'Normal' }, 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'saturation', 'color', 'luminosity'] }));
     }
     if (mode && control.state === 'hover') wrapper.appendChild(sub({ name: overlay ? 'overlay-transition-duration' : 'background-transition-duration', state: 'base', type: 'slider', label: 'Transition Duration', min: 0, max: 3, step: 0.1, default: 0.3 }));
-    row.appendChild(wrapper); return row;
+    const key = `${node.id}:${control.name}:${control.state || 'base'}`;
+    const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'ink-fill-trigger'; trigger.setAttribute('aria-label', overlay ? 'Edit overlay fill' : 'Edit fill'); trigger.setAttribute('aria-haspopup', 'dialog');
+    const swatch = document.createElement('span'); swatch.className = 'ink-fill-swatch';
+    const fillImage = styleValue(`${prefix}background-image`); const fillColor = styleValue(`${prefix}background-color`);
+    if (typeof fillImage === 'string') swatch.style.backgroundImage = fillImage;
+    if (typeof fillColor === 'string') swatch.style.backgroundColor = fillColor;
+    const name = document.createElement('span'); name.textContent = displayedMode === 'shader' ? (SHADER_PRESETS.find(([id]) => id === node.settings.shaderFill?.preset)?.[1] || 'Custom shader') : displayedMode === 'gradient' ? 'Gradient' : ['video', 'slideshow'].includes(displayedMode) ? displayedMode[0].toUpperCase() + displayedMode.slice(1) : fillImage ? 'Image' : fillColor || 'Add fill…';
+    trigger.append(swatch, name); row.appendChild(trigger);
+    wrapper.classList.add('ink-fill-popover'); wrapper.setAttribute('role', 'dialog'); wrapper.setAttribute('aria-label', 'Fill editor');
+    const header = document.createElement('div'); header.className = 'ink-fill-popover-head';
+    const title = document.createElement('strong'); title.textContent = overlay ? 'Overlay fill' : 'Fill';
+    const close = document.createElement('button'); close.type = 'button'; close.textContent = '×'; close.setAttribute('aria-label', 'Close fill editor'); header.append(title, close); wrapper.prepend(header);
+    const hide = () => { panel.fillEditor = null; wrapper.remove(); trigger.setAttribute('aria-expanded', 'false'); };
+    const show = () => {
+        panel.fillEditor = key; document.body.appendChild(wrapper); trigger.setAttribute('aria-expanded', 'true');
+        const rect = trigger.getBoundingClientRect();
+        wrapper.style.left = `${Math.max(8, Math.min(innerWidth - 312, rect.left - 312))}px`;
+        wrapper.style.top = `${Math.max(8, Math.min(innerHeight - wrapper.offsetHeight - 8, rect.top))}px`;
+    };
+    close.addEventListener('click', () => { hide(); trigger.focus(); });
+    trigger.addEventListener('click', () => wrapper.isConnected ? hide() : show());
+    document.addEventListener('pointerdown', (event) => { if (wrapper.isConnected && !wrapper.contains(event.target) && !trigger.contains(event.target) && !event.target.closest('.ink-v2-color-studio')) hide(); }, { signal: panel.renderAbort.signal });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && wrapper.isConnected) { hide(); trigger.focus(); event.stopPropagation(); } }, { signal: panel.renderAbort.signal });
+    panel.renderAbort.signal.addEventListener('abort', () => wrapper.remove(), { once: true });
+    if (panel.fillEditor === key) requestAnimationFrame(() => { if (row.isConnected) show(); });
+    return row;
+}
+
+function renderShaderFill(panel, node, wrapper) {
+    const values = normalizeShader(node.settings.shaderFill);
+    const update = (patch) => panel.runtime.update(node.id, { settings: { shaderFill: { ...values, enabled: true, ...patch } } }, 'Change shader fill');
+    const gallery = document.createElement('div'); gallery.className = 'ink-shader-gallery'; gallery.setAttribute('aria-label', 'Shader presets');
+    SHADER_PRESETS.forEach(([id, title, a, b, c]) => { const button = document.createElement('button'); button.type = 'button'; button.textContent = title; button.setAttribute('aria-pressed', String(values.preset === id)); button.style.backgroundImage = `radial-gradient(ellipse at 80% 20%, ${c}, transparent 65%), linear-gradient(135deg, ${a}, ${b})`; button.addEventListener('click', () => update({ preset: id, colorA: a, colorB: b, colorC: c })); gallery.appendChild(button); }); wrapper.appendChild(gallery);
+    const proxy = Object.create(panel); proxy.setValue = (control, _node, value) => update({ [control.name]: value });
+    [['colorA','Base'],['colorB','Primary'],['colorC','Accent']].forEach(([name,label]) => { const row = document.createElement('div'); row.className = 'ink-v2-control'; row.append(label); color(proxy, { name }, node, values[name], row); wrapper.appendChild(row); });
+    const animate = document.createElement('label'); animate.className = 'ink-shader-animate'; const check = document.createElement('input'); check.type = 'checkbox'; check.checked = values.animate; check.addEventListener('change', () => update({ animate: check.checked })); animate.append(check,'Animate'); wrapper.appendChild(animate);
+    [['speed','Speed',0,2,.05],['intensity','Intensity',0,1,.01],['grain','Grain',0,.3,.01]].forEach(([name,label,min,max,step]) => { const row = document.createElement('label'); row.className = 'ink-shader-number'; row.append(label); const input = document.createElement('input'); input.type = 'number'; input.min = min; input.max = max; input.step = step; input.value = values[name]; input.setAttribute('aria-label', `Shader ${label.toLowerCase()}`); input.addEventListener('change', () => update({ [name]: Math.max(min,Math.min(max,Number(input.value)||0)) })); row.appendChild(input); wrapper.appendChild(row); });
+    const custom = document.createElement('details'); custom.className = 'ink-shader-custom'; custom.open = values.preset === 'custom'; const summary = document.createElement('summary'); summary.textContent = 'Custom shader';
+    const hint = document.createElement('p'); hint.textContent = 'GLSL · inkShader(uv, time, resolution). Colors a, b, c and intensity are available.';
+    const code = document.createElement('textarea'); code.rows = 8; code.value = values.customCode || CUSTOM_SHADER_EXAMPLE; code.setAttribute('aria-label', 'Custom shader GLSL');
+    const error = document.createElement('p'); error.className = 'ink-shader-error'; error.setAttribute('role', 'alert');
+    const apply = document.createElement('button'); apply.type = 'button'; apply.textContent = 'Apply shader'; apply.addEventListener('click', () => { try { validateCustomShader(code.value); update({ preset: 'custom', customCode: code.value }); } catch (failure) { error.textContent = failure.message; } });
+    const ai = document.createElement('button'); ai.type = 'button'; ai.textContent = 'Create with Agent'; ai.addEventListener('click', () => { document.querySelector('[data-tab="copilot"]')?.click(); const prompt = document.querySelector('[data-builder-copilot-target="prompt"]'); if (prompt) { prompt.value = 'Create a custom shader fill for this selected layer. '; prompt.focus(); } panel.fillEditor = null; wrapper.remove(); });
+    custom.append(summary,hint,code,error,apply,ai); wrapper.appendChild(custom);
 }
 
 export function shapeDivider(panel, control, node, value, row) {

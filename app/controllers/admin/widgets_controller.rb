@@ -15,7 +15,7 @@ module Admin
       attrs = widget_params
       attrs[:area] = "sidebar" unless Widget::AREAS.include?(attrs[:area])
       widget = Current.site.widgets.build(attrs)
-      widget.position = Current.site.widgets.in_area(widget.area).maximum(:position).to_i + 1
+      widget.position = Current.site.widgets.in_area(widget.area).maximum(:position).to_i + 1 unless attrs[:position].present?
       if widget.save
         redirect_to admin_widgets_path(area: widget.area), notice: "Widget added."
       else
@@ -44,7 +44,7 @@ module Admin
     end
 
     def widget_params
-      params.require(:widget).permit(:kind, :area, :title, config: {})
+      params.require(:widget).permit(:kind, :area, :title, :position, config: %i[body count url label])
     end
   end
 end

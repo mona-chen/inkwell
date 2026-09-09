@@ -20,7 +20,10 @@ module Admin
     end
 
     def create
-      @post = Current.site.posts.build(post_params.except(:category_ids, :tag_ids))
+      attrs = post_params.except(:category_ids, :tag_ids).to_h
+      attrs["status"] = "draft" if params[:save_draft].present?
+      attrs["title"] = "Untitled" if attrs["title"].blank? && attrs["status"] == "draft"
+      @post = Current.site.posts.build(attrs)
       @post.author = current_user
       authorize @post
 
@@ -38,7 +41,10 @@ module Admin
 
     def update
       authorize @post
-      if @post.update(post_params.except(:category_ids, :tag_ids))
+      attrs = post_params.except(:category_ids, :tag_ids).to_h
+      attrs["status"] = "draft" if params[:save_draft].present?
+      attrs["title"] = @post.title.presence || "Untitled" if attrs["title"].blank? && attrs["status"] == "draft"
+      if @post.update(attrs)
         @post.term_ids_by_taxonomy = { "category" => post_params[:category_ids], "tag" => post_params[:tag_ids] }
         Inkwell::Hooks.fire(:post_updated, @post)
         respond_to do |format|
@@ -79,7 +85,7 @@ module Admin
 
     def post_params
       params.require(:post).permit(
-        :title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_alt,
+        :title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_id, :featured_image_alt,
         :seo_title, :seo_description, :seo_focus_keyword, :seo_slug_override,
         :og_title, :og_description, :og_image_url, :twitter_card_type,
         :twitter_title, :twitter_description, :twitter_image_url,

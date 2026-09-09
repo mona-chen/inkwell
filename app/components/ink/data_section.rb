@@ -15,7 +15,8 @@ module Ink
     def view_template(&block)
       config = @block || block
       config&.call(self) if config&.arity == 1
-      section(class: "overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs", **@html) do
+      html = @html.merge(data: (@html[:data] || {}).merge(ink: "data-section"))
+      section(class: "overflow-hidden rounded-xl border border-border/80 bg-card shadow-xs", **html) do
         if @title
           h2(class: "px-4 py-2.5 text-sm font-semibold border-b border-border") { @title }
         end

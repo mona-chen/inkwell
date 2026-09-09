@@ -6,6 +6,7 @@ import { renderIcon } from './icons.js';
 const aliases = {
     account_tree: 'workflow', add: 'plus', alternate_email: 'at-sign', anchor: 'anchor', arrow_back: 'arrow-left', arrow_downward: 'arrow-down', arrow_forward: 'arrow-right', arrow_upward: 'arrow-up',
     audio_file: 'file-audio', auto_awesome: 'sparkles', bottom_panel: 'panel-bottom', calendar_month: 'calendar-days', check: 'check', check_box_outline_blank: 'square',
+    crop_free: 'scan', cloud_done: 'cloud-check', format_list_numbered: 'list-ordered',
     close: 'x', code: 'code-2', collections: 'images', contrast: 'contrast', conversion_path: 'workflow', crop_landscape: 'rectangle-horizontal', dashboard: 'layout-dashboard',
     dark_mode: 'moon', data_object: 'braces', delete_sweep: 'trash-2', density_medium: 'grip', description: 'file-text', design_services: 'wand-sparkles', desktop: 'monitor', desktop_windows: 'monitor', dynamic_form: 'list-tree',
     dock_to_right: 'panel-right', drag_handle: 'grip-horizontal', draw: 'pencil', east: 'arrow-right', edit: 'pencil', error: 'circle-alert', expand_more: 'chevron-down',

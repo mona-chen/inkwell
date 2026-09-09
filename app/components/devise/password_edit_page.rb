@@ -10,24 +10,20 @@ module Devise
 
     def view_template
       render Devise::AuthLayout.new(title: "Choose a new password") do
-        render Ink::Card.new do |card|
-          card.body do
-            render_error_messages
-            form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :put }, builder: Ink::FormBuilder) do |form|
-              form.hidden_field(:reset_password_token)
-              form.group do
-                form.field(
-                  :password,
-                  as: :password,
-                  control_html: { autofocus: true },
-                  autocomplete: "new-password",
-                  label: "New password",
-                  description: @minimum_password_length ? "#{@minimum_password_length} characters minimum" : nil
-                )
-                form.field(:password_confirmation, as: :password, autocomplete: "new-password", label: "Confirm new password")
-                form.submit("Change my password")
-              end
-            end
+        render_error_messages
+        form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :put }, builder: Ink::FormBuilder) do |form|
+          form.hidden_field(:reset_password_token)
+          form.group do
+            form.field(
+              :password,
+              as: :password,
+              control_html: { autofocus: true },
+              autocomplete: "new-password",
+              label: "New password",
+              description: @minimum_password_length ? "#{@minimum_password_length} characters minimum" : nil
+            )
+            form.field(:password_confirmation, as: :password, autocomplete: "new-password", label: "Confirm new password")
+            form.submit("Change my password")
           end
         end
       end

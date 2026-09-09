@@ -1,18 +1,18 @@
 /* ========================================================================
    Inkwell Application — Admin UI Layer
-   Uses design tokens from nitro_theme.css. No hardcoded colors.
+   Uses the application-owned Ink and Tailwind design tokens.
    ======================================================================== */
 
 /* --- Root tokens (public site / non-admin) --- */
 :root {
-  --ink-app-ink: var(--nk-color-foreground);
-  --ink-app-muted: var(--nk-color-muted-foreground);
-  --ink-app-line: var(--nk-color-border);
-  --ink-app-canvas: var(--nk-color-canvas);
-  --ink-app-surface: var(--nk-color-surface);
-  --ink-app-accent: var(--nk-color-primary);
+  --ink-app-ink: var(--foreground);
+  --ink-app-muted: var(--muted-foreground);
+  --ink-app-line: var(--border);
+  --ink-app-canvas: var(--background);
+  --ink-app-surface: var(--card);
+  --ink-app-accent: var(--primary);
   --ink-app-accent-soft: oklch(0.95 0.04 286);
-  font-family: var(--nk-font-sans);
+  font-family: var(--font-sans);
 }
 
 /* --- Workspace --- */
@@ -26,8 +26,8 @@
 
 /* --- Topbar (frosted glass) --- */
 #admin-shell [data-slot="app-shell-topbar"] {
-  background: var(--nk-color-canvas);
-  border-bottom: 1px solid var(--nk-color-border);
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
 }
 
 /* --- Brand mark --- */
@@ -35,7 +35,7 @@
   letter-spacing: -0.045em;
 }
 .admin-brand-mark {
-  background: linear-gradient(135deg, oklch(from var(--nk-color-primary) l c h), oklch(from var(--nk-color-primary) l c h / 0.7));
+  background: linear-gradient(135deg, oklch(from var(--primary) l c h), oklch(from var(--primary) l c h / 0.7));
   color: oklch(0.98 0 0);
 }
 
@@ -44,30 +44,26 @@
   font-size: 0.875rem;
   letter-spacing: -0.015em;
 }
-.admin-topbar-content > [data-nk="command-palette"] {
+.admin-topbar-content > #command-palette {
   flex: 0 1 30rem;
   inline-size: min(30rem, 42vw);
 }
 @media (max-width: 760px) {
-  .admin-topbar-content > [data-nk="command-palette"] {
+  .admin-topbar-content > #command-palette {
     flex-basis: 12rem;
     inline-size: min(12rem, 40vw);
   }
 }
 
 /* --- Dashboard --- */
-.admin-dashboard [data-nk="card"] {
-  border-radius: var(--nk-radius-xl);
-  box-shadow: var(--nk-shadow-sm);
-}
 .admin-dashboard [data-slot="stat-grid-stat"] {
   min-block-size: 0;
   gap: 0.375rem;
   padding: 1rem 1.125rem;
-  border-radius: var(--nk-radius-lg);
+  border-radius: var(--radius-lg);
 }
 .admin-dashboard [data-slot="stat-grid-label"] {
-  color: var(--nk-color-muted-foreground);
+  color: var(--muted-foreground);
   font-size: 0.75rem;
   font-weight: 500;
 }
@@ -76,16 +72,13 @@
   letter-spacing: -0.045em;
 }
 .admin-dashboard [data-slot="stat-grid-detail"] {
-  color: var(--nk-color-muted-foreground);
+  color: var(--muted-foreground);
   font-size: 0.6875rem;
 }
 
 /* --- Pages --- */
-.admin-pages [data-nk="toolbar"] {
-  margin-block-end: 1.25rem;
-}
 .admin-pages .group:hover {
-  background: oklch(from var(--nk-color-primary) l c h / 0.1);
+  background: oklch(from var(--primary) l c h / 0.1);
 }
 .admin-pages .group:hover a:first-child {
   color: oklch(0.75 0.22 286);
@@ -94,10 +87,10 @@
 /* --- Editor sidebar --- */
 .admin-editor-sidebar,
 .admin-import-track {
-  box-shadow: var(--nk-shadow-lg);
+  box-shadow: var(--ink-shadow-lg);
 }
 .admin-editor-sidebar {
-  border: 1px solid var(--nk-color-border);
+  border: 1px solid var(--border);
 }
 
 /* --- Structured editor layout and block containment --- */
@@ -156,58 +149,10 @@
   }
 }
 
-/* --- Navigation — compact, quiet, management density --- */
-#admin-shell [data-nk="app-navigation"] {
-  font-size: 0.8125rem;
-  color: oklch(0.52 0.004 286); /* muted inactive text ~52% */
-}
-#admin-shell [data-nk="app-navigation"] a {
-  border-radius: var(--nk-radius-md);
-  color: oklch(0.52 0.004 286);
-  transition: color 120ms ease, background 120ms ease;
-}
-#admin-shell [data-nk="app-navigation"] a:hover {
-  color: oklch(0.88 0.001 286);
-  background: oklch(0.16 0.004 286);
-}
-#admin-shell [data-nk="app-navigation"] a[aria-current="page"],
-#admin-shell [data-nk="app-navigation"] .is-active {
-  color: oklch(0.88 0.001 286);
-  background: rgba(124, 92, 255, .10);
-}
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-section-label"] {
-  color: oklch(0.40 0.004 286);
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-item-link"] {
-  display: grid;
-  grid-template-columns: 1rem minmax(0, 1fr) auto;
-  column-gap: 0.5rem;
-  min-block-size: 1.875rem;
-  inline-size: 100%;
-  padding-inline: 0.5rem;
-}
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-item-label"] {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-body"] {
-  gap: 0.625rem;
-  padding: 0.75rem;
-}
-#admin-shell [data-nk="app-navigation"] [data-slot="app-navigation-section-list"] {
-  gap: 0.125rem;
-}
-
 /* --- Import track --- */
 .admin-import-track {
-  border-color: oklch(from var(--nk-color-primary) l c h / 0.4);
-  background: linear-gradient(135deg, oklch(from var(--nk-color-primary) l c h / 0.2), oklch(0.15 0.005 286 / 0.3));
+  border-color: oklch(from var(--primary) l c h / 0.4);
+  background: linear-gradient(135deg, oklch(from var(--primary) l c h / 0.2), oklch(0.15 0.005 286 / 0.3));
 }
 .admin-import-track .text-violet-700,
 .admin-import-track .text-violet-800 {
@@ -224,54 +169,54 @@
    Replace with token-based classes when block templates are migrated. */
 #admin-shell .bg-white,
 #admin-shell .bg-background {
-  background-color: var(--nk-color-surface);
+  background-color: var(--card);
 }
 #admin-shell .bg-gray-50,
 #admin-shell .bg-muted\/40,
 #admin-shell .bg-muted\/50,
 #admin-shell .bg-muted\/30,
 #admin-shell .bg-muted {
-  background-color: var(--nk-color-muted);
+  background-color: var(--muted);
 }
 #admin-shell .bg-gray-900 {
-  background-color: var(--nk-color-canvas);
+  background-color: var(--background);
 }
 #admin-shell .border-gray-100,
 #admin-shell .border-gray-200,
 #admin-shell .border-gray-300,
 #admin-shell .border-border {
-  border-color: var(--nk-color-border);
+  border-color: var(--border);
 }
 #admin-shell .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
 #admin-shell .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
 #admin-shell .divide-border > :not([hidden]) ~ :not([hidden]) {
-  border-color: var(--nk-color-border);
+  border-color: var(--border);
 }
 #admin-shell .text-gray-900,
 #admin-shell .text-gray-800,
 #admin-shell .text-foreground {
-  color: var(--nk-color-foreground);
+  color: var(--foreground);
 }
 #admin-shell .text-gray-700,
 #admin-shell .text-gray-600,
 #admin-shell .text-gray-500,
 #admin-shell .text-gray-400,
 #admin-shell .text-muted-foreground {
-  color: var(--nk-color-muted-foreground);
+  color: var(--muted-foreground);
 }
 #admin-shell .hover\:bg-gray-50:hover,
 #admin-shell .hover\:bg-gray-100:hover,
 #admin-shell .hover\:bg-muted:hover,
 #admin-shell .hover\:bg-muted\/50:hover {
-  background-color: var(--nk-color-surface-hover);
+  background-color: var(--muted);
 }
 #admin-shell .hover\:text-gray-900:hover,
 #admin-shell .hover\:text-gray-700:hover,
 #admin-shell .hover\:text-foreground:hover {
-  color: var(--nk-color-foreground);
+  color: var(--foreground);
 }
 #admin-shell .hover\:border-gray-300:hover {
-  border-color: var(--nk-color-border);
+  border-color: var(--border);
 }
 /* Inspector details: ensure content collapses properly */
 #admin-shell details:not([open]) > :not(summary) {
@@ -281,26 +226,25 @@
 #admin-shell [data-block-editor-target="block"] textarea,
 #admin-shell [data-block-editor-target="block"] input,
 #admin-shell [data-block-editor-target="block"] .heading-preview {
-  color: var(--nk-color-foreground) !important;
+  color: var(--foreground) !important;
 }
 #admin-shell [data-block-editor-target="block"] .text-3xl,
 #admin-shell [data-block-editor-target="block"] .text-2xl,
 #admin-shell [data-block-editor-target="block"] h1,
 #admin-shell [data-block-editor-target="block"] h2,
 #admin-shell [data-block-editor-target="block"] h3 {
-  color: var(--nk-color-foreground) !important;
+  color: var(--foreground) !important;
 }
 #admin-shell .text-foreground {
-  color: var(--nk-color-foreground);
+  color: var(--foreground);
 }
 #admin-shell .text-muted-foreground {
-  color: var(--nk-color-muted-foreground);
+  color: var(--muted-foreground);
 }
 /* Cards in dark mode: use surface, not background */
-#admin-shell [data-nk="card"],
 #admin-shell .rounded-xl.border.border-border {
-  background-color: var(--nk-color-surface);
-  border-color: var(--nk-color-border);
+  background-color: var(--card);
+  border-color: var(--border);
 }
 /* Block editor: writing surface (no borders, no backgrounds — content-first) */
 #admin-shell [data-block-editor-target="block"] {
@@ -326,21 +270,21 @@
   bottom: 4px;
   width: 3px;
   border-radius: 2px;
-  background: var(--nk-color-primary);
+  background: var(--primary);
 }
 /* Heading text — inherit document styling */
 #admin-shell .heading-preview {
-  color: var(--nk-color-foreground);
+  color: var(--foreground);
   font-size: 1.5em;
   line-height: 1.3;
 }
 #admin-shell textarea {
-  color: var(--nk-color-foreground);
+  color: var(--foreground);
 }
 /* Code block */
 #admin-shell .code-editor {
-  color: var(--nk-color-foreground);
-  background-color: oklch(from var(--nk-color-muted) l c h / 0.5);
+  color: var(--foreground);
+  background-color: oklch(from var(--muted) l c h / 0.5);
 }
 /* Rich text WYSIWYG toolbar — hidden by default, shown on hover/focus */
 #admin-shell [data-rich-text-target="toolbar"] {
@@ -365,102 +309,60 @@
   font-size: .6875rem;
   font-weight: 600;
   line-height: 1;
-  color: var(--nk-color-muted-foreground);
+  color: var(--muted-foreground);
   transition: color 120ms ease, background-color 120ms ease;
 }
 #admin-shell .rich-text-btn:hover {
-  color: var(--nk-color-foreground);
-  background-color: oklch(from var(--nk-color-surface-hover) l c h / 0.5);
+  color: var(--foreground);
+  background-color: oklch(from var(--muted) l c h / 0.5);
 }
 #admin-shell .rich-text-btn.is-active {
-  color: var(--nk-color-primary);
-  background-color: oklch(from var(--nk-color-primary) l c h / 0.1);
+  color: var(--primary);
+  background-color: oklch(from var(--primary) l c h / 0.1);
+}
+#admin-shell .rich-text .ProseMirror {
+  min-height: 2.75rem;
+  outline: none;
+}
+#admin-shell [data-block-editor-target="block"]:focus-within .rich-text .ProseMirror {
+  min-height: 4.5rem;
+}
+#admin-shell .rich-text :where(ul, ol),
+#admin-shell .content-list {
+  margin-block: .5rem;
+  padding-inline-start: 1.35rem;
+}
+#admin-shell .rich-text ul,
+#admin-shell .content-list--unordered {
+  list-style: disc outside;
+}
+#admin-shell .rich-text ol,
+#admin-shell .content-list--ordered {
+  list-style: decimal outside;
+}
+#admin-shell .rich-text li,
+#admin-shell .content-list > li {
+  display: list-item;
+  padding-inline-start: .2rem;
 }
 #admin-shell .choice-field {
   display: inline-flex;
   gap: .125rem;
   padding: .125rem;
-  border: 1px solid var(--nk-color-border);
+  border: 1px solid var(--border);
   border-radius: .5rem;
-  background: var(--nk-color-muted);
+  background: var(--muted);
 }
 #admin-shell .choice-btn {
   min-block-size: 1.75rem;
   padding-inline: .625rem;
   border-radius: .375rem;
-  color: var(--nk-color-muted-foreground);
+  color: var(--muted-foreground);
   font-size: .6875rem;
   font-weight: 600;
 }
 #admin-shell .choice-btn[aria-checked="true"] {
-  background: var(--nk-color-surface);
-  color: var(--nk-color-foreground);
-  box-shadow: var(--nk-shadow-sm);
-}
-
-/* SEO editor workspace. Kept in the admin bundle so plugin workspaces are styled
-   on the first render as well as after Turbo navigation. */
-#admin-shell .seo-ws-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(17rem, .85fr);
-  gap: .75rem;
-  padding: .75rem;
-}
-#admin-shell .seo-ws-main,
-#admin-shell .seo-ws-side { display: flex; min-width: 0; flex-direction: column; gap: .75rem; }
-#admin-shell .seo-panel {
-  min-width: 0;
-  padding: .875rem;
-  border: 1px solid var(--nk-color-border);
-  border-radius: .625rem;
-  background: var(--nk-color-surface);
-}
-#admin-shell .seo-panel summary { list-style: none; cursor: pointer; }
-#admin-shell .seo-panel summary::-webkit-details-marker { display: none; }
-#admin-shell .seo-serp {
-  padding: .75rem;
-  border: 1px solid var(--nk-color-border);
-  border-radius: .5rem;
-  background: var(--nk-color-canvas);
-}
-#admin-shell .seo-serp-url { margin-bottom: .25rem; color: var(--nk-color-muted-foreground); font-size: .625rem; }
-#admin-shell .seo-serp-title { margin: 0; color: #8ab4f8; font-size: .875rem; line-height: 1.3; }
-#admin-shell .seo-serp-desc { margin-top: .25rem; color: var(--nk-color-muted-foreground); font-size: .75rem; line-height: 1.4; }
-#admin-shell .seo-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .625rem; }
-#admin-shell .seo-field-wide { grid-column: 1 / -1; }
-#admin-shell .seo-field label,
-#admin-shell .seo-label { display: block; margin-bottom: .2rem; color: var(--nk-color-muted-foreground); font-size: .6875rem; font-weight: 600; }
-#admin-shell .seo-field input,
-#admin-shell .seo-field textarea,
-#admin-shell .seo-field select,
-#admin-shell .seo-panel > div > input,
-#admin-shell .seo-panel > div > select {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-height: 2rem;
-  padding: .4rem .55rem;
-  border: 1px solid var(--nk-color-border);
-  border-radius: .45rem;
-  outline: none;
-  background: var(--nk-color-canvas);
-  color: var(--nk-color-foreground);
-  font-size: .75rem;
-}
-#admin-shell .seo-field input:focus,
-#admin-shell .seo-field textarea:focus,
-#admin-shell .seo-field select:focus { border-color: var(--nk-color-primary); box-shadow: 0 0 0 2px color-mix(in oklab, var(--nk-color-primary) 18%, transparent); }
-#admin-shell .seo-score { display: inline-flex; width: 1.25rem; height: 1.25rem; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 999px; font-size: .625rem; font-weight: 700; }
-#admin-shell .seo-length { font-size: .625rem; }
-#admin-shell .seo-length.good { color: var(--nk-color-success); }
-#admin-shell .seo-length.warn { color: var(--nk-color-warning); }
-#admin-shell .seo-length.bad { color: var(--nk-color-danger); }
-#admin-shell .seo-social { overflow: hidden; border: 1px solid var(--nk-color-border); border-radius: .5rem; background: var(--nk-color-canvas); }
-#admin-shell .seo-social-img { display: grid; min-height: 6rem; place-items: center; background: var(--nk-color-muted); background-position: center; background-size: cover; color: var(--nk-color-muted-foreground); font-size: .6875rem; }
-#admin-shell .seo-result { display: flex; gap: .5rem; font-size: .75rem; line-height: 1.35; }
-#admin-shell .seo-result-dot { width: .5rem; height: .5rem; flex: 0 0 auto; margin-top: .2rem; border-radius: 999px; }
-#admin-shell .seo-check { display: flex; align-items: flex-start; gap: .5rem; color: var(--nk-color-foreground); font-size: .75rem; }
-@media (max-width: 62rem) {
-  #admin-shell .seo-ws-body { grid-template-columns: minmax(0, 1fr); }
-  #admin-shell .seo-fields { grid-template-columns: minmax(0, 1fr); }
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: var(--ink-shadow-sm);
 }

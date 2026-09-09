@@ -15,7 +15,7 @@ module Ink
     def view_template(&block)
       (@block || block)&.call(self)
       container = @variant == :borderless ? "flex flex-col items-center text-center py-8 px-4" : "flex flex-col items-center text-center py-9 px-4 rounded-xl bg-card ring-1 ring-border/70"
-      div(class: container) do
+      div(class: container, data: { ink: "empty-state" }) do
         div(class: "mb-3 flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-muted/60 text-muted-foreground") do
           render Ink::Icon.new(@icon, size: :sm)
         end

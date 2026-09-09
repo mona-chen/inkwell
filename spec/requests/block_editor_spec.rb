@@ -9,6 +9,30 @@ RSpec.describe "Block editor patterns", type: :request do
 
   before { sign_in user }
 
+  it "keeps draft and publish actions visible in the editor toolbar" do
+    post = Post.create!(title: "Publishable post", site: site, author: user, status: "draft")
+
+    get edit_admin_post_path(post)
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include('id="post-editor-form"')
+    expect(response.body).to include('name="save_draft"')
+    expect(response.body).to include('formaction="/admin/posts/publishable-post/publish"')
+    expect(response.body).to include(">Publish<")
+  end
+
+  it "does not duplicate list blocks with a rendered preview" do
+    post = Post.create!(title: "List post", site: site, author: user, status: "draft",
+      content: [ { "type" => "list", "data" => { "ordered" => false, "items" => "One\nTwo" } } ])
+
+    get edit_admin_post_path(post)
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).not_to include("Rendered preview")
+    expect(response.body).to include('data-list-block-target="preview"')
+    expect(response.body).to include('aria-hidden="true"')
+  end
+
   it "renders the Patterns picker section with every registered pattern" do
     post = Post.create!(title: "Patterned post", site: site, author: user, status: "draft")
 

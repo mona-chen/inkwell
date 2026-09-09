@@ -9,7 +9,7 @@ module Admin
 
     def show
       @menu = Current.site.menus.find(params[:id])
-      render Admin::MenuPage.new(menu: @menu)
+      render Admin::MenuPage.new(menu: @menu, pages: Current.site.pages.published.ordered)
     end
   end
 end

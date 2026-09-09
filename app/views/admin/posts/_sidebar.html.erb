@@ -18,27 +18,50 @@
     </span>
     <span class="text-xs text-muted-foreground">· Public</span>
   </div>
-  <% if post.published_at %>
+<% if post.published_at %>
     <p class="text-xs text-muted-foreground mt-1"><%= post.published_at.strftime("%b %-d, %Y at %-l:%M %P") %></p>
-  <% end %>
+<% end %>
+<% if post.persisted? %>
+  <a href="<%= admin_post_revisions_path(post) %>" class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-primary">
+    <%= render Ink::Icon.new(:history, size: :xs) %>
+    Revision history
+  </a>
+<% end %>
 </div>
 
 <hr class="border-border mb-4">
 
 <%# ── Featured Image ────────────────────────────────────────────── %>
-<div class="mb-4">
+<div class="mb-4" data-controller="media-picker">
   <h3 class="text-[10px] font-semibold text-muted-foreground uppercase tracking-[.04em] mb-2">Featured image</h3>
-  <% if post.featured_image %>
-    <div class="relative rounded-lg overflow-hidden border border-border">
-      <img src="<%= post.featured_image.url %>" alt="" class="w-full h-32 object-cover">
-      <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+  <%= f.hidden_field :featured_image_id, data: { media_picker_target: "urlField" } %>
+  <%= f.hidden_field :featured_image_alt, data: { media_picker_target: "altField" } %>
+  <div data-media-picker-target="preview" class="flex h-32 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/30">
+    <% if post.featured_image %>
+      <img src="<%= post.featured_image.url %>" alt="" class="h-full w-full object-cover">
+    <% else %>
+      <span class="text-xs text-muted-foreground">No featured image</span>
+    <% end %>
+  </div>
+  <div class="mt-2 flex gap-2">
+    <button type="button" data-action="media-picker#open" class="inline-flex h-7 items-center rounded-md border border-border px-2 text-[11px] font-semibold text-foreground hover:bg-muted">
+      <%= post.featured_image ? "Replace" : "Choose image" %>
+    </button>
+    <% if post.featured_image %>
+      <button type="button" data-action="media-picker#clear" class="inline-flex h-7 items-center rounded-md px-2 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground">Remove</button>
+    <% end %>
+  </div>
+  <dialog data-media-picker-target="dialog" data-action="click->media-picker#backdropClose" class="m-auto w-[42rem] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-background p-0 shadow-2xl backdrop:bg-black/50">
+    <div class="flex items-center justify-between border-b border-border px-4 py-3">
+      <h3 class="text-sm font-semibold text-foreground">Choose featured image</h3>
+      <button type="button" data-action="media-picker#close" class="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close">✕</button>
     </div>
-  <% else %>
-    <div class="rounded-lg border border-border/50 p-4 text-center cursor-pointer hover:border-border hover:bg-muted/30 transition-all">
-      <%= render Ink::Icon.new(:image, size: :sm, label: "Add image") %>
-      <p class="text-[10px] text-muted-foreground/60 mt-1">Add an image</p>
+    <div class="max-h-[60vh] overflow-y-auto">
+      <turbo-frame id="featured-image-picker-frame" data-media-picker-target="frame" data-src="<%= admin_media_path(picker: 1) %>">
+        <div class="p-4 text-center text-sm text-muted-foreground">Loading…</div>
+      </turbo-frame>
     </div>
-  <% end %>
+  </dialog>
 </div>
 
 <hr class="border-border mb-4">
@@ -55,9 +78,7 @@
             <%= cat.name %>
           </span>
         <% end %>
-        <button type="button" class="inline-flex items-center gap-1 rounded-full border border-border text-xs px-2 py-0.5 text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors">
-          <span class="text-[12px]">+</span>
-        </button>
+        <a href="<%= admin_taxonomies_path(taxonomy: "category") %>" class="text-[11px] font-medium text-muted-foreground hover:text-primary">Manage</a>
       </div>
     </div>
     <div>
@@ -66,12 +87,9 @@
         <% post.tags.each do |tag| %>
           <span class="inline-flex items-center gap-1 rounded-full bg-muted text-foreground text-xs px-2 py-0.5">
             <%= tag.name %>
-            <button type="button" class="text-muted-foreground hover:text-foreground ml-0.5">&times;</button>
           </span>
         <% end %>
-        <button type="button" class="inline-flex items-center gap-1 rounded-full border border-border text-xs px-2 py-0.5 text-muted-foreground hover:text-foreground hover:border-muted-foreground transition-colors">
-          <span class="text-[12px]">+</span>
-        </button>
+        <a href="<%= admin_taxonomies_path(taxonomy: "tag") %>" class="text-[11px] font-medium text-muted-foreground hover:text-primary">Manage</a>
       </div>
     </div>
   </div>

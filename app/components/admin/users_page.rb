@@ -35,7 +35,7 @@ module Admin
 
         div(class: "lg:col-span-1") do
           render Card.new do |card|
-            card.title { "Add user" }
+            card.title { "Create account" }
             card.body do
               form_with(url: admin_users_path, method: :post, class: "space-y-3") do |f|
                 div do
@@ -54,7 +54,8 @@ module Admin
                   f.label :role_id, "Role", class: "mb-1 block text-xs font-medium text-muted-foreground"
                   f.select :role_id, @roles.map { |r| [ r.name.titleize, r.id ] }, {}, class: input_class
                 end
-                f.submit "Add user", class: "w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                p(class: "text-[11px] leading-4 text-muted-foreground") { "Share the temporary password securely; the user can reset it after signing in." }
+                f.submit "Create account", class: "inline-flex h-8 w-full items-center justify-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 cursor-pointer"
               end
             end
           end
@@ -65,7 +66,7 @@ module Admin
     private
 
     def input_class
-      "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
+      "h-9 w-full rounded-lg border border-border bg-background px-3 text-[13px] text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
     end
 
     def render_user_row(user)

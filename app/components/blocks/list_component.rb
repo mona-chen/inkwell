@@ -8,8 +8,11 @@ module Blocks
     def call
       return if @items.empty?
 
-      content_tag(@ordered ? :ol : :ul, class: "list-inside mb-4 space-y-1") do
-        @items.map { |item| content_tag(:li, item, class: "list-disc") }.join.html_safe
+      content_tag(
+        @ordered ? :ol : :ul,
+        class: "content-list #{@ordered ? 'content-list--ordered' : 'content-list--unordered'}"
+      ) do
+        safe_join(@items.map { |item| content_tag(:li, item) })
       end
     end
   end

@@ -25,14 +25,16 @@ module Admin
 
     def render_preview
       if @item.image?
-        img(src: @item.thumbnail_url, class: "h-full w-full object-cover transition-transform duration-300 group-hover:scale-105", alt: @item.alt_text, loading: "lazy")
+        img(
+          src: @item.thumbnail_url.presence || @item.url,
+          class: "h-full w-full object-cover transition-transform duration-300 group-hover:scale-105",
+          alt: @item.alt_text,
+          loading: "lazy",
+          data: { action: "error->media-item#imageError" }
+        )
+        render_file_fallback(class_name: "hidden absolute inset-0")
       else
-        div(class: "flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center") do
-          span(class: "flex h-12 w-12 items-center justify-center rounded-lg bg-background/70 text-muted-foreground") do
-            render Icon.new(:file, size: :md)
-          end
-          span(class: "line-clamp-2 text-xs text-muted-foreground") { @item.file.filename.to_s }
-        end
+        render_file_fallback
       end
     end
 
@@ -75,7 +77,13 @@ module Admin
 
           div(class: "p-5") do
             if @item.image?
-              img(src: @item.url, class: "mb-4 max-h-48 w-full rounded-lg object-contain", alt: @item.alt_text)
+              img(
+                src: @item.url,
+                class: "mb-4 max-h-48 w-full rounded-lg object-contain",
+                alt: @item.alt_text,
+                data: { action: "error->media-item#imageError" }
+              )
+              render_file_fallback(class_name: "hidden mb-4 min-h-32 rounded-lg bg-muted")
             else
               div(class: "mb-4 flex items-center gap-3 rounded-lg bg-muted p-4") do
                 render Icon.new(:file, size: :md)
@@ -107,6 +115,15 @@ module Admin
             end
           end
         end
+      end
+    end
+
+    def render_file_fallback(class_name: nil)
+      div(class: "flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center #{class_name}") do
+        span(class: "flex h-12 w-12 items-center justify-center rounded-lg bg-background/70 text-muted-foreground") do
+          render Icon.new(:file, size: :md)
+        end
+        span(class: "line-clamp-2 text-xs text-muted-foreground") { @item.file.filename.to_s }
       end
     end
   end

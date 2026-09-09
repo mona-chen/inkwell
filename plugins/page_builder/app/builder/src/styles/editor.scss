@@ -11,6 +11,7 @@
 @use "editor/overlays";
 @use "editor/responsive";
 @use "editor/loader";
+@use "editor/studio";
 
 // All editor icons are hydrated to inline Lucide SVGs. The historical wrapper class remains
 // as a compatibility hook for existing sizing rules, but no font glyph is displayed.

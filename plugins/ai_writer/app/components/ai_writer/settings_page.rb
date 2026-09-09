@@ -8,13 +8,14 @@ module AiWriter
     end
 
     def view_template
-      render Toolbar.new do |toolbar|
-        toolbar.leading do
-          render Admin::ToolbarTitle.new(title: "Copilot", subtitle: "Connect any OpenAI-compatible API for the block editor's AI assistant")
+      div(class: "max-w-[960px]") do
+        render Toolbar.new do |toolbar|
+          toolbar.leading do
+            render Admin::ToolbarTitle.new(title: "Copilot", subtitle: "Configure the model and design-research tools used by your writing assistant")
+          end
         end
-      end
 
-      render SettingsSection.new(
+        render SettingsSection.new(
         title: "API connection",
         description: "Base URL, model, and key for the block editor's AI assistant."
       ) do |section|
@@ -30,14 +31,14 @@ module AiWriter
               "The key is stored in site settings and falls back to the OPENAI_API_KEY environment variable; " \
               "it is never sent to the browser."
             end
-            form.group do
+            div(class: "flex justify-end pt-2") do
               form.submit("Save settings")
             end
           end
         end
       end
 
-      render SettingsSection.new(
+        render SettingsSection.new(
         title: "Design research (MCP)",
         description: "Let the Copilot research real design systems before it designs. Connect a Model Context Protocol server such as DesignMD (add with `claude mcp add designmd --transport http <url> --header \"Authorization: Bearer <token>\"`)."
       ) do |section|
@@ -54,10 +55,11 @@ module AiWriter
               "generate_css_variables, patterns/blocks, …) to ground its designs. The token is stored " \
               "in site settings and never sent to the browser."
             end
-            form.group do
+            div(class: "flex justify-end pt-2") do
               form.submit("Save settings")
             end
           end
+        end
         end
       end
     end

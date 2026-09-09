@@ -118,6 +118,20 @@ module PageBuilder
     end
 
     def save
+      workspace = Workspace.find_by(site: Current.site, record_type: @record.class.name, record_id: @record.id)
+      if workspace && workspace.document.present?
+        workspace.with_lock do
+          if params[:collaboration_revision].nil? || params[:collaboration_revision].to_i != workspace.revision
+            return render json: { error: "This page has a shared draft. Join live editing and sync before saving." }, status: :conflict
+          end
+          save_document
+        end
+      else
+        save_document
+      end
+    end
+
+    def save_document
       root = @record.is_a?(Page) ? "@page" : "@post"
       erb = ErbConverter.convert(params[:html].to_s, document_root: root)
       store = params[:store].presence
@@ -139,6 +153,8 @@ module PageBuilder
       idx = blocks.index { |b| b["type"] == "page_builder" }
       idx ? blocks[idx] = block : blocks << block
       attributes = { content: blocks }
+      title = store&.dig(:settings, :title) || store&.dig("settings", "title")
+      attributes[:title] = title.strip if title.is_a?(String) && title.strip.present?
       if ActiveModel::Type::Boolean.new.cast(params[:publish])
         attributes[:status] = "published"
         attributes[:live_render_mode] = "native" if @record.is_a?(Page)

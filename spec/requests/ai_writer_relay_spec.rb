@@ -15,12 +15,14 @@ RSpec.describe "AiWriter client-driven Copilot relay", type: :request do
   it "chat (clientTools) streams a relayed tool call for the browser to execute" do
     calls = [{ "id" => "call_1", "type" => "function", "function" => { "name" => "insert_element", "arguments" => '{"type":"heading"}' } }]
     allow_any_instance_of(AiWriter::Client).to receive(:stream_round).and_wrap_original do |_orig, *_args, &blk|
+      expect(_args.first.first[:content]).to include("selected-card", "mobile")
       blk&.call({ tool_calls: calls })
       { role: "assistant", content: nil, tool_calls: calls }
     end
 
     post "/plugins/ai_writer/chat", params: {
       clientTools: true, prompt: "add a heading", mode: "design", designIndex: "(empty page)",
+      editorContext: { selection: [{ id: "selected-card", type: "frame" }], device: "mobile" },
       tools: [].to_json
     }, as: :json
 
@@ -35,7 +37,7 @@ RSpec.describe "AiWriter client-driven Copilot relay", type: :request do
     # Seed a session as the first round would.
     session_id = "relay_test_session"
     AiWriter::CompletionsController::CLIENT_SESSIONS[session_id] = {
-      messages: [{ role: "user", content: "design a page" }], created_at: Time.now
+      messages: [{ role: "user", content: "design a page" }], user_id: user.id, site_id: site.id, created_at: Time.now
     }
     allow_any_instance_of(AiWriter::Client).to receive(:stream_round) do |_client, *_args, &blk|
       blk&.call({ content: "Done — the page is ready." })
@@ -52,7 +54,19 @@ RSpec.describe "AiWriter client-driven Copilot relay", type: :request do
     body = response.body
     expect(body).to include("Done — the page is ready.")
     expect(body).to include("data: [DONE]")
-    expect(AiWriter::CompletionsController::CLIENT_SESSIONS).not_to have_key(session_id)
+    expect(AiWriter::CompletionsController::CLIENT_SESSIONS.key?(session_id)).to be(false)
+  ensure
+    AiWriter::CompletionsController::CLIENT_SESSIONS.delete(session_id)
+  end
+
+  it "does not resume another user's tool session" do
+    session_id = "another_user_session"
+    AiWriter::CompletionsController::CLIENT_SESSIONS[session_id] = {
+      messages: [], user_id: user.id + 1, site_id: site.id
+    }
+    expect_any_instance_of(AiWriter::Client).not_to receive(:stream_round)
+    post "/plugins/ai_writer/tool_result", params: { session_id: session_id, results: [] }, as: :json
+    expect(response.body).to include("Copilot session expired")
   ensure
     AiWriter::CompletionsController::CLIENT_SESSIONS.delete(session_id)
   end

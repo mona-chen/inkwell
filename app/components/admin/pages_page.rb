@@ -14,7 +14,7 @@ module Admin
     end
 
     def view_template
-      div(class: "admin-pages") do
+      div(class: "admin-pages max-w-[1100px]") do
       render Toolbar.new do |toolbar|
         toolbar.leading do
           render ToolbarTitle.new(
@@ -66,7 +66,7 @@ module Admin
     end
 
     def render_page_list
-      div(class: "overflow-hidden rounded-xl border border-border bg-background") do
+      div(class: "overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border/60") do
         ul(class: "divide-y divide-border") do
           @pages.each { |page| render_page_row(page) }
         end
@@ -75,7 +75,10 @@ module Admin
     end
 
     def render_page_row(page)
-      li(class: "group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/40") do
+      li(class: "group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40") do
+        div(class: "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary") do
+          render Icon.new(:file_text, size: :sm)
+        end
         div(class: "min-w-0 flex-1") do
           div(class: "flex items-center gap-2") do
             a(
@@ -98,18 +101,22 @@ module Admin
           end
         end
 
-        div(class: "flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100") do
-          render Button.new("Edit", href: edit_admin_page_path(page), variant: :ghost, size: :sm)
-          render Button.new("View", href: page_path(page), variant: :ghost, size: :sm, target: "_blank")
-          render ButtonTo.new(
-            "Delete",
-            href: admin_page_path(page),
-            method: :delete,
-            variant: :ghost,
-            size: :sm,
-            button_aria: { label: "Delete #{page.title}" },
-            data: { turbo_confirm: "Delete this page?" }
-          )
+        div(class: "shrink-0") do
+          render Dropdown.new(placement: :bottom_end) do |menu|
+            menu.trigger(size: :sm, label: "Actions for #{page.title}") do
+              render Icon.new(:ellipsis, size: :sm)
+            end
+            menu.item("Edit", href: edit_admin_page_path(page), icon: :pencil)
+            menu.item("View", href: page_path(page), icon: :external_link, target: "_blank")
+            menu.separator
+            menu.item(
+              "Delete",
+              href: admin_page_path(page),
+              icon: :trash_2,
+              variant: :destructive,
+              data: { turbo_method: :delete, turbo_confirm: "Delete #{page.title}?" }
+            )
+          end
         end
       end
     end

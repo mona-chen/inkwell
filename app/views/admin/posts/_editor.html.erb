@@ -32,7 +32,7 @@
         </button>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex min-w-0 items-center justify-end gap-2">
         <span data-block-editor-target="wordCount" class="text-xs text-muted-foreground">
           0 words · < 1 min read
         </span>
@@ -42,10 +42,28 @@
         <%# Plugin-injected editor controls (e.g. the AI Writer plugin's button + dialog) %>
         <% BlockRenderer.editor_toolbar_partials.each { |p| concat(render(p, record: post)) } %>
         <%= render "admin/posts/blocks/picker" %>
+        <span class="mx-0.5 hidden h-5 w-px bg-border sm:block"></span>
+        <% if post.status == "published" %>
+          <button type="submit"
+                  class="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
+            Save changes
+          </button>
+        <% else %>
+          <button type="submit" name="save_draft" value="1"
+                  class="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
+            Save draft
+          </button>
+        <% end %>
+        <% if post.persisted? %>
+          <button type="submit" formaction="<%= publish_admin_post_path(post) %>" formmethod="post"
+                  class="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
+            <%= post.status == "published" ? "Update" : "Publish" %>
+          </button>
+        <% end %>
       </div>
     </div>
 
-    <div data-block-editor-target="list" class="relative space-y-3 min-h-[200px]">
+    <div data-block-editor-target="list" class="relative space-y-1 min-h-24">
       <% post.editing_blocks.each do |block| %>
         <%= render BlockRenderer.editor_partial(block['type']), data: block["data"], record: post %>
       <% end %>

@@ -5,16 +5,12 @@ module AiWriter
   class CompletionsController < Admin::BaseController
     include ActionController::Live
 
-    # In-memory session store for the client-driven (CopilotTools) loop. The design lives in the
-    # browser; the server only carries the model's message history between rounds. Single-process
-    # is fine for this app; entries expire and are pruned lazily.
-    CLIENT_SESSIONS = {}
-    SESSION_TTL = 600
+    # Conversation history survives reloads and worker changes; the browser owns the design.
+    CLIENT_SESSIONS = ClientSessions.new
     MAX_CLIENT_ROUNDS = 16
 
     def self.prune_sessions
-      now = Time.now
-      CLIENT_SESSIONS.delete_if { |_, s| now - (s[:created_at] || now) > SESSION_TTL }
+      CLIENT_SESSIONS.cleanup
     end
 
     # Instructs the model to chat conversationally and, only when the user asks to change the
@@ -84,12 +80,14 @@ module AiWriter
       # and POSTs results back via tool_result to resume the loop.
       if params[:clientTools]
         self.class.prune_sessions
-        session_id = SecureRandom.hex(8)
+        session_id = SecureRandom.hex(24)
         CLIENT_SESSIONS[session_id] = {
           messages: [ { role: "user", content: client_build_prompt } ],
           system: client_system_prompt,
           tools: parse_client_tools,
           rounds: 0,
+          user_id: current_user.id,
+          site_id: Current.site.id,
           created_at: Time.now
         }
         run_client_round(client, session_id, [])
@@ -531,7 +529,7 @@ module AiWriter
     # message; if it emitted tool calls, stream them as a "tools" event for the browser to execute.
     def run_client_round(client, session_id, results)
       session = CLIENT_SESSIONS[session_id]
-      unless session
+      unless session && session[:user_id] == current_user.id && session[:site_id] == Current.site.id
         stream_json(error: "Copilot session expired — send your request again.")
         stream_done
         return
@@ -559,6 +557,7 @@ module AiWriter
         rescue JSON::ParserError
           { "id" => call["id"], "name" => call.dig("function", "name"), "arguments" => {} }
         end
+        CLIENT_SESSIONS[session_id] = session
         stream_json(tools: { session_id: session_id, calls: calls })
       else
         CLIENT_SESSIONS.delete(session_id)
@@ -571,6 +570,7 @@ module AiWriter
       parts << "Page title: #{params[:context]}" if params[:context].to_s.present?
       parts << "Site name: #{params[:site]}" if params[:site].to_s.present?
       parts << "Task mode: #{params[:mode]}"
+      parts << "Live editor context: #{params[:editorContext].to_json}" if params[:editorContext].present?
       parts << "Requested design language: #{params[:brand]}" if params[:brand].to_s.present?
       parts << "Current design (numbered tree — target elements by their [path] or id):\n#{params[:designIndex].to_s}"
       history = Array(params[:history]).last(6).filter_map do |entry|
@@ -593,24 +593,29 @@ module AiWriter
         an enhancement layer, never a substitute for editable content.
 
         OPERATING CONTRACT
-        0. Treat every design, rewrite, add-section, layout, styling, animation, or code request
-           as an execution request. You must make a mutating tool call before replying. Never
-           answer one of those requests with a question, proposal, or "how can I help" message.
-           Ask a question only when a user explicitly requests advice and no page change.
-        1. For any build, rewrite, or add-section request, call get_capabilities first. Never
-           invent element types or setting names. For a surgical edit, call read_design and
-           read_element/read_custom_code as needed. In design/rewrite mode the current tree is
-           already in the user message; do not spend another round reading it.
-        2. For a standard marketing, product, portfolio, service, or waitlist page, call
-           compose_landing_page immediately after capability discovery. Fill its compact creative
-           blueprint with original, specific copy and a deliberate palette. It expands to native
-           editable builder primitives and responsive CSS. Use low-level replace_page only for a
-           genuinely non-standard composition. Never build a page through dozens of insert calls.
-           In add_section mode use append_tree once.
-        3. After the canvas renders, call audit_design. Correct every error and meaningful
+        0. Respond to the user's intent, not the UI mode. Greetings, thanks, and ordinary
+           conversation get a brief direct reply with NO tools. Advice and questions do not
+           authorize changes: use read-only tools only when the answer needs page context.
+           For an explicit design/edit request, execute it using native mutating tools.
+           Ask a concise clarification only when the requested change is genuinely ambiguous.
+        1. For a new composition, call get_capabilities once. Its native defaults show the
+           content keys for common primitives. Read a schema only for unfamiliar controls;
+           never read schemas for every primitive before starting. Surgical edits need only
+           the relevant read_element/read_custom_code. The current tree is already supplied.
+        2. Match the requested composition, including app screens, dashboards, editorial sites,
+           commerce, portfolios, and layered interactive layouts. Use replace_page with recursive
+           native Frame/container trees for an original whole-page design; use append_tree for a
+           section. The optional compose_landing_page is a fixed portfolio template, only use it
+           when that specific structure suits the request. Never force unrelated requests into it.
+           Read get_element_schema for exact control options before configuring unfamiliar elements.
+           Prefer responsive node styles over custom CSS for dimensions, layout, typography,
+           colors, transforms, and effects, so the human's inspector remains authoritative.
+           Target selected IDs from editor context when the user says this or these. Preserve
+           surrounding work for targeted edits. Do not replace a page for a small correction.
+        3. After you change the canvas, call audit_design. Correct every error and meaningful
            warning with precise tools, then audit again. Do not claim completion without a final
            audit. Tool errors are feedback: correct the payload and continue.
-        4. Finish with one concise sentence naming what was built. Do not expose implementation
+        4. For edits, finish with one concise sentence naming what changed. For conversation, answer naturally. Do not expose implementation
            chatter, JSON, tool names, or a design critique to the user.
 
         QUALITY BAR — THE OUTPUT MUST LOOK ART-DIRECTED, NOT AI-GENERIC

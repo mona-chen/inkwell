@@ -1,0 +1,34 @@
+// Editor-only interaction chrome. Never included in the published canvas stylesheet.
+body.ink-builder-design {
+  --ink-editor-accent: #0099ff;
+  --ink-handle-scale: calc(1 / var(--ink-editor-canvas-scale, 1));
+  .ink-canvas-root:has(> .ink-element) { padding-top: 0; }
+  .ink-element[data-ink-kind="container"] > .ink-editor-overlay { box-shadow: none; }
+  .ink-element:hover > .ink-editor-overlay { box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent); }
+  .ink-element.ink-is-selected > .ink-editor-overlay,
+  .ink-element.ink-is-selected[data-ink-kind="container"] > .ink-editor-overlay { box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent); }
+  // Labels and actions are portalled to the unscaled workspace by CanvasChromeManager.
+  .ink-editor-toolbar { display: none; }
+  .ink-resize-handle.is-corner { width: calc(7px * var(--ink-handle-scale)); height: calc(7px * var(--ink-handle-scale)); border-width: calc(1px * var(--ink-handle-scale)); }
+  .ink-resize-handle.is-corner[data-ink-resize-handle="nw"] { top: calc(-3.5px * var(--ink-handle-scale)); left: calc(-3.5px * var(--ink-handle-scale)); }
+  .ink-resize-handle.is-corner[data-ink-resize-handle="ne"] { top: calc(-3.5px * var(--ink-handle-scale)); right: calc(-3.5px * var(--ink-handle-scale)); }
+  .ink-resize-handle.is-corner[data-ink-resize-handle="sw"] { bottom: calc(-3.5px * var(--ink-handle-scale)); left: calc(-3.5px * var(--ink-handle-scale)); }
+  .ink-resize-handle.is-corner[data-ink-resize-handle="se"] { bottom: calc(-3.5px * var(--ink-handle-scale)); right: calc(-3.5px * var(--ink-handle-scale)); }
+  .ink-resize-handle.is-edge { background: transparent; }
+  .ink-resize-handle.is-edge[data-ink-resize-handle="n"], .ink-resize-handle.is-edge[data-ink-resize-handle="s"] { height: calc(8px * var(--ink-handle-scale)); }
+  .ink-resize-handle.is-edge[data-ink-resize-handle="e"], .ink-resize-handle.is-edge[data-ink-resize-handle="w"] { width: calc(8px * var(--ink-handle-scale)); }
+  .ink-resize-handle[data-ink-resize-handle="nw"], .ink-resize-handle[data-ink-resize-handle="se"] { cursor: nwse-resize; }
+  .ink-resize-handle[data-ink-resize-handle="ne"], .ink-resize-handle[data-ink-resize-handle="sw"] { cursor: nesw-resize; }
+  .ink-resize-handle[data-ink-resize-handle="n"], .ink-resize-handle[data-ink-resize-handle="s"] { cursor: ns-resize; }
+  .ink-resize-handle[data-ink-resize-handle="e"], .ink-resize-handle[data-ink-resize-handle="w"] { cursor: ew-resize; }
+  .ink-rotate-handle { top: calc(-24px * var(--ink-handle-scale)); width: calc(9px * var(--ink-handle-scale)); height: calc(9px * var(--ink-handle-scale)); margin-left: calc(-4.5px * var(--ink-handle-scale)); border-width: calc(1px * var(--ink-handle-scale)); }
+  .ink-rotate-handle::before { bottom: calc(-15px * var(--ink-handle-scale)); height: calc(15px * var(--ink-handle-scale)); width: calc(1px * var(--ink-handle-scale)); }
+  .ink-radius-handle { top: calc(13px * var(--ink-handle-scale)); right: calc(13px * var(--ink-handle-scale)); width: calc(7px * var(--ink-handle-scale)); height: calc(7px * var(--ink-handle-scale)); border-width: calc(1px * var(--ink-handle-scale)); }
+  .ink-editor-root-empty { min-height: calc(180px * var(--ink-handle-scale)); max-width: calc(100% - 80px * var(--ink-handle-scale)); margin: calc(40px * var(--ink-handle-scale)) auto; border: calc(1px * var(--ink-handle-scale)) dashed #cbd0d7; border-radius: calc(10px * var(--ink-handle-scale)); gap: calc(14px * var(--ink-handle-scale)); }
+  .ink-editor-root-empty .ink-empty-actions { gap: calc(10px * var(--ink-handle-scale)); }
+  .ink-editor-root-empty .ink-empty-action { width: calc(36px * var(--ink-handle-scale)); height: calc(36px * var(--ink-handle-scale)); box-shadow: none; background: #f0f3f7; color: #4a5665; border-radius: calc(8px * var(--ink-handle-scale)); }
+  .ink-editor-root-empty .ink-empty-action .material-symbols-rounded { font-size: calc(18px * var(--ink-handle-scale)); }
+  .ink-editor-root-empty .ink-empty-caption { font: calc(12px * var(--ink-handle-scale))/1.5 Inter, sans-serif; color: #798390; }
+  .ink-resize-tooltip, .ink-radius-tooltip, .ink-rotate-tooltip { font-size: calc(11px * var(--ink-handle-scale)); line-height: 1.4; padding: calc(3px * var(--ink-handle-scale)) calc(6px * var(--ink-handle-scale)); }
+}
+body.ink-comment-mode, body.ink-comment-mode * { cursor: crosshair !important; }

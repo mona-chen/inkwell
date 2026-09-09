@@ -55,9 +55,10 @@ function cdp(url) {
     socket.onopen = resolve;
     socket.onerror = () => reject(new Error("CDP connection failed"));
   });
-  const send = (method, params = {}) => new Promise((resolve) => {
+  const send = (method, params = {}) => new Promise((resolve, reject) => {
     const id = ++sequence;
-    pending.set(id, resolve);
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error('CDP timed out: ' + method)); }, 30000);
+    pending.set(id, (value) => { clearTimeout(timer); resolve(value); });
     socket.send(JSON.stringify({ id, method, params }));
   });
   const evaluate = async (expression) => {
@@ -81,6 +82,7 @@ page.content = [{ "type" => "page_builder", "data" => {
   "store" => { "name" => "PageElement", "elementLists" => [] }
 } }]
 page.update!(draft_content: nil)
+PageBuilder::Workspace.where(site: site, record_type: 'Page', record_id: page.id).delete_all if defined?(PageBuilder::Workspace)
 print page.id
 `;
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "inkwell-builder-v2-"));
@@ -98,18 +100,24 @@ async function main() {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "inkwell-builder-v2-chrome-"));
   const chrome = spawn(chromeBin, [
     "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+    ...(process.env.SHADER_SMOKE ? ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] : []),
     `--remote-debugging-port=${CDP_PORT}`, `--user-data-dir=${profile}`, "about:blank",
   ], { stdio: "ignore" });
 
   try {
-    await wait(2500);
-    const version = await getJson(`http://127.0.0.1:${CDP_PORT}/json/version`);
+    let version;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      try { version = await getJson(`http://127.0.0.1:${CDP_PORT}/json/version`); break; }
+      catch (_) { await wait(500); }
+    }
+    if (!version) throw new Error('Headless Chrome did not become ready within 15 seconds');
     check("headless Chrome started", !!version.webSocketDebuggerUrl);
     const tabs = await getJson(`http://127.0.0.1:${CDP_PORT}/json`);
     const client = cdp(tabs.find((tab) => tab.type === "page").webSocketDebuggerUrl);
     await client.open;
     await client.send("Runtime.enable");
     await client.send("Page.enable");
+    await client.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
 
     await client.send("Page.navigate", { url: `${BASE_URL}/users/sign_in` });
     await wait(2500);
@@ -125,6 +133,83 @@ async function main() {
 
     await client.send("Page.navigate", { url: `${BASE_URL}/builder/page/${pageId}` });
     await wait(7000);
+
+    if (process.env.COLLABORATION_SMOKE_ONLY) {
+      const first = await client.evaluate(`(async function(){var r=builder.runtime;var n=r.insert('frame',{}, {settings:{label:'A deliberately very long layer title to test truncation in a narrow layers sidebar'},styles:{desktop:{base:{width:{size:600,unit:'px'},height:{size:320,unit:'px'},color:'#112233',opacity:1}}}});window.__collabNode=n.id;await builder.collaboration.join();clearInterval(builder.collaboration.timer);return {id:n.id,active:builder.collaboration.active,paused:builder.collaboration.paused};})()`);
+      check('first editor joins a private shared draft',first.active&&!first.paused,JSON.stringify(first));
+      const browser=cdp(version.webSocketDebuggerUrl);await browser.open;const target=await browser.send('Target.createTarget',{url:`${BASE_URL}/builder/page/${pageId}`});await wait(4500);
+      const peers=await getJson(`http://127.0.0.1:${CDP_PORT}/json`);const second=cdp(peers.find(tab=>tab.id===target.result.targetId).webSocketDebuggerUrl);await second.open;await second.send('Runtime.enable');
+      const joined=await second.evaluate(`(async function(){await builder.collaboration.join();clearInterval(builder.collaboration.timer);return {active:builder.collaboration.active,paused:builder.collaboration.paused,nodes:builder.getData().children.length};})()`);
+      check('second editor receives the shared draft',joined.active&&!joined.paused&&joined.nodes===1,JSON.stringify(joined));
+      await client.evaluate(`builder.runtime.update(window.__collabNode,{styles:{desktop:{base:{color:'#445566'}}}},'Local color');true`);
+      await second.evaluate(`builder.runtime.update(${JSON.stringify(first.id)},{styles:{desktop:{base:{opacity:.5}}}},'Peer opacity');true`);
+      await client.evaluate('builder.collaboration.sync()');await second.evaluate('builder.collaboration.sync()');await client.evaluate('builder.collaboration.sync()');
+      const merged=await client.evaluate(`({style:builder.runtime.document.get(window.__collabNode).styles.desktop.base,peers:Object.keys(builder.collaboration.peers).length})`);
+      check('two live editors merge independent changes and see presence',merged.style.color==='#445566'&&merged.style.opacity===.5&&merged.peers===2,JSON.stringify(merged));
+      await client.evaluate('builder.runtime.history.undo();builder.collaboration.sync()');await second.evaluate('builder.collaboration.sync()');
+      const undone=await second.evaluate(`builder.runtime.document.get(${JSON.stringify(first.id)}).styles.desktop.base`);
+      check('local undo preserves the other editor’s change',undone.color==='#112233'&&undone.opacity===.5,JSON.stringify(undone));
+      await client.evaluate(`builder.runtime.update(window.__collabNode,{styles:{desktop:{base:{color:'#aa1122'}}}},'Competing local color');true`);
+      await second.evaluate(`builder.runtime.update(${JSON.stringify(first.id)},{styles:{desktop:{base:{color:'#bb2233'}}}},'Competing peer color');true`);
+      await client.evaluate('builder.collaboration.sync()');await second.evaluate('builder.collaboration.sync()');
+      const conflict=await second.evaluate(`({paused:builder.collaboration.paused,local:builder.runtime.document.get(${JSON.stringify(first.id)}).styles.desktop.base.color,remote:builder.collaboration.base.nodes[${JSON.stringify(first.id)}].styles.desktop.base.color})`);
+      check('same-property conflict preserves both versions',conflict.paused&&conflict.local==='#bb2233'&&conflict.remote==='#aa1122',JSON.stringify(conflict));
+      await second.evaluate(`builder.collaboration.sharePanel.querySelector('[data-latest]').click();true`);await wait(400);
+      await client.evaluate(`builder.studio.setTool('comment');var el=builder.runtime.canvas.instances.get(window.__collabNode).element,rect=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,clientX:rect.left+rect.width*.35,clientY:rect.top+rect.height*.4}));true`);
+      const placed=await client.evaluate(`({dock:document.querySelector('.builder-sidebar').classList.contains('is-commenting'),draft:!builder.collaboration.composer.hidden,anchor:builder.collaboration.pendingAnchor,point:builder.collaboration.pendingPoint})`);
+      check('Comment tool opens the sidebar and anchors a composer at the clicked layer',placed.dock&&placed.draft&&placed.anchor===first.id&&Math.abs(placed.point.x-.35)<.01,JSON.stringify(placed));
+      await client.evaluate(`builder.collaboration.composer.querySelector('textarea').value='Check this spacing';builder.collaboration.composer.requestSubmit();true`);await wait(500);await second.evaluate('builder.collaboration.sync()');
+      const comments=await second.evaluate(`({count:builder.collaboration.threads.length,text:builder.collaboration.threads[0]?.messages[0]?.text})`);
+      check('canvas comment arrives for the second editor',comments.count===1&&comments.text==='Check this spacing',JSON.stringify(comments));
+      const screenshot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync('/tmp/inkwell-comments.png',Buffer.from(screenshot.result.data,'base64'));
+      const chromeState=await client.evaluate(`builder.studio.setTool('select');builder.studio.openExplorer('layers');({tabs:[...document.querySelectorAll('.builder-sidebar-tabs [role="tab"]')].map(x=>x.textContent),ellipsis:getComputedStyle(document.querySelector('[data-ink-navigator-label]')).textOverflow,toolbar:[...builder.studio.toolbar.querySelectorAll('[data-studio-tool]')].map(x=>x.dataset.studioTool)})`);
+      check('inspector order, canvas tools, and layer truncation match the intended layout',chromeState.tabs.join(',')==='Design,Agent,Code'&&chromeState.ellipsis==='ellipsis'&&chromeState.toolbar.join(',')==='select,hand,comment',JSON.stringify(chromeState));
+      second.close();browser.close();client.close();process.exitCode=failures?1:0;return;
+    }
+
+    if (process.env.COPILOT_UI_SMOKE_ONLY) {
+      const ui = await client.evaluate(`(function(){
+        var before=JSON.stringify(builder.getData()), calls=0, oldFetch=window.fetch;
+        window.fetch=function(){calls++;return oldFetch.apply(this,arguments);};
+        document.querySelector('[data-tab="copilot"]').click();
+        var prompt=document.querySelector('[data-builder-copilot-target="prompt"]');prompt.value='hi';
+        document.querySelector('[data-builder-copilot-target="send"]').click();
+        window.fetch=oldFetch;
+        return {calls:calls,unchanged:before===JSON.stringify(builder.getData()),reply:document.querySelector('[data-builder-copilot-target="transcript"]').textContent,markHidden:getComputedStyle(document.querySelector('.bc-empty-mark')||document.createElement('span')).display,contextDisplay:getComputedStyle(document.querySelector('.bc-composer-context')).display};
+      })()`);
+      check('greeting responds immediately without provider calls or canvas edits',ui.calls===0&&ui.unchanged&&ui.reply.includes('Hi!'),JSON.stringify(ui));
+      check('Copilot composer has the rebuilt editor layout',ui.contextDisplay==='flex',JSON.stringify(ui));
+      const capture=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync('/tmp/inkwell-copilot-rebuilt.png',Buffer.from(capture.result.data,'base64'));
+      client.close();process.exitCode=failures?1:0;return;
+    }
+
+    // Opt-in live provider check; never runs in the normal deterministic regression suite.
+    if (process.env.LIVE_COPILOT_SMOKE_ONLY) {
+      await client.evaluate(`(function(){
+        window.__liveTools=[];var tools=builder.copilotTools,execute=tools.execute;
+        tools.execute=function(name,args){var result=execute(name,args);window.__liveTools.push({name:name,mutated:result.mutated,error:/"ok"\s*:\s*false/.test(result.content),detail:/"ok"\s*:\s*false/.test(result.content)?result.content:null});return result;};
+        document.querySelector('[data-tab="copilot"]').click();
+        var prompt=document.querySelector('[data-builder-copilot-target="prompt"]');
+        prompt.value='Build a compact responsive project dashboard named Studio Overview. Use an original app interface: sidebar navigation, a header with one H1, an Add project action, and three project cards labelled Draft, In review, and Ready. Clearly mark the content as Sample workspace. Use warm ivory, charcoal typography, and a restrained green accent. Build it from native editable frames, headings, paragraphs and buttons, with desktop and mobile layouts in native responsive styles. No external images or invented metrics. This is an isolated test page. Finish by auditing the design.';
+        prompt.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('[data-builder-copilot-target="send"]').click();return true;
+      })()`);
+      let progress;
+      for(let attempt=0;attempt<72;attempt++) {
+        await wait(5000);
+        progress=await client.evaluate(`({running:document.querySelector('[data-builder-copilot-target="send"]').classList.contains('is-stopping'),tools:window.__liveTools,reply:document.querySelector('[data-builder-copilot-target="transcript"]').textContent.slice(-1200)})`);
+        if(attempt%6===0)console.log('  Copilot progress',JSON.stringify({running:progress.running,tools:progress.tools?.map(x=>x.name)}));
+        if(!progress.running)break;
+      }
+      if(progress.running)await client.evaluate(`document.querySelector('[data-builder-copilot-target="send"]').click()`);
+      const live=await client.evaluate(`(function(){var b=builder,r=b.runtime,all=[];var visit=function(n){all.push(n);(n.children||[]).forEach(visit);};r.document.data.children.forEach(visit);var heading=all.find(function(n){return n.type==='heading';}),editable=false;if(heading){r.selection.select(heading.id);var before=JSON.stringify(r.serialize());r.settingsPanel.setValue({target:'settings',name:'text',label:'Text'},heading,'Human edited heading');editable=r.document.get(heading.id).settings.text==='Human edited heading';r.history.undo();editable=editable&&JSON.stringify(r.serialize())===before;}return {nodes:all.length,opaque:all.filter(function(n){return ['html','imported-dom'].includes(n.type);}).length,editable:editable,audit:JSON.parse(b.copilotTools.apply('audit_design')),tools:window.__liveTools};})()`);
+      check('live Copilot composes a native app interface and a human can edit and undo it',!progress.running&&live.nodes>=12&&live.opaque===0&&live.editable&&live.tools.some(x=>x.mutated),JSON.stringify(live));
+      console.log('  Copilot reply:',progress.reply);
+      if(process.env.SMOKE_STUDIO_SCREENSHOT){
+        await client.evaluate(`document.querySelector('[data-tab="controls"]').click();builder.runtime.selection.clear();builder.viewport.fitScale();true`);
+        await wait(250);const capture=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(process.env.SMOKE_STUDIO_SCREENSHOT,Buffer.from(capture.result.data,'base64'));
+      }
+      client.close();console.log(`Live Copilot smoke: ${failures} failures`);process.exitCode=failures?1:0;return;
+    }
 
     let state = await client.evaluate(`(function(){
       var b = window.builder;
@@ -555,7 +640,8 @@ async function main() {
       r.selection.select(section.id);
       var styleTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.trim().toLowerCase().endsWith('style')});
       if(styleTab) styleTab.click();
-      var bg=document.querySelector('#SettingsContainer .ink-v2-background');
+      document.querySelector('#SettingsContainer .ink-fill-trigger')?.click();
+      var bg=document.querySelector('.ink-fill-popover');
       var bgControl=!!bg;
       var gradientBtn=bg?Array.from(bg.querySelectorAll('.ink-v2-background-choices button')).find(function(b){return b.getAttribute('aria-label')==='Gradient'}):null;
       var inferredGradient=!!gradientBtn && gradientBtn.getAttribute('aria-pressed')==='true' && gradientBtn.classList.contains('is-active');
@@ -572,9 +658,10 @@ async function main() {
       var colorStudioCompact=!!colorStudio && !!colorPlane && !!colorPalette && !!colorSwatch && colorStudio.getBoundingClientRect().width<=260 && colorPlane.getBoundingClientRect().height<=132 && colorPalette.getBoundingClientRect().height<=64 && colorSwatch.getBoundingClientRect().width<=20 && colorSwatch.getBoundingClientRect().height<=20;
       var colorStudioReady=!!colorStudio && !!colorPlane && colorStudio.querySelectorAll('.ink-v2-color-palette button').length>=20 && !!colorStudio.querySelector('[data-hex]') && !!colorStudio.querySelector('[data-alpha]') && projectPalette && colorStudioCompact;
       colorStudio?.querySelector('[data-close]')?.click();
-      var classicBtn=bg?Array.from(bg.querySelectorAll('.ink-v2-background-choices button')).find(function(b){return b.getAttribute('aria-label')==='Classic'}):null;
+      var classicBtn=bg?Array.from(bg.querySelectorAll('.ink-v2-background-choices button')).find(function(b){return b.getAttribute('aria-label')==='Solid'}):null;
       if(classicBtn) classicBtn.click();
-      var bgFresh=document.querySelector('#SettingsContainer .ink-v2-background');
+      document.querySelector('#SettingsContainer .ink-fill-trigger')?.click();
+      var bgFresh=document.querySelector('.ink-fill-popover');
       var bgRows=bgFresh?bgFresh.querySelectorAll('.ink-v2-control').length:0;
       var bgOpen=bgRows>0;
       r.history.undo(); // revert the background-mode change so history stays clean
@@ -627,6 +714,7 @@ async function main() {
     // drives beginDrag -> iframe dragover -> drop.
     // ------------------------------------------------------------------
     async function realDrag(sx, sy, dx, dy) {
+      if (process.env.SMOKE_DRAG_DEBUG) console.log('Drag target', await client.evaluate(`(function(){var e=document.elementFromPoint(${sx},${sy}); var f=builder.iframe.getBoundingClientRect(); var local=builder.iframeDoc.elementFromPoint((${sx}-f.x)/builder.viewport.scale,(${sy}-f.y)/builder.viewport.scale);return {x:${sx},y:${sy},dx:${dx},dy:${dy},parent:e?.outerHTML?.slice(0,180),canvas:local?.outerHTML?.slice(0,240)};})()`));
       await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: sx, y: sy });
       await client.send("Input.dispatchMouseEvent", { type: "mousePressed", x: sx, y: sy, button: "left", clickCount: 1 });
       await wait(140);
@@ -637,6 +725,205 @@ async function main() {
       }
       await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: dx, y: dy, button: "left", clickCount: 1 });
       await wait(500);
+    }
+
+    // Studio camera and keyboard contracts: camera movement must never mutate the document,
+    // and editor chrome must stay usable when the artwork is zoomed far out.
+    state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,v=b.viewport,before=JSON.stringify(b.getData()),originalSizes=structuredClone(v.sizes);
+      v.fitScale(); var first={scale:v.scale,x:v.x,y:v.y}; v.fitScale();
+      var stable=first.scale===v.scale&&first.x===v.x&&first.y===v.y;
+      var point={x:180,y:150}, world={x:(point.x-v.x)/v.scale,y:(point.y-v.y)/v.scale};
+      v.setScale(.35,point);
+      var anchored=Math.abs((point.x-v.x)/v.scale-world.x)<.01&&Math.abs((point.y-v.y)/v.scale-world.y)<.01;
+      b.setDevice('tablet'); v.setSize(730,950); b.setDevice('mobile'); b.setDevice('tablet');
+      var remembered=Number(v.widthInput.value)===730&&Number(v.heightInput.value)===950;
+      v.sizes=originalSizes;b.setDevice('desktop'); v.fitScale();
+      return {stable:stable,anchored:anchored,remembered:remembered,unchanged:JSON.stringify(b.getData())===before,
+        split:!!document.querySelector('.ink-explorer #WidgetsContainer')&&!!document.querySelector('.builder-sidebar #SettingsContainer'),
+        dock:!!document.querySelector('[aria-label="Canvas tools"]')};
+    })()`);
+    check("studio keeps layers, inspector and canvas tools in persistent surfaces", state.split&&state.dock, JSON.stringify(state));
+    check("camera fit is stable, zoom stays anchored, and device sizes survive switching", state.stable&&state.anchored&&state.remembered&&state.unchanged, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,before=JSON.stringify(b.getData()),selected=r.selection.selectedId;
+      var n=r.insert('container',{}, {styles:{desktop:{base:{width:{size:300,unit:'px'},height:{size:200,unit:'px'}}}}}); r.selection.select(n.id);
+      var sizes=[];
+      [.25,.5,1].forEach(function(scale){b.viewport.setScale(scale);var handle=b.iframeDoc.querySelector('[data-ink-element-id="'+n.id+'"] .ink-resize-handle.is-corner');sizes.push(handle.getBoundingClientRect().width*scale);});
+      var input=document.querySelector('[aria-label="Layer name"]');
+      var count=r.history.undoStack.length;
+      ['?','t','Backspace'].forEach(function(key){input.dispatchEvent(new KeyboardEvent('keydown',{key:key,bubbles:true,cancelable:true}));});
+      var typingSafe=r.history.undoStack.length===count&&b.hotkeys.hidden&&!!r.document.get(n.id);
+      r.history.undo(); if(selected&&r.document.get(selected))r.selection.select(selected);else r.selection.clear(); b.viewport.fitScale();
+      return {sizes:sizes,typingSafe:typingSafe,restored:JSON.stringify(b.getData())===before};
+    })()`);
+    check("resize handles stay seven screen pixels across zoom levels", state.sizes.every(function(size){return Math.abs(size-7)<.15;}), JSON.stringify(state));
+    check("typing in inspector fields does not trigger canvas shortcuts", state.typingSafe&&state.restored, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,v=b.viewport,before=JSON.stringify(b.getData());
+      b.breakpoints.setEnabled(true);
+      var visible=Array.from(document.querySelectorAll('.ink-breakpoint-preview')).filter(function(host){return !host.hidden;}).length;
+      var sources=Array.from(document.querySelectorAll('.ink-breakpoint-preview:not([hidden]) iframe')).every(function(frame){return frame.srcdoc.includes('ink-canvas-root')&&!/<script[ >]/i.test(frame.srcdoc)&&frame.sandbox.contains('allow-same-origin')&&!frame.sandbox.contains('allow-scripts');});
+      b.breakpoints.activate('tablet',r.document.data.children[0]?.id);
+      var active=r.responsive.device==='tablet'&&b.mainContainer.dataset.inkViewportDevice==='tablet';
+      var primary=v.x+b.breakpoints.activeOffset()*v.scale;
+      var positioned=Math.abs(parseFloat(b.mainContainer.style.getPropertyValue('--ink-preview-x'))-primary)<.01;
+      var camera={x:v.x,y:v.y,scale:v.scale}; b.setMode('preview'); var clean=b.studio.toolbar.hidden&&Array.from(document.querySelectorAll('.ink-breakpoint-preview')).every(function(host){return host.hidden;}); b.setMode('design');
+      var restored=b.breakpoints.enabled&&Math.abs(v.x-camera.x)<.01&&Math.abs(v.y-camera.y)<.01&&v.scale===camera.scale;
+      b.breakpoints.setEnabled(false);b.setDevice('desktop');r.selection.clear();
+      return {visible:visible,sources:sources,active:active,positioned:positioned,preview:clean,restored:restored,unchanged:JSON.stringify(b.getData())===before};
+    })()`);
+    check("breakpoint overview mirrors safe views and switches into the live editor", state.visible===2&&state.sources&&state.active&&state.positioned&&state.unchanged, JSON.stringify(state));
+    check("Preview hides canvas tools and restores the design camera on return", state.preview&&state.restored, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,p=r.settingsPanel,before=JSON.stringify(b.getData());
+      var n=r.insert('container',{},{});r.selection.select(n.id);p.activeTab='all';p.render();
+      var sectionNames=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-controls > details > summary > span:first-child')).map(function(x){return x.textContent;});
+      var ordered=['Position','Layout','Appearance','Fill','Stroke','Effects'].every(function(name,i,list){return sectionNames.includes(name)&&(!i||sectionNames.indexOf(name)>sectionNames.indexOf(list[i-1]));});
+      var slider=document.querySelector('#SettingsContainer [data-ink-control="opacity"] input[type="range"]');
+      slider.closest('details').open=true;slider.focus();var start=r.history.undoStack.length;
+      slider.value='.3';slider.dispatchEvent(new Event('input',{bubbles:true}));
+      var live=b.iframeDoc.defaultView.getComputedStyle(r.canvas.instances.get(n.id).element).opacity==='0.3';
+      slider.value='.6';slider.dispatchEvent(new Event('input',{bubbles:true}));
+      var connected=slider.isConnected;
+      slider.dispatchEvent(new Event('change',{bubbles:true}));
+      var one=r.history.undoStack.length===start+1&&!r.history.transaction;
+      r.history.undo();var undo=b.iframeDoc.defaultView.getComputedStyle(r.canvas.instances.get(n.id).element).opacity==='1';
+      var vertical=document.querySelector('#SettingsContainer .ink-v2-padding-line [data-axis="vertical"]');vertical.focus();vertical.value='28';vertical.dispatchEvent(new Event('change',{bubbles:true}));
+      var focus=document.activeElement.dataset.axis==='vertical'&&document.activeElement.value==='28';r.history.undo();
+      var addFilter=document.querySelector('#SettingsContainer [aria-label="Add filter"]');addFilter.value='blur';addFilter.dispatchEvent(new Event('change',{bubbles:true}));
+      var filter=document.querySelector('#SettingsContainer [data-filter="blur"]');filter.closest('details').open=true;
+      start=r.history.undoStack.length;filter.value='4';filter.dispatchEvent(new Event('input',{bubbles:true}));
+      var blur=b.iframeDoc.defaultView.getComputedStyle(r.canvas.instances.get(n.id).element).filter.includes('blur(4px)');
+      filter.value='8';filter.dispatchEvent(new Event('input',{bubbles:true}));filter.dispatchEvent(new Event('change',{bubbles:true}));
+      var filterOne=r.history.undoStack.length===start+1;r.history.undo();
+      var range=document.querySelector('#SettingsContainer [data-filter="blur"]');range.closest('details').open=true;var compact=range.getBoundingClientRect().height<=20;
+      r.history.undo();r.history.undo();r.selection.clear();
+      return {ordered:ordered,sections:sectionNames,live:live,connected:connected,one:one,undo:undo,focus:focus,blur:blur,filterOne:filterOne,compact:compact,restored:JSON.stringify(b.getData())===before};
+    })()`);
+    check("inspector follows Position, Layout, Appearance, Fill, Stroke, Effects order",state.ordered,JSON.stringify(state));
+    check("opacity and filter drags preview continuously and undo as one gesture",state.live&&state.connected&&state.one&&state.undo&&state.blur&&state.filterOne&&state.compact&&state.restored,JSON.stringify(state));
+    check("compound controls keep focus on the field being edited",state.focus,JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,t=b.copilotTools,before=JSON.stringify(b.getData());
+      var failed=t.execute('insert_element',{id:'missing-layer',type:'heading'});
+      var failedTree=t.execute('append_tree',{id:'missing-layer',tree:{type:'frame'}});
+      var schema=JSON.parse(t.apply('get_element_schema',{type:'frame'}));
+      var n=r.insert('frame',{},{styles:{desktop:{base:{position:'absolute',left:{size:10,unit:'px'},top:{size:10,unit:'px'},width:{size:100,unit:'px'},height:{size:100,unit:'px'}}}}});r.selection.select(n.id);
+      var context=t.context();var start=r.history.undoStack.length;
+      var changed=b.studio.nudge('ArrowRight',10),left=r.document.get(n.id).styles.desktop.base.left.size;
+      r.history.undo();var restored=r.document.get(n.id).styles.desktop.base.left.size===10;
+      var execution=t.execute('update_element',{id:n.id,settings:{label:'AI editable frame'}});t.apply('undo');r.history.undo();r.selection.clear();
+      return {failed:!failed.mutated&&!failedTree.mutated&&JSON.parse(failed.content).ok===false,schema:schema.controls.some(function(c){return c.type==='layout-flow';}),context:context.selection[0].id===n.id&&context.device==='desktop',changed:changed&&left===20,undo:restored,mutation:execution.mutated,restored:JSON.stringify(b.getData())===before};
+    })()`);
+    check("AI reads actual control schemas and selection, and failed tools never report a mutation",state.failed&&state.schema&&state.context&&state.mutation&&state.restored,JSON.stringify(state));
+    check("positioned layers nudge by ten pixels and undo",state.changed&&state.undo,JSON.stringify(state));
+
+    state = await client.evaluate(`(async function(){
+      var b=builder,r=b.runtime,stage=document.querySelector('.ink-canvas-stage'),width=stage.clientWidth;
+      var tab=document.querySelector('[data-tab="copilot"]');if(!tab)return {available:false};tab.click();
+      var shared=!!document.querySelector('.builder-sidebar #CopilotDock')&&getComputedStyle(document.getElementById('SettingsContainer')).display==='none'&&getComputedStyle(document.getElementById('CopilotDock')).display!=='none';
+      var roomy=stage.clientWidth>=width-65;
+      document.querySelector('[data-tab="controls"]').click();
+      var returned=getComputedStyle(document.getElementById('CopilotDock')).display==='none';
+      var persist=window.persistBuilderDocument,resolveSave,publish,revision=b.studio.revision,savedRevision=b.studio.savedRevision;
+      window.persistBuilderDocument=function(flag){publish=flag;return new Promise(function(resolve){resolveSave=resolve;});};
+      var saving=b.studio.saveDraft();b.studio.revision++;resolveSave({ok:true});await saving;
+      var dirty=b.studio.savedRevision!==b.studio.revision;
+      window.persistBuilderDocument=persist;b.studio.revision=revision;b.studio.savedRevision=savedRevision;b.studio.renderSaveStatus();
+      return {available:true,shared:shared,roomy:roomy,returned:returned,draft:publish===false,dirty:dirty};
+    })()`);
+    check("Agent shares the inspector and leaves room for the canvas",!state.available||(state.shared&&state.roomy&&state.returned),JSON.stringify(state));
+    check("saving uses a draft and preserves edits made while the request is pending",!state.available||(state.draft&&state.dirty),JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,p=r.settingsPanel,before=JSON.stringify(b.getData()),results=[];
+      ['row','column'].forEach(function(direction){
+        var parent=r.insert('frame',{}, {styles:{desktop:{base:{display:'flex','flex-direction':direction,width:{size:400,unit:'px'},height:{size:300,unit:'px'},gap:{row:0,column:0,unit:'px'}}}}});
+        var a=r.insert('frame',{parentId:parent.id},{styles:{desktop:{base:{width:{size:80,unit:'px'},height:{size:60,unit:'px'},'min-width':{size:0,unit:'px'},'min-height':{size:0,unit:'px'}}}}});
+        var z=r.insert('frame',{parentId:parent.id},{styles:{desktop:{base:{width:{size:80,unit:'px'},height:{size:60,unit:'px'},'min-width':{size:0,unit:'px'},'min-height':{size:0,unit:'px'}}}}});
+        [a,z].forEach(function(n){r.selection.select(n.id);p.activeTab='all';p.render();var fields=document.querySelectorAll('#SettingsContainer .ink-v2-resize-field');fields[direction==='row'?0:1].querySelector('[data-mode="fill"]').click();});
+        var axis=direction==='row'?'width':'height',ar=r.canvas.instances.get(a.id).element.getBoundingClientRect()[axis],zr=r.canvas.instances.get(z.id).element.getBoundingClientRect()[axis];
+        results.push({direction:direction,a:ar,z:zr,expected:direction==='row'?200:150});
+        for(var i=0;i<5;i++)r.history.undo();
+      });r.selection.clear();
+      var scale=b.viewport.scale;document.querySelector('[aria-label="Zoom options"]').click();var zoom=document.querySelector('[aria-label="Zoom percentage"]');zoom.value='76';zoom.dispatchEvent(new Event('change',{bubbles:true}));
+      var exact=b.viewport.scale===.76&&b.studio.zoomMenu.hidden;b.viewport.setScale(scale);b.viewport.fitScale();
+      return {results:results,fill:results.every(function(x){return Math.abs(x.a-x.expected)<1&&Math.abs(x.z-x.expected)<1;}),zoom:exact,restored:JSON.stringify(b.getData())===before};
+    })()`);
+    check("Fill shares available space on either Stack axis",state.fill&&state.restored,JSON.stringify(state));
+    check("zoom percentage sets the exact canvas magnification",state.zoom,JSON.stringify(state));
+
+    if (process.env.SMOKE_STUDIO_SCREENSHOT) {
+      await client.evaluate(`(function(){var r=builder.runtime;window.__studioVisualNode=r.insert('frame',{}, {settings:{label:'Feature card'},styles:{desktop:{base:{width:{size:420,unit:'px'},height:{size:240,unit:'px'},display:'flex','flex-direction':'column','background-color':'#edf3ff',padding:{top:32,right:32,bottom:32,left:32,unit:'px'},'border-radius':{top:16,right:16,bottom:16,left:16,unit:'px'}}}}});r.selection.select(window.__studioVisualNode.id);r.settingsPanel.activeTab='all';r.settingsPanel.render();builder.studio.openExplorer('layers');builder.viewport.fitScale();return true;})()`);
+      await wait(250);
+      const capture=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(process.env.SMOKE_STUDIO_SCREENSHOT,Buffer.from(capture.result.data,'base64'));
+      await client.evaluate(`builder.runtime.history.undo();builder.runtime.selection.clear();true`);
+    }
+
+    let gesture = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime;window.__frameGestureBefore=r.serialize();r.document.replace({version:2,type:'page',settings:{title:'Frame gesture'},children:[]});r.selection.clear();b.viewport.fitScale();
+      document.querySelector('[data-studio-insert="frame"]').click();var rect=b.iframe.getBoundingClientRect(),scale=b.viewport.scale;
+      return {sx:rect.x+80*scale,sy:rect.y+80*scale,dx:rect.x+145*scale,dy:rect.y+130*scale};
+    })()`);
+    await realDrag(gesture.sx,gesture.sy,gesture.dx,gesture.dy);
+    state=await client.evaluate(`(function(){var b=builder,r=b.runtime,n=r.document.data.children[0],rect=n&&r.canvas.instances.get(n.id)?.element.getBoundingClientRect();var result={root:n?.type==='frame',width:rect?.width,height:rect?.height,finished:b.studio.tool==='select'&&!r.dragDrop.frameDraw};if(n)r.history.undo();result.undo=r.document.data.children.length===0;r.document.replace(window.__frameGestureBefore);r.selection.clear();return result;})()`);
+    check("Frame tool draws small frames on the blank canvas and returns to Select",state.root&&Math.abs(state.width-65)<2&&Math.abs(state.height-50)<2&&state.finished&&state.undo,JSON.stringify(state));
+    gesture=await client.evaluate(`(function(){var b=builder,v=b.viewport;window.__panBefore={x:v.x,y:v.y,store:JSON.stringify(b.getData())};document.querySelector('[data-studio-tool="hand"]').click();var rect=v.panSurface.getBoundingClientRect();return {sx:rect.x+100,sy:rect.y+100,dx:rect.x+140,dy:rect.y+130};})()`);
+    await realDrag(gesture.sx,gesture.sy,gesture.dx,gesture.dy);
+    const moveButton=await client.evaluate(`(function(){var rect=document.querySelector('[data-studio-tool="select"]').getBoundingClientRect();return {x:rect.x+rect.width/2,y:rect.y+rect.height/2};})()`);
+    await client.send('Input.dispatchMouseEvent',{type:'mousePressed',x:moveButton.x,y:moveButton.y,button:'left',clickCount:1});
+    await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:moveButton.x,y:moveButton.y,button:'left',clickCount:1});
+    state=await client.evaluate(`(function(){var b=builder,v=b.viewport,start=window.__panBefore,shifted=Math.abs(v.x-start.x-40)<2&&Math.abs(v.y-start.y-30)<2;var released=v.panSurface.hidden&&b.studio.tool==='select';v.fitScale();return {shifted:shifted,released:released,unchanged:JSON.stringify(b.getData())===start.store};})()`);
+    check("Hand tool pans the camera with a real drag and Select releases it",state.shifted&&state.released&&state.unchanged,JSON.stringify(state));
+
+    state=await client.evaluate(`(async function(){
+      var b=builder,r=b.runtime,before=JSON.stringify(b.getData());
+      var n=r.insert('shader',{},{});var text=r.insert('heading',{parentId:n.id},{settings:{text:'Made of light',tag:'h2'},styles:{desktop:{base:{color:'#ffffff','font-size':{size:48,unit:'px'}}}}});
+      var statuses=[];
+      for(var preset of ['aurora','liquid','waves','grain']){
+        r.update(n.id,{settings:{preset:preset,animate:false}},'Change shader preset');await new Promise(function(resolve){setTimeout(resolve,120);});
+        var el=r.canvas.instances.get(n.id).element;statuses.push({preset:preset,status:el.dataset.shaderStatus,canvas:!!el.querySelector('canvas'),text:el.textContent.includes('Made of light')});
+      }
+      var el=r.canvas.instances.get(n.id).element,gl=el.querySelector('canvas').getContext('webgl'),paused=true;
+      if(gl){var program=gl.getParameter(gl.CURRENT_PROGRAM),time=gl.getUniform(program,gl.getUniformLocation(program,'time'));await new Promise(function(resolve){setTimeout(resolve,80);});paused=time===4&&gl.getUniform(program,gl.getUniformLocation(program,'time'))===time;}
+      var html=b.getHtml();var published=html.includes('data-ink-shader')&&html.includes('__inkShaderRuntimeReady')&&html.includes('ink-el-shader-content');
+      r.selection.select(n.id);r.settingsPanel.activeTab='all';r.settingsPanel.render();
+      var radius=document.querySelector('#SettingsContainer [aria-label="Corner radius"]');radius.value='28';radius.dispatchEvent(new Event('change',{bubbles:true}));
+      var radiusWorks=r.document.get(n.id).styles.desktop.base['border-radius'].top===28;
+      for(var i=0;i<7;i++)r.history.undo();r.selection.clear();await new Promise(function(resolve){setTimeout(resolve,50);});
+      return {statuses:statuses,published:published,paused:paused,radius:radiusWorks,restored:JSON.stringify(b.getData())===before};
+    })()`);
+    check("native shader presets render with editable children and publish their runtime",state.statuses.every(x=>x.canvas&&x.text&&['ready','fallback'].includes(x.status))&&state.published&&state.paused&&state.restored,JSON.stringify(state));
+    if(process.env.SHADER_SMOKE)check("all four presets compile and render with WebGL",state.statuses.every(x=>x.status==='ready'),JSON.stringify(state.statuses));
+    check("compact corner radius controls change all corners together",state.radius,JSON.stringify(state));
+
+    state = await client.evaluate(`(async function(){
+      var r=builder.runtime,b=builder,before=JSON.stringify(b.getData());
+      var n=r.insert('frame',{}, {styles:{desktop:{base:{width:{size:500,unit:'px'},height:{size:250,unit:'px'}}}}});
+      var heading=r.insert('heading',{parentId:n.id},{settings:{text:'Editable shader fill'}});
+      var presets=['moving-gradient','mesh-gradient','water-caustic','nebula','clouds','fractal-noise','moire','glowing-wave','concentric-patterns','pattern-grid'],statuses=[];
+      for(var preset of presets){var result=b.copilotTools.execute('set_shader_fill',{id:n.id,fill:{preset:preset,animate:false}});await new Promise(function(resolve){setTimeout(resolve,90)});var host=r.canvas.instances.get(n.id).element.querySelector('.ink-shader-fill');statuses.push({preset:preset,status:host?.dataset.shaderStatus,error:host?.dataset.shaderError,mutated:result.mutated});}
+      var content=r.document.get(heading.id).settings.text==='Editable shader fill';
+      var saved=JSON.stringify(b.getData());var bad=b.copilotTools.execute('set_shader_fill',{id:n.id,fill:{preset:'custom',customCode:'broken shader'}});var invalid=!bad.mutated&&saved===JSON.stringify(b.getData());
+      var code='vec4 inkShader(vec2 uv, float time, vec2 resolution){return vec4(mix(a,b,uv.y),1.0);}';
+      var custom=b.copilotTools.execute('set_shader_fill',{id:n.id,fill:{preset:'custom',customCode:code}});await new Promise(function(resolve){setTimeout(resolve,90)});
+      var customStatus=r.canvas.instances.get(n.id).element.querySelector('.ink-shader-fill')?.dataset.shaderStatus;
+      var exported=b.getHtml();var published=exported.includes('inkShader')&&exported.includes('ink-shader-fill');
+      if(custom.mutated)r.history.undo();for(var i=0;i<presets.length+2;i++)r.history.undo();r.selection.clear();
+      return {statuses:statuses,content:content,invalid:invalid,custom:customStatus,published:published,restored:before===JSON.stringify(b.getData())};
+    })()`);
+    check('shader fills preserve native content, reject invalid code, export, and undo',state.content&&state.invalid&&state.published&&state.restored,JSON.stringify(state));
+    if(process.env.SHADER_SMOKE)check('all ten shader fills and custom GLSL compile in WebGL',state.statuses.every(x=>x.status==='ready'&&x.mutated)&&state.custom==='ready',JSON.stringify(state));
+
+    if(process.env.SHADER_SCREENSHOT){
+      await client.evaluate(`(function(){var r=builder.runtime;window.__shaderBefore=r.serialize();r.document.replace({version:2,type:'page',settings:{title:'Shader study',backgroundColor:'#101014'},children:[]});var n=r.insert('shader',{}, {settings:{preset:'aurora',animate:false},styles:{desktop:{base:{height:{size:720,unit:'px'},padding:{top:80,right:80,bottom:80,left:80,unit:'px'},'justify-content':'center'}}}});r.insert('heading',{parentId:n.id},{settings:{text:'Made of light.',tag:'h1'},styles:{desktop:{base:{color:'#ffffff','font-size':{size:90,unit:'px'},'font-weight':600}}}});r.insert('paragraph',{parentId:n.id},{settings:{text:'Procedural surfaces. Native layers. Entirely yours.'},styles:{desktop:{base:{color:'#ffffff','font-size':{size:22,unit:'px'}}}}});r.selection.select(n.id);r.settingsPanel.activeTab='all';r.settingsPanel.render();builder.viewport.fitScale();return true;})()`);
+      await wait(500);const capture=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync(process.env.SHADER_SCREENSHOT,Buffer.from(capture.result.data,'base64'));
+      await client.evaluate(`builder.runtime.history.undo();builder.runtime.history.undo();builder.runtime.history.undo();builder.runtime.document.replace(window.__shaderBefore);builder.runtime.selection.clear();true`);
     }
 
     // A) Library -> canvas root insert
@@ -697,7 +984,7 @@ async function main() {
       var ifr=builder.iframe.getBoundingClientRect();
       var tile=Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(t){return t.dataset.inkElementType==='paragraph'});
       var tr=tile.getBoundingClientRect();
-      return {container:container.id, childrenBefore:container.children.length, paragraphsBefore:container.children.filter(function(c){return c.type==='paragraph'}).length, sx:Math.round(tr.x+tr.width/2), sy:Math.round(tr.y+tr.height/2), dx:Math.round(ifr.x+rect.x+rect.width/2), dy:Math.round(ifr.y+rect.y+rect.height*0.4)};
+      return {container:container.id, childrenBefore:container.children.length, paragraphsBefore:container.children.filter(function(c){return c.type==='paragraph'}).length, sx:Math.round(tr.x+tr.width/2), sy:Math.round(tr.y+tr.height/2), dx:Math.round(ifr.x+(rect.x+rect.width/2)*builder.viewport.scale), dy:Math.round(ifr.y+(rect.y+rect.height*0.4)*builder.viewport.scale)};
     })()`);
     const nestedTarget = drag.container, nestedChildrenBefore = drag.childrenBefore, nestedParagraphsBefore = drag.paragraphsBefore;
     await realDrag(drag.sx, drag.sy, drag.dx, drag.dy);
@@ -714,7 +1001,7 @@ async function main() {
       var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+heading.id+'"]');
       var rect=el.getBoundingClientRect();
       var ifr=builder.iframe.getBoundingClientRect();
-      return {heading:heading.id, containerChildren:container.children.length, rootBefore:r.document.data.children.length, sx:Math.round(ifr.x+rect.x+rect.width/2), sy:Math.round(ifr.y+rect.y+rect.height/2), dx:Math.round(ifr.x+ifr.width/2), dy:Math.round(Math.min(window.innerHeight-32,ifr.y+ifr.height-40))};
+      return {heading:heading.id, containerChildren:container.children.length, rootBefore:r.document.data.children.length, sx:Math.round(ifr.x+(rect.x+rect.width/2)*builder.viewport.scale), sy:Math.round(ifr.y+(rect.y+rect.height/2)*builder.viewport.scale), dx:Math.round(ifr.x+ifr.width/2), dy:Math.round(Math.min(window.innerHeight-32,ifr.y+ifr.height-40))};
     })()`);
     const movedHeading = drag.heading, moveContainerChildren = drag.containerChildren, moveRootBefore = drag.rootBefore;
     await realDrag(drag.sx, drag.sy, drag.dx, drag.dy);
@@ -814,6 +1101,7 @@ async function main() {
       var overlay=b.iframeDoc.querySelector('[data-ink-element-id="'+id+'"] > .ink-editor-overlay');
       var canvasLocked=!!el && el.hasAttribute('data-ink-locked') && el.draggable===false;
       var toolbarDisabled=!!overlay && Array.from(overlay.querySelectorAll('.ink-editor-toolbar button')).length>0 && Array.from(overlay.querySelectorAll('.ink-editor-toolbar button')).every(function(btn){return btn.disabled;});
+      b.navigator.panel.expandedNodes.add(r.document.parentOf(id)?.id); b.navigator.panel.render();
       var row=Array.from(document.querySelectorAll('.ink-structure-window-body [data-ink-navigator-id]')).find(function(x){return x.getAttribute('data-ink-navigator-id')===id;});
       var rowLocked=!!row && row.classList.contains('is-locked');
       r.update(id,{settings:{locked:false}},'Unlock element');
@@ -1415,7 +1703,7 @@ async function main() {
     await client.evaluate(`(function(){ var r=builder.runtime; r.document.replace({version:2,type:'page',settings:{title:'Blank'},children:[]}); r.history.undoStack.length=0; r.history.redoStack.length=0; return true; })()`);
     await wait(300);
     const blankTile = await scrollTile('heading');
-    const blankPoint = await client.evaluate(`(function(){ var d=builder.iframeDoc; var root=d.querySelector('.ink-editor-root-empty'); var rr=root.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+rr.x+rr.width/2), dy:Math.round(ifr.y+rr.y+rr.height/2) }; })()`);
+    const blankPoint = await client.evaluate(`(function(){ var d=builder.iframeDoc; var root=d.querySelector('.ink-editor-root-empty'); var rr=root.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+(rr.x+rr.width/2)*builder.viewport.scale), dy:Math.round(ifr.y+(rr.y+rr.height/2)*builder.viewport.scale) }; })()`);
     await realDrag(blankTile.sx, blankTile.sy, blankPoint.dx, blankPoint.dy);
     state = await client.evaluate(`(function(){ var r=builder.runtime; return { count:r.document.data.children.length, inserted:r.document.data.children.some(function(n){return n.type==='heading'}), selected:!!r.selection.selectedId }; })()`);
     check("drag onto a completely blank canvas inserts at root", state.count === 1 && state.inserted && state.selected, JSON.stringify(state));
@@ -1424,7 +1712,7 @@ async function main() {
     await client.evaluate(`(function(){ var r=builder.runtime; var c=r.insert('container',{}); window.__emptyContainer=c.id; builder.openPanelScreen('elements'); return true; })()`);
     await wait(300);
     const emptyTile = await scrollTile('paragraph');
-    const emptyPoint = await client.evaluate(`(function(){ var c=window.__emptyContainer; var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+c+'"] .ink-editor-empty'); var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+r.x+r.width/2), dy:Math.round(ifr.y+r.y+r.height/2) }; })()`);
+    const emptyPoint = await client.evaluate(`(function(){ var c=window.__emptyContainer; var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+c+'"] .ink-editor-empty'); var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+(r.x+r.width/2)*builder.viewport.scale), dy:Math.round(ifr.y+(r.y+r.height/2)*builder.viewport.scale) }; })()`);
     await realDrag(emptyTile.sx, emptyTile.sy, emptyPoint.dx, emptyPoint.dy);
     state = await client.evaluate(`(function(){ var r=builder.runtime; var c=r.document.get(window.__emptyContainer); return { inside:c.children.some(function(n){return n.type==='paragraph'}), domNested:!!builder.iframeDoc.querySelector('[data-ink-element-id="'+c.id+'"] [data-ink-element-type="paragraph"]') }; })()`);
     check("drag into an empty container helper inserts inside", state.inside && state.domNested, JSON.stringify(state));
@@ -1433,7 +1721,7 @@ async function main() {
     await client.evaluate(`(function(){ var r=builder.runtime; var c=r.document.get(window.__emptyContainer); r.insert('heading',{parentId:c.id},{settings:{text:'H'}}); return true; })()`);
     await wait(300);
     const afterTile = await scrollTile('button');
-    const afterPoint = await client.evaluate(`(function(){ var c=window.__emptyContainer; var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+c+'"]'); var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+r.x+r.width/2), dy:Math.round(ifr.y+r.y+r.height*0.85) }; })()`);
+    const afterPoint = await client.evaluate(`(function(){ var c=window.__emptyContainer; var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+c+'"]'); var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect(); return { dx:Math.round(ifr.x+(r.x+r.width/2)*builder.viewport.scale), dy:Math.round(ifr.y+(r.y+r.height*0.85)*builder.viewport.scale) }; })()`);
     await realDrag(afterTile.sx, afterTile.sy, afterPoint.dx, afterPoint.dy);
     state = await client.evaluate(`(function(){ var r=builder.runtime; var c=r.document.get(window.__emptyContainer); var types=c.children.map(function(n){return n.type}); var idx=types.indexOf('button'); return { after:idx>=0 && types[idx-1]==='heading', types:types }; })()`);
     check("drag before/after an existing widget places it as a sibling", state.after, JSON.stringify(state.types));
@@ -1450,7 +1738,7 @@ async function main() {
     const movePoint = await client.evaluate(`(function(){
       var d=builder.iframeDoc; var b=window.__moveButton; var el=d.querySelector('[data-ink-element-id="'+b+'"]'); var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect();
       var other=d.querySelector('[data-ink-element-id="'+window.__other+'"] .ink-editor-empty'); var or=other.getBoundingClientRect();
-      return { sx:Math.round(ifr.x+r.x+r.width/2), sy:Math.round(ifr.y+r.y+r.height/2), dx:Math.round(ifr.x+or.x+or.width/2), dy:Math.round(ifr.y+or.y+or.height/2) };
+      return { sx:Math.round(ifr.x+(r.x+r.width/2)*builder.viewport.scale), sy:Math.round(ifr.y+(r.y+r.height/2)*builder.viewport.scale), dx:Math.round(ifr.x+(or.x+or.width/2)*builder.viewport.scale), dy:Math.round(ifr.y+(or.y+or.height/2)*builder.viewport.scale) };
     })()`);
     await realDrag(movePoint.sx, movePoint.sy, movePoint.dx, movePoint.dy);
     state = await client.evaluate(`(function(){ var r=builder.runtime; return { moved:r.document.get(window.__other).children.some(function(n){return n.id===window.__moveButton}), left:r.document.get(window.__emptyContainer).children.some(function(n){return n.id===window.__moveButton}) }; })()`);
@@ -1741,16 +2029,24 @@ async function main() {
     // --- List elements: ul, ol, li ---
     state = await client.evaluate(`(function(){
       var b=builder,r=b.runtime,d=b.iframeDoc;
-      var ul=r.insert('unordered-list',{},{styles:{base:{display:'list-item'}}});
+      var ul=r.insert('unordered-list',{});
       var ol=r.insert('ordered-list',{});
-      var li=r.insert('list-item',{},{settings:{},styles:{base:{}}});
       var ulEl=d.querySelector('[data-ink-element-id="'+ul.id+'"]');
       var olEl=d.querySelector('[data-ink-element-id="'+ol.id+'"]');
-      var liEl=d.querySelector('[data-ink-element-id="'+li.id+'"]');
-      r.remove(ul.id);r.remove(ol.id);r.remove(li.id);
-      return {ul:ulEl?.tagName==='UL',ol:olEl?.tagName==='OL',li:liEl?.tagName==='LI'};
+      var ulItems=Array.from(ulEl?.querySelectorAll(':scope > li[data-ink-element-type="list-item"]')||[]);
+      var olItems=Array.from(olEl?.querySelectorAll(':scope > li[data-ink-element-type="list-item"]')||[]);
+      var listStyle=d.defaultView.getComputedStyle(ulEl).listStyleType;
+      var html=b.getHtml();
+      r.remove(ul.id);r.remove(ol.id);
+      return {
+        ul:ulEl?.tagName==='UL', ol:olEl?.tagName==='OL',
+        items:ulItems.length===3&&olItems.length===3,
+        text:ulItems.map(function(item){return item.textContent.trim().replace(/drag_indicator|content_copy|delete|more_vert/g,'').trim()}),
+        markers:listStyle==='disc',
+        published:!!new DOMParser().parseFromString(html,'text/html').querySelector('ul.ink-el-unordered-list > li.ink-el-list-item')
+      };
     })()`);
-    check("List elements render as semantic <ul>, <ol>, <li>", state.ul && state.ol && state.li, JSON.stringify(state));
+    check("Lists insert as visible semantic <ul>/<ol> trees and publish as <li> content", state.ul && state.ol && state.items && state.markers && state.published, JSON.stringify(state));
 
     // --- Form elements: form, input, textarea, label ---
     state = await client.evaluate(`(function(){
@@ -1821,13 +2117,15 @@ async function main() {
     // --- Text Editor: TipTap WYSIWYG ---
     state = await client.evaluate(`(function(){
       var b=builder,r=b.runtime,d=b.iframeDoc;
-      var te=r.insert('text-editor',{},{settings:{html:'<p>Hello world</p>'},styles:{base:{}}});
+      var te=r.insert('text-editor',{},{settings:{html:'<p>Hello world</p><ul><li>First</li><li>Second</li></ul>'},styles:{base:{}}});
       var el=d.querySelector('[data-ink-element-id="'+te.id+'"]');
       var hasContent=el?.textContent?.includes('Hello world');
+      var semanticList=el?.querySelectorAll('ul > li').length===2;
+      var marker=d.defaultView.getComputedStyle(el.querySelector('ul')).listStyleType==='disc';
       r.remove(te.id);
-      return {exists:!!el,hasContent:hasContent};
+      return {exists:!!el,hasContent:hasContent,semanticList:semanticList,marker:marker};
     })()`);
-    check("Text Editor renders WYSIWYG content from HTML", state.exists && state.hasContent, JSON.stringify(state));
+    check("Text Editor renders WYSIWYG paragraphs and visible semantic lists", state.exists && state.hasContent && state.semanticList && state.marker, JSON.stringify(state));
 
     // --- HTML: raw markup injection ---
     state = await client.evaluate(`(function(){

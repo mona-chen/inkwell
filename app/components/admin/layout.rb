@@ -17,6 +17,9 @@ module Admin
           stylesheet_link_tag "ink", "data-turbo-track": "reload"
           stylesheet_link_tag "tailwind", "data-turbo-track": "reload"
           stylesheet_link_tag "application", "data-turbo-track": "reload"
+          Array(Inkwell::Hooks.filter(:admin_stylesheet_tags, [])).each do |css|
+            style { raw(safe(css.to_s)) }
+          end
           javascript_importmap_tags
         end
         body do

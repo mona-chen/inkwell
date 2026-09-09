@@ -17,7 +17,7 @@ module Ink
       div(
         id: @id,
         class: "min-w-0 flex-1",
-        data: { controller: "command-palette", action: "keydown@window->command-palette#shortcut" }
+        data: { ink: "command-palette", controller: "command-palette", action: "keydown@window->command-palette#shortcut" }
       ) do
         render_trigger
         render_dialog

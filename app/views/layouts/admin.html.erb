@@ -14,6 +14,10 @@
   when %r{\A/admin/settings} then "Settings"
   when %r{\A/admin/taxonomies} then "Taxonomies"
   when %r{\A/plugins/seo_toolkit} then "SEO"
+  when %r{\A/plugins/ai_writer} then "Copilot"
+  when %r{\A/plugins/meta_capi} then "Meta CAPI"
+  when %r{\A/plugins/contact_form} then "Contact messages"
+  when %r{\A/plugins/newsletter} then "Subscribers"
   else "Home"
   end
   admin_title = content_for?(:title) ? yield(:title) : route_title
