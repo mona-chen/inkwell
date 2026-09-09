@@ -280,9 +280,9 @@ export default class BuilderV2 {
         collapse.addEventListener('click', () => { const collapsed = document.body.classList.toggle('ink-panel-collapsed'); collapse.textContent = collapsed ? '›' : '‹'; collapse.title = collapsed ? 'Show panel' : 'Hide panel'; });
         resizer.addEventListener('pointerdown', (event) => {
             event.preventDefault(); const start = event.clientX, width = sidebar.getBoundingClientRect().width;
-            const move = (pointer) => document.documentElement.style.setProperty('--ink-editor-panel-width', `${Math.max(240, Math.min(500, width - pointer.clientX + start))}px`);
-            const stop = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', stop); };
-            document.addEventListener('pointermove', move); document.addEventListener('pointerup', stop);
+            const move = (pointer) => sidebar.style.setProperty('--ink-editor-panel-width', `${Math.max(240, Math.min(500, width - pointer.clientX + start))}px`);
+            const stop = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', stop); document.removeEventListener('pointercancel', stop); };
+            document.addEventListener('pointermove', move); document.addEventListener('pointerup', stop); document.addEventListener('pointercancel', stop);
         });
         sidebar.append(resizer, collapse);
     }
@@ -401,6 +401,7 @@ export default class BuilderV2 {
         this.mode = mode === 'design' ? 'design' : 'preview';
         if (previous === 'design' && this.mode === 'preview') this.designCamera = { x: this.viewport.x, y: this.viewport.y, scale: this.viewport.scale, fitted: this.viewport.fitted };
         this.iframeDoc.body.classList.toggle('ink-builder-design', this.mode === 'design');
+        if (this.mode === 'design') this.iframeDoc.defaultView.scrollTo(0, 0);
         // Custom/imported runtime code is a preview/publish capability. Framework hydration in
         // Design mode can replace builder-owned nodes and silently remove IDs/listeners. Repaint
         // from the store when returning from Preview, then keep only CSS active while editing.

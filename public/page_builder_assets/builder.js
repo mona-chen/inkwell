@@ -65,6 +65,13 @@ var BreakpointCanvasManager = /*#__PURE__*/function () {
         iframe.addEventListener('load', function () {
           var doc = iframe.contentDocument;
           if (!doc) return;
+          doc.addEventListener('scroll', function () {
+            if (doc.defaultView.scrollX || doc.defaultView.scrollY) doc.defaultView.scrollTo({
+              left: 0,
+              top: 0,
+              behavior: 'instant'
+            });
+          });
           doc.addEventListener('click', function (event) {
             var _event$target$closest;
             event.preventDefault();
@@ -75,14 +82,7 @@ var BreakpointCanvasManager = /*#__PURE__*/function () {
             return event.preventDefault();
           }, true);
           doc.addEventListener('wheel', function (event) {
-            if (!event.ctrlKey && !event.metaKey) return;
-            event.preventDefault();
-            var rect = iframe.getBoundingClientRect(),
-              stage = _this.viewport.stage.getBoundingClientRect();
-            _this.viewport.setScale(_this.viewport.scale * Math.exp(-event.deltaY * .008), {
-              x: rect.left - stage.left + event.clientX * _this.viewport.scale,
-              y: rect.top - stage.top + event.clientY * _this.viewport.scale
-            });
+            _this.viewport.onWheel(event, true, iframe);
           }, {
             passive: false
           });
@@ -203,7 +203,7 @@ var BreakpointCanvasManager = /*#__PURE__*/function () {
       clone.querySelector('body').classList.remove('ink-builder-design');
       clone.style.removeProperty('--ink-editor-canvas-scale');
       var style = document.createElement('style');
-      style.textContent = 'html{scrollbar-width:none}*{cursor:pointer!important}';
+      style.textContent = 'html:has(>body),html>body{overflow:clip!important;overscroll-behavior:none}*{cursor:pointer!important}';
       clone.querySelector('head').appendChild(style);
       var source = '<!doctype html>' + clone.outerHTML;
       this.previews.forEach(function (_ref3, device) {
@@ -520,14 +520,16 @@ var BuilderV2 = /*#__PURE__*/function () {
         var start = event.clientX,
           width = sidebar.getBoundingClientRect().width;
         var move = function move(pointer) {
-          return document.documentElement.style.setProperty('--ink-editor-panel-width', "".concat(Math.max(240, Math.min(500, width - pointer.clientX + start)), "px"));
+          return sidebar.style.setProperty('--ink-editor-panel-width', "".concat(Math.max(240, Math.min(500, width - pointer.clientX + start)), "px"));
         };
         var _stop = function stop() {
           document.removeEventListener('pointermove', move);
           document.removeEventListener('pointerup', _stop);
+          document.removeEventListener('pointercancel', _stop);
         };
         document.addEventListener('pointermove', move);
         document.addEventListener('pointerup', _stop);
+        document.addEventListener('pointercancel', _stop);
       });
       sidebar.append(resizer, collapse);
     }
@@ -712,6 +714,7 @@ var BuilderV2 = /*#__PURE__*/function () {
         fitted: this.viewport.fitted
       };
       this.iframeDoc.body.classList.toggle('ink-builder-design', this.mode === 'design');
+      if (this.mode === 'design') this.iframeDoc.defaultView.scrollTo(0, 0);
       // Custom/imported runtime code is a preview/publish capability. Framework hydration in
       // Design mode can replace builder-owned nodes and silently remove IDs/listeners. Repaint
       // from the store when returning from Preview, then keep only CSS active while editing.
@@ -2437,6 +2440,11 @@ var CollaborationManager = /*#__PURE__*/function () {
       this.button.textContent = 'Share';
       this.button.setAttribute('aria-label', 'Share and live editors');
       bar.prepend(this.button);
+      this.avatars = document.createElement('div');
+      this.avatars.className = 'ink-editor-avatars';
+      this.avatars.setAttribute('aria-label', 'Editors on this page');
+      bar.prepend(this.avatars);
+      this.renderAvatars([]);
       this.panel = document.createElement('aside');
       this.panel.className = 'ink-collaboration-panel';
       this.panel.hidden = true;
@@ -2585,6 +2593,34 @@ var CollaborationManager = /*#__PURE__*/function () {
       this.unsubscribeSelection = this.runtime.events.on('selection:change', function () {
         return _this.updateAnchor();
       });
+      this.threadPopover = document.createElement('aside');
+      this.threadPopover.className = 'ink-comment-thread';
+      this.threadPopover.hidden = true;
+      this.threadPopover.setAttribute('aria-label', 'Comment thread');
+      document.body.appendChild(this.threadPopover);
+      this.replyDrafts = new Map();
+      var shortcut = function shortcut(event) {
+        if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && event.target.matches('textarea')) {
+          var _event$target$closest;
+          event.preventDefault();
+          (_event$target$closest = event.target.closest('form')) === null || _event$target$closest === void 0 || _event$target$closest.requestSubmit();
+        }
+      };
+      this.composer.addEventListener('keydown', shortcut);
+      this.threadPopover.addEventListener('keydown', shortcut);
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          _this.closeThread();
+          _this.composer.hidden = true;
+        }
+      }, {
+        signal: this.abort.signal
+      });
+      document.addEventListener('pointerdown', function (event) {
+        if (!event.target.closest('.ink-comment-thread,.ink-comment-pins,.ink-comment-list')) _this.closeThread();
+      }, {
+        signal: this.abort.signal
+      });
       this.pins = document.createElement('div');
       this.pins.className = 'ink-comment-pins';
       document.body.appendChild(this.pins);
@@ -2600,7 +2636,10 @@ var CollaborationManager = /*#__PURE__*/function () {
       this.panel.hidden = !enabled;
       document.querySelector('.builder-sidebar').classList.toggle('is-commenting', enabled);
       this.builder.iframeDoc.body.classList.toggle('ink-comment-mode', enabled);
-      if (!enabled) this.composer.hidden = true;
+      if (!enabled) {
+        this.composer.hidden = true;
+        this.closeThread();
+      }
       if (enabled && !this.active) this.loadComments();
     }
   }, {
@@ -2653,6 +2692,7 @@ var CollaborationManager = /*#__PURE__*/function () {
       if (!this.commentMode || event.button !== 0 || this.builder.studio.spaceHeld) return;
       event.preventDefault();
       event.stopImmediatePropagation();
+      this.closeThread();
       var element = event.target.closest('[data-ink-element-id]');
       this.pendingAnchor = (element === null || element === void 0 ? void 0 : element.dataset.inkElementId) || null;
       var rect = element === null || element === void 0 ? void 0 : element.getBoundingClientRect();
@@ -2665,7 +2705,7 @@ var CollaborationManager = /*#__PURE__*/function () {
       };
       var frame = this.builder.iframe.getBoundingClientRect();
       var scale = this.builder.viewport.scale;
-      this.composer.style.left = "".concat(Math.max(8, Math.min(innerWidth - 580, frame.left + event.clientX * scale + 16)), "px");
+      this.composer.style.left = "".concat(Math.max(8, Math.min(innerWidth - 286, frame.left + event.clientX * scale + 16)), "px");
       this.composer.style.top = "".concat(Math.max(60, Math.min(innerHeight - 220, frame.top + event.clientY * scale)), "px");
       this.composer.hidden = false;
       this.composer.querySelector('[data-anchor]').textContent = element ? ((_this$runtime$documen = this.runtime.document.get(this.pendingAnchor)) === null || _this$runtime$documen === void 0 ? void 0 : _this$runtime$documen.type) || 'layer' : 'this page';
@@ -2957,7 +2997,8 @@ var CollaborationManager = /*#__PURE__*/function () {
           id = _ref4[0];
         return id !== _this4.clientId;
       });
-      this.button.textContent = peers.length ? "".concat(peers.length + 1, " editors") : 'Share';
+      this.button.textContent = 'Share';
+      this.renderAvatars(peers);
       var presence = this.sharePanel.querySelector('.ink-collab-presence');
       presence.replaceChildren();
       for (var _i2 = 0, _Object$entries = Object.entries(this.peers); _i2 < _Object$entries.length; _i2++) {
@@ -2972,6 +3013,47 @@ var CollaborationManager = /*#__PURE__*/function () {
       }
       if (!this.paused) this.status('Live editing connected. Changes sync automatically; Publish makes them public.');
       this.renderComments();
+    }
+  }, {
+    key: "renderAvatars",
+    value: function renderAvatars(peers) {
+      var _this$builder$options,
+        _this5 = this;
+      this.avatars.replaceChildren();
+      var people = [{
+        name: ((_this$builder$options = this.builder.options.currentEditor) === null || _this$builder$options === void 0 ? void 0 : _this$builder$options.name) || 'You',
+        self: true
+      }].concat(_toConsumableArray(peers.map(function (_ref5) {
+        var _ref6 = _slicedToArray(_ref5, 2),
+          peer = _ref6[1];
+        return peer;
+      })));
+      people.slice(0, 4).forEach(function (person, index) {
+        var _person$selection;
+        var avatar = document.createElement('button');
+        avatar.type = 'button';
+        avatar.className = 'ink-editor-avatar';
+        var words = person.name.trim().split(/\s+/);
+        avatar.textContent = (words.length > 1 ? words[0][0] + words.at(-1)[0] : words[0].slice(0, 2)).toUpperCase();
+        avatar.title = "".concat(person.name).concat(person.self ? ' (you)' : '').concat((_person$selection = person.selection) !== null && _person$selection !== void 0 && _person$selection.length ? " \xB7 ".concat(person.selection.length, " selected layers") : '');
+        avatar.setAttribute('aria-label', avatar.title);
+        avatar.style.setProperty('--avatar-hue', String((index * 67 + 205) % 360));
+        avatar.addEventListener('click', function () {
+          _this5.sharePanel.hidden = !_this5.sharePanel.hidden;
+        });
+        _this5.avatars.appendChild(avatar);
+      });
+      if (people.length > 4) {
+        var more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'ink-editor-avatar';
+        more.textContent = "+".concat(people.length - 4);
+        more.setAttribute('aria-label', 'View all editors');
+        more.addEventListener('click', function () {
+          _this5.sharePanel.hidden = false;
+        });
+        this.avatars.appendChild(more);
+      }
     }
   }, {
     key: "updateAnchor",
@@ -3013,141 +3095,278 @@ var CollaborationManager = /*#__PURE__*/function () {
       return comment;
     }()
   }, {
-    key: "renderComments",
-    value: function renderComments() {
-      var _this5 = this;
-      // Keep active reply text/focus stable while presence updates arrive.
-      var signature = JSON.stringify([this.threads, this.panel.querySelector('[data-resolved]').checked]);
-      if (signature === this.commentSignature) return;
-      this.commentSignature = signature;
-      var list = this.panel.querySelector('.ink-comment-list');
-      var drafts = new Map(_toConsumableArray(list.querySelectorAll('textarea')).map(function (input) {
-        return [input.dataset.thread, input.value];
-      }));
-      list.replaceChildren();
-      var visible = this.threads.filter(function (thread) {
-        return !thread.resolved || _this5.panel.querySelector('[data-resolved]').checked;
+    key: "closeThread",
+    value: function closeThread() {
+      this.openThreadId = null;
+      if (this.threadPopover) this.threadPopover.hidden = true;
+    }
+  }, {
+    key: "openThread",
+    value: function openThread(thread) {
+      this.builder.studio.setTool('comment');
+      this.composer.hidden = true;
+      this.openThreadId = thread.id;
+      this.threadSignature = null;
+      this.renderThread();
+      this.renderPins();
+    }
+  }, {
+    key: "threadCard",
+    value: function threadCard(thread) {
+      var _this6 = this,
+        _node$settings2;
+      var expanded = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+      var card = document.createElement('article');
+      card.dataset.thread = thread.id;
+      var top = document.createElement('div');
+      top.className = 'ink-comment-card-top';
+      var number = document.createElement('button');
+      number.type = 'button';
+      number.className = 'ink-comment-number';
+      number.textContent = String(this.threads.indexOf(thread) + 1);
+      number.setAttribute('aria-label', "Open comment ".concat(number.textContent));
+      number.addEventListener('click', function () {
+        return _this6.openThread(thread);
       });
-      if (!visible.length) {
-        var empty = document.createElement('p');
-        empty.className = 'ink-comment-empty';
-        empty.textContent = 'Select a layer to leave an anchored note, or comment on the page.';
-        list.appendChild(empty);
+      var focus = document.createElement('button');
+      focus.type = 'button';
+      focus.className = 'ink-comment-anchor';
+      var node = this.runtime.document.get(thread.anchor);
+      focus.textContent = thread.anchor ? node ? "\u25C7 ".concat(((_node$settings2 = node.settings) === null || _node$settings2 === void 0 ? void 0 : _node$settings2.label) || node.type) : 'Removed layer' : 'Page';
+      focus.title = focus.textContent;
+      focus.disabled = !!thread.anchor && !node;
+      focus.addEventListener('click', function () {
+        if (node) {
+          _this6.runtime.selection.select(node.id);
+          _this6.builder.viewport.focusSelection();
+        }
+        _this6.openThread(thread);
+      });
+      top.append(number, focus);
+      if (expanded) {
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = '×';
+        close.setAttribute('aria-label', 'Close comment thread');
+        close.addEventListener('click', function () {
+          return _this6.closeThread();
+        });
+        top.appendChild(close);
       }
-      var _iterator4 = _createForOfIteratorHelper(visible),
+      card.appendChild(top);
+      var _iterator4 = _createForOfIteratorHelper(expanded ? thread.messages : thread.messages.slice(0, 1)),
         _step4;
       try {
-        var _loop = function _loop() {
-          var thread = _step4.value;
-          var card = document.createElement('article');
-          card.dataset.thread = thread.id;
-          var focus = document.createElement('button');
-          focus.type = 'button';
-          focus.className = 'ink-comment-anchor';
-          var node = _this5.runtime.document.get(thread.anchor);
-          focus.textContent = thread.anchor ? node ? "\u25C7 ".concat(node.type) : 'Removed layer' : 'Page';
-          focus.disabled = !!thread.anchor && !node;
-          focus.addEventListener('click', function () {
-            if (node) {
-              _this5.runtime.selection.select(node.id);
-              _this5.builder.viewport.focusSelection();
-            }
-          });
-          card.appendChild(focus);
-          var _iterator5 = _createForOfIteratorHelper(thread.messages),
-            _step5;
-          try {
-            for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
-              var message = _step5.value;
-              var author = document.createElement('strong');
-              author.textContent = message.author;
-              var text = document.createElement('p');
-              text.textContent = message.text;
-              card.append(author, text);
-            }
-          } catch (err) {
-            _iterator5.e(err);
-          } finally {
-            _iterator5.f();
-          }
-          var resolve = document.createElement('button');
-          resolve.type = 'button';
-          resolve.textContent = thread.resolved ? 'Reopen' : 'Resolve';
-          resolve.addEventListener('click', function () {
-            return _this5.comment({
-              operation: thread.resolved ? 'reopen' : 'resolve',
-              thread_id: thread.id
-            });
-          });
-          card.appendChild(resolve);
-          var form = document.createElement('form');
-          var input = document.createElement('textarea');
-          input.rows = 1;
-          input.placeholder = 'Reply…';
-          input.setAttribute('aria-label', 'Reply to comment');
-          input.dataset.thread = thread.id;
-          input.value = drafts.get(thread.id) || '';
-          input.required = true;
-          input.maxLength = 4000;
-          var send = document.createElement('button');
-          send.type = 'submit';
-          send.textContent = 'Reply';
-          form.append(input, send);
-          form.addEventListener('submit', /*#__PURE__*/function () {
-            var _ref5 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8(event) {
-              var replacement;
-              return _regeneratorRuntime().wrap(function _callee8$(_context8) {
-                while (1) switch (_context8.prev = _context8.next) {
-                  case 0:
-                    event.preventDefault();
-                    _context8.next = 3;
-                    return _this5.comment({
-                      operation: 'reply',
-                      thread_id: thread.id,
-                      text: input.value
-                    });
-                  case 3:
-                    if (!_context8.sent) {
-                      _context8.next = 6;
-                      break;
-                    }
-                    replacement = list.querySelector("textarea[data-thread=\"".concat(thread.id, "\"]"));
-                    if (replacement) replacement.value = '';
-                  case 6:
-                  case "end":
-                    return _context8.stop();
-                }
-              }, _callee8);
-            }));
-            return function (_x5) {
-              return _ref5.apply(this, arguments);
-            };
-          }());
-          card.appendChild(form);
-          list.appendChild(card);
-        };
         for (_iterator4.s(); !(_step4 = _iterator4.n()).done;) {
-          _loop();
+          var message = _step4.value;
+          var meta = document.createElement('div');
+          meta.className = 'ink-comment-author';
+          var author = document.createElement('strong');
+          author.textContent = message.author;
+          var time = document.createElement('time');
+          var date = new Date(message.created_at);
+          time.dateTime = message.created_at;
+          if (!Number.isNaN(date.getTime())) {
+            time.textContent = date.toLocaleDateString(undefined, {
+              month: 'short',
+              day: 'numeric'
+            });
+            time.title = date.toLocaleString();
+          }
+          meta.append(author, time);
+          var text = document.createElement('p');
+          text.textContent = message.text;
+          card.append(meta, text);
         }
       } catch (err) {
         _iterator4.e(err);
       } finally {
         _iterator4.f();
       }
+      var actions = document.createElement('div');
+      actions.className = 'ink-comment-actions';
+      var reply = document.createElement('button');
+      reply.type = 'button';
+      reply.textContent = !expanded && thread.messages.length > 1 ? "".concat(thread.messages.length - 1, " ").concat(thread.messages.length === 2 ? 'reply' : 'replies') : 'Reply';
+      reply.addEventListener('click', function () {
+        var _this6$threadPopover$;
+        _this6.openThread(thread);
+        (_this6$threadPopover$ = _this6.threadPopover.querySelector('textarea')) === null || _this6$threadPopover$ === void 0 || _this6$threadPopover$.focus();
+      });
+      var resolve = document.createElement('button');
+      resolve.type = 'button';
+      resolve.textContent = thread.resolved ? 'Reopen' : '✓ Resolve';
+      resolve.addEventListener('click', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee8() {
+        return _regeneratorRuntime().wrap(function _callee8$(_context8) {
+          while (1) switch (_context8.prev = _context8.next) {
+            case 0:
+              _context8.next = 2;
+              return _this6.comment({
+                operation: thread.resolved ? 'reopen' : 'resolve',
+                thread_id: thread.id
+              });
+            case 2:
+              if (!_context8.sent) {
+                _context8.next = 4;
+                break;
+              }
+              _this6.closeThread();
+            case 4:
+            case "end":
+              return _context8.stop();
+          }
+        }, _callee8);
+      })));
+      actions.append(reply, resolve);
+      card.appendChild(actions);
+      if (expanded) {
+        var form = document.createElement('form');
+        var input = document.createElement('textarea');
+        input.rows = 2;
+        input.placeholder = 'Reply…';
+        input.setAttribute('aria-label', 'Reply to comment');
+        input.dataset.thread = thread.id;
+        input.value = this.replyDrafts.get(thread.id) || '';
+        input.required = true;
+        input.maxLength = 4000;
+        input.addEventListener('input', function () {
+          return _this6.replyDrafts.set(thread.id, input.value);
+        });
+        var send = document.createElement('button');
+        send.type = 'submit';
+        send.textContent = '↑';
+        send.setAttribute('aria-label', 'Send reply');
+        send.title = 'Send reply · ⌘/Ctrl Enter';
+        form.append(input, send);
+        form.addEventListener('submit', /*#__PURE__*/function () {
+          var _ref8 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9(event) {
+            var text;
+            return _regeneratorRuntime().wrap(function _callee9$(_context9) {
+              while (1) switch (_context9.prev = _context9.next) {
+                case 0:
+                  event.preventDefault();
+                  if (!(!input.value.trim() || send.disabled)) {
+                    _context9.next = 3;
+                    break;
+                  }
+                  return _context9.abrupt("return");
+                case 3:
+                  send.disabled = true;
+                  text = input.value;
+                  _context9.next = 7;
+                  return _this6.comment({
+                    operation: 'reply',
+                    thread_id: thread.id,
+                    text: text
+                  });
+                case 7:
+                  if (!_context9.sent) {
+                    _context9.next = 11;
+                    break;
+                  }
+                  if (_this6.replyDrafts.get(thread.id) === text) _this6.replyDrafts["delete"](thread.id);
+                  _this6.threadSignature = null;
+                  _this6.renderThread();
+                case 11:
+                  send.disabled = false;
+                case 12:
+                case "end":
+                  return _context9.stop();
+              }
+            }, _callee9);
+          }));
+          return function (_x5) {
+            return _ref8.apply(this, arguments);
+          };
+        }());
+        card.appendChild(form);
+      } else card.addEventListener('dblclick', function () {
+        return _this6.openThread(thread);
+      });
+      card.addEventListener('mouseenter', function () {
+        var _this6$pins$querySele;
+        return (_this6$pins$querySele = _this6.pins.querySelector("[data-thread=\"".concat(thread.id, "\"]"))) === null || _this6$pins$querySele === void 0 ? void 0 : _this6$pins$querySele.classList.add('is-highlighted');
+      });
+      card.addEventListener('mouseleave', function () {
+        var _this6$pins$querySele2;
+        return (_this6$pins$querySele2 = _this6.pins.querySelector("[data-thread=\"".concat(thread.id, "\"]"))) === null || _this6$pins$querySele2 === void 0 ? void 0 : _this6$pins$querySele2.classList.remove('is-highlighted');
+      });
+      return card;
+    }
+  }, {
+    key: "renderThread",
+    value: function renderThread() {
+      var _this7 = this;
+      var thread = this.threads.find(function (item) {
+        return item.id === _this7.openThreadId;
+      });
+      if (!thread) return;
+      var signature = JSON.stringify(thread);
+      if (signature !== this.threadSignature) {
+        var input = this.threadPopover.querySelector('textarea'),
+          focused = input === document.activeElement,
+          start = input === null || input === void 0 ? void 0 : input.selectionStart,
+          end = input === null || input === void 0 ? void 0 : input.selectionEnd;
+        this.threadPopover.replaceChildren(this.threadCard(thread, true));
+        this.threadSignature = signature;
+        if (focused) {
+          var next = this.threadPopover.querySelector('textarea');
+          next.focus({
+            preventScroll: true
+          });
+          next.setSelectionRange(start, end);
+        }
+      }
+      this.threadPopover.hidden = false;
+    }
+  }, {
+    key: "renderComments",
+    value: function renderComments() {
+      var _this8 = this;
+      var signature = JSON.stringify([this.threads, this.panel.querySelector('[data-resolved]').checked]);
+      if (signature === this.commentSignature) return;
+      this.commentSignature = signature;
+      var list = this.panel.querySelector('.ink-comment-list');
+      list.replaceChildren();
+      var visible = this.threads.filter(function (thread) {
+        return !thread.resolved || _this8.panel.querySelector('[data-resolved]').checked;
+      });
+      if (!visible.length) {
+        var empty = document.createElement('p');
+        empty.className = 'ink-comment-empty';
+        empty.textContent = 'Click anywhere on the page to leave a comment.';
+        list.appendChild(empty);
+      }
+      var _iterator5 = _createForOfIteratorHelper(visible),
+        _step5;
+      try {
+        for (_iterator5.s(); !(_step5 = _iterator5.n()).done;) {
+          var thread = _step5.value;
+          list.appendChild(this.threadCard(thread));
+        }
+      } catch (err) {
+        _iterator5.e(err);
+      } finally {
+        _iterator5.f();
+      }
+      this.renderThread();
+      this.renderPins();
     }
   }, {
     key: "renderPins",
     value: function renderPins() {
-      var _this6 = this;
-      this.pins.replaceChildren();
-      if (!this.active && !this.commentMode || this.builder.mode === 'preview') return;
-      var iframeRect = this.builder.iframe.getBoundingClientRect();
-      var scale = this.builder.viewport.scale;
-      this.threads.filter(function (thread) {
-        return !thread.resolved;
-      }).forEach(function (thread, index) {
-        var _this6$runtime$canvas, _thread$point, _thread$point2, _thread$point$x, _thread$point3, _thread$point$y, _thread$point4;
-        var element = (_this6$runtime$canvas = _this6.runtime.canvas.instances.get(thread.anchor)) === null || _this6$runtime$canvas === void 0 ? void 0 : _this6$runtime$canvas.element;
+      var _this9 = this;
+      if (!this.pins) return;
+      var visible = new Set();
+      var frame = this.builder.iframe.getBoundingClientRect(),
+        stage = this.builder.viewport.stage.getBoundingClientRect(),
+        scale = this.builder.viewport.scale;
+      var show = (this.active || this.commentMode) && this.builder.mode !== 'preview';
+      var threadVisible = false;
+      if (show) this.threads.forEach(function (thread, index) {
+        var _this9$runtime$canvas, _thread$point, _thread$point2, _thread$point$x, _thread$point3, _thread$point$y, _thread$point4;
+        if (thread.resolved && !_this9.panel.querySelector('[data-resolved]').checked) return;
+        var element = (_this9$runtime$canvas = _this9.runtime.canvas.instances.get(thread.anchor)) === null || _this9$runtime$canvas === void 0 ? void 0 : _this9$runtime$canvas.element;
         if (thread.anchor && !element) return;
         var rect = element ? element.getBoundingClientRect() : {
           left: ((_thread$point = thread.point) === null || _thread$point === void 0 ? void 0 : _thread$point.x) || 0,
@@ -3155,71 +3374,97 @@ var CollaborationManager = /*#__PURE__*/function () {
           width: 0,
           height: 0
         };
-        var x = iframeRect.left + (rect.left + rect.width * ((_thread$point$x = (_thread$point3 = thread.point) === null || _thread$point3 === void 0 ? void 0 : _thread$point3.x) !== null && _thread$point$x !== void 0 ? _thread$point$x : 1)) * scale;
-        var y = iframeRect.top + (rect.top + rect.height * ((_thread$point$y = (_thread$point4 = thread.point) === null || _thread$point4 === void 0 ? void 0 : _thread$point4.y) !== null && _thread$point$y !== void 0 ? _thread$point$y : 0)) * scale;
-        if (x < 0 || x > innerWidth - 280 || y < 50 || y > innerHeight) return;
-        var pin = document.createElement('button');
-        pin.type = 'button';
+        var x = frame.left + (rect.left + rect.width * ((_thread$point$x = (_thread$point3 = thread.point) === null || _thread$point3 === void 0 ? void 0 : _thread$point3.x) !== null && _thread$point$x !== void 0 ? _thread$point$x : 1)) * scale,
+          y = frame.top + (rect.top + rect.height * ((_thread$point$y = (_thread$point4 = thread.point) === null || _thread$point4 === void 0 ? void 0 : _thread$point4.y) !== null && _thread$point$y !== void 0 ? _thread$point$y : 0)) * scale;
+        if (x < Math.max(stage.left, frame.left) || x > Math.min(stage.right, frame.right) || y < Math.max(stage.top, frame.top) || y > Math.min(stage.bottom, frame.bottom)) return;
+        visible.add(thread.id);
+        var pin = _this9.pins.querySelector("[data-thread=\"".concat(thread.id, "\"]"));
+        if (!pin) {
+          pin = document.createElement('button');
+          pin.type = 'button';
+          pin.dataset.thread = thread.id;
+          pin.addEventListener('click', function () {
+            return _this9.openThread(_this9.threads.find(function (item) {
+              return item.id === pin.dataset.thread;
+            }));
+          });
+          _this9.pins.appendChild(pin);
+        }
         pin.textContent = String(index + 1);
         pin.setAttribute('aria-label', "Open comment ".concat(index + 1));
+        pin.setAttribute('aria-expanded', String(_this9.openThreadId === thread.id));
+        pin.classList.toggle('is-resolved', !!thread.resolved);
         pin.style.left = "".concat(x - 12, "px");
         pin.style.top = "".concat(y - 12, "px");
-        pin.addEventListener('click', function () {
-          var _this6$panel$querySel;
-          _this6.builder.studio.setTool('comment');
-          (_this6$panel$querySel = _this6.panel.querySelector("article[data-thread=\"".concat(thread.id, "\"]"))) === null || _this6$panel$querySel === void 0 || _this6$panel$querySel.scrollIntoView({
-            block: 'nearest'
-          });
-        });
-        _this6.pins.appendChild(pin);
+        if (_this9.openThreadId === thread.id) {
+          threadVisible = true;
+          _this9.threadPopover.hidden = false;
+          var width = _this9.threadPopover.offsetWidth,
+            height = _this9.threadPopover.offsetHeight;
+          _this9.threadPopover.style.left = "".concat(Math.max(8, Math.min(innerWidth - width - 8, x + width + 24 > stage.right ? x - width - 20 : x + 20)), "px");
+          _this9.threadPopover.style.top = "".concat(Math.max(60, Math.min(innerHeight - height - 12, y - 12)), "px");
+        }
       });
+      this.threadPopover.hidden = !threadVisible;
+      var _iterator6 = _createForOfIteratorHelper(this.pins.children),
+        _step6;
+      try {
+        for (_iterator6.s(); !(_step6 = _iterator6.n()).done;) {
+          var pin = _step6.value;
+          if (!visible.has(pin.dataset.thread)) pin.remove();
+        }
+      } catch (err) {
+        _iterator6.e(err);
+      } finally {
+        _iterator6.f();
+      }
     }
   }, {
     key: "flush",
     value: function () {
-      var _flush = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee9() {
-        return _regeneratorRuntime().wrap(function _callee9$(_context9) {
-          while (1) switch (_context9.prev = _context9.next) {
+      var _flush = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee10() {
+        return _regeneratorRuntime().wrap(function _callee10$(_context10) {
+          while (1) switch (_context10.prev = _context10.next) {
             case 0:
               if (this.active) {
-                _context9.next = 2;
+                _context10.next = 2;
                 break;
               }
-              return _context9.abrupt("return", null);
+              return _context10.abrupt("return", null);
             case 2:
               if (!this.paused) {
-                _context9.next = 4;
+                _context10.next = 4;
                 break;
               }
               throw new Error('Review the collaboration conflict before saving.');
             case 4:
               if (!this.busy) {
-                _context9.next = 9;
+                _context10.next = 9;
                 break;
               }
-              _context9.next = 7;
+              _context10.next = 7;
               return new Promise(function (resolve) {
                 return setTimeout(resolve, 30);
               });
             case 7:
-              _context9.next = 4;
+              _context10.next = 4;
               break;
             case 9:
-              _context9.next = 11;
+              _context10.next = 11;
               return this.sync();
             case 11:
               if (!(this.paused || diffShared(this.base, this.snapshot()).length)) {
-                _context9.next = 13;
+                _context10.next = 13;
                 break;
               }
               throw new Error('Wait for your changes to sync before saving.');
             case 13:
-              return _context9.abrupt("return", this.revision);
+              return _context10.abrupt("return", this.revision);
             case 14:
             case "end":
-              return _context9.stop();
+              return _context10.stop();
           }
-        }, _callee9, this);
+        }, _callee10, this);
       }));
       function flush() {
         return _flush.apply(this, arguments);
@@ -3229,7 +3474,7 @@ var CollaborationManager = /*#__PURE__*/function () {
   }, {
     key: "destroy",
     value: function destroy() {
-      var _this$unsubscribeSele, _this$panel, _this$sharePanel, _this$composer, _this$button, _this$pins;
+      var _this$unsubscribeSele, _this$panel, _this$sharePanel, _this$composer, _this$button, _this$avatars, _this$pins, _this$threadPopover;
       this.abort.abort();
       clearInterval(this.timer);
       clearInterval(this.positionTimer);
@@ -3238,7 +3483,9 @@ var CollaborationManager = /*#__PURE__*/function () {
       (_this$sharePanel = this.sharePanel) === null || _this$sharePanel === void 0 || _this$sharePanel.remove();
       (_this$composer = this.composer) === null || _this$composer === void 0 || _this$composer.remove();
       (_this$button = this.button) === null || _this$button === void 0 || _this$button.remove();
+      (_this$avatars = this.avatars) === null || _this$avatars === void 0 || _this$avatars.remove();
       (_this$pins = this.pins) === null || _this$pins === void 0 || _this$pins.remove();
+      (_this$threadPopover = this.threadPopover) === null || _this$threadPopover === void 0 || _this$threadPopover.remove();
       if (this.originalExecute) {
         var history = this.runtime.history;
         history.execute = this.originalExecute;
@@ -11667,6 +11914,14 @@ var ViewportManager = /*#__PURE__*/function () {
       }, {
         passive: false
       });
+      this.builder.iframeDoc.addEventListener('scroll', function () {
+        var view = _this.builder.iframeDoc.defaultView;
+        if (_this.builder.mode === 'design' && (view.scrollX || view.scrollY)) view.scrollTo({
+          left: 0,
+          top: 0,
+          behavior: 'instant'
+        });
+      });
       this.resizeObserver = new ResizeObserver(function () {
         if (_this.fitted) _this.fitScale();
       });
@@ -11679,7 +11934,7 @@ var ViewportManager = /*#__PURE__*/function () {
       var _this2 = this;
       this.bar = document.createElement('div');
       this.bar.className = 'ink-v2-responsive-bar';
-      this.bar.innerHTML = "<strong data-device-label>Desktop</strong><span class=\"ink-viewport-primary\">Breakpoint</span><div class=\"ink-v2-viewport-size\"><label>W <input aria-label=\"Viewport width\" type=\"number\" min=\"240\" max=\"3840\" data-width></label><label>H <input aria-label=\"Viewport height\" type=\"number\" min=\"320\" max=\"4000\" data-height></label></div>";
+      this.bar.innerHTML = "<strong data-device-label>Desktop</strong><span class=\"ink-viewport-primary\">Breakpoint</span><div class=\"ink-v2-viewport-size\"><label>W <input aria-label=\"Viewport width\" type=\"number\" min=\"240\" max=\"3840\" data-width></label><label>H <input aria-label=\"Viewport height\" title=\"Frame height \u2014 extend to reveal more of the page\" type=\"number\" min=\"320\" max=\"20000\" data-height></label><button type=\"button\" data-fit-content aria-label=\"Fit frame height to content\" title=\"Fit height to content\">\u2195</button></div>";
       this.widthInput = this.bar.querySelector('[data-width]');
       this.heightInput = this.bar.querySelector('[data-height]');
       [this.widthInput, this.heightInput].forEach(function (input) {
@@ -11687,6 +11942,9 @@ var ViewportManager = /*#__PURE__*/function () {
           _this2.setSize(Number(_this2.widthInput.value), Number(_this2.heightInput.value));
           if (_this2.fitted) _this2.fitScale();
         });
+      });
+      this.bar.querySelector('[data-fit-content]').addEventListener('click', function () {
+        return _this2.fitContentHeight();
       });
       this.container.prepend(this.bar);
     }
@@ -11698,12 +11956,53 @@ var ViewportManager = /*#__PURE__*/function () {
         var handle = document.createElement('div');
         handle.className = "ink-v2-viewport-handle is-".concat(edge);
         handle.dataset.edge = edge;
+        handle.tabIndex = 0;
+        handle.setAttribute('role', 'separator');
+        handle.setAttribute('aria-orientation', edge === 's' ? 'horizontal' : 'vertical');
+        handle.setAttribute('aria-label', edge === 's' ? 'Resize frame height' : 'Resize frame width');
+        handle.title = edge === 's' ? 'Drag to extend the page · Double-click to fit content' : 'Drag to resize frame width';
         handle.addEventListener('pointerdown', function (event) {
           return _this3.startResize(event, edge);
+        });
+        if (edge === 's') handle.addEventListener('dblclick', function () {
+          return _this3.fitContentHeight();
+        });
+        handle.addEventListener('keydown', function (event) {
+          var direction = edge === 's' ? {
+            ArrowUp: -1,
+            ArrowDown: 1
+          } : {
+            ArrowLeft: edge === 'w' ? 1 : -1,
+            ArrowRight: edge === 'w' ? -1 : 1
+          };
+          if (!direction[event.key]) return;
+          event.preventDefault();
+          event.stopPropagation();
+          var _this3$sizes$_this3$d = _this3.sizes[_this3.device],
+            width = _this3$sizes$_this3$d.width,
+            height = _this3$sizes$_this3$d.height,
+            delta = direction[event.key] * (event.shiftKey ? 10 : 1);
+          _this3.setSize(width + (edge === 's' ? 0 : delta), height + (edge === 's' ? delta : 0));
+          _this3.applyCamera();
         });
         _this3.container.appendChild(handle);
         return handle;
       });
+    }
+  }, {
+    key: "fitContentHeight",
+    value: function fitContentHeight() {
+      var root = this.builder.iframeDoc.querySelector('.ink-canvas-root');
+      if (!root) return;
+      // Measure actual content, not the document scrollHeight (which is at least the frame height).
+      var elements = _toConsumableArray(root.children).filter(function (node) {
+        return node.matches('.ink-element');
+      });
+      var bottom = Math.max.apply(Math, [320].concat(_toConsumableArray(elements.map(function (node) {
+        return node.getBoundingClientRect().bottom;
+      }))));
+      this.setSize(this.sizes[this.device].width, Math.ceil(bottom));
+      this.applyCamera();
     }
   }, {
     key: "setDevice",
@@ -11726,9 +12025,9 @@ var ViewportManager = /*#__PURE__*/function () {
   }, {
     key: "setSize",
     value: function setSize(width, height) {
-      var _this$builder$breakpo2;
-      width = Math.max(240, Math.min(3840, width || DEFAULTS[this.device].width));
-      height = Math.max(320, Math.min(4000, height || DEFAULTS[this.device].height));
+      var _this$handles, _this$builder$breakpo2;
+      width = Math.round(Math.max(240, Math.min(3840, Number.isFinite(width) && width > 0 ? width : DEFAULTS[this.device].width)));
+      height = Math.round(Math.max(320, Math.min(20000, Number.isFinite(height) && height > 0 ? height : DEFAULTS[this.device].height)));
       this.sizes[this.device] = {
         width: width,
         height: height
@@ -11739,6 +12038,11 @@ var ViewportManager = /*#__PURE__*/function () {
       this.builder.iframe.style.height = "".concat(height, "px");
       this.widthInput.value = width;
       this.heightInput.value = height;
+      (_this$handles = this.handles) === null || _this$handles === void 0 || _this$handles.forEach(function (handle) {
+        handle.setAttribute('aria-valuenow', handle.dataset.edge === 's' ? height : width);
+        handle.setAttribute('aria-valuemin', handle.dataset.edge === 's' ? 320 : 240);
+        handle.setAttribute('aria-valuemax', handle.dataset.edge === 's' ? 20000 : 3840);
+      });
       this.bar.querySelector('[data-device-label]').textContent = "".concat(this.device[0].toUpperCase() + this.device.slice(1), " \xB7 ").concat(width);
       (_this$builder$breakpo2 = this.builder.breakpoints) === null || _this$builder$breakpo2 === void 0 || _this$builder$breakpo2.layout();
     }
@@ -11864,13 +12168,14 @@ var ViewportManager = /*#__PURE__*/function () {
     key: "onWheel",
     value: function onWheel(event) {
       var inFrame = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
-      if (this.builder.mode !== 'design' || editable(event.target) || !inFrame && event.target.closest('.ink-canvas-toolbar,.ink-v2-responsive-bar')) return;
-      // Ordinary scroll inside the page stays native; pinch / Cmd-wheel zooms the camera.
-      if (inFrame && !event.ctrlKey && !event.metaKey && !this.panEnabled) return;
+      var frame = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : this.builder.iframe;
+      if (this.builder.mode !== 'design' || !inFrame && (editable(event.target) || event.target.closest('.ink-canvas-toolbar,.ink-v2-responsive-bar'))) return;
+      // Design frames are artwork: wheel pans the workspace, never the page interior.
+      // Preview leaves native page scrolling and interactions to the browser.
       event.preventDefault();
       if (event.ctrlKey || event.metaKey) {
         var stageRect = this.stage.getBoundingClientRect(),
-          frameRect = this.builder.iframe.getBoundingClientRect();
+          frameRect = frame.getBoundingClientRect();
         var x = inFrame ? frameRect.left - stageRect.left + event.clientX * this.scale : event.clientX - stageRect.left;
         var y = inFrame ? frameRect.top - stageRect.top + event.clientY * this.scale : event.clientY - stageRect.top;
         this.setScale(this.scale * Math.exp(-event.deltaY * .008), {
@@ -22195,7 +22500,7 @@ var TabsManager = /*#__PURE__*/function () {
 /***/ ((module) => {
 
 "use strict";
-module.exports = "body.ink-builder-design {\n  --ink-editor-accent: #0099ff;\n  --ink-handle-scale: calc(1 / var(--ink-editor-canvas-scale, 1));\n}\nbody.ink-builder-design .ink-canvas-root:has(> .ink-element) {\n  padding-top: 0;\n}\nbody.ink-builder-design .ink-element[data-ink-kind=container] > .ink-editor-overlay {\n  box-shadow: none;\n}\nbody.ink-builder-design .ink-element:hover > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent);\n}\nbody.ink-builder-design .ink-element.ink-is-selected > .ink-editor-overlay,\nbody.ink-builder-design .ink-element.ink-is-selected[data-ink-kind=container] > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent);\n}\nbody.ink-builder-design .ink-editor-toolbar {\n  display: none;\n}\nbody.ink-builder-design .ink-resize-handle.is-corner {\n  width: calc(7px * var(--ink-handle-scale));\n  height: calc(7px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=nw] {\n  top: calc(-3.5px * var(--ink-handle-scale));\n  left: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=ne] {\n  top: calc(-3.5px * var(--ink-handle-scale));\n  right: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=sw] {\n  bottom: calc(-3.5px * var(--ink-handle-scale));\n  left: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=se] {\n  bottom: calc(-3.5px * var(--ink-handle-scale));\n  right: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-edge {\n  background: transparent;\n}\nbody.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=n], body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=s] {\n  height: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=e], body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=w] {\n  width: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=nw], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=se] {\n  cursor: nwse-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=ne], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=sw] {\n  cursor: nesw-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=n], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=s] {\n  cursor: ns-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=e], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=w] {\n  cursor: ew-resize;\n}\nbody.ink-builder-design .ink-rotate-handle {\n  top: calc(-24px * var(--ink-handle-scale));\n  width: calc(9px * var(--ink-handle-scale));\n  height: calc(9px * var(--ink-handle-scale));\n  margin-left: calc(-4.5px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-rotate-handle::before {\n  bottom: calc(-15px * var(--ink-handle-scale));\n  height: calc(15px * var(--ink-handle-scale));\n  width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-radius-handle {\n  top: calc(13px * var(--ink-handle-scale));\n  right: calc(13px * var(--ink-handle-scale));\n  width: calc(7px * var(--ink-handle-scale));\n  height: calc(7px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty {\n  min-height: calc(180px * var(--ink-handle-scale));\n  max-width: calc(100% - 80px * var(--ink-handle-scale));\n  margin: calc(40px * var(--ink-handle-scale)) auto;\n  border: calc(1px * var(--ink-handle-scale)) dashed #cbd0d7;\n  border-radius: calc(10px * var(--ink-handle-scale));\n  gap: calc(14px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-actions {\n  gap: calc(10px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-action {\n  width: calc(36px * var(--ink-handle-scale));\n  height: calc(36px * var(--ink-handle-scale));\n  box-shadow: none;\n  background: #f0f3f7;\n  color: #4a5665;\n  border-radius: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-action .material-symbols-rounded {\n  font-size: calc(18px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-caption {\n  font: calc(12px * var(--ink-handle-scale))/1.5 Inter, sans-serif;\n  color: #798390;\n}\nbody.ink-builder-design .ink-resize-tooltip, body.ink-builder-design .ink-radius-tooltip, body.ink-builder-design .ink-rotate-tooltip {\n  font-size: calc(11px * var(--ink-handle-scale));\n  line-height: 1.4;\n  padding: calc(3px * var(--ink-handle-scale)) calc(6px * var(--ink-handle-scale));\n}\n\nbody.ink-comment-mode, body.ink-comment-mode * {\n  cursor: crosshair !important;\n}";
+module.exports = "html:has(> body.ink-builder-design), body.ink-builder-design {\n  overflow: clip !important;\n  overscroll-behavior: none;\n}\n\nbody.ink-builder-design {\n  --ink-editor-accent: #0099ff;\n  --ink-handle-scale: calc(1 / var(--ink-editor-canvas-scale, 1));\n}\nbody.ink-builder-design .ink-canvas-root:has(> .ink-element) {\n  padding-top: 0;\n}\nbody.ink-builder-design .ink-element[data-ink-kind=container] > .ink-editor-overlay {\n  box-shadow: none;\n}\nbody.ink-builder-design .ink-element:hover > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent);\n}\nbody.ink-builder-design .ink-element.ink-is-selected > .ink-editor-overlay,\nbody.ink-builder-design .ink-element.ink-is-selected[data-ink-kind=container] > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent);\n}\nbody.ink-builder-design .ink-editor-toolbar {\n  display: none;\n}\nbody.ink-builder-design .ink-resize-handle.is-corner {\n  width: calc(7px * var(--ink-handle-scale));\n  height: calc(7px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=nw] {\n  top: calc(-3.5px * var(--ink-handle-scale));\n  left: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=ne] {\n  top: calc(-3.5px * var(--ink-handle-scale));\n  right: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=sw] {\n  bottom: calc(-3.5px * var(--ink-handle-scale));\n  left: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=se] {\n  bottom: calc(-3.5px * var(--ink-handle-scale));\n  right: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-edge {\n  background: transparent;\n}\nbody.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=n], body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=s] {\n  height: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=e], body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=w] {\n  width: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=nw], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=se] {\n  cursor: nwse-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=ne], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=sw] {\n  cursor: nesw-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=n], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=s] {\n  cursor: ns-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=e], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=w] {\n  cursor: ew-resize;\n}\nbody.ink-builder-design .ink-rotate-handle {\n  top: calc(-24px * var(--ink-handle-scale));\n  width: calc(9px * var(--ink-handle-scale));\n  height: calc(9px * var(--ink-handle-scale));\n  margin-left: calc(-4.5px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-rotate-handle::before {\n  bottom: calc(-15px * var(--ink-handle-scale));\n  height: calc(15px * var(--ink-handle-scale));\n  width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-radius-handle {\n  top: calc(13px * var(--ink-handle-scale));\n  right: calc(13px * var(--ink-handle-scale));\n  width: calc(7px * var(--ink-handle-scale));\n  height: calc(7px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty {\n  min-height: calc(180px * var(--ink-handle-scale));\n  max-width: calc(100% - 80px * var(--ink-handle-scale));\n  margin: calc(40px * var(--ink-handle-scale)) auto;\n  border: calc(1px * var(--ink-handle-scale)) dashed #cbd0d7;\n  border-radius: calc(10px * var(--ink-handle-scale));\n  gap: calc(14px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-actions {\n  gap: calc(10px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-action {\n  width: calc(36px * var(--ink-handle-scale));\n  height: calc(36px * var(--ink-handle-scale));\n  box-shadow: none;\n  background: #f0f3f7;\n  color: #4a5665;\n  border-radius: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-action .material-symbols-rounded {\n  font-size: calc(18px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-caption {\n  font: calc(12px * var(--ink-handle-scale))/1.5 Inter, sans-serif;\n  color: #798390;\n}\nbody.ink-builder-design .ink-resize-tooltip, body.ink-builder-design .ink-radius-tooltip, body.ink-builder-design .ink-rotate-tooltip {\n  font-size: calc(11px * var(--ink-handle-scale));\n  line-height: 1.4;\n  padding: calc(3px * var(--ink-handle-scale)) calc(6px * var(--ink-handle-scale));\n}\n\nbody.ink-comment-mode, body.ink-comment-mode * {\n  cursor: crosshair !important;\n}\n\nbody.ink-builder-design.ink-comment-mode, body.ink-builder-design.ink-comment-mode * {\n  cursor: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M5 3h16a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H10l-7 5V7a4 4 0 0 1 2-4Z' fill='%23eeb643' stroke='%23171717' stroke-width='1.5'/%3E%3Cpath d='M10 12h8m-4-4v8' stroke='%23171717' stroke-width='2'/%3E%3C/svg%3E\") 3 26, crosshair !important;\n}\nbody.ink-builder-design.ink-comment-mode .ink-resize-handle, body.ink-builder-design.ink-comment-mode .ink-rotate-handle, body.ink-builder-design.ink-comment-mode .ink-radius-handle {\n  display: none !important;\n}\nbody.ink-builder-design.ink-comment-mode .ink-element.ink-is-selected > .ink-editor-overlay {\n  box-shadow: none;\n}\nbody.ink-builder-design.ink-comment-mode .ink-element:hover > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) #eeb643;\n}";
 
 /***/ }),
 

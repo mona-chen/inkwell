@@ -16,7 +16,7 @@
         Draft
       <% end %>
     </span>
-    <span class="text-xs text-muted-foreground">· Public</span>
+    <span class="text-xs text-muted-foreground">· <%= post.status == "published" ? "Live on your site" : "Not live yet" %></span>
   </div>
 <% if post.published_at %>
     <p class="text-xs text-muted-foreground mt-1"><%= post.published_at.strftime("%b %-d, %Y at %-l:%M %P") %></p>
@@ -70,28 +70,24 @@
 <div class="mb-4">
   <h3 class="text-[10px] font-semibold text-muted-foreground uppercase tracking-[.04em] mb-2">Organize</h3>
   <div class="space-y-3">
-    <div>
-      <label class="text-xs text-muted-foreground">Category</label>
-      <div class="mt-1 flex flex-wrap gap-1.5">
-        <% post.categories.each do |cat| %>
-          <span class="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary text-xs px-2 py-0.5 font-medium">
-            <%= cat.name %>
-          </span>
-        <% end %>
-        <a href="<%= admin_taxonomies_path(taxonomy: "category") %>" class="text-[11px] font-medium text-muted-foreground hover:text-primary">Manage</a>
-      </div>
-    </div>
-    <div>
-      <label class="text-xs text-muted-foreground">Tags</label>
-      <div class="mt-1 flex flex-wrap gap-1.5">
-        <% post.tags.each do |tag| %>
-          <span class="inline-flex items-center gap-1 rounded-full bg-muted text-foreground text-xs px-2 py-0.5">
-            <%= tag.name %>
-          </span>
-        <% end %>
-        <a href="<%= admin_taxonomies_path(taxonomy: "tag") %>" class="text-[11px] font-medium text-muted-foreground hover:text-primary">Manage</a>
-      </div>
-    </div>
+    <% [["Categories", "category", Term.categories, post.categories], ["Tags", "tag", Term.tags, post.tags]].each do |label, taxonomy, terms, selected| %>
+      <details class="group">
+        <summary class="flex items-center justify-between text-sm cursor-pointer py-1">
+          <span><%= label %></span>
+          <span class="text-xs text-muted-foreground"><%= selected.any? ? selected.map(&:name).join(", ") : "None" %></span>
+        </summary>
+        <input type="hidden" name="post[<%= taxonomy %>_ids][]" value="">
+        <div class="mt-2 space-y-1 max-h-28 overflow-y-auto">
+          <% terms.each do |term| %>
+            <label class="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="post[<%= taxonomy %>_ids][]" value="<%= term.id %>" <%= "checked" if selected.include?(term) %>>
+              <%= term.name %>
+            </label>
+          <% end %>
+          <a href="<%= admin_taxonomies_path(taxonomy: taxonomy) %>" class="text-xs text-muted-foreground hover:text-primary">Manage <%= label.downcase %></a>
+        </div>
+      </details>
+    <% end %>
   </div>
 </div>
 
@@ -126,39 +122,3 @@
     </div>
   </details>
 </div>
-
-<hr class="border-border mb-4">
-
-<%# ── Advanced ──────────────────────────────────────────────────── %>
-  <details class="group">
-    <summary class="flex items-center justify-between text-sm text-foreground cursor-pointer py-1 hover:text-primary transition-colors">
-      <span>Advanced</span>
-      <%= render Ink::Icon.new(:chevron_right, size: :xs) %>
-    </summary>
-  <div class="mt-2 pl-0 space-y-3">
-    <div>
-      <label class="text-xs text-muted-foreground">Categories</label>
-      <div class="mt-1 space-y-1 max-h-28 overflow-y-auto">
-        <% Term.categories.each do |category| %>
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="post[category_ids][]" value="<%= category.id %>"
-                   <%= "checked" if post.categories.include?(category) %> class="rounded accent-current">
-            <%= category.name %>
-          </label>
-        <% end %>
-      </div>
-    </div>
-    <div>
-      <label class="text-xs text-muted-foreground">Tags</label>
-      <div class="mt-1 space-y-1 max-h-28 overflow-y-auto">
-        <% Term.tags.each do |tag| %>
-          <label class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="post[tag_ids][]" value="<%= tag.id %>"
-                   <%= "checked" if post.tags.include?(tag) %> class="rounded accent-current">
-            <%= tag.name %>
-          </label>
-        <% end %>
-      </div>
-    </div>
-  </div>
-</details>

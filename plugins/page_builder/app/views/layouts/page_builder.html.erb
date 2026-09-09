@@ -232,6 +232,7 @@
         customCss: savedCustomCss,
         customJs: savedCustomJs,
         siteParts: savedSiteParts,
+        currentEditor: <%= raw(json_escape({ name: current_user.name }.to_json)) %>,
         collaboration: { record_type: recordType, record_id: recordId },
       });
 

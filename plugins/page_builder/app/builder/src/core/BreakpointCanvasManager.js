@@ -13,13 +13,11 @@ export default class BreakpointCanvasManager {
             iframe.setAttribute('sandbox', 'allow-same-origin');
             iframe.addEventListener('load', () => {
                 const doc = iframe.contentDocument; if (!doc) return;
+                doc.addEventListener('scroll', () => { if (doc.defaultView.scrollX || doc.defaultView.scrollY) doc.defaultView.scrollTo({ left: 0, top: 0, behavior: 'instant' }); });
                 doc.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.activate(device, event.target.closest('[data-ink-element-id]')?.dataset.inkElementId); }, true);
                 doc.addEventListener('submit', (event) => event.preventDefault(), true);
                 doc.addEventListener('wheel', (event) => {
-                    if (!event.ctrlKey && !event.metaKey) return;
-                    event.preventDefault();
-                    const rect = iframe.getBoundingClientRect(), stage = this.viewport.stage.getBoundingClientRect();
-                    this.viewport.setScale(this.viewport.scale * Math.exp(-event.deltaY * .008), { x: rect.left - stage.left + event.clientX * this.viewport.scale, y: rect.top - stage.top + event.clientY * this.viewport.scale });
+                    this.viewport.onWheel(event, true, iframe);
                 }, { passive: false });
             });
             host.append(label, iframe); this.viewport.stage.appendChild(host); this.previews.set(device, { host, label, iframe });
@@ -66,7 +64,7 @@ export default class BreakpointCanvasManager {
         clone.querySelectorAll('[contenteditable],[draggable]').forEach((node) => { node.removeAttribute('contenteditable'); node.removeAttribute('draggable'); });
         clone.querySelector('body').classList.remove('ink-builder-design');
         clone.style.removeProperty('--ink-editor-canvas-scale');
-        const style = document.createElement('style'); style.textContent = 'html{scrollbar-width:none}*{cursor:pointer!important}'; clone.querySelector('head').appendChild(style);
+        const style = document.createElement('style'); style.textContent = 'html:has(>body),html>body{overflow:clip!important;overscroll-behavior:none}*{cursor:pointer!important}'; clone.querySelector('head').appendChild(style);
         const source = '<!doctype html>' + clone.outerHTML;
         this.previews.forEach(({ iframe }, device) => { if (device !== this.viewport.device && iframe.srcdoc !== source) iframe.srcdoc = source; });
         this.layout();

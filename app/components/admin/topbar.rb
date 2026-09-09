@@ -41,8 +41,8 @@ module Admin
 
           render Dropdown.new(placement: :bottom_end) do |menu|
             menu.trigger(variant: :ghost, size: :sm, label: "Account menu") do
-              div(class: "flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground") do
-                (@user&.name || "A").first.upcase
+              div(class: "flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-xs font-semibold text-primary-foreground") do
+                (@user&.name.presence || "You").split.values_at(0, -1).uniq.map { |part| part.first }.join.upcase
               end
               span(class: "hidden md:inline text-sm font-medium") { @user&.name || "Admin" }
               render Icon.new(:chevron_down, size: :xs)

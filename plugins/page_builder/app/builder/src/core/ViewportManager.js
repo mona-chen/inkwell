@@ -13,19 +13,47 @@ export default class ViewportManager {
         this.stage.addEventListener('pointerdown', (event) => this.startPan(event));
         this.stage.addEventListener('wheel', (event) => this.onWheel(event), { passive: false });
         this.builder.iframeDoc.addEventListener('wheel', (event) => this.onWheel(event, true), { passive: false });
+        this.builder.iframeDoc.addEventListener('scroll', () => {
+            const view = this.builder.iframeDoc.defaultView;
+            if (this.builder.mode === 'design' && (view.scrollX || view.scrollY)) view.scrollTo({ left: 0, top: 0, behavior: 'instant' });
+        });
         this.resizeObserver = new ResizeObserver(() => { if (this.fitted) this.fitScale(); });
         this.resizeObserver.observe(this.stage);
         return this;
     }
     renderBar() {
         this.bar = document.createElement('div'); this.bar.className = 'ink-v2-responsive-bar';
-        this.bar.innerHTML = `<strong data-device-label>Desktop</strong><span class="ink-viewport-primary">Breakpoint</span><div class="ink-v2-viewport-size"><label>W <input aria-label="Viewport width" type="number" min="240" max="3840" data-width></label><label>H <input aria-label="Viewport height" type="number" min="320" max="4000" data-height></label></div>`;
+        this.bar.innerHTML = `<strong data-device-label>Desktop</strong><span class="ink-viewport-primary">Breakpoint</span><div class="ink-v2-viewport-size"><label>W <input aria-label="Viewport width" type="number" min="240" max="3840" data-width></label><label>H <input aria-label="Viewport height" title="Frame height — extend to reveal more of the page" type="number" min="320" max="20000" data-height></label><button type="button" data-fit-content aria-label="Fit frame height to content" title="Fit height to content">↕</button></div>`;
         this.widthInput = this.bar.querySelector('[data-width]'); this.heightInput = this.bar.querySelector('[data-height]');
         [this.widthInput, this.heightInput].forEach((input) => input.addEventListener('change', () => { this.setSize(Number(this.widthInput.value), Number(this.heightInput.value)); if (this.fitted) this.fitScale(); }));
+        this.bar.querySelector('[data-fit-content]').addEventListener('click', () => this.fitContentHeight());
         this.container.prepend(this.bar);
     }
     renderHandles() {
-        this.handles = ['w', 'e', 's'].map((edge) => { const handle = document.createElement('div'); handle.className = `ink-v2-viewport-handle is-${edge}`; handle.dataset.edge = edge; handle.addEventListener('pointerdown', (event) => this.startResize(event, edge)); this.container.appendChild(handle); return handle; });
+        this.handles = ['w', 'e', 's'].map((edge) => {
+            const handle = document.createElement('div'); handle.className = `ink-v2-viewport-handle is-${edge}`; handle.dataset.edge = edge;
+            handle.tabIndex = 0; handle.setAttribute('role', 'separator'); handle.setAttribute('aria-orientation', edge === 's' ? 'horizontal' : 'vertical');
+            handle.setAttribute('aria-label', edge === 's' ? 'Resize frame height' : 'Resize frame width');
+            handle.title = edge === 's' ? 'Drag to extend the page · Double-click to fit content' : 'Drag to resize frame width';
+            handle.addEventListener('pointerdown', (event) => this.startResize(event, edge));
+            if (edge === 's') handle.addEventListener('dblclick', () => this.fitContentHeight());
+            handle.addEventListener('keydown', (event) => {
+                const direction = edge === 's' ? { ArrowUp: -1, ArrowDown: 1 } : { ArrowLeft: edge === 'w' ? 1 : -1, ArrowRight: edge === 'w' ? -1 : 1 };
+                if (!direction[event.key]) return;
+                event.preventDefault(); event.stopPropagation();
+                const { width, height } = this.sizes[this.device], delta = direction[event.key] * (event.shiftKey ? 10 : 1);
+                this.setSize(width + (edge === 's' ? 0 : delta), height + (edge === 's' ? delta : 0)); this.applyCamera();
+            });
+            this.container.appendChild(handle); return handle;
+        });
+    }
+    fitContentHeight() {
+        const root = this.builder.iframeDoc.querySelector('.ink-canvas-root');
+        if (!root) return;
+        // Measure actual content, not the document scrollHeight (which is at least the frame height).
+        const elements = [...root.children].filter((node) => node.matches('.ink-element'));
+        const bottom = Math.max(320, ...elements.map((node) => node.getBoundingClientRect().bottom));
+        this.setSize(this.sizes[this.device].width, Math.ceil(bottom)); this.applyCamera();
     }
     setDevice(device) {
         if (!DEFAULTS[device]) return;
@@ -35,10 +63,11 @@ export default class ViewportManager {
         const dimensions = this.sizes[device]; this.setSize(dimensions.width, dimensions.height); this.fitScale(); this.builder.breakpoints?.refresh();
     }
     setSize(width, height) {
-        width = Math.max(240, Math.min(3840, width || DEFAULTS[this.device].width)); height = Math.max(320, Math.min(4000, height || DEFAULTS[this.device].height));
+        width = Math.round(Math.max(240, Math.min(3840, Number.isFinite(width) && width > 0 ? width : DEFAULTS[this.device].width))); height = Math.round(Math.max(320, Math.min(20000, Number.isFinite(height) && height > 0 ? height : DEFAULTS[this.device].height)));
         this.sizes[this.device] = { width, height };
         this.container.style.width = `${width}px`; this.container.style.height = `${height}px`; this.builder.iframe.style.width = '100%'; this.builder.iframe.style.height = `${height}px`;
         this.widthInput.value = width; this.heightInput.value = height;
+        this.handles?.forEach((handle) => { handle.setAttribute('aria-valuenow', handle.dataset.edge === 's' ? height : width); handle.setAttribute('aria-valuemin', handle.dataset.edge === 's' ? 320 : 240); handle.setAttribute('aria-valuemax', handle.dataset.edge === 's' ? 20000 : 3840); });
         this.bar.querySelector('[data-device-label]').textContent = `${this.device[0].toUpperCase() + this.device.slice(1)} · ${width}`;
         this.builder.breakpoints?.layout();
     }
@@ -90,13 +119,13 @@ export default class ViewportManager {
         };
         this.panSurface.addEventListener('pointermove', move); this.panSurface.addEventListener('pointerup', stop); this.panSurface.addEventListener('pointercancel', stop);
     }
-    onWheel(event, inFrame = false) {
-        if (this.builder.mode !== 'design' || editable(event.target) || (!inFrame && event.target.closest('.ink-canvas-toolbar,.ink-v2-responsive-bar'))) return;
-        // Ordinary scroll inside the page stays native; pinch / Cmd-wheel zooms the camera.
-        if (inFrame && !event.ctrlKey && !event.metaKey && !this.panEnabled) return;
+    onWheel(event, inFrame = false, frame = this.builder.iframe) {
+        if (this.builder.mode !== 'design' || (!inFrame && (editable(event.target) || event.target.closest('.ink-canvas-toolbar,.ink-v2-responsive-bar')))) return;
+        // Design frames are artwork: wheel pans the workspace, never the page interior.
+        // Preview leaves native page scrolling and interactions to the browser.
         event.preventDefault();
         if (event.ctrlKey || event.metaKey) {
-            const stageRect = this.stage.getBoundingClientRect(), frameRect = this.builder.iframe.getBoundingClientRect();
+            const stageRect = this.stage.getBoundingClientRect(), frameRect = frame.getBoundingClientRect();
             const x = inFrame ? frameRect.left - stageRect.left + event.clientX * this.scale : event.clientX - stageRect.left;
             const y = inFrame ? frameRect.top - stageRect.top + event.clientY * this.scale : event.clientY - stageRect.top;
             this.setScale(this.scale * Math.exp(-event.deltaY * .008), { x, y });

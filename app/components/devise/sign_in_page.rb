@@ -11,7 +11,7 @@ module Devise
     end
 
     def view_template
-      render Devise::AuthLayout.new(title: "Sign in to your dashboard") do
+      render Devise::AuthLayout.new(title: "Welcome back", subtitle: "Sign in to write, design, and publish with Inkwell.") do
         render_error_messages
         form_for(@resource, as: @resource_name, url: @submit_url, builder: Ink::FormBuilder) do |form|
           form.group do

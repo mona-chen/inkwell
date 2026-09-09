@@ -34,7 +34,7 @@ module Admin
     def render_user_footer
       div(class: "flex items-center gap-3") do
         div(class: "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-sidebar-accent text-sidebar-accent-foreground text-xs font-semibold") do
-          (@user&.name || "A")[0].upcase
+          (@user&.name.presence || "You").split.values_at(0, -1).uniq.map { |part| part.first }.join.upcase
         end
         div(class: "min-w-0 flex-1") do
           div(class: "truncate text-xs font-semibold text-sidebar-foreground") { @user&.name || "Admin" }

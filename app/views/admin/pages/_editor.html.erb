@@ -66,9 +66,11 @@
     <%# Floating slash-command ("/") insertion menu, positioned by the Stimulus controller %>
     <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-background border border-border rounded-lg shadow-lg py-1"></div>
 
-    <p data-block-editor-target="emptyState" class="text-muted-foreground text-sm italic py-8 text-center border-2 border-dashed rounded-lg <%= 'hidden' unless page.editing_blocks.empty? %>">
-      No blocks yet — click "+ Add block" to start writing.
-    </p>
+    <button type="button" data-block-editor-target="emptyState" data-action="block-editor#addBlock" data-block-editor-type-param="paragraph"
+            class="ink-writing-start <%= 'hidden' unless page.editing_blocks.empty? %>">
+      <span>Start writing…</span>
+      <small>Click here to write. Type / to add a heading, image, or another block.</small>
+    </button>
 
     <%# Hidden <template> elements the Stimulus controller clones when a block type is picked %>
     <%= render "admin/posts/blocks/templates" %>

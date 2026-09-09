@@ -6,16 +6,16 @@ module Ink
       @block = block
     end
 
-    def view_template
-      div(class: "min-h-svh grid place-items-center bg-background p-6", data: { ink: "auth-shell" }) do
-        div(class: "w-full max-w-sm bg-card border border-border p-8 shadow-lg") do
-          div(class: "flex items-center gap-2 mb-5") do
-            span(class: "flex h-8 w-8 items-center justify-center bg-primary text-primary-foreground text-sm font-bold") { "I" }
-            strong(class: "text-sm font-semibold tracking-tight") { "Inkwell" }
+    def view_template(&block)
+      main(class: "ink-auth-shell bg-background text-foreground", data: { ink: "auth-shell", controller: "appearance" }) do
+        div(class: "ink-auth-card bg-card border border-border", data: { ink: "card" }) do
+          div(class: "ink-auth-brand") do
+            span(class: "ink-auth-mark bg-primary text-primary-foreground") { render Ink::Icon.new(:pen_tool, size: :sm) }
+            strong { "Inkwell" }
           end
-          h1(class: "text-lg font-semibold tracking-tight") { @title } if @title
-          p(class: "mt-1 text-xs text-muted-foreground") { @subtitle } if @subtitle
-          div(class: "mt-6") { @block&.call }
+          h1(class: "ink-auth-title") { @title } if @title
+          p(class: "ink-auth-subtitle text-muted-foreground") { @subtitle } if @subtitle
+          div(class: "ink-auth-form") { (@block || block)&.call }
         end
       end
     end

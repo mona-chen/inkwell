@@ -32,6 +32,10 @@
 .ink-v2-viewport-size input { width: 52px; border-color: transparent; border-radius: 4px; background: var(--ink-editor-surface); font-size: 11px; }
 .content-container .ink-v2-viewport-handle { display: flex; }
 .ink-v2-viewport-handle.is-e, .ink-v2-viewport-handle.is-w { top: 0; }
+.ink-v2-viewport-handle { align-items: center; justify-content: center; }
+.ink-v2-viewport-handle.is-s { height: calc(20px / var(--ink-preview-scale, 1)); bottom: calc(-10px / var(--ink-preview-scale, 1)); }
+.ink-v2-viewport-handle.is-s::before { width: calc(50px / var(--ink-preview-scale, 1)); height: calc(4px / var(--ink-preview-scale, 1)); }
+.ink-v2-viewport-handle:focus-visible { outline: 1px solid var(--ink-editor-accent); }
 .ink-pan-surface { position: absolute; inset: 0; z-index: 20; cursor: grab; touch-action: none; }
 .ink-pan-surface[hidden] { display: none; }
 .ink-pan-surface.is-panning { cursor: grabbing; }
@@ -119,7 +123,8 @@
 
 // One shared inspector surface: Agent never takes a fourth column from the canvas.
 .builder-sidebar .ink-copilot-dock { width: 100%; height: 100%; border: 0; }
-.builder-sidebar:has([data-tab="copilot"].active) { --ink-editor-panel-width: 340px; }
+// Tabs share the inspector's width, including a width chosen with the resize handle.
+.builder-sidebar { min-width: 0; }
 body:has([data-tab="copilot"].active) #copilotButton { color: var(--ink-editor-accent); background: var(--ink-editor-accent-soft); }
 .ink-copilot-dock .bc-header { padding: 10px 12px; }
 .ink-copilot-dock .bc-header-badge { display: none; }
@@ -262,3 +267,25 @@ body:has([data-tab="copilot"].active) #copilotButton { color: var(--ink-editor-a
 .ink-shader-custom button { margin: 8px 6px 0 0; padding: 5px 8px; }
 .ink-shader-error:not(:empty) { color: #f79b95; white-space: pre-wrap; }
 .ink-fill-popover input:not([type="checkbox"]):not([type="range"]), .ink-fill-popover textarea, .ink-fill-popover select { background: var(--ink-editor-surface); color: var(--ink-editor-text); border: 1px solid var(--ink-editor-border); border-radius: 4px; }
+
+// Comments stay compact in the sidebar; the conversation opens beside its canvas pin.
+.ink-comment-card-top, .ink-comment-author, .ink-comment-actions { display: flex; align-items: center; gap: 8px; }
+.ink-comment-card-top .ink-comment-anchor { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: auto; }
+.ink-comment-author { margin-top: 10px; font-size: 11px; }
+.ink-comment-author time { margin-left: auto; font-size: 10px; color: var(--ink-editor-muted); }
+.ink-comment-list .ink-comment-actions button, .ink-comment-thread .ink-comment-actions button { border: 0; background: transparent; padding: 2px 0; font-size: 11px; color: var(--ink-editor-muted); }
+.ink-comment-actions { gap: 14px; }
+.ink-comment-list .ink-comment-number { border: 0; border-radius: 50%; width: 22px; height: 22px; padding: 0; background: var(--ink-editor-surface); }
+.ink-comment-thread { position: fixed; z-index: 10035; width: min(300px, calc(100vw - 16px)); max-height: min(520px, calc(100vh - 80px)); overflow: auto; padding: 14px; box-sizing: border-box; border: 1px solid var(--ink-editor-border); border-radius: 12px; background: var(--ink-editor-panel); color: var(--ink-editor-text); font: 12px/1.5 var(--ink-editor-font); box-shadow: 0 12px 36px #0004; }
+.ink-comment-thread[hidden] { display: none; }
+.ink-comment-thread p { white-space: pre-wrap; overflow-wrap: anywhere; margin: 4px 0 12px; }
+.ink-comment-thread button { border: 0; border-radius: 5px; padding: 4px 6px; background: var(--ink-editor-surface); color: var(--ink-editor-text); font: inherit; cursor: pointer; }
+.ink-comment-thread form { position: relative; margin-top: 12px; }
+.ink-comment-thread textarea { box-sizing: border-box; width: 100%; min-height: 80px; resize: vertical; padding: 9px 9px 30px; border: 1px solid var(--ink-editor-border); border-radius: 8px; background: var(--ink-editor-surface); color: var(--ink-editor-text); font: inherit; }
+.ink-comment-thread form button { position: absolute; bottom: 9px; right: 6px; background: var(--ink-editor-accent); color: white; width: 26px; height: 24px; }
+.ink-comment-thread textarea:focus { outline: 1px solid var(--ink-editor-accent); }
+.ink-comment-pins button[aria-expanded="true"], .ink-comment-pins button.is-highlighted { box-shadow: 0 0 0 4px #eeb64340; }
+.ink-comment-pins button.is-resolved { background: var(--ink-editor-muted); opacity: .65; }
+.ink-editor-avatars { display: flex; align-items: center; padding-left: 4px; }
+.ink-appbar .ink-editor-avatar { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; margin-left: -4px; border: 2px solid var(--ink-editor-panel); border-radius: 9px; background: hsl(var(--avatar-hue, 205) 65% 43%); color: #fff; font: 600 10px/1 var(--ink-editor-font); cursor: pointer; }
+.ink-appbar .ink-editor-avatar:hover, .ink-appbar .ink-editor-avatar:focus-visible { z-index: 1; outline: 2px solid var(--ink-editor-accent); outline-offset: 1px; }

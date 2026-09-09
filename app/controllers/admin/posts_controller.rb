@@ -72,9 +72,15 @@ module Admin
       authorize @post
       # The Publish button submits the main form, so persist the serialized draft from the
       # hidden field before committing it (covers deletes made right before publish).
-      @post.update!(draft_content: post_params[:draft_content]) if params.dig(:post, :draft_content).present?
-      @post.publish_draft!
+      attributes = params[:post].present? ? post_params : ActionController::Parameters.new.permit!
+      @post.with_lock do
+        @post.update!(attributes.except(:category_ids, :tag_ids, :status, :content).to_h) if attributes.present?
+        @post.term_ids_by_taxonomy = { "category" => attributes[:category_ids], "tag" => attributes[:tag_ids] }.compact if attributes.key?(:category_ids) || attributes.key?(:tag_ids)
+        @post.publish_draft!
+      end
       redirect_to edit_admin_post_path(@post), notice: "Published."
+    rescue ActiveRecord::RecordInvalid
+      render :edit, status: :unprocessable_entity
     end
 
     private

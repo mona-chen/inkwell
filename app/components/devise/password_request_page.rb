@@ -9,7 +9,7 @@ module Devise
     end
 
     def view_template
-      render Devise::AuthLayout.new(title: "Reset your password") do
+      render Devise::AuthLayout.new(title: "Reset your password", subtitle: "We’ll email you a link to get back into your workspace.") do
         render_error_messages
         form_for(@resource, as: @resource_name, url: @submit_url, html: { method: :post }, builder: Ink::FormBuilder) do |form|
           form.group do

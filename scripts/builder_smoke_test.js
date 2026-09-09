@@ -121,6 +121,11 @@ async function main() {
 
     await client.send("Page.navigate", { url: `${BASE_URL}/users/sign_in` });
     await wait(2500);
+    if (process.env.APP_UI_SMOKE_ONLY) {
+      const capture=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync('/tmp/inkwell-login.png',Buffer.from(capture.result.data,'base64'));
+      const auth=await client.evaluate(`({shell:!!document.querySelector('[data-ink="auth-shell"]'),card:!!document.querySelector('[data-ink="card"]'),password:!!document.querySelector('input[autocomplete="current-password"]'),overflow:document.documentElement.scrollWidth>innerWidth})`);
+      check('sign-in uses the shared Ink surface and accessible password field',auth.shell&&auth.card&&auth.password&&!auth.overflow,JSON.stringify(auth));
+    }
     await client.evaluate(`(function(){
       var email = document.querySelector('input[name="user[email]"]');
       if (!email) return false;
@@ -130,6 +135,22 @@ async function main() {
       return true;
     })()`);
     await wait(2500);
+
+    if (process.env.APP_UI_SMOKE_ONLY) {
+      for (const route of ['/admin','/admin/posts','/admin/pages','/admin/posts/new','/admin/media','/admin/comments','/admin/menus','/admin/themes','/admin/users','/admin/settings']) {
+        await client.send('Page.navigate',{url:BASE_URL+route});await wait(1200);
+        const page=await client.evaluate(`({title:document.title,shell:!!document.querySelector('[data-ink="shell"]'),overflow:document.documentElement.scrollWidth>innerWidth,errors:document.querySelector('h1')?.textContent})`);
+        check('workspace screen renders '+route,page.shell&&!page.overflow,JSON.stringify(page));
+        if(route==='/admin/posts/new') {
+          const writing=await client.evaluate(`(function(){document.querySelector('.ink-writing-start').click();var block=document.querySelector('[data-block-editor-target="block"]');return {block:!!block,focused:!!block?.contains(document.activeElement),hidden:document.querySelector('.ink-writing-start').classList.contains('hidden')};})()`);
+          check('Start writing creates a real focused editable paragraph',writing.block&&writing.focused&&writing.hidden,JSON.stringify(writing));
+          await client.evaluate(`document.querySelector('[data-block-editor-target="undoButton"]').click();true`);
+        }
+        if(['/admin','/admin/posts/new'].includes(route)){const capture=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync('/tmp/inkwell-'+(route==='/admin'?'workspace':'writing')+'.png',Buffer.from(capture.result.data,'base64'));}
+      }
+      check('app navigation has no uncaught errors',client.errors.length===0,client.errors.join(' | '));
+      client.close();process.exitCode=failures?1:0;return;
+    }
 
     await client.send("Page.navigate", { url: `${BASE_URL}/builder/page/${pageId}` });
     await wait(7000);
@@ -161,13 +182,56 @@ async function main() {
       await client.evaluate(`builder.collaboration.composer.querySelector('textarea').value='Check this spacing';builder.collaboration.composer.requestSubmit();true`);await wait(500);await second.evaluate('builder.collaboration.sync()');
       const comments=await second.evaluate(`({count:builder.collaboration.threads.length,text:builder.collaboration.threads[0]?.messages[0]?.text})`);
       check('canvas comment arrives for the second editor',comments.count===1&&comments.text==='Check this spacing',JSON.stringify(comments));
+      const opened = await client.evaluate(`(function(){var c=builder.collaboration;c.renderPins();c.pins.querySelector('button').click();return {visible:!c.threadPopover.hidden,text:c.threadPopover.textContent,inputs:c.panel.querySelectorAll('.ink-comment-list textarea').length};})()`);
+      check('clicking a pin opens its conversation beside the canvas and sidebar stays compact',opened.visible&&opened.text.includes('Check this spacing')&&opened.inputs===0,JSON.stringify(opened));
+      await client.evaluate(`builder.collaboration.threadPopover.querySelector('textarea').focus();true`);await wait(600);
+      const replyFocus=await client.evaluate(`document.activeElement===builder.collaboration.threadPopover.querySelector('textarea')`);
+      check('pin positioning updates preserve focus in the reply composer',replyFocus);
+      await client.evaluate(`(function(){var input=builder.collaboration.threadPopover.querySelector('textarea');input.value='Reply from the canvas';input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',ctrlKey:true,bubbles:true,cancelable:true}));return true;})()`);await wait(500);await second.evaluate('builder.collaboration.sync()');
+      const replied=await second.evaluate(`builder.collaboration.threads[0].messages.map(x=>x.text)`);
+      check('canvas thread sends replies with Ctrl Enter and syncs to the other editor',replied.includes('Reply from the canvas'),JSON.stringify(replied));
       const screenshot=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync('/tmp/inkwell-comments.png',Buffer.from(screenshot.result.data,'base64'));
       const chromeState=await client.evaluate(`builder.studio.setTool('select');builder.studio.openExplorer('layers');({tabs:[...document.querySelectorAll('.builder-sidebar-tabs [role="tab"]')].map(x=>x.textContent),ellipsis:getComputedStyle(document.querySelector('[data-ink-navigator-label]')).textOverflow,toolbar:[...builder.studio.toolbar.querySelectorAll('[data-studio-tool]')].map(x=>x.dataset.studioTool)})`);
       check('inspector order, canvas tools, and layer truncation match the intended layout',chromeState.tabs.join(',')==='Design,Agent,Code'&&chromeState.ellipsis==='ellipsis'&&chromeState.toolbar.join(',')==='select,hand,comment',JSON.stringify(chromeState));
       second.close();browser.close();client.close();process.exitCode=failures?1:0;return;
     }
 
+    if (process.env.FRAME_SCROLL_SMOKE_ONLY) {
+      let frameState = await client.evaluate(`(function(){
+        var b=builder,v=b.viewport,r=b.runtime;
+        r.insert('frame',{}, {styles:{desktop:{base:{height:{size:1800,unit:'px'},width:{size:500,unit:'px'}}}}});
+        v.setSize(1440,600);v.fitScale();window.__frameBefore=JSON.stringify(b.getData());
+        var rect=b.iframe.getBoundingClientRect();window.__cameraY=v.y;
+        return {x:rect.left+100,y:rect.top+100};
+      })()`);
+      await client.send('Input.dispatchMouseEvent',{type:'mouseWheel',x:frameState.x,y:frameState.y,deltaX:0,deltaY:120});await wait(250);
+      frameState=await client.evaluate(`({page:builder.iframeDoc.defaultView.scrollY,camera:builder.viewport.y,initial:window.__cameraY})`);
+      check('wheel over the design frame pans the canvas without scrolling the page',frameState.page===0&&frameState.camera<frameState.initial,JSON.stringify(frameState));
+      frameState=await client.evaluate(`(function(){var b=builder,v=b.viewport;v.fitScale();v.bar.querySelector('[data-fit-content]').click();var fit=v.sizes.desktop.height;var grip=v.handles.find(x=>x.dataset.edge==='s');grip.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',shiftKey:true,bubbles:true,cancelable:true}));var extended=v.sizes.desktop.height;v.setSize(1440,6500);var long=v.sizes.desktop.height;b.setDevice('mobile');b.setDevice('desktop');return {fit:fit,extended:extended,long:long,remembered:v.sizes.desktop.height,unchanged:window.__frameBefore===JSON.stringify(b.getData())};})()`);
+      check('frame height fits content, supports keyboard resizing and long pages without changing design data',frameState.fit>=1800&&frameState.extended===frameState.fit+10&&frameState.long===6500&&frameState.remembered===6500&&frameState.unchanged,JSON.stringify(frameState));
+      const resize=await client.evaluate(`(function(){var v=builder.viewport;v.setSize(1440,600);v.fitScale();v.setScale(.5);var rect=v.handles.find(x=>x.dataset.edge==='s').getBoundingClientRect();return {x:rect.x+rect.width/2,y:rect.y+rect.height/2,height:v.sizes.desktop.height};})()`);
+      await client.send('Input.dispatchMouseEvent',{type:'mousePressed',x:resize.x,y:resize.y,button:'left',clickCount:1});
+      await client.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:resize.x,y:resize.y+80,button:'left',buttons:1});
+      await client.send('Input.dispatchMouseEvent',{type:'mouseReleased',x:resize.x,y:resize.y+80,button:'left',clickCount:1});
+      const resized=await client.evaluate(`builder.viewport.sizes.desktop.height`);
+      check('dragging the bottom frame grip respects canvas zoom',Math.abs(resized-resize.height-160)<2,JSON.stringify({before:resize.height,after:resized}));
+      frameState=await client.evaluate(`(function(){var b=builder;b.viewport.setSize(1440,600);b.setMode('preview');b.iframeDoc.defaultView.scrollTo(0,300);return {scroll:b.iframeDoc.defaultView.scrollY,overflow:b.iframeDoc.defaultView.getComputedStyle(b.iframeDoc.documentElement).overflow};})()`);
+      check('Preview retains native page scrolling',frameState.scroll===300&&frameState.overflow!=='clip',JSON.stringify(frameState));
+      frameState=await client.evaluate(`builder.setMode('design');({scroll:builder.iframeDoc.defaultView.scrollY,overflow:builder.iframeDoc.defaultView.getComputedStyle(builder.iframeDoc.documentElement).overflow})`);
+      check('returning to Design resets the internal scroll position',frameState.scroll===0&&frameState.overflow==='clip',JSON.stringify(frameState));
+      await client.evaluate(`builder.breakpoints.setEnabled(true);true`);await wait(400);
+      frameState=await client.evaluate(`(async function(){var b=builder,frame=b.breakpoints.previews.get('tablet').iframe,doc=frame.contentDocument,y=b.viewport.y;var event=new doc.defaultView.WheelEvent('wheel',{deltaY:80,bubbles:true,cancelable:true});doc.body.dispatchEvent(event);doc.defaultView.scrollTo(0,200);await new Promise(resolve=>setTimeout(resolve,100));return {prevented:event.defaultPrevented,delta:y-b.viewport.y,scroll:doc.defaultView.scrollY,overflow:doc.defaultView.getComputedStyle(doc.documentElement).overflow};})()`);
+      check('comparison frames share the same canvas scrolling behavior',frameState.prevented&&frameState.delta===80&&frameState.scroll===0,JSON.stringify(frameState));
+      client.close();process.exitCode=failures?1:0;return;
+    }
+
     if (process.env.COPILOT_UI_SMOKE_ONLY) {
+      for (const screenWidth of [1440, 1000, 800]) {
+        await client.send('Emulation.setDeviceMetricsOverride', { width: screenWidth, height: 1000, deviceScaleFactor: 1, mobile: false });await wait(120);
+        const switching=await client.evaluate(`(async function(){var b=builder,panel=document.querySelector('.builder-sidebar');var next=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));var geometry=()=>{var rect=b.viewport.stage.getBoundingClientRect();return [panel.getBoundingClientRect().width,rect.x,rect.width,b.viewport.x,b.viewport.y,b.viewport.scale];};var runs=[];for(var custom of [false,true]){if(custom)panel.style.setProperty('--ink-editor-panel-width','320px');document.querySelector('[data-tab="controls"]').click();await next();var before=geometry();for(var tab of ['copilot','code','controls','copilot','controls']){(tab==='code'?[...document.querySelectorAll('.builder-sidebar-tabs [data-tab]')].find(x=>x.textContent.trim()==='Code'):document.querySelector('[data-tab="'+tab+'"]')).click();await next();runs.push({custom:custom,tab:tab,stable:JSON.stringify(geometry())===JSON.stringify(before),width:geometry()[0]});}}panel.style.removeProperty('--ink-editor-panel-width');return runs;})()`);
+        check('inspector tabs preserve panel width and canvas camera at '+screenWidth+'px',Array.isArray(switching)&&switching.every(x=>x.stable),JSON.stringify(switching));
+      }
+      await client.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });await wait(100);
       const ui = await client.evaluate(`(function(){
         var before=JSON.stringify(builder.getData()), calls=0, oldFetch=window.fetch;
         window.fetch=function(){calls++;return oldFetch.apply(this,arguments);};
