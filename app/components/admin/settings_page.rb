@@ -65,7 +65,7 @@ module Admin
             url: admin_settings_path(section: @section),
             method: :patch,
             scope: "settings",
-            builder: NitroKit::FormBuilder,
+            builder: Ink::FormBuilder,
             html: { id: form_id }
           ) do |form|
             form.group do
@@ -81,7 +81,7 @@ module Admin
             end
 
             form.group do
-              render NitroKit::Checkbox.new(
+              render Ink::Checkbox.new(
                 label: "Enable comments",
                 name: "settings[comments_enabled]",
                 value: "1",
@@ -174,16 +174,16 @@ module Admin
             url: admin_settings_path(section: @section),
             method: :patch,
             scope: "settings",
-            builder: NitroKit::FormBuilder,
+            builder: Ink::FormBuilder,
             html: { id: form_id }
           ) do |form|
             form.group do
-              render NitroKit::RadioButtonGroup.new(
+              render Ink::RadioButtonGroup.new(
                 legend: "Your homepage displays",
                 name: "settings[show_on_front]",
                 options: [
-                  NitroKit::Choice.new(label: "Your latest posts", value: "posts"),
-                  NitroKit::Choice.new(label: "A static page", value: "page")
+                  Ink::Choice.new(label: "Your latest posts", value: "posts"),
+                  Ink::Choice.new(label: "A static page", value: "page")
                 ],
                 value: setting_value("show_on_front", "posts")
               )
@@ -207,7 +207,7 @@ module Admin
     end
 
     def render_maintenance_section
-      render NitroKit::DangerZone.new(
+      render Ink::DangerZone.new(
         title: "Maintenance",
         description: "Clear caches and force freshly-compiled assets. Use when edits aren't showing up due to cached styles, fragments, or render output."
       ) do |zone|

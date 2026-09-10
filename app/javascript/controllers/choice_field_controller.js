@@ -18,6 +18,7 @@ export default class extends Controller {
     this.setValue(btn.dataset.value)
     this.render()
     this.inputTarget.dispatchEvent(new Event("change", { bubbles: true }))
+    this.inputTarget.dispatchEvent(new Event("input", { bubbles: true }))
   }
 
   currentValue() {

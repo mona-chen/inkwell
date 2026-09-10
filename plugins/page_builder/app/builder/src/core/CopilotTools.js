@@ -1,3 +1,4 @@
+import { normalizeShader, validateCustomShader, SHADER_PRESETS, CUSTOM_SHADER_EXAMPLE } from './shaderPresets.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -10,7 +11,7 @@ const clone = (value) => value == null ? value : structuredClone(value);
 const escapeRegExp = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const textValue = (node) => node.settings?.text || node.settings?.title || node.settings?.label || '';
 const labelOf = (node) => textValue(node) ? ` — ${String(textValue(node)).replace(/<[^>]+>/g, '').slice(0, 60)}` : '';
-const asJson = (value) => JSON.stringify(value, null, 2);
+const asJson = (value) => JSON.stringify(value);
 
 export function createCopilotTools(runtime, builder) {
     const isNumericPath = (value) => /^\d+(\.\d+)*$/.test(String(value));
@@ -68,13 +69,16 @@ export function createCopilotTools(runtime, builder) {
         const groups = {};
         runtime.elements.list().filter((definition) => !definition.internal).forEach((definition) => {
             const category = definition.category || 'Other';
-            (groups[category] ||= []).push(compactDefinition(definition));
+            const compact = compactDefinition(definition);
+            if (!['frame', 'container', 'heading', 'paragraph', 'button', 'image', 'shader'].includes(definition.type)) delete compact.defaults;
+            (groups[category] ||= []).push(compact);
         });
         return {
             documentVersion: 2,
             elements: groups,
             styleShape: { desktop: { base: { color: '#111827', padding: { top: 24, right: 24, bottom: 24, left: 24, unit: 'px' } } }, tablet: { base: {} }, mobile: { base: {} } },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },
+            shaderFills: { presets: SHADER_PRESETS.map(([id]) => id), setting: 'shaderFill', example: { enabled: true, preset: 'mesh-gradient', speed: .5, intensity: .7 }, customShader: CUSTOM_SHADER_EXAMPLE, guidance: 'Apply shader fills to existing layers with set_shader_fill. Custom GLSL compiles before applying and stays editable in Fill.' },
             composition: {
                 maximumNodes: MAX_TREE_NODES,
                 recursiveChildren: true,
@@ -145,6 +149,7 @@ export function createCopilotTools(runtime, builder) {
         const total = countSpec(args.tree);
         if (total > MAX_TREE_NODES) throw new RangeError(`Tree has ${total} nodes; maximum is ${MAX_TREE_NODES}.`);
         const target = resolve(args.path || args.id);
+        if ((args.path || args.id) && !target) throw new TypeError('Target not found; read_design for current IDs. No elements were inserted.');
         const parent = target?.node || null;
         if (parent && !runtime.elements.get(parent.type).acceptsChildren) throw new TypeError('Target cannot contain children.');
         const node = materialize(args.tree, parent);
@@ -423,8 +428,8 @@ export function createCopilotTools(runtime, builder) {
         const h1s = root ? root.querySelectorAll('h1').length : 0;
         const actions = root ? [...root.querySelectorAll('a[href], button, [role="button"]')]
             .filter((element) => !element.closest('[data-ink-editor-only]') && !element.closest('.ink-editor-overlay')).length : 0;
-        const emptyContainers = allNodes.filter((node) => runtime.elements.get(node.type).acceptsChildren && !(node.children || []).length).length;
-        const sectionLike = allNodes.filter((node) => ['section', 'container'].includes(node.type)).length;
+        const emptyContainers = allNodes.filter((node) => runtime.elements.get(node.type).acceptsChildren && !['frame', 'shader'].includes(node.type) && !(node.children || []).length).length;
+        const sectionLike = allNodes.filter((node) => ['section', 'container', 'frame'].includes(node.type)).length;
         const rootRect = root?.getBoundingClientRect();
         const overflow = rootRect ? elements.filter((element) => {
             const rect = element.getBoundingClientRect();
@@ -474,13 +479,27 @@ export function createCopilotTools(runtime, builder) {
     const apply = (name, args = {}) => {
         try {
             const target = resolve(args.path || args.id);
+            if ((args.path || args.id) && !target) throw new TypeError('Element not found; read_design for current IDs.');
             switch (name) {
                 case 'get_capabilities': return asJson(capabilities());
                 case 'read_design': return index();
-                case 'read_element': return target ? asJson({ settings: target.node.settings, styles: target.node.styles }) : 'element not found';
+                case 'get_editor_context': return asJson(context());
+                case 'get_element_schema': {
+                    if (!runtime.elements.has(args.type)) throw new TypeError(`Unknown element type: ${args.type}`);
+                    const definition = runtime.elements.get(args.type);
+                    return asJson({ ...compactDefinition(definition), controls: definition.controls.map((control) => Object.fromEntries(Object.entries(control).filter(([key]) => ['name', 'type', 'target', 'part', 'options', 'default', 'units', 'min', 'max', 'step', 'responsive', 'condition'].includes(key)))) });
+                }
+                case 'read_element': return target ? asJson({ id: target.node.id, type: target.node.type, settings: target.node.settings, styles: target.node.styles, children: (target.node.children || []).map(({ id, type }) => ({ id, type })) }) : asJson({ ok: false, error: 'Element not found' });
                 case 'read_custom_code': return asJson({ css: builder.customCode.getCss(), js: builder.customCode.getJs() });
                 case 'audit_design': return asJson(auditDesign());
                 case 'compose_landing_page': return asJson(composeLandingPage(args));
+                case 'set_shader_fill': {
+                    if (!target) throw new Error('Select an existing layer for the shader fill.');
+                    const fill = normalizeShader({ ...target.node.settings.shaderFill, ...(args.fill || {}), enabled: args.fill?.enabled !== false });
+                    if (fill.preset === 'custom') validateCustomShader(fill.customCode);
+                    runtime.update(target.node.id, { settings: { shaderFill: fill } }, 'AI shader fill');
+                    return asJson({ ok: true, id: target.node.id, preset: fill.preset });
+                }
                 case 'replace_page': return asJson(replacePage(args));
                 case 'append_tree': return asJson(appendTree(args));
                 case 'insert_element': {
@@ -525,14 +544,17 @@ export function createCopilotTools(runtime, builder) {
         }
     };
 
-    const treeNodeSchema = { type: 'object', description: 'Recursive builder node: {type, settings, styles, children}. Use only element types returned by get_capabilities.' };
+    const treeNodeSchema = { type: 'object', properties: { type: { type: 'string' }, settings: { type: 'object', additionalProperties: true }, styles: { type: 'object', additionalProperties: true }, children: { type: 'array', items: { type: 'object', additionalProperties: true, description: 'Another native node with type, settings, styles, and optional children.' } } }, required: ['type'], description: 'Recursive native builder node. Use exact element types and setting names from capabilities.' };
     const TOOLS = [
+        { name: 'set_shader_fill', description: 'Apply a preset or custom GLSL shader fill to an existing layer. fill accepts enabled, preset, colorA/colorB/colorC hex colors, animate, speed (0–2), intensity (0–1), grain (0–0.3), and customCode. For custom GLSL set preset custom and define vec4 inkShader(vec2 uv,float time,vec2 resolution); uniforms a,b,c and intensity are available. Code is compiled before mutation.', parameters: { type: 'object', properties: { id: { type: 'string' }, fill: { type: 'object', additionalProperties: true } }, required: ['id','fill'] } },
         { name: 'get_capabilities', description: 'Return every available builder element grouped by category, its editable setting names/defaults, the responsive style shape, and custom-code support. Call this before composing a page.', parameters: { type: 'object', properties: {} } },
+        { name: 'get_editor_context', description: 'Read selected layer IDs, current breakpoint, page settings, and viewport before context-dependent edits.', parameters: { type: 'object', properties: {} } },
+        { name: 'get_element_schema', description: 'Return the exact control schema for one element type, including options, conditions, targets, and responsive support. Use to configure layout, interaction, or advanced properties without guessing.', parameters: { type: 'object', properties: { type: { type: 'string' } }, required: ['type'] } },
         { name: 'read_design', description: 'Return the current page as a numbered tree. Call before a targeted edit.', parameters: { type: 'object', properties: {} } },
         { name: 'read_element', description: 'Return one element settings and responsive styles.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' } } } },
         { name: 'read_custom_code', description: 'Return current page-level CSS and JavaScript.', parameters: { type: 'object', properties: {} } },
         { name: 'audit_design', description: 'Inspect the live rendered canvas for hierarchy, calls to action, empty containers, tiny text, horizontal overflow, and custom-code usage. Run after composing and after final corrections.', parameters: { type: 'object', properties: {} } },
-        { name: 'compose_landing_page', description: 'Preferred whole-page tool. Compose an art-directed, responsive, fully editable landing page from a compact creative blueprint. Supply specific copy; the browser expands it into native builder primitives, polished responsive CSS, and one atomic undo step.', parameters: { type: 'object', properties: {
+        { name: 'compose_landing_page', description: 'Optional portfolio template. Compose an editable landing page from a fixed hero/work/proof/process structure. Use replace_page for original compositions, product UI, dashboards, apps, or reference-specific designs. Supply specific copy; the browser expands it into native builder primitives, polished responsive CSS, and one atomic undo step.', parameters: { type: 'object', properties: {
             siteName: { type: 'string' }, palette: { type: 'object', properties: { background: { type: 'string' }, surface: { type: 'string' }, text: { type: 'string' }, muted: { type: 'string' }, accent: { type: 'string' } } },
             navLabel: { type: 'string' }, contactLabel: { type: 'string' },
             hero: { type: 'object', properties: { eyebrow: { type: 'string' }, headline: { type: 'string' }, body: { type: 'string' }, asideLabel: { type: 'string' }, asideTitle: { type: 'string' }, asideBody: { type: 'string' }, primaryCta: { type: 'object' }, secondaryCta: { type: 'object' } }, required: ['headline', 'body'] },
@@ -543,7 +565,7 @@ export function createCopilotTools(runtime, builder) {
             closing: { type: 'object', properties: { eyebrow: { type: 'string' }, headline: { type: 'string' }, body: { type: 'string' }, cta: { type: 'object' } }, required: ['headline', 'body'] },
             footer: { type: 'object', properties: { copyright: { type: 'string' }, links: { type: 'array', items: { type: 'string' } } } },
         }, required: ['siteName', 'hero', 'projects', 'proof', 'process', 'closing'] } },
-        { name: 'replace_page', description: 'Low-level escape hatch: atomically replace a page with a complete recursive element tree and optional custom CSS/JS. Use for non-standard compositions that the compact landing-page tool cannot express.', parameters: { type: 'object', properties: { settings: { type: 'object' }, children: { type: 'array', items: treeNodeSchema }, customCss: { type: 'string' }, customJs: { type: 'string' } }, required: ['children'] } },
+        { name: 'replace_page', description: 'Compose an original page or app interface as a complete recursive native element tree in one undo step. Use responsive node styles for editable layout, typography, fills, and effects; optional custom CSS/JS enhances the native elements. Preserve existing content unless the request calls for replacement.', parameters: { type: 'object', properties: { settings: { type: 'object' }, children: { type: 'array', items: treeNodeSchema }, customCss: { type: 'string' }, customJs: { type: 'string' } }, required: ['children'] } },
         { name: 'append_tree', description: 'Append one complete recursive layout tree at the root or inside a container. Preferred for an Add section request.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' }, tree: treeNodeSchema }, required: ['tree'] } },
         { name: 'insert_element', description: 'Insert one element for a small surgical edit. For sections or complete pages use append_tree or replace_page.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' }, type: { type: 'string' }, settings: { type: 'object' }, styles: { type: 'object' } }, required: ['type'] } },
         { name: 'update_element', description: 'Change an element settings such as copy, tag, URL, icon, or CSS classes.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' }, settings: { type: 'object' } }, required: ['settings'] } },
@@ -558,6 +580,19 @@ export function createCopilotTools(runtime, builder) {
         { name: 'redo', description: 'Redo the last undone change.', parameters: { type: 'object', properties: {} } },
     ];
 
-    const MUTATING_TOOLS = new Set(['compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
-    return { apply, index, resolve, TOOLS, MUTATING_TOOLS, isMutation: (name) => MUTATING_TOOLS.has(name) };
+    const MUTATING_TOOLS = new Set(['set_shader_fill', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
+    const context = () => ({
+        selection: [...runtime.selection.selectedIds].map((id) => { const node = runtime.document.get(id); return node ? { id, type: node.type, label: node.settings.label || labelOf(node) } : null; }).filter(Boolean),
+        device: runtime.responsive.device,
+        viewport: { width: builder.iframe?.clientWidth, height: builder.iframe?.clientHeight },
+        page: clone(runtime.document.data.settings),
+        guidance: 'Selected IDs identify this/these layers. Preserve the existing page for targeted edits. Use responsive native styles so inspector controls remain authoritative.',
+    });
+    const execute = (name, args = {}) => {
+        let mutated = false;
+        const off = runtime.events.on('history:change', () => { mutated = true; });
+        try { return { content: String(apply(name, args)), mutated }; }
+        finally { off(); }
+    };
+    return { apply, execute, context, index, resolve, TOOLS, MUTATING_TOOLS, isMutation: (name) => MUTATING_TOOLS.has(name) };
 }

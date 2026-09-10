@@ -1,7 +1,7 @@
 <div data-block-editor-target="block" data-type="list"
      class="group relative py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
   <%= render "admin/posts/blocks/toolbar" %>
-  <div data-controller="choice-field" class="flex items-center gap-3 mb-2">
+  <div data-controller="choice-field list-block" data-action="input->list-block#render" class="space-y-2">
     <input type="checkbox" data-field="ordered" data-choice-field-target="input" class="hidden"
            <%= "checked" if local_assigns[:data]&.dig("ordered") %>>
     <div class="choice-field" role="radiogroup" aria-label="List style">
@@ -12,8 +12,11 @@
               data-action="choice-field#choose" role="radio" aria-label="Numbered list"
               class="choice-btn">1. Numbered</button>
     </div>
+    <textarea data-field="items" data-list-block-target="items"
+              data-action="input->block-editor#onInput input->list-block#render keydown->block-editor#onKeydown"
+              rows="3" placeholder="One item per line&#10;Like this&#10;And this"
+              class="w-full resize-none rounded-lg border border-border/70 bg-background/40 px-3 py-2 text-sm leading-6 text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/10"><%= local_assigns[:data]&.dig("items") %></textarea>
+    <%# Keep the controller target for serialization without duplicating the authored list. %>
+    <div data-list-block-target="preview" class="hidden" aria-hidden="true"></div>
   </div>
-  <textarea data-field="items" data-action="input->block-editor#onInput keydown->block-editor#onKeydown"
-            rows="3" placeholder="One item per line&#10;Like this&#10;And this" 
-            class="w-full border-0 focus:ring-0 resize-none text-base leading-relaxed p-0 bg-transparent text-foreground placeholder:text-muted-foreground"><%= local_assigns[:data]&.dig("items") %></textarea>
 </div>

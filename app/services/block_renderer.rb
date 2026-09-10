@@ -30,7 +30,7 @@ class BlockRenderer
   # Activation-aware: registered by on_activate, removed by on_deactivate.
   EDITOR_TOOLBAR_PARTIALS = []
 
-  # Lucide icon (NitroKit::Icon name) per block type, shown in the "+ Add block" picker.
+  # Lucide icon (Ink::Icon name) per block type, shown in the "+ Add block" picker.
   # Plugins can register their own icon alongside a type.
   ICONS = {
     "heading"    => "heading",

@@ -26,7 +26,7 @@ Rails.application.routes.draw do
       end
     end
     resources :taxonomies, only: [:index, :create, :update, :destroy]
-    resources :pages do
+    resources :pages, except: :show do
       member { post :publish }
       member { post :publish_original_import }
     end
@@ -35,7 +35,7 @@ Rails.application.routes.draw do
     end
     resources :media, only: [:index, :create, :update, :destroy]
     resources :comments, only: [:index, :update, :destroy]
-    resources :menus do
+    resources :menus, only: %i[index show] do
       resources :menu_items, only: [:create, :update, :destroy]
     end
     resources :widgets, only: [:index, :create, :update, :destroy]
@@ -50,7 +50,7 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :users, except: [:show] do
+    resources :users, only: %i[index create update destroy] do
       member do
         post :deactivate
         post :reactivate

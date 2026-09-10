@@ -64,9 +64,13 @@ module Admin
       authorize @page
       # The Publish button submits the main form, so persist the serialized draft from the
       # hidden field before committing it to live content (covers deletes made right before publish).
-      @page.update!(draft_content: page_params[:draft_content]) if params.dig(:page, :draft_content).present?
-      @page.publish_native!
+      @page.with_lock do
+        @page.update!(page_params.except(:status, :content).to_h) if params[:page].present?
+        @page.publish_native!
+      end
       redirect_to edit_admin_page_path(@page), notice: "Published."
+    rescue ActiveRecord::RecordInvalid
+      render :edit, status: :unprocessable_entity
     end
 
     def publish_original_import

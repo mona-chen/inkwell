@@ -3,8 +3,8 @@
      class="group relative py-1.5 px-1 -mx-1 rounded transition-colors hover:bg-white/5">
   <%= render "admin/posts/blocks/toolbar" %>
   <input type="hidden" data-field="level" value="<%= level %>">
-  <input data-field="text"
-         data-action="input->block-editor#onInput keydown->block-editor#onKeydown" type="text"
-         value="<%= local_assigns[:data]&.dig("text") %>" placeholder="Heading"
-         class="heading-preview w-full border-0 focus:ring-0 font-bold p-0 bg-transparent text-foreground placeholder:text-muted-foreground">
+  <textarea data-field="text"
+            data-action="input->block-editor#onInput keydown->block-editor#onKeydown"
+            rows="1" placeholder="Heading"
+            class="heading-preview block w-full resize-none overflow-hidden border-0 bg-transparent p-0 font-bold text-foreground placeholder:text-muted-foreground focus:ring-0"><%= local_assigns[:data]&.dig("text") %></textarea>
 </div>

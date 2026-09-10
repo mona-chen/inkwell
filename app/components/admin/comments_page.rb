@@ -95,13 +95,16 @@ module Admin
           unless comment.status == "spam"
             render ButtonTo.new("Mark spam", href: admin_comment_path(comment, status: "spam"), method: :patch, variant: :default, size: :sm, icon: :ban)
           end
+          if comment.status == "trashed"
+            render ButtonTo.new("Restore", href: admin_comment_path(comment, status: "pending"), method: :patch, variant: :default, size: :sm, icon: :undo_2)
+          end
           render ButtonTo.new(
-            "Delete",
+            comment.status == "trashed" ? "Delete permanently" : "Move to trash",
             href: admin_comment_path(comment),
             method: :delete,
-            variant: :ghost,
+            variant: comment.status == "trashed" ? :destructive : :ghost,
             size: :sm,
-            data: { turbo_confirm: "Delete this comment permanently?" }
+            data: { turbo_confirm: comment.status == "trashed" ? "Delete this comment permanently?" : "Move this comment to trash?" }
           )
         end
       end

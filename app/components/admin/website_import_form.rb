@@ -24,7 +24,7 @@ module Admin
         description: "Inkwell follows internal links, captures responsive evidence, then maps the site into native Builder elements."
       ) do |section|
         section.form do
-          form_with(model: @website_import, url: admin_website_imports_path, id: FORM_ID, builder: NitroKit::FormBuilder) do |form|
+          form_with(model: @website_import, url: admin_website_imports_path, id: FORM_ID, builder: Ink::FormBuilder) do |form|
             form.group do
               form.field(:source_url, as: :url, label: "Website URL", placeholder: "https://example.com", required: true)
               form.field(:max_pages, as: :number, label: "Maximum pages", min: 1, max: 250, required: true)

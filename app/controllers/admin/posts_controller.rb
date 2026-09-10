@@ -20,7 +20,10 @@ module Admin
     end
 
     def create
-      @post = Current.site.posts.build(post_params.except(:category_ids, :tag_ids))
+      attrs = post_params.except(:category_ids, :tag_ids).to_h
+      attrs["status"] = "draft" if params[:save_draft].present?
+      attrs["title"] = "Untitled" if attrs["title"].blank? && attrs["status"] == "draft"
+      @post = Current.site.posts.build(attrs)
       @post.author = current_user
       authorize @post
 
@@ -38,7 +41,10 @@ module Admin
 
     def update
       authorize @post
-      if @post.update(post_params.except(:category_ids, :tag_ids))
+      attrs = post_params.except(:category_ids, :tag_ids).to_h
+      attrs["status"] = "draft" if params[:save_draft].present?
+      attrs["title"] = @post.title.presence || "Untitled" if attrs["title"].blank? && attrs["status"] == "draft"
+      if @post.update(attrs)
         @post.term_ids_by_taxonomy = { "category" => post_params[:category_ids], "tag" => post_params[:tag_ids] }
         Inkwell::Hooks.fire(:post_updated, @post)
         respond_to do |format|
@@ -66,9 +72,15 @@ module Admin
       authorize @post
       # The Publish button submits the main form, so persist the serialized draft from the
       # hidden field before committing it (covers deletes made right before publish).
-      @post.update!(draft_content: post_params[:draft_content]) if params.dig(:post, :draft_content).present?
-      @post.publish_draft!
+      attributes = params[:post].present? ? post_params : ActionController::Parameters.new.permit!
+      @post.with_lock do
+        @post.update!(attributes.except(:category_ids, :tag_ids, :status, :content).to_h) if attributes.present?
+        @post.term_ids_by_taxonomy = { "category" => attributes[:category_ids], "tag" => attributes[:tag_ids] }.compact if attributes.key?(:category_ids) || attributes.key?(:tag_ids)
+        @post.publish_draft!
+      end
       redirect_to edit_admin_post_path(@post), notice: "Published."
+    rescue ActiveRecord::RecordInvalid
+      render :edit, status: :unprocessable_entity
     end
 
     private
@@ -79,7 +91,7 @@ module Admin
 
     def post_params
       params.require(:post).permit(
-        :title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_alt,
+        :title, :excerpt, :content, :draft_content, :status, :scheduled_for, :featured_image_id, :featured_image_alt,
         :seo_title, :seo_description, :seo_focus_keyword, :seo_slug_override,
         :og_title, :og_description, :og_image_url, :twitter_card_type,
         :twitter_title, :twitter_description, :twitter_image_url,

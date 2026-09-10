@@ -15,6 +15,7 @@ pin "controllers/media_picker_item_controller", to: "media_picker_item_controlle
 pin "controllers/menu_builder_controller", to: "menu_builder_controller.js"
 pin "controllers/auto_submit_controller", to: "auto_submit_controller.js"
 pin "controllers/hello_controller", to: "hello_controller.js"
+pin "controllers/command_palette_controller", to: "command_palette_controller.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
 
 # Sortable.js — the one drag/drop + animation library the editor and menu builder both lean

@@ -1,10 +1,9 @@
 module Devise
-  # Full HTML document for auth pages (sign in, password reset). Renders the Nitro
-  # AuthShell around a content block. Rendered by the app's custom Devise controllers.
+  # Full HTML document for auth pages, rendered by the app's custom Devise controllers.
   class AuthLayout < ApplicationComponent
-    def initialize(title:, &content)
+    def initialize(title:, subtitle: nil)
       @title = title
-      @content = content
+      @subtitle = subtitle
     end
 
     def view_template
@@ -15,22 +14,14 @@ module Devise
           title { "#{@title} — Inkwell" }
           csrf_meta_tags
           csp_meta_tag
-          render NitroKit::AppearanceBootstrap.new(default: :light)
-          stylesheet_link_tag "nitro_kit-tailwind-v4", "data-turbo-track": "reload"
-          stylesheet_link_tag "nitro_kit", "data-turbo-track": "reload"
-          stylesheet_link_tag "nitro_theme", "data-turbo-track": "reload"
+          stylesheet_link_tag "ink", "data-turbo-track": "reload"
           stylesheet_link_tag "tailwind", "data-turbo-track": "reload"
           stylesheet_link_tag "application", "data-turbo-track": "reload"
           javascript_importmap_tags
         end
         body do
-          render NitroKit::AuthShell.new do
-            div(class: "text-center") do
-              h1(class: "text-2xl font-bold tracking-tight") { "Inkwell" }
-              p(class: "text-sm text-muted-foreground mt-2") { @title }
-            end
-            yield
-          end
+          render Ink::Flash.new(flash) if respond_to?(:flash)
+          render Ink::AuthShell.new(title: @title, subtitle: @subtitle) { yield }
         end
       end
     end

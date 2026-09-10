@@ -7,7 +7,7 @@
          value="<%= html_escape(local_assigns[:data]&.dig("json")) %>">
 
   <%# WYSIWYG toolbar — hidden by default, shown on hover/focus via CSS %>
-  <div data-rich-text-target="toolbar" class="flex flex-wrap items-center gap-0.5 mb-3 pb-2 border-b border-border select-none">
+  <div data-rich-text-target="toolbar" class="mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-border/80 bg-card p-1 shadow-sm select-none">
     <div class="flex items-center mr-1">
       <button type="button" data-command="setParagraph" title="Paragraph (Ctrl+Alt+0)" aria-label="Paragraph"
               class="rich-text-btn">¶</button>
@@ -24,12 +24,12 @@
       <button type="button" data-command="toggleItalic" title="Italic (Ctrl+I)" aria-label="Italic" class="rich-text-btn"><em>I</em></button>
       <button type="button" data-command="toggleUnderline" title="Underline (Ctrl+U)" aria-label="Underline" class="rich-text-btn"><u>U</u></button>
       <button type="button" data-command="toggleStrike" title="Strikethrough" aria-label="Strikethrough" class="rich-text-btn"><s>S</s></button>
-      <button type="button" data-command="toggleCode" title="Inline code" aria-label="Inline code" class="rich-text-btn">`&lt;/&gt;`</button>
+      <button type="button" data-command="toggleCode" title="Inline code" aria-label="Inline code" class="rich-text-btn">&lt;/&gt;</button>
     </div>
       <span class="mx-1 h-4 w-px bg-border"></span>
     <div class="flex items-center mr-1">
-      <button type="button" data-command="toggleBulletList" title="Bullet list" aria-label="Bullet list" class="rich-text-btn">• List</button>
-      <button type="button" data-command="toggleOrderedList" title="Numbered list" aria-label="Numbered list" class="rich-text-btn">1. List</button>
+      <button type="button" data-command="toggleBulletList" title="Bullet list" aria-label="Bullet list" class="rich-text-btn">•</button>
+      <button type="button" data-command="toggleOrderedList" title="Numbered list" aria-label="Numbered list" class="rich-text-btn">1.</button>
       <button type="button" data-command="toggleBlockquote" title="Quote" aria-label="Quote" class="rich-text-btn">“</button>
       <button type="button" data-command="toggleCodeBlock" title="Code block" aria-label="Code block" class="rich-text-btn">{ }</button>
       <button type="button" data-command="setHorizontalRule" title="Divider" aria-label="Divider" class="rich-text-btn">—</button>
@@ -40,8 +40,8 @@
       <button type="button" data-command="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" class="rich-text-btn">↷</button>
     </div>
     <div class="flex items-center mr-1">
-      <button type="button" data-command="toggleLink" title="Insert link" aria-label="Insert link" class="rich-text-btn">Link</button>
-      <button type="button" data-command="unsetLink" title="Remove link" aria-label="Remove link" class="rich-text-btn">Link ✕</button>
+      <button type="button" data-command="toggleLink" title="Insert link" aria-label="Insert link" class="rich-text-btn">↗</button>
+      <button type="button" data-command="unsetLink" title="Remove link" aria-label="Remove link" class="rich-text-btn">↗×</button>
     </div>
   </div>
 

@@ -50,13 +50,13 @@
 
   <header class="ink-appbar">
     <div class="ink-appbar-start">
-      <button type="button" class="ink-appbar-logo" aria-label="Ink Builder" title="Ink Builder">
+      <button type="button" class="ink-appbar-logo" aria-label="Back to Inkwell" title="Save and return to Inkwell" onclick="returnToInkwell()">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
       </button>
-      <button type="button" class="ink-appbar-action is-primary" data-panel="elements" title="Add elements" aria-label="Add elements"><span class="material-symbols-rounded">add</span><span>Add Elements</span></button>
-      <button type="button" class="ink-appbar-action" data-panel="site" title="Page settings" aria-label="Page settings"><span class="material-symbols-rounded">description</span></button>
-      <button type="button" class="ink-appbar-action" data-panel="history" title="History" aria-label="History"><span class="material-symbols-rounded">history</span></button>
-      <button type="button" class="ink-appbar-action" data-panel="site" title="Site settings" aria-label="Site settings"><span class="material-symbols-rounded">tune</span></button>
+      <button type="button" class="ink-appbar-action is-primary" data-panel="elements" title="Add elements" aria-label="Add elements"><span class="material-symbols-rounded">add</span><span>Insert</span></button>
+      <button type="button" class="ink-appbar-action" data-studio-insert="frame" title="Frame (F)" aria-label="Draw frame"><span class="material-symbols-rounded">crop_free</span></button><button type="button" class="ink-appbar-action" data-studio-insert="heading" title="Text (T)" aria-label="Insert text"><span class="material-symbols-rounded">title</span></button>
+
+
     </div>
     <div class="ink-appbar-center" role="group" aria-label="Page and responsive preview">
       <button type="button" id="pageSwitcherButton" class="ink-appbar-document" title="Pages" aria-label="Open pages"><span class="ink-appbar-document-name">Blank</span><span class="material-symbols-rounded">expand_more</span></button>
@@ -65,24 +65,31 @@
       <button id="desktopModeButton" onclick="switchToDesktopMode()" type="button" class="builder-mode-button active" title="Desktop"><span class="material-symbols-rounded">desktop_windows</span></button>
       <button id="tabletModeButton" onclick="switchToTabletMode()" type="button" class="builder-mode-button" title="Tablet"><span class="material-symbols-rounded">tablet</span></button>
       <button id="mobileModeButton" onclick="switchToMobileMode()" type="button" class="builder-mode-button" title="Mobile"><span class="material-symbols-rounded">smartphone</span></button>
+      <button type="button" data-studio-breakpoints aria-label="Show all breakpoints" aria-pressed="false" title="Compare breakpoints"><span class="material-symbols-rounded">view_column</span></button>
     </div>
     <div class="ink-appbar-end">
-      <button type="button" data-action="finder" title="Finder (⌘K)" aria-label="Finder"><span class="material-symbols-rounded">search</span></button>
-      <button type="button" id="structureButton" class="ink-appbar-navigator" data-action="structure" title="Navigator (Layers)" aria-label="Open Navigator">
+
+
+
+      <button id="toggleButton" onclick="toggleDesignMode()" type="button" title="Preview" aria-label="Preview"><span class="material-symbols-rounded">visibility_off</span></button>
+      <button type="button" id="draftSaveButton" onclick="saveDraftToInkwell()" title="Save draft (⌘S)" aria-label="Save draft"><span class="material-symbols-rounded">cloud_done</span><span data-save-status role="status">Saved</span></button>
+      <button id="btn-save" onclick="saveToInkwell()" type="button" class="ink-appbar-publish"><span class="material-symbols-rounded">publish</span><span>Publish</span></button>
+      <button type="button" data-action="menu" title="Page actions" aria-label="Page actions"><span class="material-symbols-rounded">more_vert</span></button>
+      <div class="ink-appbar-menu" data-menu hidden>
+        <button type="button" class="ink-appbar-action" data-panel="history" title="History" aria-label="History"><span class="material-symbols-rounded">history</span></button>
+        <button type="button" class="ink-appbar-action" data-panel="site" title="Site settings" aria-label="Site settings"><span class="material-symbols-rounded">tune</span></button>
+        <button type="button" data-action="finder" title="Finder (⌘K)" aria-label="Finder"><span class="material-symbols-rounded">search</span></button>
+        <button type="button" id="structureButton" class="ink-appbar-navigator" data-action="structure" title="Navigator (Layers)" aria-label="Open Navigator">
         <svg class="ink-appbar-lucide" viewBox="0 0 24 24" aria-hidden="true">
           <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/>
           <path d="m22 12.5-9.17 4.17a2 2 0 0 1-1.66 0L2 12.5"/>
           <path d="m22 17.5-9.17 4.17a2 2 0 0 1-1.66 0L2 17.5"/>
         </svg>
-        <span class="ink-appbar-action-label">Navigator</span>
+        <span class="ink-appbar-action-label">Layers</span>
       </button>
-      <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
+        <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
         <button type="button" id="copilotButton" data-action="copilot" title="Copilot" aria-label="Copilot"><span class="material-symbols-rounded">sparkles</span></button>
       <% end %>
-      <button id="toggleButton" onclick="toggleDesignMode()" type="button" title="Preview" aria-label="Preview"><span class="material-symbols-rounded">visibility_off</span></button>
-      <button id="btn-save" onclick="saveToInkwell()" type="button" class="ink-appbar-publish"><span class="material-symbols-rounded">publish</span><span>Publish</span></button>
-      <button type="button" data-action="menu" title="Page actions" aria-label="Page actions"><span class="material-symbols-rounded">more_vert</span></button>
-      <div class="ink-appbar-menu" data-menu hidden>
         <button type="button" data-smenu="design" onclick="enterBuilderMode('design')"><span class="material-symbols-rounded">design_services</span><span>Design</span></button>
         <button type="button" data-smenu="code" onclick="enterBuilderMode('code')"><span class="material-symbols-rounded">code</span><span>Code editor</span></button>
         <button type="button" onclick="saveDraftToInkwell()"><span class="material-symbols-rounded">save</span><span>Save draft</span></button>
@@ -95,37 +102,46 @@
         <button type="button" onclick="builder?.toggleHotkeys?.()"><span class="material-symbols-rounded">help</span><span>Keyboard shortcuts</span></button>
         <button type="button" onclick="toggleTheme()"><span class="material-symbols-rounded" id="themeModeIcon">dark_mode</span><span id="themeModeLabel">Light mode</span></button>
         <button type="button" onclick="clearPage()"><span class="material-symbols-rounded">delete_sweep</span><span>Clear page</span></button>
-        <button type="button" onclick="window.close()"><span class="material-symbols-rounded">close</span><span>Close editor</span></button>
+        <button type="button" onclick="returnToInkwell()"><span class="material-symbols-rounded">close</span><span>Back to Inkwell</span></button>
       </div>
     </div>
   </header>
 
   <div class="ink-editor-workspace">
     <div data-smenu-container="design" class="ink-editor-design">
-      <main class="ink-canvas-stage">
+      <aside class="ink-explorer" aria-label="Page explorer">
+        <nav class="ink-explorer-tabs" aria-label="Explore page">
+          <button type="button" data-explorer="layers">Layers</button>
+          <button type="button" data-explorer="insert" data-tab="widgets">Insert</button>
+          <button type="button" data-explorer="page">Page</button>
+        </nav>
+        <div id="LayersContainer" class="ink-explorer-tree"></div>
+        <div id="WidgetsContainer" data-tab-container="widgets"></div>
+        <footer class="ink-explorer-footer"><button type="button" data-action="studio-finder"><span class="material-symbols-rounded">search</span>Quick actions <kbd>⌘ K</kbd></button><button type="button" onclick="builder?.toggleHotkeys?.()" aria-label="Keyboard shortcuts">?</button></footer>
+      </aside>
+      <main class="ink-canvas-stage" aria-label="Design canvas">
         <div class="spin-loader"></div>
         <div id="MainContainer" class="content-container"></div>
         <section id="PagesCanvas" class="ink-pages-canvas" aria-label="All pages" hidden></section>
       </main>
 
-      <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
-        <aside id="CopilotDock" class="ink-copilot-dock" hidden>
-          <%= render "ai_writer/builder_copilot" %>
-        </aside>
-      <% end %>
 
       <aside class="builder-sidebar">
         <div id="Sidebar">
-          <div class="builder-sidebar-tabs">
-            <div class="tab-item active" data-tab="widgets"><span class="material-symbols-rounded">widgets</span></div>
-            <div class="tab-item" data-tab="controls"><span class="material-symbols-rounded">settings</span></div>
-            <div class="tab-item" data-tab="styles"><span class="material-symbols-rounded">palette</span></div>
-            <div class="tab-item" data-tab="code"><span class="material-symbols-rounded">code</span></div>
+          <div class="builder-sidebar-tabs" role="tablist" aria-label="Inspector">
+            <button type="button" class="tab-item active" data-tab="controls" role="tab" aria-selected="true">Design</button>
+            <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
+              <button type="button" class="tab-item" data-tab="copilot" role="tab" aria-selected="false">Agent</button>
+            <% end %>
+            <button type="button" class="tab-item" data-tab="code" role="tab" aria-selected="false">Code</button>
           </div>
           <div>
-            <div id="WidgetsContainer" data-tab-container="widgets"></div>
-            <div id="SettingsContainer" data-tab-container="controls" style="display: none;"></div>
-            <div data-tab-container="styles" style="display: none;"></div>
+            <div id="SettingsContainer" data-tab-container="controls"></div>
+            <% if defined?(AiWriter) && InstalledPlugin.find_by(slug: "ai_writer")&.active? %>
+              <aside id="CopilotDock" class="ink-copilot-dock" data-tab-container="copilot" style="display: none;">
+                <%= render "ai_writer/builder_copilot" %>
+              </aside>
+            <% end %>
             <div data-tab-container="code" style="display: none;" class="ink-sidebar-code">
               <label for="customCss">Custom CSS</label>
               <textarea id="customCss" rows="8" class="font-monospace"
@@ -216,12 +232,15 @@
         customCss: savedCustomCss,
         customJs: savedCustomJs,
         siteParts: savedSiteParts,
+        currentEditor: <%= raw(json_escape({ name: current_user.name }.to_json)) %>,
+        collaboration: { record_type: recordType, record_id: recordId },
       });
 
       var hasStore = savedStore && savedStore.version === 2;
       var loadPromise = Promise.resolve(hasStore ? savedStore : { version: 2, type: 'page', settings: { title: 'Blank' }, children: [] });
 
       loadPromise.then(function (store) {
+        store.settings = { ...store.settings, title: recordTitle || store.settings?.title || 'Untitled' };
         builder.load(store, themeUrl, () => {
           var documentName = document.querySelector('.ink-appbar-document-name');
           if (documentName && recordTitle) documentName.textContent = recordTitle;
@@ -231,11 +250,14 @@
         });
       });
 
-      window.sidebarTabManager = new TabsManager();
-      sidebarTabManager.addTab(document.querySelector('[data-tab="widgets"]'), document.querySelector('[data-tab-container="widgets"]'));
-      sidebarTabManager.addTab(document.querySelector('[data-tab="controls"]'), document.querySelector('[data-tab-container="controls"]'));
-      sidebarTabManager.addTab(document.querySelector('[data-tab="styles"]'), document.querySelector('[data-tab-container="styles"]'));
-      sidebarTabManager.addTab(document.querySelector('[data-tab="code"]'), document.querySelector('[data-tab-container="code"]'));
+      var inspectorTabs = new TabsManager();
+      inspectorTabs.addTab(document.querySelector('[data-tab="controls"]'), document.querySelector('[data-tab-container="controls"]'));
+      inspectorTabs.addTab(document.querySelector('[data-tab="code"]'), document.querySelector('[data-tab-container="code"]'));
+      if (document.querySelector('[data-tab="copilot"]')) inspectorTabs.addTab(document.querySelector('[data-tab="copilot"]'), document.getElementById('CopilotDock'));
+      window.sidebarTabManager = { openTab: function (tab) {
+        if (tab?.dataset.tab === 'widgets') window.builder?.studio?.openExplorer('insert');
+        else inspectorTabs.openTab(tab);
+      } };
 
       // App-bar wiring: left-panel screens, structure/finder toggles, and the actions menu.
       document.querySelectorAll('[data-panel]').forEach(function (button) {
@@ -280,7 +302,15 @@
       switchToDesktopMode();
     });
 
-    function persistBuilderDocument(publish) {
+    async function returnToInkwell() {
+      var saved = await builder.studio.saveDraft();
+      if (saved?.ok) window.location.assign(<%= "/admin/#{@record.is_a?(Page) ? 'pages' : 'posts'}/#{@record.id}/edit".to_json.html_safe %>);
+    }
+
+    async function persistBuilderDocument(publish) {
+      applyCustomCode();
+      var collaborationRevision = await builder.collaboration?.flush();
+      var saveRevision = builder.studio?.revision;
       var html = builder.getHtml();
       var store = builder.getData();
       var customCss = builder.customCode ? builder.customCode.getCss() : '';
@@ -292,10 +322,12 @@
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({ html: html, store: store, site_parts: builder.getSiteParts ? builder.getSiteParts() : {}, custom_css: customCss, custom_js: customJs, record_type: recordType, record_id: recordId, publish: Boolean(publish) })
+        body: JSON.stringify({ html: html, store: store, site_parts: builder.getSiteParts ? builder.getSiteParts() : {}, custom_css: customCss, custom_js: customJs, record_type: recordType, record_id: recordId, publish: Boolean(publish), collaboration_revision: collaborationRevision })
       }).then(function (response) {
         return response.json().then(function (payload) {
-          if (!response.ok || !payload.ok) throw new Error(payload.error || 'Publishing failed');
+          if (!response.ok || !payload.ok) throw new Error(payload.error || 'Saving failed');
+          if (builder.studio && Number.isFinite(saveRevision)) { builder.studio.savedRevision = saveRevision; builder.studio.renderSaveStatus(); }
+          try { localStorage.setItem('inkwell_pb_' + recordType + '_' + recordId, Date.now()); } catch (e) {}
           return payload;
         });
       });
@@ -338,9 +370,7 @@
     }
 
     function saveDraftToInkwell() {
-      persistBuilderDocument(false).then(function (payload) {
-        previewPageUrl = payload.preview_url || previewPageUrl;
-      }).catch(function (error) { console.error(error); });
+      return window.builder?.studio?.saveDraft();
     }
 
     function previewDraftPage() {
@@ -503,13 +533,13 @@
       var label = document.getElementById('themeModeLabel');
       if (icon) icon.textContent = theme === 'dark' ? 'dark_mode' : 'light_mode';
       if (label) label.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
-      try { localStorage.setItem('inkwell_builder_theme', theme); } catch (e) {}
+      try { localStorage.setItem('inkwell-theme', theme); } catch (e) {}
     }
     function toggleTheme() {
       applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
     }
     (function () {
-      try { var saved = localStorage.getItem('inkwell_builder_theme'); if (saved === 'light' || saved === 'dark') applyTheme(saved); } catch (e) {}
+      try { var saved = localStorage.getItem('inkwell-theme') || localStorage.getItem('inkwell_builder_theme'); applyTheme(saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')); } catch (e) {}
     })();
 
     // Builder modes. The toolbar eye icon is the original Design / Preview toggle; the

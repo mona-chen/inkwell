@@ -1,3 +1,4 @@
+import registerInkShaderElement from './inkShaderElement.js';
 import EventBus from './EventBus.js';
 import ElementRegistry from './ElementRegistry.js';
 import EditorDocument from './EditorDocument.js';
@@ -18,7 +19,7 @@ import ContextMenuManager from './ContextMenuManager.js';
 export default class EditorRuntime {
     constructor(data = {}) {
         this.events = new EventBus();
-        this.elements = registerInkMagicElements(registerInkElements(registerInkFoundationElements(new ElementRegistry())));
+        this.elements = registerInkShaderElement(registerInkMagicElements(registerInkElements(registerInkFoundationElements(new ElementRegistry()))));
         this.controls = new ControlRegistry();
         this.responsive = new ResponsiveManager({ events: this.events, breakpoints: data.settings?.breakpoints });
         this.document = new EditorDocument({ registry: this.elements, events: this.events, data });

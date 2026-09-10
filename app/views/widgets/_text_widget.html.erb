@@ -4,6 +4,6 @@
     <h3 class="text-xs font-semibold uppercase tracking-widest text-gray-400"><%= widget.title %></h3>
   <% end %>
   <div class="prose prose-sm mt-3 text-sm leading-relaxed text-gray-600">
-    <%= raw widget.config["body"].to_s %>
+    <%= sanitize widget.config["body"].to_s, tags: %w[p br strong em b i u a ul ol li blockquote code], attributes: %w[href title target rel] %>
   </div>
 </div>

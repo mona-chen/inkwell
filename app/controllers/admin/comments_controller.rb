@@ -14,8 +14,15 @@ module Admin
     end
 
     def destroy
-      Comment.find(params[:id]).destroy
-      redirect_back fallback_location: admin_comments_path, notice: "Comment deleted."
+      comment = Comment.find(params[:id])
+      if comment.status == "trashed"
+        comment.destroy
+        notice = "Comment permanently deleted."
+      else
+        comment.update!(status: "trashed")
+        notice = "Comment moved to trash."
+      end
+      redirect_back fallback_location: admin_comments_path, notice: notice
     end
   end
 end

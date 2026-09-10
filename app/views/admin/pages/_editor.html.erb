@@ -12,21 +12,21 @@
     <input type="hidden" name="page[draft_content]" data-block-editor-target="hiddenField" value="<%= html_escape(page.editing_blocks.to_json) %>">
 
     <%# Editor toolbar: undo/redo + save status + add block %>
-    <div class="sticky top-0 z-10 -mx-8 px-8 py-2 bg-muted/50 backdrop-blur border-b border-border mb-4 flex items-center justify-between gap-3">
+    <div class="sticky top-14 z-20 -mx-1 mb-5 flex min-h-10 items-center justify-between gap-3 border-y border-border/70 bg-background/90 px-1 py-1.5 backdrop-blur-xl">
       <div class="flex items-center gap-1">
         <button type="button" data-action="block-editor#undo"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">
           ↺ Undo
         </button>
         <button type="button" data-action="block-editor#redo"
-                class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent hover:border-border disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:border-transparent disabled:cursor-not-allowed"
+                class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 data-block-editor-target="redoButton" title="Redo (Ctrl+Y)" aria-label="Redo">
           ↻ Redo
         </button>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex min-w-0 items-center justify-end gap-2">
         <span data-block-editor-target="wordCount" class="text-xs text-muted-foreground">
           0 words · < 1 min read
         </span>
@@ -36,10 +36,28 @@
         <%# Plugin-injected editor controls (e.g. the AI Writer plugin's button + dialog) %>
         <% BlockRenderer.editor_toolbar_partials.each { |p| concat(render(p, record: page)) } %>
         <%= render "admin/posts/blocks/picker" %>
+        <span class="mx-0.5 hidden h-5 w-px bg-border sm:block"></span>
+        <% if page.status == "published" %>
+          <button type="submit"
+                  class="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
+            Save changes
+          </button>
+        <% else %>
+          <button type="submit" name="save_draft" value="1"
+                  class="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
+            Save draft
+          </button>
+        <% end %>
+        <% if page.persisted? %>
+          <button type="submit" formaction="<%= publish_admin_page_path(page) %>" formmethod="post"
+                  class="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
+            <%= page.status == "published" && page.live_render_mode != "original_import" ? "Update" : "Publish" %>
+          </button>
+        <% end %>
       </div>
     </div>
 
-    <div data-block-editor-target="list" class="relative space-y-3 min-h-[200px]">
+    <div data-block-editor-target="list" class="relative space-y-1 min-h-24">
       <% page.editing_blocks.each do |block| %>
         <%= render BlockRenderer.editor_partial(block['type']), data: block["data"], record: page %>
       <% end %>
@@ -48,9 +66,11 @@
     <%# Floating slash-command ("/") insertion menu, positioned by the Stimulus controller %>
     <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-background border border-border rounded-lg shadow-lg py-1"></div>
 
-    <p data-block-editor-target="emptyState" class="text-muted-foreground text-sm italic py-8 text-center border-2 border-dashed rounded-lg <%= 'hidden' unless page.editing_blocks.empty? %>">
-      No blocks yet — click "+ Add block" to start writing.
-    </p>
+    <button type="button" data-block-editor-target="emptyState" data-action="block-editor#addBlock" data-block-editor-type-param="paragraph"
+            class="ink-writing-start <%= 'hidden' unless page.editing_blocks.empty? %>">
+      <span>Start writing…</span>
+      <small>Click here to write. Type / to add a heading, image, or another block.</small>
+    </button>
 
     <%# Hidden <template> elements the Stimulus controller clones when a block type is picked %>
     <%= render "admin/posts/blocks/templates" %>
@@ -94,15 +114,9 @@
         <%= raw panel %>
       <% end %>
 
-      <%= f.submit "Save draft", name: "save_draft",
-          class: "w-full bg-background border border-border text-muted-foreground rounded-lg py-2 text-sm font-medium hover:bg-muted active:scale-[0.98] transition-colors cursor-pointer" %>
-
-      <% unless page.new_record? %>
-        <button type="submit" formaction="<%= publish_admin_page_path(page) %>" formmethod="post"
-                class="w-full bg-canvas text-white rounded-lg py-2 text-sm font-medium shadow-sm hover:bg-foreground active:scale-[0.98] transition-colors cursor-pointer">
-          Publish native version
-        </button>
-      <% end %>
+      <p class="rounded-lg bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        Draft and publishing actions stay available in the editor bar while you work.
+      </p>
     </div>
 
     <% if page.original_import_available? %>

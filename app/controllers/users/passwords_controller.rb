@@ -1,5 +1,7 @@
 class Users::PasswordsController < Devise::PasswordsController
-  # Render Nitro Kit pages instead of the ERB views.
+  layout false
+
+  # Render the application-owned password pages instead of the ERB views.
   def new
     self.resource = resource_class.new
     render Devise::PasswordRequestPage.new(

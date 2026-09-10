@@ -1,3 +1,9 @@
+<% if @page.errors.any? %>
+  <div role="alert" class="mb-4 text-sm text-destructive">
+    <strong>Check these details before publishing:</strong>
+    <ul><% @page.errors.full_messages.each do |message| %><li><%= message %></li><% end %></ul>
+  </div>
+<% end %>
 <%= form_with model: [:admin, @page] do |f| %>
   <div class="mb-6">
     <%= f.text_field :title, placeholder: "Page title", class: "w-full text-3xl font-bold border-0 focus:ring-0 px-0 placeholder:text-muted-foreground/50" %>

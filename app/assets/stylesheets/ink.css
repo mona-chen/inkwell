@@ -1,0 +1,58 @@
+/* ========================================================================
+   Ink — application-owned effects and browser-level utilities.
+   Component structure and color tokens live in the Tailwind source.
+   ======================================================================== */
+
+:root, [data-theme="light"] {
+  --ink-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.04);
+  --ink-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.07);
+  --ink-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.08);
+}
+[data-theme="dark"] {
+  --ink-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.2);
+  --ink-shadow-md: 0 4px 6px -1px oklch(0 0 0 / 0.35);
+  --ink-shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.4);
+}
+
+/* --- Animations --- */
+@keyframes ink-flash-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ink-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ink-command-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* --- Select chevron (Tailwind can't do this) --- */
+.ink-select-chevron {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a1a1aa' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1rem;
+  padding-right: 2rem;
+}
+
+/* One authentication surface for sign-in and account recovery. */
+.ink-auth-shell { min-height: 100svh; display: grid; place-items: center; padding: 32px 20px; }
+.ink-auth-card { width: 100%; max-width: 400px; padding: 36px; border-radius: 16px; box-shadow: var(--ink-shadow-md); }
+.ink-auth-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 36px; font-size: 16px; letter-spacing: -.025em; }
+.ink-auth-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; }
+.ink-auth-title { margin: 0; font-size: 24px; font-weight: 600; line-height: 1.25; letter-spacing: -.035em; }
+.ink-auth-subtitle { margin-top: 10px; font-size: 13px; line-height: 1.6; }
+.ink-auth-form { margin-top: 28px; }
+.ink-auth-form input { min-height: 38px; }
+.ink-auth-form input[type="checkbox"] { min-height: 0; }
+.ink-auth-form button[type="submit"], .ink-auth-form input[type="submit"] { width: 100%; min-height: 38px; }
+@media (max-width: 480px) { .ink-auth-card { padding: 28px 24px; } }
+.ink-writing-start { display: flex; width: 100%; flex-direction: column; gap: 8px; padding: 28px 20px; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted-foreground); background: transparent; text-align: left; cursor: text; }
+.ink-writing-start.hidden { display: none; }
+.ink-writing-start span { font-size: 18px; color: var(--foreground); }
+.ink-writing-start small { font-size: 12px; line-height: 1.6; }
+.ink-writing-start:hover, .ink-writing-start:focus-visible { border-color: var(--primary); outline: none; background: var(--card); }
+.admin-block-editor:has(.ink-writing-start:not(.hidden)) [data-block-editor-target="list"] { min-height: 12px; }

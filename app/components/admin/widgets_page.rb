@@ -70,10 +70,29 @@ module Admin
                   f.select :area, AREA_LABELS.map { |k, v| [ v, k ] }, { selected: @area }, class: input_class
                 end
                 div do
-                  f.label :config_body, "Body (text widget — HTML allowed)", class: "mb-1 block text-xs font-medium text-muted-foreground"
+                  f.label :config_body, "Text content", class: "mb-1 block text-xs font-medium text-muted-foreground"
                   f.text_area :config_body, name: "widget[config][body]", rows: 4, class: input_class
                 end
-                f.submit "Add widget", class: "w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 cursor-pointer"
+                div(class: "grid grid-cols-2 gap-3") do
+                  div do
+                    f.label :config_count, "Recent post count", class: "mb-1 block text-xs font-medium text-muted-foreground"
+                    f.number_field :config_count, name: "widget[config][count]", value: 5, min: 1, max: 20, class: input_class
+                  end
+                  div do
+                    f.label :position, "Order", class: "mb-1 block text-xs font-medium text-muted-foreground"
+                    f.number_field :position, value: @widgets.size + 1, min: 0, class: input_class
+                  end
+                end
+                div do
+                  f.label :config_url, "Social URL", class: "mb-1 block text-xs font-medium text-muted-foreground"
+                  f.text_field :config_url, name: "widget[config][url]", placeholder: "https://…", class: input_class
+                end
+                div do
+                  f.label :config_label, "Social link label", class: "mb-1 block text-xs font-medium text-muted-foreground"
+                  f.text_field :config_label, name: "widget[config][label]", placeholder: "Follow us", class: input_class
+                end
+                p(class: "text-[11px] leading-4 text-muted-foreground") { "Only fields used by the selected widget type appear on the site." }
+                f.submit "Add widget", class: "inline-flex h-8 w-full items-center justify-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 cursor-pointer"
               end
             end
           end
@@ -84,7 +103,7 @@ module Admin
     private
 
     def input_class
-      "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
+      "min-h-9 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
     end
 
     def render_widget_row(widget)
@@ -102,6 +121,16 @@ module Admin
           if widget.kind == "text"
             f.text_area :config_body, name: "widget[config][body]", rows: 2, value: widget.config["body"],
               class: input_class
+          elsif widget.kind == "recent_posts"
+            div(class: "grid grid-cols-2 gap-3") do
+              f.number_field :config_count, name: "widget[config][count]", value: widget.config["count"] || 5, min: 1, max: 20, class: input_class
+              f.number_field :position, value: widget.position, min: 0, class: input_class
+            end
+          elsif widget.kind == "social"
+            div(class: "grid gap-3 sm:grid-cols-2") do
+              f.text_field :config_url, name: "widget[config][url]", value: widget.config["url"], placeholder: "https://…", class: input_class
+              f.text_field :config_label, name: "widget[config][label]", value: widget.config["label"], placeholder: "Follow us", class: input_class
+            end
           end
         end
       end
