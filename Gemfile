@@ -44,7 +44,7 @@ gem "devise"
 gem "pundit"
 
 # Media
-gem "image_processing", "~> 2.0" # for ActiveStorage variants
+gem "image_processing", "~> 2.1" # for ActiveStorage variants
 gem "ruby-vips", "~> 2.2" # required by image_processing's :vips processor at build/runtime
 
 # Editor content

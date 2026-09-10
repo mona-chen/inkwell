@@ -164,7 +164,7 @@ GEM
     hashdiff (1.2.1)
     i18n (1.15.2)
       concurrent-ruby (~> 1.0)
-    image_processing (2.0.3)
+    image_processing (2.1.0)
     importmap-rails (2.2.3)
       actionpack (>= 6.0.0)
       activesupport (>= 6.0.0)
@@ -520,7 +520,7 @@ DEPENDENCIES
   factory_bot_rails
   faker
   friendly_id
-  image_processing (~> 2.0)
+  image_processing (~> 2.1)
   importmap-rails
   kamal
   kaminari
