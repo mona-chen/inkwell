@@ -89,7 +89,7 @@ module Admin
 
     def page_params
       params.require(:page).permit(
-        :title, :content, :draft_content, :status, :template, :hide_title, :menu_order, :parent_id,
+        :title, :content, :draft_content, :status, :template, :template_for, :hide_title, :menu_order, :parent_id,
         :seo_title, :seo_description, :seo_focus_keyword, :seo_slug_override,
         :og_title, :og_description, :og_image_url, :twitter_card_type,
         :twitter_title, :twitter_description, :twitter_image_url,

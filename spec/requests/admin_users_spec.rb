@@ -13,7 +13,8 @@ RSpec.describe "Admin user management", type: :request do
     get admin_users_path
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Accounts")
-    expect(response.body).to include("Add user")
+    expect(response.body).to include("Create account")
+    expect(response.body).to include('name="role_id"')
   end
 
   it "creates a user in a chosen role" do

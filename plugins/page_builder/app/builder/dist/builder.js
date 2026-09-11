@@ -964,12 +964,20 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "exportClone",
     value: function exportClone() {
-      var _clone$querySelector, _clone$querySelector2, _clone$querySelector3;
+      var _this11 = this,
+        _clone$querySelector,
+        _clone$querySelector2,
+        _clone$querySelector3;
       this.runtime.styles.mount(this.iframeDoc, this.runtime.document);
       this.customCode.inject(this.iframeDoc, {
         executeJs: false
       });
       var clone = this.iframeDoc.documentElement.cloneNode(true);
+      // Dynamic content elements serialize as their server token (e.g. {{ blocks }}) so the
+      // published page renders live data. The canvas keeps the labelled placeholder.
+      clone.querySelectorAll('[data-ink-dynamic]').forEach(function (element) {
+        element.replaceWith(_this11.iframeDoc.createTextNode(element.getAttribute('data-ink-dynamic') || ''));
+      });
       this.customCode.injectIntoClone(clone);
       (_clone$querySelector = clone.querySelector('#ink-editor-canvas-styles')) === null || _clone$querySelector === void 0 || _clone$querySelector.remove();
       clone.style.removeProperty('--ink-editor-canvas-scale');
@@ -1254,6 +1262,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./shaderPresets.js */ "./src/core/shaderPresets.js");
 /* harmony import */ var _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./shaderRuntime.js */ "./src/core/shaderRuntime.js");
 /* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
+/* harmony import */ var _DynamicData_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./DynamicData.js */ "./src/core/DynamicData.js");
 function _readOnlyError(r) { throw new TypeError('"' + r + '" is read-only'); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -1274,6 +1283,7 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+
 
 
 
@@ -1353,11 +1363,14 @@ var CanvasRenderer = /*#__PURE__*/function () {
         _definition$mount;
       var definition = this.registry.get(node.type);
       var imported = !!node.settings.importedDom;
+      // Resolve dynamic `{{ … }}` bindings against sample data for on-canvas preview only —
+      // the store keeps the tokens, so published output still resolves server-side.
+      var renderNode = imported ? node : (0,_DynamicData_js__WEBPACK_IMPORTED_MODULE_3__.previewNode)(node);
       var element = imported ? this.createImportedElement(node) : definition.render({
         document: this.document,
         domDocument: this.root.ownerDocument,
         selection: this.selection
-      }, node);
+      }, renderNode);
       if (!(element instanceof this.root.ownerDocument.defaultView.Element)) throw new Error("".concat(node.type, ".render() must return a DOM Element."));
       var kind = definition.kind || (definition.acceptsChildren ? node.type === 'section' ? 'section' : node.type === 'column' ? 'column' : 'container' : 'widget');
       // Losslessly imported DOM nodes must retain their authored class contract and child
@@ -6999,6 +7012,89 @@ var DragDropManager = /*#__PURE__*/function () {
 
 /***/ }),
 
+/***/ "./src/core/DynamicData.js":
+/*!*********************************!*\
+  !*** ./src/core/DynamicData.js ***!
+  \*********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   previewNode: () => (/* binding */ previewNode),
+/* harmony export */   resolveString: () => (/* binding */ resolveString),
+/* harmony export */   sampleData: () => (/* binding */ sampleData)
+/* harmony export */ });
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
+function _toArray(r) { return _arrayWithHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+// Dynamic content preview helpers.
+//
+// Bound values are stored as `{{ source.field }}` tokens so the published page resolves them
+// server-side through PageBuilder::ErbConverter. In the canvas we swap those tokens for sample
+// values (window.inkSampleData, served by PageBuilder::DataSources) so authors see realistic
+// content while designing, without changing what gets saved.
+
+function sampleData() {
+  return typeof window !== 'undefined' && window.inkSampleData || {};
+}
+function resolveString(value) {
+  var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : sampleData();
+  if (typeof value !== 'string' || value.indexOf('{{') === -1) return value;
+  return value.replace(/\{\{\s*([\w.]+)\s*\}\}/g, function (match, path) {
+    var _path$split = path.split('.'),
+      _path$split2 = _toArray(_path$split),
+      source = _path$split2[0],
+      rest = _path$split2.slice(1);
+    var current = data[source];
+    var _iterator = _createForOfIteratorHelper(rest),
+      _step;
+    try {
+      for (_iterator.s(); !(_step = _iterator.n()).done;) {
+        var key = _step.value;
+        if (current == null) return match;
+        current = current[key];
+      }
+    } catch (err) {
+      _iterator.e(err);
+    } finally {
+      _iterator.f();
+    }
+    return current == null ? match : String(current);
+  });
+}
+
+// Returns a shallow clone of the node whose string settings have been resolved for display.
+// Nested structures (arrays/objects) are passed through untouched.
+function previewNode(node) {
+  var data = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : sampleData();
+  if (!node || !node.settings) return node;
+  var settings = _objectSpread({}, node.settings);
+  var changed = false;
+  for (var _i = 0, _Object$keys = Object.keys(settings); _i < _Object$keys.length; _i++) {
+    var key = _Object$keys[_i];
+    if (typeof settings[key] === 'string' && settings[key].indexOf('{{') !== -1) {
+      settings[key] = resolveString(settings[key], data);
+      changed = true;
+    }
+  }
+  return changed ? _objectSpread(_objectSpread({}, node), {}, {
+    settings: settings
+  }) : node;
+}
+
+/***/ }),
+
 /***/ "./src/core/EditorDocument.js":
 /*!************************************!*\
   !*** ./src/core/EditorDocument.js ***!
@@ -7473,6 +7569,7 @@ var EditorRuntime = /*#__PURE__*/function () {
       controls.register('box-shadow', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.shadow);
       controls.register('text-shadow', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.shadow);
       controls.register('url', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.url);
+      controls.register('data-binding', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.dataBinding);
       controls.register('icon', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.icon);
       controls.register('icons', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.icon);
       controls.register('border', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.border);
@@ -12241,6 +12338,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   border: () => (/* binding */ border),
 /* harmony export */   color: () => (/* binding */ color),
 /* harmony export */   cssFilters: () => (/* binding */ cssFilters),
+/* harmony export */   dataBinding: () => (/* binding */ dataBinding),
 /* harmony export */   dimensions: () => (/* binding */ dimensions),
 /* harmony export */   gallery: () => (/* binding */ gallery),
 /* harmony export */   gaps: () => (/* binding */ gaps),
@@ -12273,6 +12371,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../icons.js */ "./src/core/icons.js");
 /* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../fonts.js */ "./src/core/fonts.js");
 /* harmony import */ var _elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../elementorShapes.js */ "./src/core/elementorShapes.js");
+function _toArray(r) { return _arrayWithHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableRest(); }
 function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */ _regeneratorRuntime = function _regeneratorRuntime() { return e; }; var t, e = {}, r = Object.prototype, n = r.hasOwnProperty, o = Object.defineProperty || function (t, e, r) { t[e] = r.value; }, i = "function" == typeof Symbol ? Symbol : {}, a = i.iterator || "@@iterator", c = i.asyncIterator || "@@asyncIterator", u = i.toStringTag || "@@toStringTag"; function define(t, e, r) { return Object.defineProperty(t, e, { value: r, enumerable: !0, configurable: !0, writable: !0 }), t[e]; } try { define({}, ""); } catch (t) { define = function define(t, e, r) { return t[e] = r; }; } function wrap(t, e, r, n) { var i = e && e.prototype instanceof Generator ? e : Generator, a = Object.create(i.prototype), c = new Context(n || []); return o(a, "_invoke", { value: makeInvokeMethod(t, r, c) }), a; } function tryCatch(t, e, r) { try { return { type: "normal", arg: t.call(e, r) }; } catch (t) { return { type: "throw", arg: t }; } } e.wrap = wrap; var h = "suspendedStart", l = "suspendedYield", f = "executing", s = "completed", y = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} var p = {}; define(p, a, function () { return this; }); var d = Object.getPrototypeOf, v = d && d(d(values([]))); v && v !== r && n.call(v, a) && (p = v); var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p); function defineIteratorMethods(t) { ["next", "throw", "return"].forEach(function (e) { define(t, e, function (t) { return this._invoke(e, t); }); }); } function AsyncIterator(t, e) { function invoke(r, o, i, a) { var c = tryCatch(t[r], t, o); if ("throw" !== c.type) { var u = c.arg, h = u.value; return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) { invoke("next", t, i, a); }, function (t) { invoke("throw", t, i, a); }) : e.resolve(h).then(function (t) { u.value = t, i(u); }, function (t) { return invoke("throw", t, i, a); }); } a(c.arg); } var r; o(this, "_invoke", { value: function value(t, n) { function callInvokeWithMethodAndArg() { return new e(function (e, r) { invoke(t, n, e, r); }); } return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg(); } }); } function makeInvokeMethod(e, r, n) { var o = h; return function (i, a) { if (o === f) throw Error("Generator is already running"); if (o === s) { if ("throw" === i) throw a; return { value: t, done: !0 }; } for (n.method = i, n.arg = a;;) { var c = n.delegate; if (c) { var u = maybeInvokeDelegate(c, n); if (u) { if (u === y) continue; return u; } } if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) { if (o === h) throw o = s, n.arg; n.dispatchException(n.arg); } else "return" === n.method && n.abrupt("return", n.arg); o = f; var p = tryCatch(e, r, n); if ("normal" === p.type) { if (o = n.done ? s : l, p.arg === y) continue; return { value: p.arg, done: n.done }; } "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg); } }; } function maybeInvokeDelegate(e, r) { var n = r.method, o = e.iterator[n]; if (o === t) return r.delegate = null, "throw" === n && e.iterator["return"] && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y; var i = tryCatch(o, e.iterator, r.arg); if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y; var a = i.arg; return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y); } function pushTryEntry(t) { var e = { tryLoc: t[0] }; 1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e); } function resetTryEntry(t) { var e = t.completion || {}; e.type = "normal", delete e.arg, t.completion = e; } function Context(t) { this.tryEntries = [{ tryLoc: "root" }], t.forEach(pushTryEntry, this), this.reset(!0); } function values(e) { if (e || "" === e) { var r = e[a]; if (r) return r.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) { var o = -1, i = function next() { for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next; return next.value = t, next.done = !0, next; }; return i.next = i; } } throw new TypeError(_typeof(e) + " is not iterable"); } return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", { value: GeneratorFunctionPrototype, configurable: !0 }), o(GeneratorFunctionPrototype, "constructor", { value: GeneratorFunction, configurable: !0 }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) { var e = "function" == typeof t && t.constructor; return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name)); }, e.mark = function (t) { return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t; }, e.awrap = function (t) { return { __await: t }; }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () { return this; }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) { void 0 === i && (i = Promise); var a = new AsyncIterator(wrap(t, r, n, o), i); return e.isGeneratorFunction(r) ? a : a.next().then(function (t) { return t.done ? t.value : a.next(); }); }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () { return this; }), define(g, "toString", function () { return "[object Generator]"; }), e.keys = function (t) { var e = Object(t), r = []; for (var n in e) r.push(n); return r.reverse(), function next() { for (; r.length;) { var t = r.pop(); if (t in e) return next.value = t, next.done = !1, next; } return next.done = !0, next; }; }, e.values = values, Context.prototype = { constructor: Context, reset: function reset(e) { if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t); }, stop: function stop() { this.done = !0; var t = this.tryEntries[0].completion; if ("throw" === t.type) throw t.arg; return this.rval; }, dispatchException: function dispatchException(e) { if (this.done) throw e; var r = this; function handle(n, o) { return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o; } for (var o = this.tryEntries.length - 1; o >= 0; --o) { var i = this.tryEntries[o], a = i.completion; if ("root" === i.tryLoc) return handle("end"); if (i.tryLoc <= this.prev) { var c = n.call(i, "catchLoc"), u = n.call(i, "finallyLoc"); if (c && u) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } else if (c) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); } else { if (!u) throw Error("try statement without catch or finally"); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } } } }, abrupt: function abrupt(t, e) { for (var r = this.tryEntries.length - 1; r >= 0; --r) { var o = this.tryEntries[r]; if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) { var i = o; break; } } i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null); var a = i ? i.completion : {}; return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a); }, complete: function complete(t, e) { if ("throw" === t.type) throw t.arg; return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y; }, finish: function finish(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y; } }, "catch": function _catch(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.tryLoc === t) { var n = r.completion; if ("throw" === n.type) { var o = n.arg; resetTryEntry(r); } return o; } } throw Error("illegal catch attempt"); }, delegateYield: function delegateYield(e, r, n) { return this.delegate = { iterator: values(e), resultName: r, nextLoc: n }, "next" === this.method && (this.arg = t), y; } }, e; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
@@ -15468,6 +15567,79 @@ function wysiwyg(panel, control, node, value, row) {
   editor.addEventListener('keydown', function () {
     return setTimeout(refreshActive, 0);
   });
+  return row;
+}
+
+/* ------------------------------------------------------------------ *
+ * Dynamic data binding
+ * Lets an element pull its value from site/post data. Writes a
+ * `{{ source.field }}` token into a target setting; the published page
+ * resolves it server-side (PageBuilder::ErbConverter) and the canvas
+ * previews a sample value.
+ * ------------------------------------------------------------------ */
+function dataBinding(panel, control, node, _value, row) {
+  var _node$settings$target, _node$settings3;
+  var target = control.bindingFor || control.name;
+  var sources = typeof window !== 'undefined' && window.inkDataSources && window.inkDataSources.sources || {};
+  var current = String((_node$settings$target = (_node$settings3 = node.settings) === null || _node$settings3 === void 0 ? void 0 : _node$settings3[target]) !== null && _node$settings$target !== void 0 ? _node$settings$target : '');
+  var match = current.match(/\{\{\s*([\w.]+)\s*\}\}/);
+  var currentSource = '';
+  var currentField = '';
+  if (match) {
+    var _match$1$split = match[1].split('.'),
+      _match$1$split2 = _toArray(_match$1$split),
+      src = _match$1$split2[0],
+      rest = _match$1$split2.slice(1);
+    currentSource = src;
+    currentField = rest.join('.');
+  }
+  var grid = document.createElement('div');
+  grid.className = 'ink-v2-data-binding';
+  var sourceSelect = document.createElement('select');
+  sourceSelect.setAttribute('aria-label', 'Data source');
+  sourceSelect.add(new Option('Static', ''));
+  Object.entries(sources).forEach(function (_ref59) {
+    var _ref60 = _slicedToArray(_ref59, 2),
+      key = _ref60[0],
+      def = _ref60[1];
+    return sourceSelect.add(new Option(def.label || key, key));
+  });
+  sourceSelect.value = currentSource;
+  var fieldSelect = document.createElement('select');
+  fieldSelect.setAttribute('aria-label', 'Field');
+  var renderFields = function renderFields() {
+    fieldSelect.replaceChildren();
+    var def = sources[sourceSelect.value];
+    fieldSelect.disabled = !def;
+    if (!def) {
+      fieldSelect.add(new Option('Static', ''));
+      return;
+    }
+    fieldSelect.add(new Option('Choose field…', ''));
+    Object.entries(def.fields || {}).forEach(function (_ref61) {
+      var _ref62 = _slicedToArray(_ref61, 2),
+        path = _ref62[0],
+        label = _ref62[1];
+      return fieldSelect.add(new Option(label, path));
+    });
+    fieldSelect.value = currentField;
+  };
+  renderFields();
+  var write = function write(value) {
+    return panel.setValue(_objectSpread(_objectSpread({}, control), {}, {
+      name: target,
+      target: 'settings'
+    }), node, value);
+  };
+  sourceSelect.addEventListener('change', function () {
+    renderFields();
+    if (!sourceSelect.value) write('');
+  });
+  fieldSelect.addEventListener('change', function () {
+    if (sourceSelect.value && fieldSelect.value) write("{{ ".concat(sourceSelect.value, ".").concat(fieldSelect.value, " }}"));
+  });
+  grid.append(sourceSelect, fieldSelect);
+  row.appendChild(grid);
   return row;
 }
 
@@ -20445,6 +20617,13 @@ function registerInkFoundationElements(registry) {
     }, {
       tab: 'content',
       section: 'Content',
+      name: '__bind_text',
+      type: 'data-binding',
+      label: 'Dynamic content',
+      bindingFor: 'text'
+    }, {
+      tab: 'content',
+      section: 'Content',
       name: 'tag',
       type: 'select',
       label: 'HTML tag',
@@ -20597,6 +20776,13 @@ function registerInkFoundationElements(registry) {
       name: 'text',
       type: 'textarea',
       label: 'Text'
+    }, {
+      tab: 'content',
+      section: 'Content',
+      name: '__bind_text',
+      type: 'data-binding',
+      label: 'Dynamic content',
+      bindingFor: 'text'
     }, typographyControls, {
       tab: 'style',
       target: 'styles',
@@ -20754,6 +20940,13 @@ function registerInkFoundationElements(registry) {
     }, {
       tab: 'content',
       section: 'Content',
+      name: '__bind_text',
+      type: 'data-binding',
+      label: 'Dynamic text',
+      bindingFor: 'text'
+    }, {
+      tab: 'content',
+      section: 'Content',
       name: 'behavior',
       type: 'choose',
       label: 'Behavior',
@@ -20770,6 +20963,13 @@ function registerInkFoundationElements(registry) {
       name: 'url',
       type: 'url',
       label: 'Link'
+    }, {
+      tab: 'content',
+      section: 'Content',
+      name: '__bind_url',
+      type: 'data-binding',
+      label: 'Dynamic link',
+      bindingFor: 'url'
     }, {
       tab: 'content',
       section: 'Content',
@@ -21046,6 +21246,13 @@ function registerInkFoundationElements(registry) {
       name: 'src',
       type: 'media',
       label: 'Image'
+    }, {
+      tab: 'content',
+      section: 'Image',
+      name: '__bind_src',
+      type: 'data-binding',
+      label: 'Dynamic image',
+      bindingFor: 'src'
     }, {
       tab: 'content',
       section: 'Image',
@@ -21327,6 +21534,122 @@ function registerInkFoundationElements(registry) {
       var domDocument = _ref10.domDocument;
       var el = domDocument.createElement('div');
       el.className = 'ink-el-spacer';
+      return el;
+    }
+  });
+  // Dynamic content: repeats its child template once per item from a source (posts/pages).
+  // Emits `{{ loop source:limit }} … {{ /loop }}` tokens that the server resolves at publish
+  // (PageBuilder::ErbConverter), so one template renders a real archive/blog list.
+  registry.register({
+    type: 'query-loop',
+    title: 'Query Loop',
+    icon: 'dynamic_form',
+    category: 'Dynamic',
+    acceptsChildren: true,
+    defaults: {
+      settings: {
+        source: 'posts',
+        limit: 4
+      },
+      styles: {
+        base: {
+          display: 'flex',
+          'flex-direction': 'column',
+          gap: {
+            row: 24,
+            column: 24,
+            unit: 'px'
+          },
+          width: '100%'
+        }
+      },
+      children: []
+    },
+    tabLabels: {
+      content: 'Query'
+    },
+    controls: [{
+      tab: 'content',
+      section: 'Query',
+      name: 'source',
+      type: 'select',
+      label: 'Source',
+      options: [{
+        value: 'posts',
+        label: 'Posts'
+      }, {
+        value: 'pages',
+        label: 'Pages'
+      }]
+    }, {
+      tab: 'content',
+      section: 'Query',
+      name: 'limit',
+      type: 'number',
+      label: 'How many'
+    }, {
+      tab: 'content',
+      target: 'styles',
+      section: 'Layout',
+      name: '__layout-flow',
+      type: 'layout-flow',
+      label: 'Flow',
+      responsive: true
+    }, {
+      tab: 'content',
+      target: 'styles',
+      section: 'Layout',
+      name: '__alignment-gap',
+      type: 'alignment-gap',
+      label: 'Alignment and gap',
+      hideLabel: true,
+      responsive: true
+    }].concat(surfaceControls, advancedControls),
+    render: function render(_ref11, node) {
+      var domDocument = _ref11.domDocument;
+      var root = domDocument.createElement('div');
+      root.className = 'ink-el-query-loop';
+      var source = node.settings.source === 'pages' ? 'pages' : 'posts';
+      var limit = Math.max(1, Number(node.settings.limit) || 4);
+      var token = function token(text) {
+        var span = domDocument.createElement('span');
+        span.className = 'ink-el-query-token';
+        span.setAttribute('aria-hidden', 'true');
+        span.style.display = 'none';
+        span.textContent = text;
+        return span;
+      };
+      var inner = domDocument.createElement('div');
+      inner.className = 'ink-el-query-loop-inner';
+      inner.dataset.inkChildren = '';
+      root.append(token("{{ loop ".concat(source, ":").concat(limit, " }}")), inner, token('{{ /loop }}'));
+      return root;
+    }
+  });
+  // Dynamic content: emits the record's rich content blocks at publish (`{{ blocks }}`).
+  // Renders a labelled placeholder on the canvas; the token is swapped into the saved HTML
+  // during export (see BuilderV2.exportClone).
+  registry.register({
+    type: 'post-content',
+    title: 'Post content',
+    icon: 'file_text',
+    category: 'Dynamic',
+    defaults: {
+      settings: {},
+      styles: {
+        base: {
+          display: 'block',
+          width: '100%'
+        }
+      }
+    },
+    controls: [].concat(advancedControls),
+    render: function render(_ref12) {
+      var domDocument = _ref12.domDocument;
+      var el = domDocument.createElement('div');
+      el.className = 'ink-el-post-content';
+      el.setAttribute('data-ink-dynamic', '{{ blocks }}');
+      el.textContent = 'Post content';
       return el;
     }
   });
@@ -22522,7 +22845,7 @@ module.exports = ".ink-magic-aurora-text {\n  display: flex;\n  align-items: bas
 /***/ ((module) => {
 
 "use strict";
-module.exports = ".ink-icon-svg {\n  width: 1em;\n  height: 1em;\n  flex: none;\n  vertical-align: middle;\n}\n\n.ink-element[data-ink-kind=container] {\n  position: relative;\n}\n\n.ink-el-frame {\n  position: relative;\n  min-width: 0;\n  isolation: isolate;\n}\n\n.ink-el-frame-inner {\n  position: relative;\n  z-index: 1;\n  min-width: 0;\n  height: inherit;\n  min-height: inherit;\n}\n\n.ink-el-frame-overlay {\n  position: absolute;\n  z-index: 0;\n  inset: 0;\n  pointer-events: none;\n  border-radius: inherit;\n  transition: background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease, opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease;\n}\n\n.ink-el-group {\n  display: contents;\n}\n\n.ink-el-section {\n  position: relative;\n  width: 100%;\n}\n\n.ink-el-section-inner {\n  width: 100%;\n  max-width: min(100%, var(--ink-content-width, 1140px));\n  margin-inline: auto;\n  display: flex;\n  flex-direction: column;\n}\n\n.ink-el-section.is-full .ink-el-section-inner,\n.ink-el-section.is-stretched .ink-el-section-inner {\n  max-width: none;\n}\n\n.ink-el-container {\n  position: relative;\n  display: flex;\n  width: 100%;\n  flex-direction: column;\n  isolation: isolate;\n  transition: background-color var(--ink-background-transition, 0s) ease, background-image var(--ink-background-transition, 0s) ease, border-color var(--ink-border-transition, 0s) ease, border-width var(--ink-border-transition, 0s) ease, border-radius var(--ink-border-transition, 0s) ease, box-shadow var(--ink-border-transition, 0s) ease;\n}\n\n.ink-el-background-media {\n  position: absolute;\n  z-index: 0;\n  inset: 0;\n  overflow: hidden;\n  border-radius: inherit;\n  background-position: center;\n  background-size: cover;\n  pointer-events: none;\n}\n\n.ink-el-background-video video {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n}\n\n.ink-el-background-video iframe {\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  width: 177.78vh;\n  min-width: 100%;\n  height: 56.25vw;\n  min-height: 100%;\n  border: 0;\n  transform: translate(-50%, -50%);\n}\n\n.ink-el-background-slide {\n  position: absolute;\n  inset: -1px;\n  opacity: 0;\n  overflow: hidden;\n  transition: opacity var(--ink-slide-transition, 500ms) ease, transform var(--ink-slide-transition, 500ms) ease;\n}\n\n.ink-el-background-slide > img {\n  display: block;\n  width: 100%;\n  height: 100%;\n}\n\n.ink-el-background-slide.is-active {\n  z-index: 1;\n  opacity: 1;\n  transform: translate(0);\n}\n\n.ink-el-background-slideshow.is-slide_right .ink-el-background-slide {\n  transform: translateX(-8%);\n}\n\n.ink-el-background-slideshow.is-slide_left .ink-el-background-slide {\n  transform: translateX(8%);\n}\n\n.ink-el-background-slideshow.is-slide_up .ink-el-background-slide {\n  transform: translateY(8%);\n}\n\n.ink-el-background-slideshow.is-slide_down .ink-el-background-slide {\n  transform: translateY(-8%);\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns {\n  animation-duration: var(--ink-slide-duration, 5000ms);\n  animation-timing-function: ease-in-out;\n  animation-fill-mode: both;\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-in {\n  animation-name: ink-ken-burns-in;\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-out {\n  animation-name: ink-ken-burns-out;\n}\n\n@keyframes ink-ken-burns-in {\n  from {\n    transform: scale(1);\n  }\n  to {\n    transform: scale(1.15);\n  }\n}\n@keyframes ink-ken-burns-out {\n  from {\n    transform: scale(1.15);\n  }\n  to {\n    transform: scale(1);\n  }\n}\n.ink-el-container-overlay {\n  position: absolute;\n  z-index: 1;\n  inset: 0;\n  border-radius: inherit;\n  pointer-events: none;\n  transition: opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease, background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease;\n}\n\n.ink-el-container-inner {\n  position: relative;\n  z-index: 2;\n  min-width: 0;\n  min-height: 0;\n  flex: 1 1 auto;\n  width: 100%;\n  max-width: min(100%, var(--ink-content-width, 1140px));\n  margin-inline: auto;\n  display: flex;\n  flex-direction: column;\n}\n\n.ink-el-container-inner > * {\n  min-width: 0;\n  max-width: 100%;\n}\n\n.ink-el-container.is-full .ink-el-container-inner {\n  max-width: none;\n}\n\n.ink-el-shape-divider {\n  position: absolute;\n  z-index: 0;\n  left: 0;\n  width: 100%;\n  overflow: hidden;\n  line-height: 0;\n  pointer-events: none;\n}\n\n.ink-el-shape-divider-top {\n  top: 0;\n}\n\n.ink-el-shape-divider-bottom {\n  bottom: 0;\n}\n\n.ink-el-shape-divider svg {\n  position: relative;\n  left: 50%;\n  display: block;\n  width: var(--ink-shape-width, 100%);\n  height: var(--ink-shape-height, 100px);\n  transform: translateX(-50%);\n  fill: var(--ink-shape-color, #fff);\n}\n\n.ink-el-shape-divider-top svg {\n  transform: translateX(-50%) rotate(180deg);\n}\n\n.ink-el-shape-divider.is-flipped svg {\n  transform: translateX(-50%) rotateY(180deg);\n}\n\n.ink-el-shape-divider-top.is-flipped svg {\n  transform: translateX(-50%) rotate(180deg) rotateY(180deg);\n}\n\n.ink-el-shape-divider.is-front {\n  z-index: 3;\n}\n\n.ink-el-columns {\n  display: flex;\n  flex-wrap: nowrap;\n  width: 100%;\n  gap: var(--ink-column-gap, 20px);\n}\n\n.ink-el-column {\n  display: flex;\n  min-width: 0;\n  flex: 1 1 0%;\n  flex-direction: column;\n}\n\n.ink-el-columns.is-50-50 > .ink-el-column {\n  flex: 1 1 50%;\n}\n\n.ink-el-columns.is-33-33-33 > .ink-el-column {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-25-25-25-25 > .ink-el-column {\n  flex: 1 1 25%;\n}\n\n.ink-el-columns.is-20-20-20-20-20 > .ink-el-column {\n  flex: 1 1 20%;\n}\n\n.ink-el-columns.is-60-40 > .ink-el-column:first-child {\n  flex: 1 1 60%;\n}\n\n.ink-el-columns.is-60-40 > .ink-el-column:last-child {\n  flex: 1 1 40%;\n}\n\n.ink-el-columns.is-40-60 > .ink-el-column:first-child {\n  flex: 1 1 40%;\n}\n\n.ink-el-columns.is-40-60 > .ink-el-column:last-child {\n  flex: 1 1 60%;\n}\n\n.ink-el-columns.is-66-34 > .ink-el-column:first-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-66-34 > .ink-el-column:last-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-34-66 > .ink-el-column:first-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-34-66 > .ink-el-column:last-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-33-67 > .ink-el-column:first-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-33-67 > .ink-el-column:last-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-25-50-25 > .ink-el-column:nth-child(2) {\n  flex: 1 1 50%;\n}\n\n.ink-el-columns.is-25-50-25 > .ink-el-column:not(:nth-child(2)) {\n  flex: 1 1 25%;\n}\n\n@media (max-width: 767px) {\n  .ink-el-background-video.is-desktop-only {\n    display: none;\n  }\n  .ink-el-columns {\n    flex-wrap: wrap;\n  }\n  .ink-el-columns.is-50-50 > .ink-el-column,\n  .ink-el-columns.is-33-33-33 > .ink-el-column,\n  .ink-el-columns.is-25-25-25-25 > .ink-el-column,\n  .ink-el-columns.is-20-20-20-20-20 > .ink-el-column,\n  .ink-el-columns.is-60-40 > .ink-el-column,\n  .ink-el-columns.is-40-60 > .ink-el-column,\n  .ink-el-columns.is-66-34 > .ink-el-column,\n  .ink-el-columns.is-34-66 > .ink-el-column,\n  .ink-el-columns.is-33-67 > .ink-el-column,\n  .ink-el-columns.is-25-50-25 > .ink-el-column {\n    flex: 1 1 100% !important;\n  }\n  .ink-el-columns > .ink-el-column {\n    flex: 1 1 100% !important;\n  }\n}\n.ink-el-heading, .ink-el-heading a {\n  line-height: 1.2;\n  padding: 0;\n  margin: 0;\n}\n\n.ink-el-heading.ink-size-small {\n  font-size: 15px;\n}\n\n.ink-el-heading.ink-size-medium {\n  font-size: 19px;\n}\n\n.ink-el-heading.ink-size-large {\n  font-size: 29px;\n}\n\n.ink-el-heading.ink-size-xl {\n  font-size: 39px;\n}\n\n.ink-el-heading.ink-size-xxl {\n  font-size: 59px;\n}\n\n.ink-el-paragraph {\n  margin: 0;\n}\n\n.ink-el-paragraph p {\n  margin: 0 0 1em;\n}\n\n.ink-el-paragraph p:last-child {\n  margin-bottom: 0;\n}\n\n.ink-el-text-editor {\n  line-height: 1.6;\n}\n\n.ink-el-text-editor p:first-child {\n  margin-top: 0;\n}\n\n.ink-el-text-editor p:last-child {\n  margin-bottom: 0;\n}\n\n.ink-el-text-editor :where(ul, ol),\n.ink-el-unordered-list,\n.ink-el-ordered-list {\n  margin: 0 0 1em;\n  padding-inline-start: 1.5em;\n}\n\n.ink-el-text-editor ul,\n.ink-el-unordered-list {\n  list-style: disc outside;\n}\n\n.ink-el-text-editor ol,\n.ink-el-ordered-list {\n  list-style: decimal outside;\n}\n\n.ink-el-text-editor li,\n.ink-el-list-item {\n  display: list-item;\n  padding-inline-start: 0.2em;\n}\n\n.ink-el-text-editor :where(ul, ol) :where(ul, ol) {\n  margin-block: 0.35em;\n}\n\n.ink-el-divider {\n  width: 100%;\n  max-width: 100%;\n  border: 0;\n  border-top: 1px solid #7a7a7a;\n  height: 1px;\n}\n\n.ink-el-spacer {\n  display: block;\n}\n\n.ink-el-read-more {\n  display: inline-flex;\n  align-items: center;\n  gap: 0.35rem;\n  color: var(--ink-color-primary, #6ec1e4);\n  font-weight: 600;\n  text-decoration: none;\n}\n\n.ink-el-read-more:hover {\n  color: #4054b2;\n}\n\n.ink-el-anchor {\n  display: block;\n  position: relative;\n  top: calc(-1 * var(--anchor-offset, 0px));\n  visibility: hidden;\n}\n\n.ink-el-button {\n  display: inline-flex;\n  width: fit-content;\n  height: fit-content;\n  align-items: flex-end;\n  padding: 0 0 var(--ink-button-depth, 0);\n  border: 0;\n  background: transparent;\n  color: inherit;\n  font: inherit;\n  text-decoration: none;\n  cursor: pointer;\n  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;\n}\n\n.ink-el-button-surface {\n  display: inline-flex;\n  width: 100%;\n  min-width: 0;\n  align-items: center;\n  justify-content: center;\n  gap: var(--ink-icon-gap, 8px);\n  overflow: hidden;\n  color: inherit;\n  fill: currentColor;\n  text-align: center;\n  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;\n}\n\n.ink-el-button:hover, .ink-el-button:focus, .ink-el-button:visited {\n  color: inherit;\n}\n\n.ink-el-button:active .ink-el-button-surface {\n  transform: translateY(min(var(--ink-button-depth, 0px), 3px));\n}\n\n.ink-el-button:focus-visible {\n  outline: 2px solid var(--ink-color-primary);\n  outline-offset: 2px;\n}\n\n.ink-el-button.is-align-left, .ink-el-button.is-align-center, .ink-el-button.is-align-right {\n  display: flex;\n  width: fit-content;\n}\n\n.ink-el-button.is-align-left {\n  margin-right: auto;\n}\n\n.ink-el-button.is-align-center {\n  margin-inline: auto;\n}\n\n.ink-el-button.is-align-right {\n  margin-left: auto;\n}\n\n.ink-el-button-icon {\n  display: inline-flex;\n  align-items: center;\n}\n\n.ink-el-button-icon .material-symbols-rounded {\n  font-size: 1em;\n}\n\n.ink-el-image {\n  display: block;\n  max-width: 100%;\n  height: auto;\n}\n\n.ink-el-image-link {\n  display: block;\n  max-width: 100%;\n}\n\n.ink-el-image-figure {\n  margin: 0;\n  max-width: 100%;\n}\n\n.ink-el-image-figure img {\n  display: block;\n  width: 100%;\n  height: auto;\n}\n\n.ink-el-image-figure figcaption {\n  margin-top: 0.5em;\n  color: #7a7a7a;\n  font-size: 0.9em;\n  text-align: center;\n}\n\n.ink-el-image.is-align-center {\n  margin-inline: auto;\n}\n\n.ink-el-image.is-align-right {\n  margin-left: auto;\n}\n\n.ink-el-icon {\n  display: inline-grid;\n  place-items: center;\n  font-size: 2.5rem;\n  line-height: 1;\n}\n\n.ink-el-icon-box {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  text-align: center;\n  gap: 0;\n}\n\n.ink-el-icon-box .ink-el-icon {\n  margin-bottom: 15px;\n  color: var(--ink-color-primary, #6ec1e4);\n  font-size: 40px;\n  transition: color 0.3s;\n}\n\n.ink-el-icon-box .ink-el-box-title {\n  width: 100%;\n  margin: 0 0 5px;\n  font-weight: 600;\n}\n\n.ink-el-icon-box .ink-el-box-desc {\n  width: 100%;\n  margin: 0;\n  color: #7a7a7a;\n  line-height: 1.5;\n}\n\n.ink-el-image-box {\n  display: flex;\n  flex-direction: column;\n  align-items: flex-start;\n  text-align: left;\n}\n\n.ink-el-image-box > img {\n  width: 100%;\n  margin-bottom: 15px;\n  object-fit: cover;\n}\n\n.ink-el-image-box .ink-el-box-title {\n  width: 100%;\n  margin: 0 0 5px;\n  font-weight: 600;\n}\n\n.ink-el-image-box .ink-el-box-desc {\n  width: 100%;\n  margin: 0;\n  color: #7a7a7a;\n  line-height: 1.5;\n}\n\n.ink-el-icon-list {\n  display: grid;\n  gap: 0.6rem;\n  margin: 0;\n  padding: 0;\n  list-style: none;\n}\n\n.ink-el-icon-list li {\n  display: flex;\n  gap: 0.7rem;\n  align-items: center;\n}\n\n.ink-el-icon-list .material-symbols-rounded {\n  flex: none;\n  font-size: 1.2em;\n  color: var(--ink-color-primary, #6ec1e4);\n}\n\n.ink-el-icon-list a {\n  color: inherit;\n  text-decoration: none;\n}\n\n.ink-el-social {\n  display: flex;\n  gap: 0.5rem;\n}\n\n.ink-el-social a {\n  display: grid;\n  width: 40px;\n  height: 40px;\n  place-items: center;\n  border-radius: 50%;\n  background: #54595f;\n  color: #fff;\n  text-decoration: none;\n  transition: background 0.3s;\n}\n\n.ink-el-social a:hover {\n  background: #7a7a7a;\n}\n\n.ink-el-social .material-symbols-rounded {\n  font-size: 20px;\n}\n\n.ink-el-counter {\n  display: flex;\n  justify-content: center;\n  align-items: stretch;\n  flex-direction: column-reverse;\n}\n\n.ink-el-counter-number {\n  display: flex;\n  justify-content: center;\n  font-size: 69px;\n  font-weight: 600;\n  line-height: 1;\n  text-align: center;\n}\n\n.ink-el-counter-title {\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  margin: 0;\n  padding: 0;\n  font-size: 19px;\n  font-weight: 400;\n  line-height: 2.5;\n  text-align: center;\n}\n\n.ink-el-progress {\n  text-align: left;\n}\n\n.ink-el-progress-track {\n  position: relative;\n  height: 30px;\n  overflow: hidden;\n  border-radius: 2px;\n  background: #e8eaeb;\n}\n\n.ink-el-progress-value {\n  display: flex;\n  height: 100%;\n  align-items: center;\n  background: #818a91;\n  border-radius: 2px;\n  font-size: 11px;\n  line-height: 30px;\n  color: #fff;\n  transition: width 1s ease-in-out;\n}\n\n.ink-el-progress-value span {\n  flex: 1;\n  padding-inline-start: 15px;\n}\n\n.ink-el-progress-value b {\n  padding-inline-end: 15px;\n  font-weight: 400;\n}\n\n.ink-el-rating {\n  display: flex;\n  gap: 0.1em;\n  font-size: 1.5rem;\n  line-height: 1;\n  color: #818a91;\n}\n\n.ink-el-rating .material-symbols-rounded {\n  font-size: 1em;\n}\n\n.ink-el-rating .is-rated {\n  color: #f0ad4e;\n}\n\n.ink-el-testimonial {\n  display: flex;\n  flex-direction: column;\n  gap: 1rem;\n}\n\n.ink-el-testimonial blockquote {\n  margin: 0;\n  font-size: 1.1rem;\n  line-height: 1.6;\n}\n\n.ink-el-testimonial figcaption {\n  display: flex;\n  gap: 0.75rem;\n  align-items: center;\n}\n\n.ink-el-testimonial img, .ink-el-avatar {\n  width: 48px;\n  height: 48px;\n  border-radius: 50%;\n  object-fit: cover;\n}\n\n.ink-el-testimonial-name {\n  font-weight: 600;\n}\n\n.ink-el-testimonial-role {\n  color: #7a7a7a;\n  font-size: 0.9rem;\n}\n\n.ink-el-tabs-nav {\n  display: flex;\n  gap: 0;\n  border-bottom: 1px solid #d4d4d8;\n}\n\n.ink-el-tabs-nav button {\n  position: relative;\n  padding: 0.75rem 1rem;\n  border: 0;\n  border-bottom: 2px solid transparent;\n  background: transparent;\n  color: inherit;\n  cursor: pointer;\n}\n\n.ink-el-tabs-nav button.is-active {\n  border-bottom-color: var(--ink-color-primary, #6ec1e4);\n  color: var(--ink-color-primary, #6ec1e4);\n}\n\n.ink-el-tab-panel {\n  padding: 1rem 0;\n  line-height: 1.6;\n}\n\n.ink-el-accordion {\n  display: grid;\n}\n\n.ink-el-accordion details {\n  border-bottom: 1px solid #d4d4d8;\n}\n\n.ink-el-accordion summary {\n  padding: 1rem 0;\n  font-weight: 600;\n  cursor: pointer;\n  list-style: none;\n}\n\n.ink-el-accordion summary::-webkit-details-marker {\n  display: none;\n}\n\n.ink-el-accordion details > div {\n  padding: 0 0 1rem;\n  line-height: 1.6;\n}\n\n.ink-el-timeline-accordion {\n  display: grid;\n  gap: 1rem;\n}\n\n.ink-el-timeline-item {\n  overflow: hidden;\n  border-radius: 1.5rem;\n  background: #111;\n  color: #fff;\n  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease;\n}\n\n.ink-el-timeline-question {\n  display: flex;\n  width: 100%;\n  align-items: center;\n  justify-content: space-between;\n  gap: 1rem;\n  padding: 1.35rem 1.5rem;\n  border: 0;\n  background: transparent;\n  color: inherit;\n  text-align: left;\n  cursor: pointer;\n}\n\n.ink-el-timeline-copy, .ink-el-timeline-eyebrow, .ink-el-timeline-title {\n  display: block;\n}\n\n.ink-el-timeline-eyebrow {\n  margin-bottom: 0.35rem;\n  color: #a970ff;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.14em;\n  text-transform: uppercase;\n}\n\n.ink-el-timeline-title {\n  font-size: clamp(1rem, 2vw, 1.35rem);\n}\n\n.ink-el-timeline-glyph {\n  font-size: 1.6rem;\n  font-weight: 300;\n  transition: transform var(--ink-timeline-duration, 280ms) ease;\n}\n\n.ink-el-timeline-content {\n  padding: 0 1.5rem 1.5rem;\n  color: #aaa;\n  line-height: 1.65;\n}\n\n.ink-el-timeline-item:not(.is-open) > .ink-el-timeline-content {\n  display: none;\n}\n\n.ink-el-timeline-item.is-open .ink-el-timeline-glyph {\n  transform: rotate(45deg);\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-item] {\n  overflow: hidden !important;\n  height: auto !important;\n  min-height: 0 !important;\n  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease !important;\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-item]:not(.is-open) [data-ink-timeline-content] {\n  display: none !important;\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-question] {\n  cursor: pointer;\n}\n\n.ink-el-alert {\n  display: flex;\n  gap: 0.75rem;\n  padding: 1rem;\n  border: 1px solid color-mix(in srgb, var(--alert-color) 35%, transparent);\n  border-radius: 3px;\n  background: color-mix(in srgb, var(--alert-color) 8%, white);\n}\n\n.ink-el-alert > .material-symbols-rounded {\n  flex: none;\n  color: var(--alert-color);\n}\n\n.ink-el-alert strong, .ink-el-alert span {\n  display: block;\n}\n\n.ink-el-audio {\n  width: 100%;\n}\n\n.ink-el-video {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  border: 0;\n}\n\n.ink-el-map {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  border: 0;\n}\n\n.ink-el-gallery {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 0.75rem;\n}\n\n.ink-el-gallery img {\n  width: 100%;\n  aspect-ratio: 1;\n  object-fit: cover;\n}\n\n.ink-el-gallery[data-lightbox=true] img {\n  cursor: zoom-in;\n}\n\n.ink-el-carousel {\n  position: relative;\n  overflow: hidden;\n}\n\n.ink-el-carousel-track {\n  display: flex;\n  transition: transform 0.45s ease;\n}\n\n.ink-el-carousel-slide {\n  flex: 0 0 100%;\n  min-width: 0;\n}\n\n.ink-el-carousel-slide img {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  object-fit: cover;\n}\n\n.ink-el-carousel-nav {\n  position: absolute;\n  z-index: 2;\n  top: 50%;\n  display: flex;\n  width: 40px;\n  height: 40px;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(0, 0, 0, 0.45);\n  color: #fff;\n  cursor: pointer;\n  transform: translateY(-50%);\n  transition: background 0.15s;\n}\n\n.ink-el-carousel-nav:hover {\n  background: rgba(0, 0, 0, 0.65);\n}\n\n.ink-el-carousel-nav:disabled {\n  opacity: 0.35;\n  cursor: not-allowed;\n}\n\n.ink-el-carousel-nav.is-prev {\n  left: 10px;\n}\n\n.ink-el-carousel-nav.is-next {\n  right: 10px;\n}\n\n.ink-el-carousel-nav .material-symbols-rounded, .ink-el-carousel-nav .ink-icon-svg {\n  font-size: 22px;\n  width: 22px;\n  height: 22px;\n}\n\n.ink-el-carousel-dots {\n  position: absolute;\n  z-index: 2;\n  right: 0;\n  bottom: 10px;\n  left: 0;\n  display: flex;\n  gap: 7px;\n  justify-content: center;\n}\n\n.ink-el-carousel-dot {\n  width: 9px;\n  height: 9px;\n  padding: 0;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.6);\n  cursor: pointer;\n  transition: background 0.15s, transform 0.15s;\n}\n\n.ink-el-carousel-dot.is-active, .ink-el-carousel-dot:hover {\n  background: #fff;\n}\n\n.ink-el-carousel-dot.is-active {\n  transform: scale(1.25);\n}\n\n/* Gallery lightbox (ephemeral overlay created by the widget runtime) */\n.ink-lightbox {\n  position: fixed;\n  inset: 0;\n  z-index: 100000;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  background: rgba(0, 0, 0, 0.92);\n}\n\n.ink-lightbox-image {\n  max-width: 86vw;\n  max-height: 82vh;\n  box-shadow: 0 8px 50px rgba(0, 0, 0, 0.55);\n}\n\n.ink-lightbox-close, .ink-lightbox-prev, .ink-lightbox-next {\n  position: absolute;\n  z-index: 2;\n  display: flex;\n  width: 42px;\n  height: 42px;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.15);\n  color: #fff;\n  cursor: pointer;\n  transition: background 0.15s;\n}\n\n.ink-lightbox-close:hover, .ink-lightbox-prev:hover, .ink-lightbox-next:hover {\n  background: rgba(255, 255, 255, 0.3);\n}\n\n.ink-lightbox-close {\n  top: 14px;\n  right: 14px;\n}\n\n.ink-lightbox-prev {\n  top: 50%;\n  left: 14px;\n  transform: translateY(-50%);\n}\n\n.ink-lightbox-next {\n  top: 50%;\n  right: 14px;\n  transform: translateY(-50%);\n}\n\n.ink-lightbox .material-symbols-rounded, .ink-lightbox .ink-icon-svg {\n  font-size: 22px;\n  width: 22px;\n  height: 22px;\n}\n\n.ink-el-plugin {\n  padding: 1rem;\n  border: 1px dashed #a4afb7;\n  background: #f8fafc;\n  color: #54595f;\n  font: 13px ui-monospace, monospace;\n}\n\n@media (max-width: 767px) {\n  .ink-el-gallery {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n  .ink-el-icon-box, .ink-el-image-box {\n    align-items: center;\n    text-align: center;\n  }\n  .ink-el-image-box > img {\n    width: 100%;\n  }\n}";
+module.exports = ".ink-icon-svg {\n  width: 1em;\n  height: 1em;\n  flex: none;\n  vertical-align: middle;\n}\n\n.ink-element[data-ink-kind=container] {\n  position: relative;\n}\n\n.ink-el-frame {\n  position: relative;\n  min-width: 0;\n  isolation: isolate;\n}\n\n.ink-el-frame-inner {\n  position: relative;\n  z-index: 1;\n  min-width: 0;\n  height: inherit;\n  min-height: inherit;\n}\n\n.ink-el-frame-overlay {\n  position: absolute;\n  z-index: 0;\n  inset: 0;\n  pointer-events: none;\n  border-radius: inherit;\n  transition: background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease, opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease;\n}\n\n.ink-el-group {\n  display: contents;\n}\n\n.ink-el-section {\n  position: relative;\n  width: 100%;\n}\n\n.ink-el-section-inner {\n  width: 100%;\n  max-width: min(100%, var(--ink-content-width, 1140px));\n  margin-inline: auto;\n  display: flex;\n  flex-direction: column;\n}\n\n.ink-el-section.is-full .ink-el-section-inner,\n.ink-el-section.is-stretched .ink-el-section-inner {\n  max-width: none;\n}\n\n.ink-el-container {\n  position: relative;\n  display: flex;\n  width: 100%;\n  flex-direction: column;\n  isolation: isolate;\n  transition: background-color var(--ink-background-transition, 0s) ease, background-image var(--ink-background-transition, 0s) ease, border-color var(--ink-border-transition, 0s) ease, border-width var(--ink-border-transition, 0s) ease, border-radius var(--ink-border-transition, 0s) ease, box-shadow var(--ink-border-transition, 0s) ease;\n}\n\n.ink-el-background-media {\n  position: absolute;\n  z-index: 0;\n  inset: 0;\n  overflow: hidden;\n  border-radius: inherit;\n  background-position: center;\n  background-size: cover;\n  pointer-events: none;\n}\n\n.ink-el-background-video video {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n}\n\n.ink-el-background-video iframe {\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  width: 177.78vh;\n  min-width: 100%;\n  height: 56.25vw;\n  min-height: 100%;\n  border: 0;\n  transform: translate(-50%, -50%);\n}\n\n.ink-el-background-slide {\n  position: absolute;\n  inset: -1px;\n  opacity: 0;\n  overflow: hidden;\n  transition: opacity var(--ink-slide-transition, 500ms) ease, transform var(--ink-slide-transition, 500ms) ease;\n}\n\n.ink-el-background-slide > img {\n  display: block;\n  width: 100%;\n  height: 100%;\n}\n\n.ink-el-background-slide.is-active {\n  z-index: 1;\n  opacity: 1;\n  transform: translate(0);\n}\n\n.ink-el-background-slideshow.is-slide_right .ink-el-background-slide {\n  transform: translateX(-8%);\n}\n\n.ink-el-background-slideshow.is-slide_left .ink-el-background-slide {\n  transform: translateX(8%);\n}\n\n.ink-el-background-slideshow.is-slide_up .ink-el-background-slide {\n  transform: translateY(8%);\n}\n\n.ink-el-background-slideshow.is-slide_down .ink-el-background-slide {\n  transform: translateY(-8%);\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns {\n  animation-duration: var(--ink-slide-duration, 5000ms);\n  animation-timing-function: ease-in-out;\n  animation-fill-mode: both;\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-in {\n  animation-name: ink-ken-burns-in;\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-out {\n  animation-name: ink-ken-burns-out;\n}\n\n@keyframes ink-ken-burns-in {\n  from {\n    transform: scale(1);\n  }\n  to {\n    transform: scale(1.15);\n  }\n}\n@keyframes ink-ken-burns-out {\n  from {\n    transform: scale(1.15);\n  }\n  to {\n    transform: scale(1);\n  }\n}\n.ink-el-container-overlay {\n  position: absolute;\n  z-index: 1;\n  inset: 0;\n  border-radius: inherit;\n  pointer-events: none;\n  transition: opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease, background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease;\n}\n\n.ink-el-container-inner {\n  position: relative;\n  z-index: 2;\n  min-width: 0;\n  min-height: 0;\n  flex: 1 1 auto;\n  width: 100%;\n  max-width: min(100%, var(--ink-content-width, 1140px));\n  margin-inline: auto;\n  display: flex;\n  flex-direction: column;\n}\n\n.ink-el-container-inner > * {\n  min-width: 0;\n  max-width: 100%;\n}\n\n.ink-el-container.is-full .ink-el-container-inner {\n  max-width: none;\n}\n\n.ink-el-shape-divider {\n  position: absolute;\n  z-index: 0;\n  left: 0;\n  width: 100%;\n  overflow: hidden;\n  line-height: 0;\n  pointer-events: none;\n}\n\n.ink-el-shape-divider-top {\n  top: 0;\n}\n\n.ink-el-shape-divider-bottom {\n  bottom: 0;\n}\n\n.ink-el-shape-divider svg {\n  position: relative;\n  left: 50%;\n  display: block;\n  width: var(--ink-shape-width, 100%);\n  height: var(--ink-shape-height, 100px);\n  transform: translateX(-50%);\n  fill: var(--ink-shape-color, #fff);\n}\n\n.ink-el-shape-divider-top svg {\n  transform: translateX(-50%) rotate(180deg);\n}\n\n.ink-el-shape-divider.is-flipped svg {\n  transform: translateX(-50%) rotateY(180deg);\n}\n\n.ink-el-shape-divider-top.is-flipped svg {\n  transform: translateX(-50%) rotate(180deg) rotateY(180deg);\n}\n\n.ink-el-shape-divider.is-front {\n  z-index: 3;\n}\n\n.ink-el-columns {\n  display: flex;\n  flex-wrap: nowrap;\n  width: 100%;\n  gap: var(--ink-column-gap, 20px);\n}\n\n.ink-el-column {\n  display: flex;\n  min-width: 0;\n  flex: 1 1 0%;\n  flex-direction: column;\n}\n\n.ink-el-columns.is-50-50 > .ink-el-column {\n  flex: 1 1 50%;\n}\n\n.ink-el-columns.is-33-33-33 > .ink-el-column {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-25-25-25-25 > .ink-el-column {\n  flex: 1 1 25%;\n}\n\n.ink-el-columns.is-20-20-20-20-20 > .ink-el-column {\n  flex: 1 1 20%;\n}\n\n.ink-el-columns.is-60-40 > .ink-el-column:first-child {\n  flex: 1 1 60%;\n}\n\n.ink-el-columns.is-60-40 > .ink-el-column:last-child {\n  flex: 1 1 40%;\n}\n\n.ink-el-columns.is-40-60 > .ink-el-column:first-child {\n  flex: 1 1 40%;\n}\n\n.ink-el-columns.is-40-60 > .ink-el-column:last-child {\n  flex: 1 1 60%;\n}\n\n.ink-el-columns.is-66-34 > .ink-el-column:first-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-66-34 > .ink-el-column:last-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-34-66 > .ink-el-column:first-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-34-66 > .ink-el-column:last-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-33-67 > .ink-el-column:first-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-33-67 > .ink-el-column:last-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-25-50-25 > .ink-el-column:nth-child(2) {\n  flex: 1 1 50%;\n}\n\n.ink-el-columns.is-25-50-25 > .ink-el-column:not(:nth-child(2)) {\n  flex: 1 1 25%;\n}\n\n@media (max-width: 767px) {\n  .ink-el-background-video.is-desktop-only {\n    display: none;\n  }\n  .ink-el-columns {\n    flex-wrap: wrap;\n  }\n  .ink-el-columns.is-50-50 > .ink-el-column,\n  .ink-el-columns.is-33-33-33 > .ink-el-column,\n  .ink-el-columns.is-25-25-25-25 > .ink-el-column,\n  .ink-el-columns.is-20-20-20-20-20 > .ink-el-column,\n  .ink-el-columns.is-60-40 > .ink-el-column,\n  .ink-el-columns.is-40-60 > .ink-el-column,\n  .ink-el-columns.is-66-34 > .ink-el-column,\n  .ink-el-columns.is-34-66 > .ink-el-column,\n  .ink-el-columns.is-33-67 > .ink-el-column,\n  .ink-el-columns.is-25-50-25 > .ink-el-column {\n    flex: 1 1 100% !important;\n  }\n  .ink-el-columns > .ink-el-column {\n    flex: 1 1 100% !important;\n  }\n}\n.ink-el-heading, .ink-el-heading a {\n  line-height: 1.2;\n  padding: 0;\n  margin: 0;\n}\n\n.ink-el-heading.ink-size-small {\n  font-size: 15px;\n}\n\n.ink-el-heading.ink-size-medium {\n  font-size: 19px;\n}\n\n.ink-el-heading.ink-size-large {\n  font-size: 29px;\n}\n\n.ink-el-heading.ink-size-xl {\n  font-size: 39px;\n}\n\n.ink-el-heading.ink-size-xxl {\n  font-size: 59px;\n}\n\n.ink-el-paragraph {\n  margin: 0;\n}\n\n.ink-el-paragraph p {\n  margin: 0 0 1em;\n}\n\n.ink-el-paragraph p:last-child {\n  margin-bottom: 0;\n}\n\n.ink-el-text-editor {\n  line-height: 1.6;\n}\n\n.ink-el-text-editor p:first-child {\n  margin-top: 0;\n}\n\n.ink-el-text-editor p:last-child {\n  margin-bottom: 0;\n}\n\n.ink-el-text-editor :where(ul, ol),\n.ink-el-unordered-list,\n.ink-el-ordered-list {\n  margin: 0 0 1em;\n  padding-inline-start: 1.5em;\n}\n\n.ink-el-text-editor ul,\n.ink-el-unordered-list {\n  list-style: disc outside;\n}\n\n.ink-el-text-editor ol,\n.ink-el-ordered-list {\n  list-style: decimal outside;\n}\n\n.ink-el-text-editor li,\n.ink-el-list-item {\n  display: list-item;\n  padding-inline-start: 0.2em;\n}\n\n.ink-el-text-editor :where(ul, ol) :where(ul, ol) {\n  margin-block: 0.35em;\n}\n\n.ink-el-divider {\n  width: 100%;\n  max-width: 100%;\n  border: 0;\n  border-top: 1px solid #7a7a7a;\n  height: 1px;\n}\n\n.ink-el-spacer {\n  display: block;\n}\n\n.ink-el-read-more {\n  display: inline-flex;\n  align-items: center;\n  gap: 0.35rem;\n  color: var(--ink-color-primary, #6ec1e4);\n  font-weight: 600;\n  text-decoration: none;\n}\n\n.ink-el-read-more:hover {\n  color: #4054b2;\n}\n\n.ink-el-anchor {\n  display: block;\n  position: relative;\n  top: calc(-1 * var(--anchor-offset, 0px));\n  visibility: hidden;\n}\n\n.ink-el-button {\n  display: inline-flex;\n  width: fit-content;\n  height: fit-content;\n  align-items: flex-end;\n  padding: 0 0 var(--ink-button-depth, 0);\n  border: 0;\n  background: transparent;\n  color: inherit;\n  font: inherit;\n  text-decoration: none;\n  cursor: pointer;\n  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;\n}\n\n.ink-el-button-surface {\n  display: inline-flex;\n  width: 100%;\n  min-width: 0;\n  align-items: center;\n  justify-content: center;\n  gap: var(--ink-icon-gap, 8px);\n  overflow: hidden;\n  color: inherit;\n  fill: currentColor;\n  text-align: center;\n  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;\n}\n\n.ink-el-button:hover, .ink-el-button:focus, .ink-el-button:visited {\n  color: inherit;\n}\n\n.ink-el-button:active .ink-el-button-surface {\n  transform: translateY(min(var(--ink-button-depth, 0px), 3px));\n}\n\n.ink-el-button:focus-visible {\n  outline: 2px solid var(--ink-color-primary);\n  outline-offset: 2px;\n}\n\n.ink-el-button.is-align-left, .ink-el-button.is-align-center, .ink-el-button.is-align-right {\n  display: flex;\n  width: fit-content;\n}\n\n.ink-el-button.is-align-left {\n  margin-right: auto;\n}\n\n.ink-el-button.is-align-center {\n  margin-inline: auto;\n}\n\n.ink-el-button.is-align-right {\n  margin-left: auto;\n}\n\n.ink-el-button-icon {\n  display: inline-flex;\n  align-items: center;\n}\n\n.ink-el-button-icon .material-symbols-rounded {\n  font-size: 1em;\n}\n\n.ink-el-image {\n  display: block;\n  max-width: 100%;\n  height: auto;\n}\n\n.ink-el-image-link {\n  display: block;\n  max-width: 100%;\n}\n\n.ink-el-image-figure {\n  margin: 0;\n  max-width: 100%;\n}\n\n.ink-el-image-figure img {\n  display: block;\n  width: 100%;\n  height: auto;\n}\n\n.ink-el-image-figure figcaption {\n  margin-top: 0.5em;\n  color: #7a7a7a;\n  font-size: 0.9em;\n  text-align: center;\n}\n\n.ink-el-image.is-align-center {\n  margin-inline: auto;\n}\n\n.ink-el-image.is-align-right {\n  margin-left: auto;\n}\n\n.ink-el-icon {\n  display: inline-grid;\n  place-items: center;\n  font-size: 2.5rem;\n  line-height: 1;\n}\n\n.ink-el-icon-box {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  text-align: center;\n  gap: 0;\n}\n\n.ink-el-icon-box .ink-el-icon {\n  margin-bottom: 15px;\n  color: var(--ink-color-primary, #6ec1e4);\n  font-size: 40px;\n  transition: color 0.3s;\n}\n\n.ink-el-icon-box .ink-el-box-title {\n  width: 100%;\n  margin: 0 0 5px;\n  font-weight: 600;\n}\n\n.ink-el-icon-box .ink-el-box-desc {\n  width: 100%;\n  margin: 0;\n  color: #7a7a7a;\n  line-height: 1.5;\n}\n\n.ink-el-image-box {\n  display: flex;\n  flex-direction: column;\n  align-items: flex-start;\n  text-align: left;\n}\n\n.ink-el-image-box > img {\n  width: 100%;\n  margin-bottom: 15px;\n  object-fit: cover;\n}\n\n.ink-el-image-box .ink-el-box-title {\n  width: 100%;\n  margin: 0 0 5px;\n  font-weight: 600;\n}\n\n.ink-el-image-box .ink-el-box-desc {\n  width: 100%;\n  margin: 0;\n  color: #7a7a7a;\n  line-height: 1.5;\n}\n\n.ink-el-icon-list {\n  display: grid;\n  gap: 0.6rem;\n  margin: 0;\n  padding: 0;\n  list-style: none;\n}\n\n.ink-el-icon-list li {\n  display: flex;\n  gap: 0.7rem;\n  align-items: center;\n}\n\n.ink-el-icon-list .material-symbols-rounded {\n  flex: none;\n  font-size: 1.2em;\n  color: var(--ink-color-primary, #6ec1e4);\n}\n\n.ink-el-icon-list a {\n  color: inherit;\n  text-decoration: none;\n}\n\n.ink-el-social {\n  display: flex;\n  gap: 0.5rem;\n}\n\n.ink-el-social a {\n  display: grid;\n  width: 40px;\n  height: 40px;\n  place-items: center;\n  border-radius: 50%;\n  background: #54595f;\n  color: #fff;\n  text-decoration: none;\n  transition: background 0.3s;\n}\n\n.ink-el-social a:hover {\n  background: #7a7a7a;\n}\n\n.ink-el-social .material-symbols-rounded {\n  font-size: 20px;\n}\n\n.ink-el-counter {\n  display: flex;\n  justify-content: center;\n  align-items: stretch;\n  flex-direction: column-reverse;\n}\n\n.ink-el-counter-number {\n  display: flex;\n  justify-content: center;\n  font-size: 69px;\n  font-weight: 600;\n  line-height: 1;\n  text-align: center;\n}\n\n.ink-el-counter-title {\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  margin: 0;\n  padding: 0;\n  font-size: 19px;\n  font-weight: 400;\n  line-height: 2.5;\n  text-align: center;\n}\n\n.ink-el-progress {\n  text-align: left;\n}\n\n.ink-el-progress-track {\n  position: relative;\n  height: 30px;\n  overflow: hidden;\n  border-radius: 2px;\n  background: #e8eaeb;\n}\n\n.ink-el-progress-value {\n  display: flex;\n  height: 100%;\n  align-items: center;\n  background: #818a91;\n  border-radius: 2px;\n  font-size: 11px;\n  line-height: 30px;\n  color: #fff;\n  transition: width 1s ease-in-out;\n}\n\n.ink-el-progress-value span {\n  flex: 1;\n  padding-inline-start: 15px;\n}\n\n.ink-el-progress-value b {\n  padding-inline-end: 15px;\n  font-weight: 400;\n}\n\n.ink-el-rating {\n  display: flex;\n  gap: 0.1em;\n  font-size: 1.5rem;\n  line-height: 1;\n  color: #818a91;\n}\n\n.ink-el-rating .material-symbols-rounded {\n  font-size: 1em;\n}\n\n.ink-el-rating .is-rated {\n  color: #f0ad4e;\n}\n\n.ink-el-testimonial {\n  display: flex;\n  flex-direction: column;\n  gap: 1rem;\n}\n\n.ink-el-testimonial blockquote {\n  margin: 0;\n  font-size: 1.1rem;\n  line-height: 1.6;\n}\n\n.ink-el-testimonial figcaption {\n  display: flex;\n  gap: 0.75rem;\n  align-items: center;\n}\n\n.ink-el-testimonial img, .ink-el-avatar {\n  width: 48px;\n  height: 48px;\n  border-radius: 50%;\n  object-fit: cover;\n}\n\n.ink-el-testimonial-name {\n  font-weight: 600;\n}\n\n.ink-el-testimonial-role {\n  color: #7a7a7a;\n  font-size: 0.9rem;\n}\n\n.ink-builder-design .ink-el-query-loop {\n  outline: 1px dashed rgba(127, 127, 127, 0.35);\n  outline-offset: 3px;\n}\n\n.ink-builder-design .ink-el-post-content {\n  display: flex;\n  min-height: 96px;\n  align-items: center;\n  justify-content: center;\n  border: 1px dashed rgba(127, 127, 127, 0.5);\n  border-radius: 8px;\n  color: #8a8a8a;\n  font-size: 12px;\n  font-weight: 500;\n  letter-spacing: 0.05em;\n  text-transform: uppercase;\n}\n\n.ink-el-tabs-nav {\n  display: flex;\n  gap: 0;\n  border-bottom: 1px solid #d4d4d8;\n}\n\n.ink-el-tabs-nav button {\n  position: relative;\n  padding: 0.75rem 1rem;\n  border: 0;\n  border-bottom: 2px solid transparent;\n  background: transparent;\n  color: inherit;\n  cursor: pointer;\n}\n\n.ink-el-tabs-nav button.is-active {\n  border-bottom-color: var(--ink-color-primary, #6ec1e4);\n  color: var(--ink-color-primary, #6ec1e4);\n}\n\n.ink-el-tab-panel {\n  padding: 1rem 0;\n  line-height: 1.6;\n}\n\n.ink-el-accordion {\n  display: grid;\n}\n\n.ink-el-accordion details {\n  border-bottom: 1px solid #d4d4d8;\n}\n\n.ink-el-accordion summary {\n  padding: 1rem 0;\n  font-weight: 600;\n  cursor: pointer;\n  list-style: none;\n}\n\n.ink-el-accordion summary::-webkit-details-marker {\n  display: none;\n}\n\n.ink-el-accordion details > div {\n  padding: 0 0 1rem;\n  line-height: 1.6;\n}\n\n.ink-el-timeline-accordion {\n  display: grid;\n  gap: 1rem;\n}\n\n.ink-el-timeline-item {\n  overflow: hidden;\n  border-radius: 1.5rem;\n  background: #111;\n  color: #fff;\n  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease;\n}\n\n.ink-el-timeline-question {\n  display: flex;\n  width: 100%;\n  align-items: center;\n  justify-content: space-between;\n  gap: 1rem;\n  padding: 1.35rem 1.5rem;\n  border: 0;\n  background: transparent;\n  color: inherit;\n  text-align: left;\n  cursor: pointer;\n}\n\n.ink-el-timeline-copy, .ink-el-timeline-eyebrow, .ink-el-timeline-title {\n  display: block;\n}\n\n.ink-el-timeline-eyebrow {\n  margin-bottom: 0.35rem;\n  color: #a970ff;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.14em;\n  text-transform: uppercase;\n}\n\n.ink-el-timeline-title {\n  font-size: clamp(1rem, 2vw, 1.35rem);\n}\n\n.ink-el-timeline-glyph {\n  font-size: 1.6rem;\n  font-weight: 300;\n  transition: transform var(--ink-timeline-duration, 280ms) ease;\n}\n\n.ink-el-timeline-content {\n  padding: 0 1.5rem 1.5rem;\n  color: #aaa;\n  line-height: 1.65;\n}\n\n.ink-el-timeline-item:not(.is-open) > .ink-el-timeline-content {\n  display: none;\n}\n\n.ink-el-timeline-item.is-open .ink-el-timeline-glyph {\n  transform: rotate(45deg);\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-item] {\n  overflow: hidden !important;\n  height: auto !important;\n  min-height: 0 !important;\n  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease !important;\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-item]:not(.is-open) [data-ink-timeline-content] {\n  display: none !important;\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-question] {\n  cursor: pointer;\n}\n\n.ink-el-alert {\n  display: flex;\n  gap: 0.75rem;\n  padding: 1rem;\n  border: 1px solid color-mix(in srgb, var(--alert-color) 35%, transparent);\n  border-radius: 3px;\n  background: color-mix(in srgb, var(--alert-color) 8%, white);\n}\n\n.ink-el-alert > .material-symbols-rounded {\n  flex: none;\n  color: var(--alert-color);\n}\n\n.ink-el-alert strong, .ink-el-alert span {\n  display: block;\n}\n\n.ink-el-audio {\n  width: 100%;\n}\n\n.ink-el-video {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  border: 0;\n}\n\n.ink-el-map {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  border: 0;\n}\n\n.ink-el-gallery {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 0.75rem;\n}\n\n.ink-el-gallery img {\n  width: 100%;\n  aspect-ratio: 1;\n  object-fit: cover;\n}\n\n.ink-el-gallery[data-lightbox=true] img {\n  cursor: zoom-in;\n}\n\n.ink-el-carousel {\n  position: relative;\n  overflow: hidden;\n}\n\n.ink-el-carousel-track {\n  display: flex;\n  transition: transform 0.45s ease;\n}\n\n.ink-el-carousel-slide {\n  flex: 0 0 100%;\n  min-width: 0;\n}\n\n.ink-el-carousel-slide img {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  object-fit: cover;\n}\n\n.ink-el-carousel-nav {\n  position: absolute;\n  z-index: 2;\n  top: 50%;\n  display: flex;\n  width: 40px;\n  height: 40px;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(0, 0, 0, 0.45);\n  color: #fff;\n  cursor: pointer;\n  transform: translateY(-50%);\n  transition: background 0.15s;\n}\n\n.ink-el-carousel-nav:hover {\n  background: rgba(0, 0, 0, 0.65);\n}\n\n.ink-el-carousel-nav:disabled {\n  opacity: 0.35;\n  cursor: not-allowed;\n}\n\n.ink-el-carousel-nav.is-prev {\n  left: 10px;\n}\n\n.ink-el-carousel-nav.is-next {\n  right: 10px;\n}\n\n.ink-el-carousel-nav .material-symbols-rounded, .ink-el-carousel-nav .ink-icon-svg {\n  font-size: 22px;\n  width: 22px;\n  height: 22px;\n}\n\n.ink-el-carousel-dots {\n  position: absolute;\n  z-index: 2;\n  right: 0;\n  bottom: 10px;\n  left: 0;\n  display: flex;\n  gap: 7px;\n  justify-content: center;\n}\n\n.ink-el-carousel-dot {\n  width: 9px;\n  height: 9px;\n  padding: 0;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.6);\n  cursor: pointer;\n  transition: background 0.15s, transform 0.15s;\n}\n\n.ink-el-carousel-dot.is-active, .ink-el-carousel-dot:hover {\n  background: #fff;\n}\n\n.ink-el-carousel-dot.is-active {\n  transform: scale(1.25);\n}\n\n/* Gallery lightbox (ephemeral overlay created by the widget runtime) */\n.ink-lightbox {\n  position: fixed;\n  inset: 0;\n  z-index: 100000;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  background: rgba(0, 0, 0, 0.92);\n}\n\n.ink-lightbox-image {\n  max-width: 86vw;\n  max-height: 82vh;\n  box-shadow: 0 8px 50px rgba(0, 0, 0, 0.55);\n}\n\n.ink-lightbox-close, .ink-lightbox-prev, .ink-lightbox-next {\n  position: absolute;\n  z-index: 2;\n  display: flex;\n  width: 42px;\n  height: 42px;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.15);\n  color: #fff;\n  cursor: pointer;\n  transition: background 0.15s;\n}\n\n.ink-lightbox-close:hover, .ink-lightbox-prev:hover, .ink-lightbox-next:hover {\n  background: rgba(255, 255, 255, 0.3);\n}\n\n.ink-lightbox-close {\n  top: 14px;\n  right: 14px;\n}\n\n.ink-lightbox-prev {\n  top: 50%;\n  left: 14px;\n  transform: translateY(-50%);\n}\n\n.ink-lightbox-next {\n  top: 50%;\n  right: 14px;\n  transform: translateY(-50%);\n}\n\n.ink-lightbox .material-symbols-rounded, .ink-lightbox .ink-icon-svg {\n  font-size: 22px;\n  width: 22px;\n  height: 22px;\n}\n\n.ink-el-plugin {\n  padding: 1rem;\n  border: 1px dashed #a4afb7;\n  background: #f8fafc;\n  color: #54595f;\n  font: 13px ui-monospace, monospace;\n}\n\n@media (max-width: 767px) {\n  .ink-el-gallery {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n  .ink-el-icon-box, .ink-el-image-box {\n    align-items: center;\n    text-align: center;\n  }\n  .ink-el-image-box > img {\n    width: 100%;\n  }\n}";
 
 /***/ }),
 

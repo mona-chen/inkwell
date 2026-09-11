@@ -24,6 +24,54 @@ class Page < ApplicationRecord
   validates :title, presence: true, unless: :draft?
   validates :template, inclusion: { in: TEMPLATES }
 
+  # Content-type template roles. A page marked with one of these replaces the theme's
+  # default rendering for that content type (WordPress template hierarchy, builder edition):
+  #   single_post — renders one post (the post is the "current item")
+  #   archive     — renders a list of posts
+  #   index       — the blog index
+  #
+  # Plugins extend the registry by filtering :page_template_roles. Each definition:
+  #   { role:, label:, description:, icon:, plugin:, content: }
+  # where `role` is namespaced for plugins (e.g. `commerce.single_product`) to avoid
+  # collisions, and `content` is optional default builder content seeded when the role's
+  # template page is created. Precedence mirrors WordPress: a user-created template page
+  # (storage) always wins over the plugin/core default (registry).
+  DEFAULT_TEMPLATE_ROLES = [
+    { role: "single_post", label: "Single post", description: "How one blog post renders.", icon: "file_text" },
+    { role: "archive", label: "Post archive", description: "The list of blog posts (category, tag, and search).", icon: "list" },
+    { role: "index", label: "Blog index", description: "The main blog page at /posts.", icon: "layout_dashboard" }
+  ].freeze
+
+  # Roles are lowercase, dot-namespaced (core roles are unprefixed; plugins must prefix).
+  TEMPLATE_ROLE_PATTERN = /\A[a-z0-9_]+(?:\.[a-z0-9_]+)*\z/
+
+  def self.template_role_definitions
+    definitions = Inkwell::Hooks.filter(:page_template_roles, DEFAULT_TEMPLATE_ROLES.map(&:deep_dup))
+    definitions.filter_map do |definition|
+      data = definition.symbolize_keys
+      role = data[:role].to_s
+      next if role.blank? || !role.match?(TEMPLATE_ROLE_PATTERN)
+
+      data.merge(role: role)
+    end
+  end
+
+  def self.template_roles
+    template_role_definitions.map { |definition| definition[:role] }
+  end
+
+  def self.template_role_definition(role)
+    template_role_definitions.find { |definition| definition[:role] == role.to_s }
+  end
+
+  validates :template_for, inclusion: { in: ->(_record) { Page.template_roles } }, allow_nil: true
+  before_validation { self.template_for = nil if template_for.blank? }
+
+  # Resolves the site's page designated as the template for a content-type role.
+  def self.template_for(site, role)
+    site.pages.find_by(template_for: role)
+  end
+
   def draft?
     status == "draft" || status.blank?
   end
@@ -42,16 +90,23 @@ class Page < ApplicationRecord
   def publish_native!
     publish_draft!
     update!(live_render_mode: "native")
+    Inkwell::Hooks.fire(:page_published, self)
   end
 
   def publish_original_import!
     raise ActiveRecord::RecordInvalid, self unless original_import_available?
 
     update!(status: "published", live_render_mode: "original_import")
+    Inkwell::Hooks.fire(:page_published, self)
   end
 
   def layout_label
     LAYOUTS.find { |l| l[:value] == template }&.dig(:label) || template.humanize
+  end
+
+  # Public URL path, used by dynamic content bindings (`{{ page.url }}`).
+  def url
+    "/pages/#{slug}"
   end
 
   def content_blocks

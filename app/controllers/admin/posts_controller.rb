@@ -3,7 +3,7 @@ module Admin
     before_action :set_post, only: %i[edit update destroy publish]
 
     def index
-      @posts = policy_scope(Post).includes(:author)
+      @posts = policy_scope(Current.site.posts).includes(:author)
       # Trash is a separate filter: hide trashed posts unless explicitly requested.
       @posts = if %w[draft published scheduled trashed].include?(params[:status])
                  @posts.where(status: params[:status])

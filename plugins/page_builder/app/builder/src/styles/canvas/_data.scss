@@ -30,3 +30,20 @@
 .ink-el-testimonial img, .ink-el-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
 .ink-el-testimonial-name { font-weight: 600; }
 .ink-el-testimonial-role { color: #7a7a7a; font-size: .9rem; }
+
+// Design-time affordances for dynamic elements. Scoped to the builder body class so they
+// never apply to published output (which drops `.ink-builder-design`).
+.ink-builder-design .ink-el-query-loop { outline: 1px dashed rgba(127, 127, 127, .35); outline-offset: 3px; }
+.ink-builder-design .ink-el-post-content {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(127, 127, 127, .5);
+  border-radius: 8px;
+  color: #8a8a8a;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}

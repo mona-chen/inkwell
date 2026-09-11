@@ -8,7 +8,7 @@ module AiWriter
     plugin_description "A floating chat assistant that drafts, rewrites, and edits page content with any OpenAI-compatible API, right from the block editor."
     plugin_version "1.0.0"
 
-    register_admin_nav(label: "Copilot", path: "/plugins/ai_writer/settings", icon: "sparkles")
+    register_admin_nav(label: "Copilot", path: "/plugins/ai_writer/settings", icon: "sparkles", section: "Extensions")
 
     # The plugin's config/importmap.rb is registered in config/application.rb so importmap
     # evaluates it at boot; nothing else to wire here for assets.

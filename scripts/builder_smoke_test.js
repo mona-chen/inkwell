@@ -93,7 +93,7 @@ print page.id
 
 async function main() {
   console.log(`Builder v2 smoke test against ${BASE_URL}`);
-  const pageId = createSmokePage();
+  const pageId = process.env.APP_UI_SMOKE_ONLY ? null : createSmokePage();
   console.log(`  smoke page id: ${pageId}`);
 
   const chromeBin = process.env.CHROME_BIN || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -137,7 +137,7 @@ async function main() {
     await wait(2500);
 
     if (process.env.APP_UI_SMOKE_ONLY) {
-      for (const route of ['/admin','/admin/posts','/admin/pages','/admin/posts/new','/admin/media','/admin/comments','/admin/menus','/admin/themes','/admin/users','/admin/settings']) {
+      for (const route of ['/admin','/admin/posts','/admin/pages','/admin/posts/new','/admin/media','/admin/comments','/admin/menus','/admin/themes','/admin/users','/admin/settings','/admin/plugins','/admin/widgets','/admin/taxonomies','/admin/pages/new','/admin/website_imports','/admin/website_imports/new','/builder','/plugins/ai_writer/settings','/plugins/seo_toolkit/seo']) {
         await client.send('Page.navigate',{url:BASE_URL+route});await wait(1200);
         const page=await client.evaluate(`({title:document.title,shell:!!document.querySelector('[data-ink="shell"]'),overflow:document.documentElement.scrollWidth>innerWidth,errors:document.querySelector('h1')?.textContent})`);
         check('workspace screen renders '+route,page.shell&&!page.overflow,JSON.stringify(page));
@@ -145,6 +145,9 @@ async function main() {
           const writing=await client.evaluate(`(function(){document.querySelector('.ink-writing-start').click();var block=document.querySelector('[data-block-editor-target="block"]');return {block:!!block,focused:!!block?.contains(document.activeElement),hidden:document.querySelector('.ink-writing-start').classList.contains('hidden')};})()`);
           check('Start writing creates a real focused editable paragraph',writing.block&&writing.focused&&writing.hidden,JSON.stringify(writing));
           await client.evaluate(`document.querySelector('[data-block-editor-target="undoButton"]').click();true`);
+          const focusMode=await client.evaluate(`(function(){var button=document.querySelector('.ink-writing-focus-toggle');button.click();var active=document.body.classList.contains('ink-writing-focus')&&getComputedStyle(document.querySelector('.admin-block-editor__inspector')).display==='none';button.click();return active&&!document.body.classList.contains('ink-writing-focus');})()`);
+          check('writing Focus mode opens and restores the workspace',focusMode);
+
         }
         if(['/admin','/admin/posts/new'].includes(route)){const capture=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync('/tmp/inkwell-'+(route==='/admin'?'workspace':'writing')+'.png',Buffer.from(capture.result.data,'base64'));}
       }

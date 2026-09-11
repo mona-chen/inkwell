@@ -53,6 +53,7 @@ export default class EditorRuntime {
         controls.register('box-shadow', controlsModule.shadow);
         controls.register('text-shadow', controlsModule.shadow);
         controls.register('url', controlsModule.url);
+        controls.register('data-binding', controlsModule.dataBinding);
         controls.register('icon', controlsModule.icon);
         controls.register('icons', controlsModule.icon);
         controls.register('border', controlsModule.border);

@@ -4,6 +4,13 @@
 # and recreated between test runs. Don't rely on the data there!
 
 Rails.application.configure do
+  # Multisite: tenant subdomains resolve at <tenant>.lvh.me in tests.
+  config.hosts << ".lvh.me"
+
+  # Rack::Test request specs hit www.example.com by default; allow it and its
+  # subdomains (Rails 8 no longer does so out of the box in test).
+  config.hosts << "www.example.com"
+  config.hosts << ".example.com"
   # Settings specified here will take precedence over those in config/application.rb.
 
   # While tests run files are not watched, reloading is not necessary.

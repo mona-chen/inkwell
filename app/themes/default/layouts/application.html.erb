@@ -88,6 +88,7 @@
   <% page_content = yield %>
   <% full_bleed = content_for?(:full_bleed) %>
   <% hide_chrome = content_for?(:hide_chrome) %>
+  <%= render "site/admin_bar" unless hide_chrome %>
   <% unless hide_chrome %>
     <header class="sticky top-0 z-40 border-b border-[#e8e4dc] bg-[#fcfbf9]/90 backdrop-blur">
       <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">

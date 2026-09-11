@@ -56,3 +56,32 @@
 .ink-writing-start small { font-size: 12px; line-height: 1.6; }
 .ink-writing-start:hover, .ink-writing-start:focus-visible { border-color: var(--primary); outline: none; background: var(--card); }
 .admin-block-editor:has(.ink-writing-start:not(.hidden)) [data-block-editor-target="list"] { min-height: 12px; }
+
+/* Shared workspace polish: navigation, content and native form controls. */
+.ink-skip-link { position: fixed; top: -60px; left: 16px; z-index: 100; padding: 10px 16px; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); }
+.ink-skip-link:focus { top: 10px; }
+#workspace-content { outline: none; }
+#admin-shell [data-ink="toolbar"] { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+#admin-shell [data-ink="toolbar"] h1 { font-size: 24px; line-height: 1.3; }
+#admin-shell :is(input[type="text"],input[type="email"],input[type="search"],input[type="url"],input[type="number"],input[type="password"],input[type="datetime-local"],select,textarea) { border-radius: 8px; }
+#admin-shell :is(input,select,textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+#admin-shell :is(button,a,summary):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+#admin-shell [aria-current="page"] { box-shadow: inset 2px 0 var(--primary); }
+#admin-shell table th { white-space: nowrap; }
+#admin-shell table td { vertical-align: middle; }
+.ink-writing-focus-toggle { height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--foreground); font-size: 12px; white-space: nowrap; }
+.ink-writing-focus-toggle[aria-pressed="true"] { color: var(--primary); }
+.ink-writing-focus #admin-navigation, .ink-writing-focus .admin-block-editor__inspector, .ink-writing-focus .ink-seo-workspace { display: none; }
+.ink-writing-focus .admin-block-editor { grid-template-columns: minmax(0, 1fr); }
+.ink-writing-focus #workspace-content > div { max-width: 900px; margin-inline: auto; }
+.ink-writing-focus .admin-block-editor [data-block-editor-target="list"] { font-size: 16px; line-height: 1.8; }
+@media (max-width: 640px) {
+  .admin-block-editor > div > .sticky { flex-wrap: wrap; gap: 8px; }
+  .admin-block-editor > div > .sticky > div { flex-wrap: wrap; }
+  .admin-block-editor [data-block-editor-target="wordCount"] { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { #admin-shell *, [data-ink="auth-shell"] * { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; } }
+
+/* Sidebar disclosure: rotate the chevron when a parent nav item is expanded. */
+.ink-nav-disclosure-icon { transition: transform .15s ease; }
+.is-open .ink-nav-disclosure-icon { transform: rotate(90deg); }

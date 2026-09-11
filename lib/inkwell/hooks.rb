@@ -30,6 +30,8 @@ module Inkwell
 
       def fire(name, *args, **kwargs)
         registry[:actions][name.to_sym].each do |listener|
+          next if skipped_for_current_site?(listener.source)
+
           listener.callback.call(*args, **kwargs)
         rescue StandardError => e
           Rails.logger.error("[Inkwell::Hooks] action `#{name}` listener from `#{listener.source}` raised: #{e.class}: #{e.message}")
@@ -47,6 +49,8 @@ module Inkwell
 
       def filter(name, value, **kwargs)
         registry[:filters][name.to_sym].reduce(value) do |acc, listener|
+          next acc if skipped_for_current_site?(listener.source)
+
           listener.callback.call(acc, **kwargs)
         rescue StandardError => e
           Rails.logger.error("[Inkwell::Hooks] filter `#{name}` listener from `#{listener.source}` raised: #{e.class}: #{e.message}")
@@ -57,9 +61,21 @@ module Inkwell
 
       # --- Introspection / plugin teardown ------------------------------------
 
+      # Multisite per-site plugin gating (no-op — false — when the plugin is absent):
+      # a listener whose source is a plugin that isn't active on Current.site is
+      # skipped per-fire. "core" listeners always run.
+      def skipped_for_current_site?(source)
+        return false if source == "core"
+        return false unless defined?(Multisite::PluginGate)
+
+        !Multisite::PluginGate.active_for_current_site?(source)
+      rescue NameError
+        false
+      end
+
       def listeners_for(source)
-        actions = registry[:actions].flat_map { |name, list| list.select { |l| l.source == source }.map { |l| [name, l] } }
-        filters = registry[:filters].flat_map { |name, list| list.select { |l| l.source == source }.map { |l| [name, l] } }
+        actions = registry[:actions].flat_map { |name, list| list.select { |l| l.source == source }.map { |l| [ name, l ] } }
+        filters = registry[:filters].flat_map { |name, list| list.select { |l| l.source == source }.map { |l| [ name, l ] } }
         { actions: actions, filters: filters }
       end
 

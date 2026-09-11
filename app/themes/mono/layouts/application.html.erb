@@ -9,6 +9,7 @@
   <%= javascript_importmap_tags %>
 </head>
 <body class="bg-black text-green-400 font-mono antialiased">
+  <%= render "site/admin_bar" %>
   <header class="border-b border-green-900 py-4">
     <div class="max-w-2xl mx-auto px-4 flex items-center justify-between text-sm">
       <%= link_to "~/#{Current.site.name.parameterize}", root_path, class: "font-bold" %>

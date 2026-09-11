@@ -299,6 +299,7 @@ export default function registerInkFoundationElements(registry) {
         selectors: { root: '&', link: '.ink-el-heading-link' },
         controls: [
             { tab: 'content', section: 'Content', name: 'text', type: 'text', label: 'Title' },
+            { tab: 'content', section: 'Content', name: '__bind_text', type: 'data-binding', label: 'Dynamic content', bindingFor: 'text' },
             { tab: 'content', section: 'Content', name: 'tag', type: 'select', label: 'HTML tag', options: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'span', 'p'] },
             { tab: 'content', section: 'Content', name: 'size', type: 'choose', label: 'Size', options: [{ value: '', label: 'Default' }, { value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }, { value: 'xl', label: 'XL' }, { value: 'xxl', label: 'XXL' }] },
             { tab: 'content', section: 'Content', name: 'link', type: 'url', label: 'Link' },
@@ -335,6 +336,7 @@ export default function registerInkFoundationElements(registry) {
         defaults: { settings: { text: 'Add your text here.' }, styles: { base: {} } },
         controls: [
             { tab: 'content', section: 'Content', name: 'text', type: 'textarea', label: 'Text' },
+            { tab: 'content', section: 'Content', name: '__bind_text', type: 'data-binding', label: 'Dynamic content', bindingFor: 'text' },
             typographyControls,
             { tab: 'style', target: 'styles', section: 'Typography', name: 'color', type: 'color', label: 'Color' },
             { tab: 'style', target: 'styles', section: 'Typography', name: 'text-align', type: 'choose', label: 'Alignment', options: [{ value: 'left', icon: 'format_align_left' }, { value: 'center', icon: 'format_align_center' }, { value: 'right', icon: 'format_align_right' }, { value: 'justify', icon: 'format_align_justify' }], responsive: true },
@@ -365,8 +367,10 @@ export default function registerInkFoundationElements(registry) {
         },
         controls: [
             { tab: 'content', section: 'Content', name: 'text', type: 'text', label: 'Text' },
+            { tab: 'content', section: 'Content', name: '__bind_text', type: 'data-binding', label: 'Dynamic text', bindingFor: 'text' },
             { tab: 'content', section: 'Content', name: 'behavior', type: 'choose', label: 'Behavior', options: [{ value: 'link', label: 'Link' }, { value: 'action', label: 'Action' }] },
             { tab: 'content', section: 'Content', name: 'url', type: 'url', label: 'Link' },
+            { tab: 'content', section: 'Content', name: '__bind_url', type: 'data-binding', label: 'Dynamic link', bindingFor: 'url' },
             { tab: 'content', section: 'Content', name: 'target', type: 'select', label: 'Target', options: [{ value: '_self', label: 'Same window' }, { value: '_blank', label: 'New window' }] },
             { tab: 'content', section: 'Content', name: 'buttonType', type: 'select', label: 'Action type', options: [{ value: 'button', label: 'Button' }, { value: 'submit', label: 'Submit' }, { value: 'reset', label: 'Reset' }], condition: { behavior: 'action' } },
             { tab: 'content', section: 'Layout', name: 'icon', type: 'text', label: 'Icon' },
@@ -419,6 +423,7 @@ export default function registerInkFoundationElements(registry) {
         },
         controls: [
             { tab: 'content', section: 'Image', name: 'src', type: 'media', label: 'Image' },
+            { tab: 'content', section: 'Image', name: '__bind_src', type: 'data-binding', label: 'Dynamic image', bindingFor: 'src' },
             { tab: 'content', section: 'Image', name: 'alt', type: 'text', label: 'Alternative text' },
             { tab: 'content', section: 'Image', name: 'link', type: 'url', label: 'Link' },
             { tab: 'content', section: 'Image', name: 'caption', type: 'text', label: 'Caption' },
@@ -471,6 +476,60 @@ export default function registerInkFoundationElements(registry) {
         defaults: { settings: {}, styles: { base: { height: { size: 50, unit: 'px' } } } },
         controls: [{ tab: 'content', target: 'styles', section: 'Spacer', name: 'height', type: 'size', label: 'Space', units: ['px', 'vh'], responsive: true }],
         render: ({ domDocument }) => { const el = domDocument.createElement('div'); el.className = 'ink-el-spacer'; return el; },
+    });
+    // Dynamic content: repeats its child template once per item from a source (posts/pages).
+    // Emits `{{ loop source:limit }} … {{ /loop }}` tokens that the server resolves at publish
+    // (PageBuilder::ErbConverter), so one template renders a real archive/blog list.
+    registry.register({
+        type: 'query-loop', title: 'Query Loop', icon: 'dynamic_form', category: 'Dynamic', acceptsChildren: true,
+        defaults: {
+            settings: { source: 'posts', limit: 4 },
+            styles: { base: { display: 'flex', 'flex-direction': 'column', gap: { row: 24, column: 24, unit: 'px' }, width: '100%' } },
+            children: [],
+        },
+        tabLabels: { content: 'Query' },
+        controls: [
+            { tab: 'content', section: 'Query', name: 'source', type: 'select', label: 'Source', options: [{ value: 'posts', label: 'Posts' }, { value: 'pages', label: 'Pages' }] },
+            { tab: 'content', section: 'Query', name: 'limit', type: 'number', label: 'How many' },
+            { tab: 'content', target: 'styles', section: 'Layout', name: '__layout-flow', type: 'layout-flow', label: 'Flow', responsive: true },
+            { tab: 'content', target: 'styles', section: 'Layout', name: '__alignment-gap', type: 'alignment-gap', label: 'Alignment and gap', hideLabel: true, responsive: true },
+            ...surfaceControls,
+            ...advancedControls,
+        ],
+        render: ({ domDocument }, node) => {
+            const root = domDocument.createElement('div');
+            root.className = 'ink-el-query-loop';
+            const source = node.settings.source === 'pages' ? 'pages' : 'posts';
+            const limit = Math.max(1, Number(node.settings.limit) || 4);
+            const token = (text) => {
+                const span = domDocument.createElement('span');
+                span.className = 'ink-el-query-token';
+                span.setAttribute('aria-hidden', 'true');
+                span.style.display = 'none';
+                span.textContent = text;
+                return span;
+            };
+            const inner = domDocument.createElement('div');
+            inner.className = 'ink-el-query-loop-inner';
+            inner.dataset.inkChildren = '';
+            root.append(token(`{{ loop ${source}:${limit} }}`), inner, token('{{ /loop }}'));
+            return root;
+        },
+    });
+    // Dynamic content: emits the record's rich content blocks at publish (`{{ blocks }}`).
+    // Renders a labelled placeholder on the canvas; the token is swapped into the saved HTML
+    // during export (see BuilderV2.exportClone).
+    registry.register({
+        type: 'post-content', title: 'Post content', icon: 'file_text', category: 'Dynamic',
+        defaults: { settings: {}, styles: { base: { display: 'block', width: '100%' } } },
+        controls: [ ...advancedControls ],
+        render: ({ domDocument }) => {
+            const el = domDocument.createElement('div');
+            el.className = 'ink-el-post-content';
+            el.setAttribute('data-ink-dynamic', '{{ blocks }}');
+            el.textContent = 'Post content';
+            return el;
+        },
     });
     return registry;
 }

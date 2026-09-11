@@ -10,7 +10,7 @@ module Ink
     def view_template
       div(class: "flex flex-col h-full bg-sidebar text-sidebar-foreground", data: { ink: "app-navigation" }) do
         render_brand
-        nav(class: "flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-3 pt-1", aria: { label: "Admin navigation" }) do
+        nav(class: "flex flex-1 flex-col gap-0.5 overflow-y-auto px-2.5 pb-3 pt-1", aria: { label: "Workspace navigation" }) do
           @groups.each do |group|
             render_group(group)
           end
@@ -52,22 +52,30 @@ module Ink
 
     def render_parent_item(item)
       active = item[:current]
-      div do
-        a(
-          href: item[:path],
-          class: "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors #{active ? "bg-sidebar-accent text-sidebar-accent-foreground" : "text-sidebar-foreground/58 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}"
+      expanded = active
+
+      div(data: { controller: "toggle" }) do
+        button(
+          type: "button",
+          class: "group relative flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-xs transition-colors #{active ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-sm" : "text-sidebar-foreground/58 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground"}",
+          data: { action: "click->toggle#toggle" },
+          aria: { expanded: expanded.to_s }
         ) do
-          render Ink::Icon.new(item[:icon] || :circle, size: :sm)
-          span(class: "flex-1 min-w-0 truncate") { item[:label] }
-          render_badge(item[:badge]) if item[:badge]
-          span(class: "ml-auto text-sidebar-foreground/40") { render Ink::Icon.new(:chevron_right, size: :xs) }
-        end
-        if item[:children]&.any?
-          div(class: "ml-5 border-l border-sidebar-border pl-3 mt-0.5 mb-1 flex flex-col gap-0.5") do
-            item[:children].each do |child|
-              render_leaf_item(child)
-            end
+          span(class: "flex h-4 w-4 shrink-0 items-center justify-center #{active ? "text-primary" : "text-sidebar-foreground/38 group-hover:text-sidebar-accent-foreground/75"}") do
+            render Ink::Icon.new(item[:icon] || :circle, size: :sm)
           end
+          span(class: "flex-1 min-w-0 truncate text-left") { item[:label] }
+          render_badge(item[:badge]) if item[:badge]
+          span(class: "flex h-4 w-4 shrink-0 items-center justify-center text-sidebar-foreground/38#{' is-open' if expanded}", data: { toggle_target: "icon" }) do
+            render Ink::Icon.new(:chevron_right, size: :xs, class_name: "ink-nav-disclosure-icon")
+          end
+        end
+
+        div(
+          class: "mt-0.5 mb-1 ml-4 flex flex-col gap-0.5 border-l border-sidebar-border pl-2#{' hidden' unless expanded}",
+          data: { toggle_target: "menu" }
+        ) do
+          item[:children].each { |child| render_leaf_item(child) }
         end
       end
     end

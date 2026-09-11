@@ -43,9 +43,36 @@ module Inkwell
       end
 
       # Called by a plugin to add an entry to the admin sidebar, e.g.:
-      #   register_admin_nav(label: "SEO", path: "/admin/plugins/seo/settings", icon: "search")
-      def register_admin_nav(label:, path:, icon: "puzzle-piece")
-        (@_admin_nav_items ||= []) << { label: label, path: path, icon: icon }
+      #   register_admin_nav(label: "SEO", path: "/admin/plugins/seo/settings", icon: "search", section: "Site")
+      #   register_admin_nav(label: "Sites", path: "/plugins/multisite/admin/sites", icon: "globe_2", admin_only: true, section: "Workspace")
+      #
+      # Plugins can nest items and/or attach beneath an existing parent:
+      #   register_admin_nav(label: "Commerce", icon: "shopping_bag", section: "Site", children: [
+      #     { label: "Orders", path: "/plugins/commerce/orders", icon: "receipt" },
+      #     { label: "Products", path: "/plugins/commerce/products", icon: "package" }
+      #   ])
+      #   register_admin_nav(label: "Custom CSS", path: "/plugins/css", icon: "palette", section: "Site", parent: "Appearance")
+      def register_admin_nav(label:, path: nil, icon: "puzzle-piece", admin_only: false, section: "Extensions", parent: nil, children: [])
+        (@_admin_nav_items ||= []) << {
+          label: label,
+          path: path,
+          icon: icon,
+          admin_only: admin_only,
+          section: section,
+          parent: parent,
+          children: normalize_nav_children(children)
+        }
+      end
+
+      def normalize_nav_children(children)
+        Array(children).map do |child|
+          {
+            label: child[:label],
+            path: child[:path],
+            icon: child[:icon] || "puzzle-piece",
+            admin_only: child[:admin_only] || false
+          }
+        end
       end
 
       # The stable identifier used for the InstalledPlugin record, admin routes, and hooks.

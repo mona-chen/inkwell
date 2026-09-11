@@ -1,5 +1,7 @@
 module Admin
   class Topbar < ApplicationComponent
+    include Phlex::Rails::Helpers::ButtonTo
+
     def initialize(title:, user:, current_site: nil)
       @title = title
       @user = user
@@ -8,9 +10,20 @@ module Admin
 
     def view_template
       div(class: "flex h-full min-w-0 flex-1 items-center gap-3 sm:gap-5", data: { controller: "appearance" }) do
-        div(class: "hidden min-w-28 lg:block") do
-          div(class: "text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground") { "Workspace" }
-          div(class: "mt-0.5 truncate text-sm font-semibold text-foreground") { @title }
+        if multisite_switcher_available?
+          render Multisite::Admin::SiteSwitcher.new(
+            current_site: @current_site,
+            accessible_sites: multisite_sites,
+            current_user: @user
+          )
+          div(class: "hidden min-w-28 lg:block") do
+            div(class: "mt-0.5 truncate text-sm font-semibold text-foreground") { @title }
+          end
+        else
+          div(class: "hidden min-w-28 lg:block") do
+            div(class: "text-xs font-semibold text-muted-foreground") { @current_site&.name || "Workspace" }
+            div(class: "mt-0.5 truncate text-sm font-semibold text-foreground") { @title }
+          end
         end
 
         render_command_palette
@@ -29,7 +42,7 @@ module Admin
           end
 
           a(
-            href: "/",
+            href: root_path,
             class: "hidden h-9 items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex",
             target: "_blank"
           ) do
@@ -37,7 +50,7 @@ module Admin
             render Icon.new(:external_link, size: :xs)
           end
 
-          div(class: "mx-1 hidden h-5 w-px bg-border sm:block") {}
+          div(class: "mx-1 hidden h-5 w-px bg-border sm:block") { }
 
           render Dropdown.new(placement: :bottom_end) do |menu|
             menu.trigger(variant: :ghost, size: :sm, label: "Account menu") do
@@ -54,15 +67,27 @@ module Admin
               end
             end
             menu.item("Settings", href: admin_settings_path, icon: :settings)
-            menu.item("View site", href: "/", icon: :external_link)
+            menu.item("View site", href: root_path, icon: :external_link)
             menu.separator
-            menu.item("Sign out", href: "/users/sign_out", icon: :log_out, variant: :destructive, data: { turbo_method: :delete })
+            menu.item("Sign out", href: destroy_user_session_path, icon: :log_out, variant: :destructive, data: { turbo_method: :delete })
           end
         end
       end
     end
 
     private
+
+    def multisite_sites
+      return [] unless defined?(Multisite::UserSite)
+
+      @multisite_sites ||= Array(@user.accessible_sites)
+    end
+
+    def multisite_switcher_available?
+      defined?(Multisite::Admin::SiteSwitcher) && multisite_sites.size > 1
+    rescue ActiveRecord::ActiveRecordError, NameError, NoMethodError
+      false
+    end
 
     def render_create_menu
       render Dropdown.new(placement: :bottom_end) do |menu|

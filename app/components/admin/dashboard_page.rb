@@ -147,7 +147,7 @@ module Admin
 
     def setup_steps
       [
-        { key: :identity, title: "Brand", description: "Name and identify your site.", href: admin_settings_path(section: "general") },
+        { key: :identity, title: "Brand", description: "Add a tagline and logo.", href: admin_settings_path(section: "general") },
         { key: :page, title: "First page", description: "Create a place to begin.", href: new_admin_page_path },
         { key: :homepage, title: "Homepage", description: "Choose the front door.", href: admin_settings_path(section: "homepage") },
         { key: :navigation, title: "Navigation", description: "Help visitors get around.", href: admin_menus_path },

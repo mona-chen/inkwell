@@ -1008,3 +1008,56 @@ export function wysiwyg(panel, control, node, value, row) {
     editor.addEventListener('keyup', refreshActive); editor.addEventListener('mouseup', refreshActive); editor.addEventListener('keydown', () => setTimeout(refreshActive, 0));
     return row;
 }
+
+/* ------------------------------------------------------------------ *
+ * Dynamic data binding
+ * Lets an element pull its value from site/post data. Writes a
+ * `{{ source.field }}` token into a target setting; the published page
+ * resolves it server-side (PageBuilder::ErbConverter) and the canvas
+ * previews a sample value.
+ * ------------------------------------------------------------------ */
+export function dataBinding(panel, control, node, _value, row) {
+    const target = control.bindingFor || control.name;
+    const sources = (typeof window !== 'undefined' && window.inkDataSources && window.inkDataSources.sources) || {};
+    const current = String(node.settings?.[target] ?? '');
+    const match = current.match(/\{\{\s*([\w.]+)\s*\}\}/);
+    let currentSource = '';
+    let currentField = '';
+    if (match) { const [src, ...rest] = match[1].split('.'); currentSource = src; currentField = rest.join('.'); }
+
+    const grid = document.createElement('div');
+    grid.className = 'ink-v2-data-binding';
+
+    const sourceSelect = document.createElement('select');
+    sourceSelect.setAttribute('aria-label', 'Data source');
+    sourceSelect.add(new Option('Static', ''));
+    Object.entries(sources).forEach(([key, def]) => sourceSelect.add(new Option(def.label || key, key)));
+    sourceSelect.value = currentSource;
+
+    const fieldSelect = document.createElement('select');
+    fieldSelect.setAttribute('aria-label', 'Field');
+
+    const renderFields = () => {
+        fieldSelect.replaceChildren();
+        const def = sources[sourceSelect.value];
+        fieldSelect.disabled = !def;
+        if (!def) { fieldSelect.add(new Option('Static', '')); return; }
+        fieldSelect.add(new Option('Choose field…', ''));
+        Object.entries(def.fields || {}).forEach(([path, label]) => fieldSelect.add(new Option(label, path)));
+        fieldSelect.value = currentField;
+    };
+    renderFields();
+
+    const write = (value) => panel.setValue({ ...control, name: target, target: 'settings' }, node, value);
+    sourceSelect.addEventListener('change', () => {
+        renderFields();
+        if (!sourceSelect.value) write('');
+    });
+    fieldSelect.addEventListener('change', () => {
+        if (sourceSelect.value && fieldSelect.value) write(`{{ ${sourceSelect.value}.${fieldSelect.value} }}`);
+    });
+
+    grid.append(sourceSelect, fieldSelect);
+    row.appendChild(grid);
+    return row;
+}

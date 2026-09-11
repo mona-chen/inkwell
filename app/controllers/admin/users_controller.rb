@@ -14,7 +14,7 @@ module Admin
         name: params[:name],
         email: params[:email],
         password: params[:password],
-        role_id: params[:role_id]
+        role_id: safe_role_id(params[:role_id])
       )
       if user.save
         redirect_to admin_users_path, notice: "#{user.name}'s account was created."
@@ -24,7 +24,8 @@ module Admin
     end
 
     def update
-      attrs = params.slice(:name, :role_id).permit!
+      attrs = { name: params[:name] }
+      attrs[:role_id] = safe_role_id(params[:role_id]) if params[:role_id].present?
       attrs[:password] = params[:password] if params[:password].present?
       if @user.update(attrs)
         redirect_to admin_users_path, notice: "Updated."
@@ -63,6 +64,18 @@ module Admin
       # value (matches AuthorsController).
       @user = Current.site.users.find { |u| u.to_param == params[:id] }
       raise ActiveRecord::RecordNotFound unless @user
+    end
+
+    def safe_role_id(role_id)
+      role = Role.find_by(id: role_id)
+      return nil unless role
+
+      # Only platform admins can assign the admin role.
+      if role.name == "admin" && !current_user.admin?
+        current_user.role_id
+      else
+        role.id
+      end
     end
   end
 end

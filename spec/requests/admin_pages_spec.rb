@@ -23,7 +23,7 @@ RSpec.describe "Admin pages render", type: :request do
     page = Page.create!(title: "Home", site: site, author: user, status: "published", template: "default")
     menu = site.menus.create!(name: "Primary", location: "header")
     menu.menu_items.create!(label: "Home", url: "/", position: 0)
-    site.set_setting!("site_title", "Test Site")
+    site.set_setting!("tagline", "A test site")
     site.set_setting!("show_on_front", "page")
     site.set_setting!("page_on_front", page.id)
 

@@ -7,7 +7,7 @@ module ContactForm
     plugin_description "Adds a [contact-form] block type and stores submissions for review."
     plugin_version "1.0.0"
 
-    register_admin_nav(label: "Contact Messages", path: "/plugins/contact_form/messages", icon: "envelope")
+    register_admin_nav(label: "Contact Messages", path: "/plugins/contact_form/messages", icon: "envelope", section: "Publish")
 
     def on_activate
       # Registers a brand-new block type — this is the extension point that lets a plugin

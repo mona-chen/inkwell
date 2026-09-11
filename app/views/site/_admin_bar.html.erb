@@ -1,0 +1,40 @@
+<%# Public-site "you're signed in" bar. Rendered only for authenticated visitors so they
+    always know they have an account and can reach the dashboard or sign out. Self-contained
+    styles (scoped to .ink-admin-bar) keep it visually independent of the active theme.
+
+    Uses a literal sign-out path (rather than destroy_user_session_path) so it also renders
+    safely inside mounted engines where the main app's Devise route helpers aren't in scope. %>
+<% if respond_to?(:user_signed_in?) && user_signed_in? && respond_to?(:current_user) %>
+  <style>
+    .ink-admin-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; padding: 6px 14px; background: #0b0b0c; color: #f5f5f4; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 12px; line-height: 1.4; }
+    .ink-admin-bar a { color: #f5f5f4; text-decoration: none; opacity: .82; }
+    .ink-admin-bar a:hover { opacity: 1; text-decoration: underline; text-underline-offset: 2px; }
+    .ink-admin-bar__left { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; min-width: 0; }
+    .ink-admin-bar__dot { flex: none; width: 8px; height: 8px; border-radius: 9999px; background: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,.25); }
+    .ink-admin-bar__site { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ink-admin-bar__right { display: inline-flex; align-items: center; gap: 14px; flex: none; }
+    .ink-admin-bar__label { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
+    .ink-admin-bar__user { opacity: .82; }
+    .ink-admin-bar form { display: inline; margin: 0; }
+    .ink-admin-bar form button { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; opacity: .82; }
+    .ink-admin-bar form button:hover { opacity: 1; text-decoration: underline; text-underline-offset: 2px; }
+    @media (max-width: 560px) { .ink-admin-bar__hide-sm { display: none; } }
+  </style>
+  <div class="ink-admin-bar" data-ink="admin-bar">
+    <div class="ink-admin-bar__left">
+      <span class="ink-admin-bar__dot" aria-hidden="true"></span>
+      <span class="ink-admin-bar__site"><%= Current.site&.name || "Inkwell" %></span>
+      <span class="ink-admin-bar__label">Signed in</span>
+    </div>
+    <div class="ink-admin-bar__right">
+      <% if current_user.can?(:manage_site) || current_user.admin? %>
+        <a href="/admin">Dashboard</a>
+      <% end %>
+      <% if current_user.can?(:publish_posts) || current_user.admin? %>
+        <a href="/admin/posts/new" class="ink-admin-bar__hide-sm">New post</a>
+      <% end %>
+      <span class="ink-admin-bar__user ink-admin-bar__hide-sm"><%= current_user.name %></span>
+      <%= button_to "Sign out", "/users/sign_out", method: :delete %>
+    </div>
+  </div>
+<% end %>

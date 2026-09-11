@@ -220,6 +220,9 @@
     var originalImportAvailable = <%= (@record.is_a?(Page) && @record.original_import_available?).to_json.html_safe %>;
     var previewPageUrl = <%= "/builder/#{@record.is_a?(Page) ? 'page' : 'post'}/#{@record.id}/preview".to_json.html_safe %>;
     var themeUrl = '/page_builder_theme';
+    var inkDataSources = <%= raw PageBuilder::DataSources.as_json %>;
+    window.inkDataSources = inkDataSources;
+    window.inkSampleData = <%= raw PageBuilder::DataSources.sample_data(Current.site).to_json %>;
 
     document.addEventListener('DOMContentLoaded', () => {
       window.builder = new InkBuilderV2({

@@ -8,7 +8,7 @@ module PageBuilder
     plugin_description "Drag-and-drop page builder that saves as ERB, so built sections can use dynamic data ({{ page.title }}, {{ loop posts:3 }})."
     plugin_version "1.0.0"
 
-    register_admin_nav(label: "Ink Builder", path: "/builder", icon: "layout")
+    register_admin_nav(label: "Ink Builder", path: "/builder", icon: "layout", section: "Site")
 
     config.to_prepare do
       ::BlockRenderer.register("page_builder", PageBuilder::BuilderBlockComponent)

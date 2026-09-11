@@ -72,6 +72,11 @@
 .ink-v2-size input { border-radius: 3px 0 0 3px; }
 .ink-v2-size .ink-v2-unit { border-left: 0; border-radius: 0 3px 3px 0; }
 
+// Dynamic data binding (source + field).
+.ink-v2-data-binding { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; }
+.ink-v2-data-binding select { min-width: 0; }
+.ink-v2-data-binding select:disabled { color: var(--ink-editor-faint); }
+
 // Dimensions (T/R/B/L + unit + link).
 .ink-v2-dimensions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) 44px 24px; }
 .ink-v2-dimensions label { display: flex; min-width: 0; flex-direction: column; align-items: center; color: var(--ink-editor-faint); font-size: 9px; text-transform: uppercase; }

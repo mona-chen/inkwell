@@ -11,7 +11,7 @@ module Seo
       xml = Nokogiri::XML::Builder.new do |xml|
         xml.urlset(xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9") do
           published_posts.find_each do |post|
-            site_url = post.site.setting("site_url", post.site.domain)
+            site_url = post.site.domain
             xml.url do
               xml.loc(Rails.application.routes.url_helpers.post_url(post, host: site_url))
               xml.lastmod(post.updated_at.iso8601)
@@ -20,7 +20,7 @@ module Seo
             end
           end
           published_pages.find_each do |page|
-            site_url = page.site.setting("site_url", page.site.domain)
+            site_url = page.site.domain
             xml.url do
               xml.loc(Rails.application.routes.url_helpers.page_url(page, host: site_url))
               xml.lastmod(page.updated_at.iso8601)

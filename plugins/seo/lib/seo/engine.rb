@@ -7,7 +7,7 @@ module Seo
     plugin_description "Comprehensive SEO: meta tags, Open Graph, Twitter Cards, JSON-LD, sitemaps, and per-content optimization."
     plugin_version "2.0.0"
 
-    register_admin_nav(label: "SEO", path: "/plugins/seo_toolkit/seo", icon: "search")
+    register_admin_nav(label: "SEO", path: "/plugins/seo_toolkit/seo", icon: "search", section: "Site")
 
     def on_activate
       register_meta_tag_hooks

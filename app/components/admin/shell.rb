@@ -10,6 +10,7 @@ module Admin
       "chat-bubble-left" => :message_circle,
       "bars-3" => :menu,
       "paint-brush" => :palette,
+      "palette" => :palette,
       "puzzle-piece" => :puzzle,
       "cog-6-tooth" => :settings,
       "envelope" => :mail,
@@ -19,9 +20,13 @@ module Admin
       "layout" => :layout_dashboard,
       "globe" => :globe_2,
       "blocks" => :blocks,
+      "code" => :code,
+      "webhook" => :webhook,
       "default" => :circle
     }.freeze
 
+    # Sidebar structure. An item may be a leaf (path + icon) or a parent with `children`.
+    # Plugins contribute items/children via Inkwell::Plugin#register_admin_nav.
     GROUPS = [
       {
         label: "Publish",
@@ -35,7 +40,14 @@ module Admin
       {
         label: "Site",
         items: [
-          { label: "Appearance", path: "/admin/themes", icon: "paint-brush" },
+          {
+            label: "Appearance",
+            icon: "paint-brush",
+            children: [
+              { label: "Themes", path: "/admin/themes", icon: "palette" },
+              { label: "Content templates", path: "/admin/templates", icon: "layout" }
+            ]
+          },
           { label: "Navigation", path: "/admin/menus", icon: "bars-3" },
           { label: "Widgets", path: "/admin/widgets", icon: "blocks" },
           { label: "Import website", path: "/admin/website_imports", icon: "globe" }
@@ -53,8 +65,68 @@ module Admin
           { label: "Users", path: "/admin/users", icon: "users" },
           { label: "Settings", path: "/admin/settings", icon: "cog-6-tooth" }
         ]
+      },
+      {
+        label: "Help",
+        items: [
+          { label: "Documentation", path: "/docs", icon: "document" },
+          { label: "API reference", path: "/docs/api", icon: "code" }
+        ]
       }
     ].freeze
+
+    # Builds the sidebar groups (owned by the app, extended by plugins). Shared by
+    # Admin::Layout (the live admin shell) and Admin::Shell.
+    #
+    # Plugin items merge into their target section; with `parent:` they attach beneath an
+    # existing item (e.g. Appearance), and `children:` nests further items.
+    def self.build_nav_groups(user:, pending_count: 0)
+      groups = GROUPS.filter_map do |group|
+        items = group[:items].filter_map { |item| build_nav_item(item, user: user, pending_count: pending_count) }
+        [ group[:label], items ] if items.any?
+      end
+
+      Inkwell::PluginManager.admin_nav_items.each do |nav|
+        item = build_nav_item(nav, user: user, pending_count: pending_count)
+        next unless item
+
+        section = (nav[:section] || "Extensions").to_s
+        target = groups.find { |label, _items| label == section }
+        target ||= (groups << [ section, [] ]).last
+
+        if nav[:parent].present? && (parent = find_nav_item(target[1], nav[:parent].to_s))
+          (parent[:children] ||= []) << item
+        else
+          target[1] << item
+        end
+      end
+
+      groups
+    end
+
+    def self.build_nav_item(item, user:, pending_count: 0)
+      return nil if item[:admin_only] && !user&.admin?
+
+      children = Array(item[:children]).filter_map { |child| build_nav_item(child, user: user, pending_count: pending_count) }
+      badge = item[:label] == "Comments" && pending_count.to_i.positive? ? pending_count : nil
+      {
+        label: item[:label],
+        path: item[:path],
+        icon: ICONS[item[:icon].to_s] || :circle,
+        badge: badge,
+        children: children.presence
+      }.compact
+    end
+
+    def self.find_nav_item(items, label)
+      items.each do |item|
+        return item if item[:label] == label
+
+        found = find_nav_item(Array(item[:children]), label)
+        return found if found
+      end
+      nil
+    end
 
     def initialize(title:, user:, current_site:, content:)
       @title = title
@@ -102,19 +174,7 @@ module Admin
     end
 
     def build_nav_groups
-      groups = GROUPS.map do |group|
-        items = group[:items].map { |item| item.merge(icon: ICONS[item[:icon]] || :circle) }
-        [group[:label], items]
-      end
-      plugin_items = Inkwell::PluginManager.admin_nav_items.map do |item|
-        { label: item[:label], path: item[:path], icon: ICONS[item[:icon].to_s] || :circle }
-      end
-      groups << ["Plugins", plugin_items] if plugin_items.any?
-      groups
-    end
-
-    def current_path
-      helpers.request.path
+      self.class.build_nav_groups(user: @user, pending_count: Comment.pending.count)
     end
   end
 end

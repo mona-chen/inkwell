@@ -165,11 +165,18 @@ export default class extends Controller {
   }
 
   disconnect() {
+    document.body.classList.remove("ink-writing-focus")
     this.sortable?.destroy()
     this.hideSlashMenu()
     window.removeEventListener("mousedown", this._outsideClickHandler)
     this.listTarget.removeEventListener("paste", this._pasteHandler)
     if (this.saveTimer) clearTimeout(this.saveTimer)
+  }
+
+  toggleFocus(event) {
+    const focused = document.body.classList.toggle("ink-writing-focus")
+    event.currentTarget.setAttribute("aria-pressed", String(focused))
+    event.currentTarget.textContent = focused ? "Exit focus" : "Focus"
   }
 
   // Paste markdown into a block field → convert it to the editor's own blocks. Delegated on

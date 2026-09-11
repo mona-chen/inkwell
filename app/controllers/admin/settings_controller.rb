@@ -1,17 +1,29 @@
 module Admin
   class SettingsController < BaseController
-    SECTIONS = %w[general homepage maintenance].freeze
+    SECTIONS = %w[general discussion homepage api maintenance].freeze
+    # Columns on Site edited directly from the settings form.
+    SITE_ATTRIBUTES = %w[name].freeze
+    # Option-backed settings (Site#setting / Site#set_setting!).
     SETTINGS_SCHEMA = %w[
-      site_title tagline site_url timezone posts_per_page comments_enabled site_logo
+      tagline timezone registration_mode comments_enabled site_logo
       show_on_front page_on_front
     ].freeze
 
     def show
       @site = Current.site
-      render Admin::SettingsPage.new(site: @site, section: settings_section)
+      render Admin::SettingsPage.new(
+        site: @site,
+        section: settings_section,
+        new_token: session.delete(:new_api_token)
+      )
     end
 
     def update
+      SITE_ATTRIBUTES.each do |key|
+        next unless params[:settings]&.key?(key)
+
+        Current.site.update!(key => params[:settings][key])
+      end
       SETTINGS_SCHEMA.each do |key|
         next unless params[:settings]&.key?(key)
 

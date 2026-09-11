@@ -2,12 +2,14 @@ module Devise
   # Sign-in form in the AuthShell. Mirrors the standard Devise sessions/new view using
   # Ink::FormBuilder.
   class SignInPage < ApplicationComponent
-    def initialize(resource:, resource_name:, devise_mapping:, submit_url:, forgot_url:)
+    def initialize(resource:, resource_name:, devise_mapping:, submit_url:, forgot_url:, sign_up_url: nil, registration_open: false)
       @resource = resource
       @resource_name = resource_name
       @devise_mapping = devise_mapping
       @submit_url = submit_url
       @forgot_url = forgot_url
+      @sign_up_url = sign_up_url
+      @registration_open = registration_open
     end
 
     def view_template
@@ -28,8 +30,18 @@ module Devise
             form.submit("Sign in")
           end
         end
-        div(class: "text-center mt-4") do
-          a(href: @forgot_url, class: "text-sm text-muted-foreground hover:text-foreground") { "Forgot your password?" }
+
+        div(class: "mt-4 text-center") do
+          a(href: @forgot_url, class: "text-sm text-muted-foreground hover:text-foreground transition-colors") { "Forgot your password?" }
+        end
+
+        if @registration_open && @sign_up_url
+          div(class: "mt-6 border-t border-border pt-4 text-center") do
+            p(class: "text-sm text-muted-foreground") do
+              plain "New here? "
+              a(href: @sign_up_url, class: "font-medium text-foreground hover:text-primary transition-colors") { "Create an account" }
+            end
+          end
         end
       end
     end
@@ -38,9 +50,11 @@ module Devise
 
     def render_error_messages
       return if @resource.errors.empty?
-      div(class: "mb-4") do
-        render Ink::Alert.new(variant: :error, title: "Unable to sign in") do
-          @resource.errors.full_messages.each { |msg| p { msg } }
+
+      div(class: "mb-5 rounded-lg border border-destructive/30 bg-destructive/10 p-3") do
+        p(class: "text-sm font-semibold text-destructive") { "Unable to sign in" }
+        ul(class: "mt-1.5 space-y-0.5 list-disc pl-4 text-sm text-destructive") do
+          @resource.errors.full_messages.each { |msg| li { msg } }
         end
       end
     end

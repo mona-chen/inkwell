@@ -9,9 +9,10 @@ module PageBuilder
   # regenerates HTML from its element store) can never strip it — Framer's "Code component
   # ships on export" model. It's rendered as a <style> before and a <script> after the body.
   class BuilderBlockComponent < ViewComponent::Base
-    def initialize(data:)
+    def initialize(data:, locals: {})
       @data = data || {}
       @html = @data["html"].to_s
+      @locals = locals
     end
 
     def call
@@ -23,7 +24,7 @@ module PageBuilder
       style = custom_css.present? ? "<style>#{custom_css}</style>" : ""
       script = custom_js.present? ? "<script>#{custom_js}</script>" : ""
       content = %(<div class="ink-builder-content">#{body_only}</div>)
-      view_context.render(inline: link + style + content + script, type: :erb)
+      view_context.render(inline: link + style + content + script, type: :erb, locals: @locals)
     end
 
     private

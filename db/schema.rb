@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_12_000002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -59,6 +59,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "api_tokens", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_used_at"
+    t.string "name", null: false
+    t.bigint "site_id", null: false
+    t.string "token", null: false
+    t.datetime "updated_at", null: false
+    t.index ["site_id"], name: "index_api_tokens_on_site_id"
+    t.index ["token"], name: "index_api_tokens_on_token", unique: true
   end
 
   create_table "builder_workspaces", force: :cascade do |t|
@@ -203,6 +215,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
     t.string "slug", null: false
     t.string "status", default: "draft", null: false
     t.string "template", default: "default", null: false
+    t.string "template_for"
     t.string "title", null: false
     t.string "twitter_card_type", default: "summary_large_image"
     t.text "twitter_description"
@@ -213,6 +226,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
     t.index ["live_render_mode"], name: "index_pages_on_live_render_mode"
     t.index ["parent_id"], name: "index_pages_on_parent_id"
     t.index ["site_id", "slug"], name: "index_pages_on_site_id_and_slug", unique: true
+    t.index ["site_id", "template_for"], name: "index_pages_on_site_id_and_template_for"
     t.index ["site_id"], name: "index_pages_on_site_id"
   end
 
@@ -292,13 +306,61 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
     t.index ["name"], name: "index_roles_on_name", unique: true
   end
 
+  create_table "site_custom_domains", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "domain", null: false
+    t.text "error_message"
+    t.datetime "last_checked_at"
+    t.bigint "site_id", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "verified_at"
+    t.index ["domain"], name: "index_site_custom_domains_on_domain", unique: true
+    t.index ["site_id", "status"], name: "index_site_custom_domains_on_site_id_and_status"
+    t.index ["site_id"], name: "index_site_custom_domains_on_site_id"
+  end
+
+  create_table "site_invitations", force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.datetime "expires_at", null: false
+    t.string "role", default: "editor", null: false
+    t.bigint "site_id", null: false
+    t.string "token", null: false
+    t.datetime "updated_at", null: false
+    t.index ["site_id", "email"], name: "index_site_invitations_on_site_id_and_email", unique: true
+    t.index ["site_id"], name: "index_site_invitations_on_site_id"
+    t.index ["token"], name: "index_site_invitations_on_token", unique: true
+  end
+
+  create_table "site_plugin_activations", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.bigint "installed_plugin_id", null: false
+    t.jsonb "settings", default: {}, null: false
+    t.bigint "site_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["installed_plugin_id"], name: "index_site_plugin_activations_on_installed_plugin_id"
+    t.index ["site_id", "installed_plugin_id"], name: "idx_site_plugin_unique", unique: true
+    t.index ["site_id"], name: "index_site_plugin_activations_on_site_id"
+  end
+
   create_table "sites", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
     t.string "active_theme", default: "default", null: false
     t.datetime "created_at", null: false
     t.string "domain", null: false
+    t.boolean "is_default", default: false, null: false
+    t.string "logo_url"
     t.string "name", null: false
+    t.string "plan", default: "free", null: false
+    t.jsonb "settings", default: {}, null: false
+    t.string "subdomain"
     t.datetime "updated_at", null: false
     t.index ["domain"], name: "index_sites_on_domain", unique: true
+    t.index ["is_default"], name: "index_sites_on_is_default", unique: true, where: "(is_default = true)"
+    t.index ["subdomain"], name: "index_sites_on_subdomain", unique: true, where: "(subdomain IS NOT NULL)"
   end
 
   create_table "solid_queue_blocked_executions", force: :cascade do |t|
@@ -444,6 +506,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
     t.index ["slug"], name: "index_themes_on_slug", unique: true
   end
 
+  create_table "user_sites", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "role", default: "editor", null: false
+    t.bigint "site_id", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["site_id"], name: "index_user_sites_on_site_id"
+    t.index ["user_id", "site_id"], name: "index_user_sites_on_user_id_and_site_id", unique: true
+    t.index ["user_id"], name: "index_user_sites_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "bio"
     t.datetime "created_at", null: false
@@ -466,6 +539,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
     t.index ["role_id"], name: "index_users_on_role_id"
     t.index ["site_id"], name: "index_users_on_site_id"
+  end
+
+  create_table "webhook_deliveries", force: :cascade do |t|
+    t.integer "attempts", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "delivered_at"
+    t.text "error"
+    t.string "event", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.integer "response_code"
+    t.datetime "updated_at", null: false
+    t.bigint "webhook_endpoint_id", null: false
+    t.index ["webhook_endpoint_id", "created_at"], name: "index_webhook_deliveries_on_webhook_endpoint_id_and_created_at"
+    t.index ["webhook_endpoint_id"], name: "index_webhook_deliveries_on_webhook_endpoint_id"
+  end
+
+  create_table "webhook_endpoints", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.jsonb "events", default: [], null: false
+    t.string "name", null: false
+    t.string "secret", null: false
+    t.bigint "site_id", null: false
+    t.datetime "updated_at", null: false
+    t.string "url", null: false
+    t.index ["site_id"], name: "index_webhook_endpoints_on_site_id"
   end
 
   create_table "website_imports", force: :cascade do |t|
@@ -507,6 +606,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "api_tokens", "sites"
   add_foreign_key "builder_workspaces", "sites"
   add_foreign_key "comments", "posts"
   add_foreign_key "comments", "users"
@@ -526,6 +626,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
   add_foreign_key "post_terms", "terms"
   add_foreign_key "posts", "sites"
   add_foreign_key "posts", "users", column: "author_id"
+  add_foreign_key "site_custom_domains", "sites"
+  add_foreign_key "site_invitations", "sites"
+  add_foreign_key "site_plugin_activations", "installed_plugins"
+  add_foreign_key "site_plugin_activations", "sites"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_failed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
@@ -533,8 +637,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_09_060000) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "terms", "sites"
+  add_foreign_key "user_sites", "sites"
+  add_foreign_key "user_sites", "users"
   add_foreign_key "users", "roles"
   add_foreign_key "users", "sites"
+  add_foreign_key "webhook_deliveries", "webhook_endpoints"
+  add_foreign_key "webhook_endpoints", "sites"
   add_foreign_key "website_imports", "sites"
   add_foreign_key "website_imports", "users"
   add_foreign_key "widgets", "sites"

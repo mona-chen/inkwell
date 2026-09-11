@@ -1,6 +1,7 @@
 import { attachShaderFill } from './shaderPresets.js';
 import { SHADER_RUNTIME } from './shaderRuntime.js';
 import { renderIcon } from './icons.js';
+import { previewNode } from './DynamicData.js';
 
 // Inline widget-behavior runtime. Emitted once per canvas render inside the canvas root so it
 // ships in published output (getHtml clones the body). Uses event delegation on the iframe's
@@ -211,7 +212,10 @@ export default class CanvasRenderer {
     create(node) {
         const definition = this.registry.get(node.type);
         const imported = !!node.settings.importedDom;
-        const element = imported ? this.createImportedElement(node) : definition.render({ document: this.document, domDocument: this.root.ownerDocument, selection: this.selection }, node);
+        // Resolve dynamic `{{ … }}` bindings against sample data for on-canvas preview only —
+        // the store keeps the tokens, so published output still resolves server-side.
+        const renderNode = imported ? node : previewNode(node);
+        const element = imported ? this.createImportedElement(node) : definition.render({ document: this.document, domDocument: this.root.ownerDocument, selection: this.selection }, renderNode);
         if (!(element instanceof this.root.ownerDocument.defaultView.Element)) throw new Error(`${node.type}.render() must return a DOM Element.`);
         const kind = definition.kind || (definition.acceptsChildren ? (node.type === 'section' ? 'section' : node.type === 'column' ? 'column' : 'container') : 'widget');
         // Losslessly imported DOM nodes must retain their authored class contract and child

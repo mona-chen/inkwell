@@ -550,6 +550,11 @@ export default class BuilderV2 {
         this.runtime.styles.mount(this.iframeDoc, this.runtime.document);
         this.customCode.inject(this.iframeDoc, { executeJs: false });
         const clone = this.iframeDoc.documentElement.cloneNode(true);
+        // Dynamic content elements serialize as their server token (e.g. {{ blocks }}) so the
+        // published page renders live data. The canvas keeps the labelled placeholder.
+        clone.querySelectorAll('[data-ink-dynamic]').forEach((element) => {
+            element.replaceWith(this.iframeDoc.createTextNode(element.getAttribute('data-ink-dynamic') || ''));
+        });
         this.customCode.injectIntoClone(clone);
         clone.querySelector('#ink-editor-canvas-styles')?.remove();
         clone.style.removeProperty('--ink-editor-canvas-scale');

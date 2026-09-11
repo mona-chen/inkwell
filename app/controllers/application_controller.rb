@@ -21,9 +21,22 @@ class ApplicationController < ActionController::Base
 
   private
 
+  # Single-site default: resolve the site from the Multisite middleware when it's installed,
+  # otherwise fall back to the default site (or the first one). `||=` preserves whatever the
+  # middleware already set on Current.site — this is the multisite entry point.
   def set_current_attributes
     Current.user = current_user if respond_to?(:current_user)
-    Current.site = Site.first # single-site default; multisite would resolve by request.host here
+    Current.site ||= resolve_current_site
+  end
+
+  def resolve_current_site
+    if defined?(Multisite::SiteResolver)
+      site_id = request.env["multisite.site_id"]
+      return Site.find_by(id: site_id) if site_id
+    end
+    Site.find_by(is_default: true) || Site.first
+  rescue ActiveRecord::StatementInvalid
+    Site.first
   end
 
   def set_time_zone(&block)

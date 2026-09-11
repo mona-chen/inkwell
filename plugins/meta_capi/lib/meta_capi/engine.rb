@@ -7,7 +7,7 @@ module MetaCapi
     plugin_description "Send server-side events (purchase, lead, page view, etc.) to Meta's Conversions API for better ad measurement and targeting."
     plugin_version "1.0.0"
 
-    register_admin_nav(label: "Meta CAPI", path: "/plugins/meta_capi/settings", icon: "trending-up")
+    register_admin_nav(label: "Meta CAPI", path: "/plugins/meta_capi/settings", icon: "trending-up", section: "Extensions")
 
     def on_activate
       # Inject Meta Pixel base code + CAPI tracking into every page's body

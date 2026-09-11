@@ -1,0 +1,8 @@
+<%= @site.name %>
+Invitation
+
+You've been invited as a <%= @invitation.role %> on <%= @site.name %> on Inkwell.
+
+Accept this invitation: <%= @accept_url %>
+
+This invitation expires on <%= @invitation.expires_at.strftime("%B %d, %Y") %>.

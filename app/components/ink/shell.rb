@@ -12,6 +12,7 @@ module Ink
 
     def view_template
       yield self if block_given?
+      a(href: "#workspace-content", class: "ink-skip-link") { "Skip to content" }
 
       div(
         id: "admin-shell",
@@ -49,7 +50,7 @@ module Ink
               render_slot(@topbar)
             end
           end
-          div(class: "min-w-0 flex-1") do
+          div(id: "workspace-content", role: "main", tabindex: "-1", class: "min-w-0 flex-1") do
             div(class: "w-full px-4 py-4 sm:px-6 sm:py-5 lg:px-7 lg:py-6") do
               render_slot(@main)
             end

@@ -64,6 +64,11 @@ class Post < ApplicationRecord
     featured_image&.url || content_blocks.find { |b| b["type"] == "image" }&.dig("data", "url")
   end
 
+  # Public URL path, used by dynamic content bindings (`{{ post.url }}`).
+  def url
+    "/posts/#{slug}"
+  end
+
   # --- SEO helpers (used by the SEO plugin's meta tag builder) ---
 
   def seo_title_display

@@ -9,7 +9,15 @@ class PostsController < ApplicationController
     @posts = @posts.joins(:terms).where(terms: { id: @tag.id }) if @tag
     @posts = @posts.where("title ILIKE ?", "%#{params[:q]}%") if params[:q].present?
     @posts = @posts.order(published_at: :desc).page(params[:page]).per(9)
-    render template: "posts/index"
+
+    # A page designated as the archive/index template replaces the theme's posts index.
+    if (template = Page.template_for(Current.site, "index") || Page.template_for(Current.site, "archive"))
+      @page = template
+      @template_body = PageBuilder::TemplateRenderer.render(template, view_context: view_context)
+      render template: "posts/template_index"
+    else
+      render template: "posts/index"
+    end
   end
 
   def show
@@ -18,6 +26,14 @@ class PostsController < ApplicationController
     @prev_post = Current.site.posts.published.where("published_at < ?", @post.published_at).order(published_at: :desc).first
     @next_post = Current.site.posts.published.where("published_at > ?", @post.published_at).order(published_at: :asc).first
     @related_posts = Current.site.posts.published.where.not(id: @post.id).order(published_at: :desc).limit(3)
+
+    # A page designated as the single-post template replaces the theme's posts/show. `@page`
+    # becomes the current post so `{{ page.* }}` bindings resolve; `post:` covers `{{ post.* }}`.
+    if (template = Page.template_for(Current.site, "single_post"))
+      @page = @post
+      @template_body = PageBuilder::TemplateRenderer.render(template, view_context: view_context, locals: { post: @post })
+      render template: "posts/template"
+    end
   end
 
   private

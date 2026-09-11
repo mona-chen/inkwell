@@ -20,6 +20,7 @@
     <%# Editor toolbar: undo/redo + save status + add block %>
     <div class="sticky top-14 z-20 -mx-1 mb-5 flex min-h-10 items-center justify-between gap-3 border-y border-border/70 bg-background/90 px-1 py-1.5 backdrop-blur-xl">
       <div class="flex items-center gap-1">
+        <button type="button" data-action="block-editor#toggleFocus" aria-pressed="false" title="Focus on writing" class="ink-writing-focus-toggle">Focus</button>
         <button type="button" data-action="block-editor#undo"
                 class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">
@@ -46,7 +47,7 @@
         <% if post.status == "published" %>
           <button type="submit"
                   class="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
-            Save changes
+            Save draft
           </button>
         <% else %>
           <button type="submit" name="save_draft" value="1"

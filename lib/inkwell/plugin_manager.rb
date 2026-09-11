@@ -51,7 +51,9 @@ module Inkwell
         return record unless record.active?
 
         engine_class.instance.on_deactivate
-        Inkwell::Hooks.remove_source!(slug) # belt & suspenders if a plugin forgets to clean up
+        # Note: removed Inkwell::Hooks.remove_source!(slug) — in multisite, per-site gating
+        # via PluginGate handles listener skipping. Removing the source globally would break
+        # other sites in the same process that still have the plugin active.
         record.update!(active: false)
         Inkwell::Hooks.fire(:plugin_deactivated, slug)
         record

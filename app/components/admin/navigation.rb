@@ -25,9 +25,14 @@ module Admin
     end
 
     def nav_item(item)
-      attrs = { label: item[:label], path: item[:path], icon: item[:icon], current: current?(item[:path]) }
+      children = Array(item[:children]).map { |child| nav_item(child) }
+      path = item[:path]
+      current = path.present? && current?(path)
+      current ||= children.any? { |child| child[:current] } if children.any?
+
+      attrs = { label: item[:label], path: path, icon: item[:icon], current: current }
       attrs[:badge] = item[:badge] if item[:badge]
-      attrs[:children] = item[:children] if item[:children]
+      attrs[:children] = children if children.any?
       attrs
     end
 

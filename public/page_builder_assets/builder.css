@@ -1769,6 +1769,20 @@ body {
   border-radius: 0 3px 3px 0;
 }
 
+.ink-v2-data-binding {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px;
+}
+
+.ink-v2-data-binding select {
+  min-width: 0;
+}
+
+.ink-v2-data-binding select:disabled {
+  color: var(--ink-editor-faint);
+}
+
 .ink-v2-dimensions {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) 44px 24px;

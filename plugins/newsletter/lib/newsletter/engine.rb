@@ -7,7 +7,7 @@ module Newsletter
     plugin_description "Collects subscriber emails and fires a hook other plugins can act on."
     plugin_version "1.0.0"
 
-    register_admin_nav(label: "Subscribers", path: "/plugins/newsletter/subscribers", icon: "at-symbol")
+    register_admin_nav(label: "Subscribers", path: "/plugins/newsletter/subscribers", icon: "at-symbol", section: "Publish")
 
     def on_activate
       # Deliberately does NOT send emails itself — it fires an action and leaves delivery to

@@ -4,16 +4,21 @@ module Admin
   # Site settings. Two SettingsSections: General (site identity) and Homepage (what the
   # front page shows — WordPress "Settings → Reading").
   class SettingsPage < ApplicationComponent
+    include Phlex::Rails::Helpers::ButtonTo
+
     SECTIONS = {
-      "general" => { label: "General", icon: :sliders_horizontal, subtitle: "Identity, regional preferences, and discussion defaults" },
+      "general" => { label: "General", icon: :sliders_horizontal, subtitle: "Identity and regional preferences" },
+      "discussion" => { label: "Discussion", icon: :message_circle, subtitle: "How visitors register and comment" },
       "homepage" => { label: "Homepage", icon: :home, subtitle: "Choose the content visitors see first" },
+      "api" => { label: "API", icon: :code, subtitle: "Read-only content API and access tokens" },
       "maintenance" => { label: "Maintenance", icon: :wrench, subtitle: "Caches, assets, and recovery tools" }
     }.freeze
 
-    def initialize(site:, section: "general")
+    def initialize(site:, section: "general", new_token: nil)
       @site = site
       @pages = site.pages.published.ordered
       @section = SECTIONS.key?(section) ? section : "general"
+      @new_token = new_token
     end
 
     def view_template
@@ -69,26 +74,15 @@ module Admin
             html: { id: form_id }
           ) do |form|
             form.group do
-              form.field(:site_title, value: setting_value("site_title"), label: "Site title")
+              form.field(:name, value: @site.name, label: "Site name")
               form.field(:tagline, value: setting_value("tagline"), label: "Tagline")
-              form.field(:site_url, value: setting_value("site_url"), label: "Site URL")
               form.field(:timezone, value: setting_value("timezone"), label: "Timezone")
-              form.field(:posts_per_page, value: setting_value("posts_per_page"), label: "Posts per page", as: :string)
             end
 
             form.group do
               render_logo_field
             end
 
-            form.group do
-              render Ink::Checkbox.new(
-                label: "Enable comments",
-                name: "settings[comments_enabled]",
-                value: "1",
-                unchecked_value: "0",
-                checked: setting_value("comments_enabled") == "1" || setting_value("comments_enabled").nil?
-              )
-            end
             form.group do
               noscript { form.submit("Save settings") }
             end
@@ -163,6 +157,50 @@ module Admin
       end
     end
 
+    def render_discussion_section
+      render SettingsSection.new(
+        id: "discussion-settings",
+        title: "Discussion",
+        description: "Control how visitors create accounts and interact with #{@site.name}."
+      ) do |section|
+        section.form do
+          form_with(
+            url: admin_settings_path(section: @section),
+            method: :patch,
+            scope: "settings",
+            builder: Ink::FormBuilder,
+            html: { id: form_id }
+          ) do |form|
+            form.group do
+              form.field(
+                :registration_mode,
+                as: :select,
+                label: "User registration",
+                options: [
+                  [ "Open — anyone can register", "open" ],
+                  [ "Invite only", "invite_only" ],
+                  [ "Closed", "closed" ]
+                ],
+                value: setting_value("registration_mode", "open")
+              )
+            end
+            form.group do
+              render Ink::Checkbox.new(
+                label: "Enable comments",
+                name: "settings[comments_enabled]",
+                value: "1",
+                unchecked_value: "0",
+                checked: setting_value("comments_enabled") == "1" || setting_value("comments_enabled").nil?
+              )
+            end
+            form.group do
+              noscript { form.submit("Save discussion settings") }
+            end
+          end
+        end
+      end
+    end
+
     def render_homepage_section
       render SettingsSection.new(
         id: "homepage-settings",
@@ -206,6 +244,73 @@ module Admin
       end
     end
 
+    def render_api_section
+      api_base = "#{helpers.request&.protocol}#{@site.domain}/api/v1"
+      tokens = @site.api_tokens.order(created_at: :desc)
+
+      render SettingsSection.new(
+        id: "api-settings",
+        title: "Content API",
+        description: "A read-only JSON API for #{@site.name}. Published content is public; a token unlocks drafts and unpublished content."
+      ) do |section|
+        section.form do
+          div(class: "space-y-4") do
+            div(class: "rounded-lg border border-border bg-muted/30 p-3") do
+              p(class: "text-[11px] font-medium uppercase tracking-wide text-muted-foreground") { "Base URL" }
+              p(class: "mt-1 font-mono text-sm text-foreground") { api_base }
+              p(class: "mt-1 text-xs text-muted-foreground") { "Endpoints: /site · /posts · /pages · /media · /taxonomies · /menus" }
+            end
+
+            if @new_token.present?
+              div(class: "rounded-lg border border-emerald-300 bg-emerald-50 p-3") do
+                p(class: "text-sm font-semibold text-emerald-800") { "Copy this token now — it won't be shown again." }
+                code(class: "mt-2 block break-all rounded-md bg-white px-3 py-2 font-mono text-sm text-emerald-900") { @new_token }
+              end
+            end
+
+            form_with(url: admin_api_tokens_path, method: :post, class: "flex items-end gap-2") do |f|
+              div(class: "flex-1 space-y-1.5") do
+                label(for: "api_token_name", class: "block text-xs font-medium text-muted-foreground") { "New token name" }
+                f.text_field :name,
+                  id: "api_token_name",
+                  value: nil,
+                  placeholder: "Next.js frontend",
+                  class: "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/20"
+              end
+              f.submit "Create token", class: "inline-flex h-9 cursor-pointer items-center justify-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+            end
+
+            if tokens.any?
+              div(class: "divide-y divide-border rounded-lg border border-border") do
+                tokens.each do |token|
+                  div(class: "flex items-center justify-between gap-3 px-3 py-2.5") do
+                    div(class: "min-w-0") do
+                      p(class: "text-sm font-medium text-foreground") { token.name }
+                      p(class: "font-mono text-xs text-muted-foreground") { token.masked }
+                    end
+                    div(class: "flex shrink-0 items-center gap-3") do
+                      span(class: "text-xs text-muted-foreground") do
+                        if token.last_used_at
+                          "Used #{helpers.time_ago_in_words(token.last_used_at)} ago"
+                        else
+                          "Never used"
+                        end
+                      end
+                      button_to("Revoke", admin_api_token_path(token), method: :delete,
+                        class: "text-xs text-muted-foreground hover:text-destructive transition-colors",
+                        data: { turbo_confirm: "Revoke #{token.name}? Any app using it will lose access." })
+                    end
+                  end
+                end
+              end
+            else
+              p(class: "text-sm text-muted-foreground") { "No tokens yet. Create one to let a frontend read drafts." }
+            end
+          end
+        end
+      end
+    end
+
     def render_maintenance_section
       render Ink::DangerZone.new(
         title: "Maintenance",
@@ -230,14 +335,16 @@ module Admin
 
     def render_active_section
       case @section
+      when "discussion" then render_discussion_section
       when "homepage" then render_homepage_section
+      when "api" then render_api_section
       when "maintenance" then render_maintenance_section
       else render_general_section
       end
     end
 
     def form_section?
-      @section != "maintenance"
+      !%w[maintenance api].include?(@section)
     end
 
     def form_id
