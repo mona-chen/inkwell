@@ -5,10 +5,15 @@ CI.run do
 
   step "Style: Ruby", "bin/rubocop"
 
+  step "Tests: RSpec", "bundle exec rspec"
+
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: Importmap vulnerability audit", "bin/importmap audit"
   step "Security: Brakeman code analysis", "bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error"
 
+  # The builder browser smoke harness (`bin/rails builder:smoke`) owns its own Chrome and booted
+  # server, so it lives in .github/workflows/ci.yml where the runner provides both rather than in
+  # this step list.
 
   # Optional: set a green GitHub commit status to unblock PR merge.
   # Requires the `gh` CLI and `gh extension install basecamp/gh-signoff`.

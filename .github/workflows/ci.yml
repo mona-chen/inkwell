@@ -6,6 +6,123 @@ on:
     branches: [ main ]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: inkwell
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U inkwell"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://inkwell:postgres@127.0.0.1:5432/inkwell_test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Prepare test database
+        run: bin/rails db:test:prepare
+
+      - name: Run the specs
+        run: bundle exec rspec
+
+  builder_smoke:
+    # The Ink Builder is a first-class source-owned component, and its runtime only exists in a
+    # browser. `bin/rails builder:smoke` drives the real editor page over CDP and checks the v2
+    # store, panels, drag & drop, publish output and console cleanliness, so builder/template/
+    # layout changes can't merge on a green light they never earned.
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: inkwell
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U inkwell"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      RAILS_ENV: development
+      DATABASE_URL: postgres://inkwell:postgres@127.0.0.1:5432/inkwell_development
+      BASE_URL: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Locate Chrome
+        run: |
+          for candidate in google-chrome google-chrome-stable chromium chromium-browser; do
+            if command -v "$candidate" >/dev/null 2>&1; then
+              echo "CHROME_BIN=$(command -v "$candidate")" >> "$GITHUB_ENV"
+              echo "Using Chrome at $(command -v "$candidate")"
+              exit 0
+            fi
+          done
+          echo "::error::No Chrome/Chromium found on the runner — the builder smoke test needs one."
+          exit 1
+
+      - name: Prepare the database
+        run: bin/rails db:prepare db:seed
+
+      - name: Run the builder smoke test
+        run: |
+          bin/rails server -b 127.0.0.1 -p 3000 > /tmp/ci-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null "$BASE_URL/" && break
+            sleep 2
+          done
+          if ! curl -sf -o /dev/null "$BASE_URL/"; then
+            echo "::error::Rails never became ready on $BASE_URL"
+            cat /tmp/ci-server.log
+            exit 1
+          fi
+
+          node scripts/builder_smoke_test.js
+
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-server-log
+          path: /tmp/ci-server.log
+          if-no-files-found: ignore
+
   scan_ruby:
     runs-on: ubuntu-latest
 
@@ -64,4 +181,3 @@ jobs:
 
       - name: Lint code for consistent style
         run: bin/rubocop -f github
-

@@ -10,6 +10,10 @@
 **/node_modules
 /db/*.sqlite3
 
+# Local bundle install path (.bundle/config sets BUNDLE_PATH) — never commit, and keep the
+# installed gems out of Tailwind's content scan so the compiled CSS stays source-derived.
+/vendor/bundle
+
 # Rails credentials — never commit the master key
 /config/master.key
 /config/credentials/*.key

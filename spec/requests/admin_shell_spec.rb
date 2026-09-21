@@ -16,4 +16,14 @@ RSpec.describe "Admin shell renders", type: :request do
     expect(body).to include("data-ink=\"shell\"")
     expect(body).to include("Inkwell")
   end
+
+  it "applies the saved theme before the page paints" do
+    get admin_root_path
+
+    bootstrap = response.body[/\(function\(\)\{try\{var t=localStorage\.getItem\("inkwell-theme"\).*?\}\)\(\);/, 0]
+    expect(bootstrap).to be_present
+    expect(response.body).to include('data-theme="light"')
+    # Inline in <head> ahead of the stylesheets, so the first paint already has the theme.
+    expect(response.body.index(bootstrap)).to be < response.body.index("stylesheet")
+  end
 end

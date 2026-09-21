@@ -7,6 +7,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* Dark mode is driven by the app's theme attribute, not the OS preference. The admin
+   toggler (app/javascript/controllers/appearance_controller.js) and the pre-paint
+   bootstrap in Admin::Layout both write `data-theme` on <html>, so `dark:` utilities
+   track the same switch as the semantic tokens below. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @source "../../views/**/*.erb";
 @source "../../components/**/*.{rb,erb}";
 @source "../../themes/**/*.erb";

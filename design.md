@@ -1,282 +1,238 @@
 # Inkwell — design system
 
-This is the design language for Inkwell: the admin tool, the auth screens, and the block editor.
-It documents what's implemented in the codebase today (verified against `app/views`, not guessed),
-so new views, plugin admin panes, and theme templates can be dropped in without reinventing
-styling.
+The design language for the Inkwell **admin**: the tool, the auth screens, the block editor, and
+the plugin admin panes. It documents what ships in this repo — the token layer, the `Ink::`
+component contracts, and the patterns admin screens are assembled from — so new views and plugin
+panes drop in without inventing a second visual language.
 
-Per the project preference: **pure Tailwind utility classes only.** No scoped `<style>` blocks, no
-inline `style="..."` attributes — anywhere.
+If you change a token, a component contract, or a shared pattern, update this file in the same PR.
 
 ## Two design systems, on purpose
 
-Inkwell doesn't have one visual language — it has two, and that split is intentional:
+1. **Admin (the tool)** — one palette, dense, functional, identical regardless of which theme the
+   site runs. You're operating machinery; it should look like the same machinery every time.
+2. **Themes (the output)** — each theme owns its own identity. `default` is warm-cream/charcoal
+   editorial, `mono` is black/green monospace, and a third theme is free to look nothing like
+   either.
 
-1. **Admin (the tool)** — its own palette, dense, functional, identical regardless of which theme
-   the site uses. You're operating machinery; it should look like the same machinery every time.
-2. **Themes (the output)** — each theme owns its own identity. `default` is warm-cream/charcoal/
-   gold editorial; `mono` is black/green monospace. A third theme is free to look nothing like
-   either. **Never leak admin's palette into a theme, or a theme's colors into admin.**
+**Never leak admin's palette into a theme, or a theme's colors into admin.** Everything below
+labeled Admin covers `app/components/ink/**`, `app/components/admin/**`, `app/views/admin/**` and
+`app/views/devise/**`.
 
-Anything labeled "Admin" applies to `app/views/admin/**` and `app/views/devise/**`. Anything
-labeled "Theme" is guidance for what a theme's own `theme.json` + views should establish for
-*itself* — not a fixed palette core enforces.
+## Where the system lives
 
-## Design tokens (implemented)
+| Concern | Source of truth |
+| --- | --- |
+| Design tokens (light + dark) | `app/assets/tailwind/application.css` |
+| Component contracts | `app/components/ink/*.rb` (Phlex) |
+| Admin screen compositions | `app/components/admin/*_page.rb` |
+| App-owned effects and structural CSS | `app/assets/stylesheets/ink.css`, `app/assets/stylesheets/application.css` |
+| Icons | Lucide (via `lucide-rails`), wrapped by `Ink::Icon` |
+| Compiled CSS — generated, never hand-edit | `app/assets/builds/tailwind.css` (`bin/rails tailwindcss:build`) |
+| Theme identity | `app/themes/<slug>/` |
+| Builder chrome and canvas | `plugins/page_builder/app/builder/src/styles/` |
 
-Defined in `app/assets/tailwind/application.css` under `@theme`:
+Tailwind discovers classes through the `@source` globs at the top of `application.css`. A new view
+directory that isn't already covered by a glob won't compile its classes — add a glob when you add
+a directory.
 
-```css
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif; /* admin default */
-  --font-serif: "Georgia", ui-serif, serif;                    /* default theme */
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;      /* mono theme */
-}
-```
+## Color tokens
 
-Only `--font-sans` (admin's implicit default) changed; serif/mono belong to the themes and are
-untouched.
+One semantic layer in OKLCH, declared twice (`:root` / `[data-theme="light"]` and
+`[data-theme="dark"]`) and bridged to Tailwind utilities by `@theme inline`.
 
-## Color — Admin
+| Family | Utilities | Use for |
+| --- | --- | --- |
+| Canvas | `bg-background`, `text-foreground` | Page background and default text |
+| Panels | `bg-card`, `text-card-foreground` | Elevated surfaces, list bodies |
+| Floating | `bg-popover`, `text-popover-foreground` | Dropdowns, popovers, command palette |
+| Brand | `bg-primary`, `text-primary-foreground`, `text-primary` | The one primary action per screen; active state |
+| Quiet fills | `bg-secondary`, `bg-muted`, `text-muted-foreground`, `bg-accent`, `text-accent-foreground` | Secondary buttons, metadata, hover |
+| Destructive | `bg-destructive`, `text-destructive` | Delete and other irreversible actions |
+| Lines | `border-border`, `bg-input`, `ring-ring` | Borders, field fills, focus rings |
+| Status | `success`, `warning`, `info`, `destructive` — each with a `*-foreground` | Flash, badges, state pills |
+| Frame | `bg-sidebar`, `*-sidebar-*` | The navigation shell; graphite in both modes |
 
-**Near-black is the primary action color** (`gray-900`/`black`), matching the brand mark's
-ink/charcoal. Indigo is demoted to two narrow roles: focus rings and the active sidebar item.
-This is the Linear/Vercel/Attio move — a neutral, confident primary instead of a default-library
-blue.
+Rules:
 
-| Role | Class | Where |
-|---|---|---|
-| Primary action | `bg-gray-900` / hover `bg-black`, `text-white` | Save/submit buttons, primary CTAs, "New post/page" |
-| Primary text link/hover | `text-gray-900`, `hover:text-gray-900` | Post titles, row links, "View all" |
-| Supporting accent (focus + active-nav only) | `ring-indigo-500` / `border-indigo-500` on focus; `bg-indigo-50 text-indigo-700` on the active sidebar item | Form focus states, current-page nav indicator |
-| Body text | `text-gray-900` (default), `text-gray-700` | — |
-| Secondary text | `text-gray-500` | Metadata, timestamps, helper text |
-| Tertiary/muted text | `text-gray-400` | Placeholders, empty states, "Plugins" group label |
-| Borders (data containers only — see Elevation) | `border-gray-200` (rest), `border-gray-300` (hover/stronger) | Tables, dense lists |
-| Subtle surface | `bg-gray-50` | Table headers, hover rows, page background |
-| Success | `bg-green-50 text-green-800` (banner), `bg-green-100 text-green-800` (pill) | Flash notice, "published"/"approved" status |
-| Danger | `bg-red-50 text-red-800` (banner), `text-red-500`/`text-red-600` (hover) | Flash alert, delete actions |
-| Warning | `bg-amber-50 text-amber-700` (border `border-amber-200`) | Spam action, revision-diff highlight |
+- **Name the role, not the color.** Write `bg-primary`, never `bg-blue-600`. Raw palette classes
+  (`bg-gray-900`, `text-indigo-600`) are a bug: they don't flip with the dark palette.
+- One `primary` action per screen. Everything else is `secondary`, `ghost`, `outline` or `danger`.
+- Status color is never the only signal — pair a tone with text (see Accessibility).
 
-**Gray scale discipline:** 400/500 for secondary text, 600/700 only when text must read as more
-prominent than metadata but isn't a heading, 200/300 for borders, 50 for backgrounds. Never use
-600/700/800 as background colors.
+## Dark mode
 
-### Theme palettes (per-theme, not shared)
+Dark mode is an **application attribute**, not an OS preference:
 
-`default`: page `#faf8f5`, text `#1a1a1a`, borders `#e5e0d8`, accent `#1a1a1a` (+ gold `#b8860b`
-small accent), `font-serif`.
+- `Admin::Layout` renders `data-theme="light"` on `<html>`, and an inline pre-paint script applies
+  the stored value before first paint — no light flash on navigation.
+- `app/javascript/controllers/appearance_controller.js` owns the toggle and persists the choice to
+  `localStorage["inkwell-theme"]`.
+- `@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));` makes `dark:`
+  utilities track that same attribute.
 
-`mono`: page `#000`, text `green-400` (headings `green-300`/`green-200` on hover), borders
-`green-900`, `font-mono`.
-
-A new theme defines its own tokens in its own layout/README — never inherit `default`'s by default.
-
-## Elevation
-
-| Surface type | Treatment | Use for |
-|---|---|---|
-| Page background | `bg-gray-50` | Admin's outer canvas |
-| Standalone elevated card | `bg-white rounded-lg shadow-sm` — **no border** | Dashboard stat cards, quick-actions, post editor sidebar, auth card |
-| Dense/data container | `bg-white border border-gray-200 rounded-lg` | Tables, posts/pages index, media grid, comments, plugins list |
-| Nested/inline block | `border border-gray-200 rounded-lg` (no shadow — shadows don't stack) | Block editor blocks, menu items |
-| Floating popover | `bg-white rounded-lg shadow-lg` (no border) | Block-type picker, slash menu |
-
-Rule of thumb: **shadow OR border, never both**, and never neither on a surface meant to read as
-distinct. A stat card with `shadow-sm` on `bg-gray-50` reads "elevated"; the same card with a
-border reads "outlined" — flatter, older.
-
-## Typography
-
-- **Inter** is the admin sans (loaded at 400/500/600). `font-medium` (500) is crisp and is the
-  interactive weight.
-- **Admin body copy defaults to `text-sm`.** `text-base` means "this is reading content"
-  (paragraph blocks on the public site); `text-sm` means "this is tool UI."
-- Weights: `font-bold` for page/post titles; `font-semibold` for static section headers inside a
-  card; `font-medium` for everything interactive — buttons, nav, labels. **Never `font-semibold`
-  on a button.**
-- **Uppercase micro-labels** (`text-xs font-semibold text-gray-400 uppercase tracking-wide`) are
-  the only form-section label and nav-group-header style. Don't introduce a second one.
-- Sizes in active use: `text-xs`, `text-sm` (workhorse), `text-base`, `text-lg`, `text-xl`,
-  `text-2xl`, `text-3xl`, `text-4xl`, `text-5xl` (marketing hero only).
-
-## Spacing & radius
-
-| Radius | Use |
-|---|---|
-| `rounded` (4px) | Small inline chips, per-field controls in block editor |
-| `rounded-md` | Compact buttons, small inputs, media thumbnails |
-| `rounded-lg` | **Default** — cards, panels, primary buttons, standard inputs, table containers |
-| `rounded-xl` | Elevated/floating surfaces only — auth cards |
-| `rounded-full` | Pills (status badges, filter chips). Never for admin primary buttons |
-
-Button padding tiers: standard `px-4 py-2` (form submits, "New post"), compact `px-3 py-1.5` /
-`px-2.5 py-1` (row actions, "Activate"/"Preview"), marketing `px-6 py-3` (theme CTAs). Don't
-invent a fourth tier.
-
-Card padding: `p-4` nested/compact, `p-6` standalone panels, `px-6 py-4` table-row list items.
+Because the tokens already flip, most components need no `dark:` at all — `bg-card
+text-card-foreground` is correct in both modes. Reach for `dark:` only for genuine art direction,
+and never gate styling on `prefers-color-scheme` directly.
 
 ## Components
 
-### Buttons
+Admin screens are assembled from the application-owned `Ink::` Phlex components. Read the component
+before writing markup: the contract, the variants and the ARIA live there, and a view that
+hand-rolls a button or a table is a maintenance liability.
 
-```erb
-<%# Primary %>
-class: "bg-gray-900 text-white text-sm font-medium px-4 py-2 rounded-lg shadow-sm hover:bg-black active:scale-[0.98] transition"
+Inside a Phlex component that descends from `ApplicationComponent`, the `Ink::` components are
+aliased to bare constants (`Button`, `Card`, `Badge`, `Table`, `Icon`, …) — that unqualified form is
+the idiomatic call style. The table below lists the owning `Ink::` class.
 
-<%# Secondary (bordered) %>
-class: "text-sm px-4 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 active:scale-[0.98] transition"
+| Component | Use for |
+| --- | --- |
+| `Admin::Layout` | The admin document: `<head>`, theme bootstrap, shell |
+| `Ink::Shell` | The app frame — `navigation`, `topbar` and `main` slots |
+| `Admin::Navigation`, `Admin::Topbar` | Sidebar entries and the header bar |
+| `Ink::Toolbar`, `Ink::ToolbarTitle` | The title + actions row at the top of a screen |
+| `Ink::Card` | Standalone elevated panel (`title`/`body`/`footer`) |
+| `Ink::DataSection`, `Ink::Table` | Dense data containers — indexes, lists, grids |
+| `Ink::SettingsLayout`, `Ink::SettingsSection` | Settings screens |
+| `Ink::Button`, `Ink::ButtonTo` | Every action — `primary`, `secondary`, `default`, `ghost`, `outline`, `danger` |
+| `Ink::FormBuilder`, `Ink::Choice`, `Ink::Checkbox`, `Ink::RadioButtonGroup` | Conventional Rails forms and choice fields |
+| `Ink::Badge`, `Ink::Alert`, `Ink::Flash` | Status pills, inline messages, global notices |
+| `Ink::Dropdown`, `Ink::CommandPalette` | Menus and ⌘K navigation |
+| `Ink::Pagination`, `Ink::EmptyState` | Index footers and zero-data states |
+| `Ink::DangerZone` | Irreversible actions, visually separated |
+| `Ink::AuthShell` | Sign-in and account recovery |
+| `Ink::Icon` | Every icon |
 
-<%# Danger (compact) %>
-class: "text-xs px-2.5 py-1 rounded-md bg-red-50 text-red-700 hover:bg-red-100 active:scale-[0.98] transition"
+Typical composition:
 
-<%# Ghost / text-only (delete links, row actions) %>
-class: "text-red-500 text-xs hover:underline"
+```ruby
+render DataSection.new(title: "Revisions") do |section|
+  section.table(Table.new) do |table|
+    table.thead do
+      table.tr { table.th("Title snapshot"); table.th("Saved") }
+    end
+    table.tbody do
+      @revisions.each do |revision|
+        table.tr do
+          table.td { revision.title_snapshot }
+          table.td(revision.created_at.strftime("%b %-d, %Y"))
+        end
+      end
+    end
+  end
+end
 ```
 
-- `shadow-sm` on the primary button **only**. `active:scale-[0.98] transition` on every button
-  variant except ghost text-links (press feedback — see Motion).
-- Full-width submits add `w-full`. Destructive/state-changing buttons keep
-  `data: { turbo_confirm: "..." }`.
-- Compact success (Approve: `bg-green-50 text-green-700 hover:bg-green-100`) and warning (Spam:
-  `bg-amber-50 text-amber-700 hover:bg-amber-100`) follow the danger shape.
+Interactivity comes from small Stimulus controllers; components emit the `data-controller` hooks, so
+don't re-derive them by hand.
 
-### Forms & inputs
+## Icons
 
-```erb
-class: "mt-1 w-full border rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
-```
+Lucide, through `Ink::Icon.new(:name, size:, label:)`, with snake_case names (`:chevron_right`,
+`:shopping_bag`). Sizes are `:xs :sm :md :lg :xl`.
 
-- Indigo is **correct** here — focus rings are one of its two permitted roles.
-- Labels: `text-sm font-medium text-gray-700`. Uppercase micro-labels for form *sections*.
-- The block editor's inline fields deliberately break this with `border-0 focus:ring-0` — they're
-  editable document text, not dialog fields.
-- Checkboxes: `rounded border-gray-300 text-gray-900 focus:ring-indigo-500`.
+An icon with no `label:` renders `aria-hidden`; an icon-only control must pass `label:` (or carry
+its own `aria-label` on the button). There is no icon font, no hand-maintained SVG partial
+directory, and no Material Symbols in admin.
 
-### Sidebar navigation
+## Typography
 
-Layout lives in `app/views/layouts/admin.html.erb` (256px sidebar, 64px topbar, `bg-gray-50`
-content). Nav items come from `app/views/admin/_nav.html.erb`, grouped by section:
+- **Inter** is the admin sans (`--font-sans`). The base layer sets admin body copy to **14px**.
+- `text-sm` is the tool default. `text-[13px]`, `text-xs`, `text-[11px]` and `text-[10px]` carry
+  dense chrome, metadata and micro-labels. `text-base` and up mean "reading content."
+- Weights: `font-semibold` is the interactive weight (buttons, nav, labels — components already set
+  it, don't re-set it), `font-bold` for screen titles, `font-medium` for emphasis inside dense rows.
+- **Uppercase micro-labels** (`text-[10px] font-semibold text-muted-foreground uppercase
+  tracking-[0.08em]`, as used by `Ink::Table` headers) are the only eyebrow style. Don't add a
+  second one.
 
-```erb
-<%# active item %>
-class: "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium bg-indigo-50 text-indigo-700"
-<%# inactive item %>
-class: "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-<%# icon %>
-class: "w-5 h-5 shrink-0"   <%# Heroicons outline, aria-hidden="true", inherits currentColor %>
-```
+## Elevation, radius and spacing
 
-- Icons are inline SVG partials in `app/views/admin/icons/` — no JS icon font, `aria-hidden="true"`.
-- Section group headers use the uppercase micro-label style ("Content", "Design", "System").
-- The brand mark (`admin/icons/_logo`) + wordmark sits at the top; the user card
-  (`admin/_user_card`) with avatar initial, role, and sign-out sits at the bottom.
-
-### Topbar
-
-64px, `bg-white border-b border-gray-200`, page title (from `content_for :title`) on the left,
-site indicator + current user + sign-out on the right.
-
-### Tables
-
-```erb
-<%# header %>
-class: "bg-gray-50 text-left text-xs text-gray-500 uppercase"
-<%# row %>
-class: "hover:bg-gray-50"
-<%# cell %>
-class: "px-6 py-3" / "px-6 py-4"
-```
-Titles inside cells: `font-medium text-gray-900`. Status uses the pill. Row-actions are ghost
-links on the right.
-
-### Status pills
-
-```erb
-class: "px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"  <%# positive %>
-class: "px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600"    <%# neutral %>
-```
-
-### Empty states
-
-Icon (`text-gray-400`) centered, `font-medium text-gray-900` title, `text-sm text-gray-500`
-description, and a text link to the primary action. Used on posts, pages, and media indexes, the
-dashboard, and comments.
-
-### Flash messages
-
-`px-4 py-3 rounded-lg text-sm border` — notice `bg-green-50 text-green-800 border-green-100`,
-alert `bg-red-50 text-red-800 border-red-100`. Rendered in the topbar area of the admin layout.
-
-### Dashboard
-
-Greeting header, a 4-up stat-card grid (icon + bold count + muted label, each a link), then a
-two-column split: "Recently updated" (dense list with status pills) and "Quick actions"
-(2×2 bordered tiles) plus a media summary card.
-
-## Block editor
-
-The editor (`app/javascript/controllers/block_editor_controller.js`) is a structured block editor
-— **not** a contenteditable rich-text blob. Content is stored as JSON `{ type, data }` in a
-hidden field; every block is real form fields, so what's stored is always valid renderable data.
-
-### Block types (9)
-
-`heading` (level 1–4), `paragraph`, `image` (url/alt/caption + media-library picker), `quote`
-(text + attribution), `list` (numbered toggle + one-item-per-line), `code` (language + code,
-dark shell), `separator`, `callout` (info/success/warning/danger tone), `button`
-(primary/secondary, label + url).
-
-Add a type by: creating `app/views/admin/posts/blocks/_<type>.html.erb`, a render component in
-`app/components/blocks/`, registering it in `BlockRenderer::REGISTRY`, and adding a line to
-`app/views/admin/posts/blocks/_templates.html.erb`. That's the whole contract.
-
-### Editor UX
-
-- **Slash command:** typing `/` in a text block opens a floating type menu; arrow keys navigate,
-  Enter/Tab inserts, Escape cancels (and removes the `/`).
-- **Keyboard:** Enter in a paragraph/heading inserts a new paragraph below; Backspace on an empty
-  text block removes it and refocuses the previous; `Cmd/Ctrl+Z` undoes, `Cmd/Ctrl+Shift+Z`/`+Y`
-  redoes (50-step in-memory history).
-- **Selection:** clicking/focusing a block highlights it (`ring`, border shift) and shows the
-  floating toolbar (hover also reveals it).
-- **Toolbar** (left rail): drag handle, insert above, move up, move down, insert below,
-  duplicate, delete — all with `aria-label`.
-- **Block picker:** the "+ Add block" button at the bottom appends a block.
-
-### Front-end rendering
-
-`BlockRenderer.render` is a strict allow-list dispatch to `Blocks::*Component` — there is no code
-path that executes stored HTML. This structurally closes the "shortcode injection" class of
-vulnerability WordPress has fought for two decades.
+- **Elevation** uses Tailwind's shadow scale — `shadow-xs` for panels and controls, `shadow-sm` for
+  cards, `shadow-lg` for floating surfaces. `ink.css` exposes theme-aware `--ink-shadow-*` values for
+  the surfaces that stylesheet owns (the auth card). Elevation and outline don't stack: a surface is
+  either elevated or bordered, not both.
+- **Radius** derives from `--radius` (`0.625rem`) through the `--radius-*` scale. `rounded-lg` is the
+  default for panels, buttons and inputs, `rounded-md` for compact controls, `rounded-xl`/`rounded-2xl`
+  for floating surfaces, `rounded-full` for pills and avatars.
+- **Spacing** is Tailwind's 4px scale. Prefer `gap-*`/`space-y-*` over ad-hoc margins so density stays
+  consistent between screens.
 
 ## Motion
 
-- **Hover:** color/opacity transitions only (`transition-colors`, `transition-opacity`). No scale,
-  no lift, no shadow-grow.
-- **Press (`active:`):** `active:scale-[0.98] transition` on buttons — brief click feedback, the
-  one transform allowed. This is the line: *transform only as press-feedback on buttons*.
-- Sortable.js (block reorder, menu builder) is the only JS animation library.
+Hover and state changes are color/opacity transitions. Press feedback is a small transform
+(`active:translate-y-px` in `Ink::Button`) — that's the only transform allowed on interaction. No
+lift, no scale-up on hover. `ink.css` honors `prefers-reduced-motion` for the shell and the auth
+surface.
 
 ## Accessibility
 
-- Every icon in the sidebar and sign-out has `aria-hidden="true"`; adjacent text carries meaning.
-- Icon-only buttons (block toolbar, menu-builder delete) carry `aria-label`.
-- Focus states: `focus:ring-indigo-500`/`focus:border-indigo-500` on every input — carry both
-  forward.
-- Color isn't the only indicator: status uses text + pill, active nav uses tint + weight.
-- `title` attributes are present on icon buttons but must not be the *only* affordance — keep the
-  `aria-label`.
+- Decorative icons are `aria-hidden` (via `Ink::Icon`); icon-only controls carry `aria-label`.
+- Color is never the sole indicator: status pairs a tone with text, and the active nav item pairs
+  tint with weight and `aria-current="page"`.
+- Menus and dialogs wire their roles and Escape handling (`Ink::Dropdown`, `Ink::CommandPalette`).
+- Focus is visible on every interactive element. Components use
+  `focus-visible:ring-2 focus-visible:ring-ring/40`; `ink.css` adds a high-contrast
+  `outline: 2px solid var(--ring)` for controls inside `#admin-shell`. New interactive elements must
+  keep a `:focus-visible` state.
+
+## The app stylesheets
+
+Admin views are Tailwind utilities and `Ink::` components — there are no inline `style=` attributes
+and no `<style>` blocks in `app/views/admin` or `app/views/devise`. Two application-owned
+stylesheets hold what utilities can't express:
+
+- `ink.css` — keyframes, the select chevron, theme-aware shadow values, the auth shell, the
+  writing-focus mode, and a handful of `#admin-shell` rules (focus outlines, table alignment).
+- `application.css` — the workspace frame (`--ink-app-*` aliases, `.admin-workspace`, topbar slot
+  styling) used by admin and the public site.
+
+Reach for a stylesheet only when a utility genuinely can't express the rule, and scope the selector
+(`#admin-shell ...`) so it can't leak into themes.
+
+## Themes
+
+A theme is a self-contained view-path bundle in `app/themes/<slug>/` — `layouts/`, `posts/`,
+`pages/`, `authors/`, `errors/`, `site/`, plus `theme.json`. `ThemeManager` prepends the active
+theme's directory for the request, and Rails falls back to core `app/views` for anything the theme
+omits.
+
+That fallback only covers the templates core ships (`posts/template`, `posts/template_index`,
+`errors/not_found`). These must exist in every theme or the route 500s: `layouts/application`,
+`site/home`, `posts/index`, `posts/show`, `authors/show`, `pages/default`.
+`spec/themes/theme_contract_spec.rb` enforces that for every theme on disk, including the page
+templates `theme.json` advertises.
+
+Each theme declares its own palette and type in its own layout — `default` uses `--editorial-*` with
+a scoped `<style>` block, `mono` uses black/green monospace. Never inherit one theme's palette into
+another, and never import admin's tokens into a theme.
+
+## Builder
+
+The Ink Builder (page editor) is a separate, source-owned surface at
+`plugins/page_builder/app/builder/src/`. Its chrome runs on `--ink-editor-*` tokens keyed off
+`data-ink-theme`, its canvas lives in `src/styles/canvas/`, and it shares the `inkwell-theme` storage
+key with the admin toggle. Canvas and page typography come from page/theme settings — editor CSS
+never recolors or resizes page text. Edit the SCSS in `src/styles/` and rebuild; never patch compiled
+output. The builder's design vocabulary is the design-kit stylesheet under
+`plugins/page_builder/themes/standard/1_column_layout/ink-design-kit.css`, mirrored at
+`public/page_builder_theme/ink-design-kit.css` for published pages.
+
+## Content rendering
+
+`BlockRenderer.render` is a strict allow-list dispatch to `Blocks::*Component` — there is no code
+path that executes stored HTML. This structurally closes the shortcode-injection class of
+vulnerability. New block types extend the allow-list; they never introduce an HTML pass-through.
 
 ## Extending
 
-1. **New admin view** — start from the closest existing pattern (index/edit/new under
-   `app/views/admin/*`). Grep first.
-2. **New block type** — follow the contract in the Block editor section.
-3. **Plugin admin pane** — use `register_admin_nav(label:, path:, icon:)`; the icon name maps to an
-   inline SVG partial in `app/views/admin/icons/` (fall back to `default`). Render plugin views
-   inside the admin layout so they inherit the shell.
-4. **New theme** — own palette, own `font-serif`/`font-mono` choice, own layout. Never import
-   admin's `bg-gray-900`-as-primary or `bg-indigo-50` nav tint.
-5. **If nothing fits** — extend this doc in the same PR that adds the new pattern.
+1. **New admin view** — start from the closest `app/views/admin/*` screen and reuse the `Ink::`
+   components it renders. Grep first.
+2. **Plugin admin pane** — render inside the admin layout and use the same `Ink::` components; a
+   plugin panel should be indistinguishable from core admin. Register nav with
+   `register_admin_nav(label:, path:, icon:, section:, parent:, children:)`, where `icon` is a Lucide
+   snake_case name.
+3. **New block type** — follow the block component contract and extend the `BlockRenderer`
+   allow-list.
+4. **New theme** — own palette, own type, own layout, and the full required template set above.
+5. **If nothing fits** — extend this document in the same PR that adds the pattern.
