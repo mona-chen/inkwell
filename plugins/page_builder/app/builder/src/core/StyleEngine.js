@@ -113,6 +113,7 @@ export default class StyleEngine {
 
     motionRules(node) {
         const motion = node.settings?.motion;
+        if (['scroll', 'enter'].includes(motion?.trigger)) return ''; // Shared runtime controls progress.
         if (!motion || motion.enabled === false || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return '';
         const safeId = String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_');
         const name = `ink-motion-${safeId}`;

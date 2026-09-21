@@ -1,5 +1,6 @@
 import { attachShaderFill } from './shaderPresets.js';
 import { SHADER_RUNTIME } from './shaderRuntime.js';
+import { SCROLL_MOTION_RUNTIME } from './scrollMotionRuntime.js';
 import { renderIcon } from './icons.js';
 import { previewNode } from './DynamicData.js';
 
@@ -232,6 +233,9 @@ export default class CanvasRenderer {
         if (/^[a-zA-Z_][\w:.-]*$/.test(cssId)) element.id = cssId;
         element.dataset.inkElementId = node.id;
         element.dataset.inkElementType = node.type;
+        if (node.settings.motion?.enabled !== false && ['scroll', 'enter'].includes(node.settings.motion?.trigger)) {
+            element.dataset.inkScrollMotion = JSON.stringify(node.settings.motion);
+        }
         element.dataset.inkKind = kind;
         element.draggable = !node.settings.locked;
         if (node.settings.hidden) element.dataset.inkHidden = '1';
@@ -379,7 +383,7 @@ export default class CanvasRenderer {
         const doc = this.root.ownerDocument;
         const script = doc.createElement('script');
         script.dataset.inkWidgetRuntime = '';
-        script.textContent = WIDGET_RUNTIME + SHADER_RUNTIME;
+        script.textContent = WIDGET_RUNTIME + SHADER_RUNTIME + SCROLL_MOTION_RUNTIME;
         return script;
     }
 

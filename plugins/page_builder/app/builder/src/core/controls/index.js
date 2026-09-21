@@ -53,7 +53,7 @@ export function motion(panel, control, node, value, row) {
     const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-motion-control';
     const field = (labelText, input) => { const label = document.createElement('label'); label.textContent = labelText; label.appendChild(input); wrapper.appendChild(label); return input; };
     const enabledControl = switchControl({ checked: !!value && current.enabled !== false, ariaLabel: 'Animation enabled' }); const enabled = enabledControl.checkbox;
-    const trigger = document.createElement('select'); ['load', 'hover'].forEach((name) => trigger.add(new Option(name, name))); trigger.value = current.trigger || 'load';
+    const trigger = document.createElement('select'); Object.entries({ load: 'Page load', hover: 'Hover', enter: 'Section enters view', scroll: 'Section scroll progress' }).forEach(([name, label]) => trigger.add(new Option(label, name))); trigger.value = current.trigger || 'load';
     const duration = document.createElement('input'); duration.type = 'number'; duration.min = '1'; duration.step = '50'; duration.value = current.duration || 800;
     const delay = document.createElement('input'); delay.type = 'number'; delay.step = '50'; delay.value = current.delay || 0;
     const easing = document.createElement('select'); ['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier(.16,1,.3,1)'].forEach((name) => easing.add(new Option(name, name))); easing.value = current.easing || 'ease';
@@ -61,6 +61,9 @@ export function motion(panel, control, node, value, row) {
     const direction = document.createElement('select'); ['normal', 'reverse', 'alternate', 'alternate-reverse'].forEach((name) => direction.add(new Option(name, name))); direction.value = current.direction || 'normal';
     const keyframes = document.createElement('textarea'); keyframes.className = 'ink-v2-code'; keyframes.rows = 8; keyframes.spellcheck = false; keyframes.value = JSON.stringify(current.keyframes || [{ offset: 0, opacity: 0, transform: 'translateY(24px)' }, { offset: 1, opacity: 1, transform: 'translateY(0)' }], null, 2);
     field('Enabled', enabledControl.wrapper); field('Trigger', trigger); field('Duration (ms)', duration); field('Delay (ms)', delay); field('Easing', easing); field('Iterations', iterations); field('Direction', direction); field('Keyframes', keyframes);
+    const explain = document.createElement('small'); explain.className = 'ink-v2-control-description'; explain.textContent = 'Scroll motion follows the parent section as it crosses the viewport. It runs once through the keyframes; scroll progress ignores duration, delay, iterations, and direction. Preview to see it.'; wrapper.appendChild(explain);
+    const syncFields = () => { const scroll = trigger.value === 'scroll'; duration.disabled = scroll; delay.disabled = scroll; iterations.disabled = ['scroll', 'enter'].includes(trigger.value); direction.disabled = iterations.disabled; explain.hidden = !iterations.disabled; };
+    trigger.addEventListener('change', syncFields); syncFields();
     const status = document.createElement('small'); status.className = 'ink-v2-control-description'; wrapper.appendChild(status);
     const commit = () => {
         let parsed;

@@ -1180,7 +1180,8 @@ var CanvasChromeManager = /*#__PURE__*/function () {
   }, {
     key: "render",
     value: function render() {
-      var _this2 = this;
+      var _this2 = this,
+        _node$settings$import;
       var selected = _toConsumableArray(this.runtime.selection.selectedIds).map(function (id) {
         var _this2$runtime$canvas;
         return {
@@ -1219,7 +1220,7 @@ var CanvasChromeManager = /*#__PURE__*/function () {
         height = (bottom - top) * scale;
       this.host.style.cssText = "left:".concat(x, "px;top:").concat(y, "px;width:").concat(width, "px;height:").concat(height, "px");
       var node = selected.at(-1).node;
-      this.label.textContent = selected.length > 1 ? "".concat(selected.length, " layers") : node.settings.label || this.runtime.elements.get(node.type).title;
+      this.label.textContent = selected.length > 1 ? "".concat(selected.length, " layers") : node.settings.label || ((_node$settings$import = node.settings.importedAttributes) === null || _node$settings$import === void 0 ? void 0 : _node$settings$import['data-framer-name']) || this.runtime.elements.get(node.type).title;
       this.size.textContent = "".concat(Math.round(right - left), " \xD7 ").concat(Math.round(bottom - top));
       this.actions.querySelector('[data-selection-action="parent"]').disabled = !this.runtime.document.parentOf(node.id);
       this.actions.querySelector('[data-selection-action="duplicate"]').disabled = selected.length > 1 || node.settings.locked;
@@ -1261,8 +1262,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./shaderPresets.js */ "./src/core/shaderPresets.js");
 /* harmony import */ var _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./shaderRuntime.js */ "./src/core/shaderRuntime.js");
-/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
-/* harmony import */ var _DynamicData_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./DynamicData.js */ "./src/core/DynamicData.js");
+/* harmony import */ var _scrollMotionRuntime_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./scrollMotionRuntime.js */ "./src/core/scrollMotionRuntime.js");
+/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
+/* harmony import */ var _DynamicData_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./DynamicData.js */ "./src/core/DynamicData.js");
 function _readOnlyError(r) { throw new TypeError('"' + r + '" is read-only'); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -1283,6 +1285,7 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+
 
 
 
@@ -1358,14 +1361,16 @@ var CanvasRenderer = /*#__PURE__*/function () {
   }, {
     key: "create",
     value: function create(node) {
-      var _this2 = this,
+      var _node$settings$motion,
+        _node$settings$motion2,
+        _this2 = this,
         _node$children,
         _definition$mount;
       var definition = this.registry.get(node.type);
       var imported = !!node.settings.importedDom;
       // Resolve dynamic `{{ … }}` bindings against sample data for on-canvas preview only —
       // the store keeps the tokens, so published output still resolves server-side.
-      var renderNode = imported ? node : (0,_DynamicData_js__WEBPACK_IMPORTED_MODULE_3__.previewNode)(node);
+      var renderNode = imported ? node : (0,_DynamicData_js__WEBPACK_IMPORTED_MODULE_4__.previewNode)(node);
       var element = imported ? this.createImportedElement(node) : definition.render({
         document: this.document,
         domDocument: this.root.ownerDocument,
@@ -1390,6 +1395,9 @@ var CanvasRenderer = /*#__PURE__*/function () {
       if (/^[a-zA-Z_][\w:.-]*$/.test(cssId)) element.id = cssId;
       element.dataset.inkElementId = node.id;
       element.dataset.inkElementType = node.type;
+      if (((_node$settings$motion = node.settings.motion) === null || _node$settings$motion === void 0 ? void 0 : _node$settings$motion.enabled) !== false && ['scroll', 'enter'].includes((_node$settings$motion2 = node.settings.motion) === null || _node$settings$motion2 === void 0 ? void 0 : _node$settings$motion2.trigger)) {
+        element.dataset.inkScrollMotion = JSON.stringify(node.settings.motion);
+      }
       element.dataset.inkKind = kind;
       element.draggable = !node.settings.locked;
       if (node.settings.hidden) element.dataset.inkHidden = '1';
@@ -1648,7 +1656,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
       var doc = this.root.ownerDocument;
       var script = doc.createElement('script');
       script.dataset.inkWidgetRuntime = '';
-      script.textContent = WIDGET_RUNTIME + _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__.SHADER_RUNTIME;
+      script.textContent = WIDGET_RUNTIME + _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__.SHADER_RUNTIME + _scrollMotionRuntime_js__WEBPACK_IMPORTED_MODULE_2__.SCROLL_MOTION_RUNTIME;
       return script;
     }
   }, {
@@ -1668,7 +1676,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
         content_copy: 'copy',
         "delete": 'trash-2'
       };
-      var glyph = (0,_icons_js__WEBPACK_IMPORTED_MODULE_2__.renderIcon)(button.ownerDocument, "lucide:".concat(lucideIcons[action] || icon), 'ink-canvas-action-icon');
+      var glyph = (0,_icons_js__WEBPACK_IMPORTED_MODULE_3__.renderIcon)(button.ownerDocument, "lucide:".concat(lucideIcons[action] || icon), 'ink-canvas-action-icon');
       glyph.setAttribute('aria-hidden', 'true');
       button.appendChild(glyph);
       button.addEventListener('click', function (event) {
@@ -3987,6 +3995,23 @@ function createCopilotTools(runtime, builder) {
     });
     return {
       documentVersion: 2,
+      motion: {
+        setting: 'motion',
+        triggers: ['load', 'hover', 'enter', 'scroll'],
+        example: {
+          enabled: true,
+          trigger: 'scroll',
+          easing: 'linear',
+          keyframes: [{
+            offset: 0,
+            transform: 'translateX(0px)'
+          }, {
+            offset: 1,
+            transform: 'translateX(-240px)'
+          }]
+        },
+        guidance: 'Set motion on a native layer with update_element. enter and scroll use the parent section as their viewport reference, respect reduced motion, and run in Preview/published pages. Motion stays editable in the Motion panel.'
+      },
       elements: groups,
       styleShape: {
         desktop: {
@@ -9742,7 +9767,8 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renderSettings",
     value: function renderSettings() {
-      var _this5 = this;
+      var _this5 = this,
+        _node$settings$import;
       var node = this.runtime.document.get(this.runtime.selection.selectedId);
       if (!node) {
         var empty = document.createElement('div');
@@ -9773,7 +9799,7 @@ var PanelManager = /*#__PURE__*/function () {
       identity.className = 'ink-inspector-identity';
       var name = document.createElement('input');
       name.type = 'text';
-      name.value = node.settings.label || definition.title;
+      name.value = node.settings.label || ((_node$settings$import = node.settings.importedAttributes) === null || _node$settings$import === void 0 ? void 0 : _node$settings$import['data-framer-name']) || definition.title;
       name.setAttribute('aria-label', 'Layer name');
       name.addEventListener('change', function () {
         return _this5.runtime.update(node.id, {
@@ -9794,9 +9820,10 @@ var PanelManager = /*#__PURE__*/function () {
       });
       path.appendChild(page);
       ancestors.forEach(function (ancestor) {
+        var _ancestor$settings$im;
         var button = document.createElement('button');
         button.type = 'button';
-        button.textContent = ancestor.settings.label || _this5.runtime.elements.get(ancestor.type).title;
+        button.textContent = ancestor.settings.label || ((_ancestor$settings$im = ancestor.settings.importedAttributes) === null || _ancestor$settings$im === void 0 ? void 0 : _ancestor$settings$im['data-framer-name']) || _this5.runtime.elements.get(ancestor.type).title;
         button.addEventListener('click', function () {
           return _this5.runtime.selection.select(ancestor.id);
         });
@@ -10381,7 +10408,7 @@ var PanelManager = /*#__PURE__*/function () {
       wrapper.className = 'ink-v2-navigator';
       var list = document.createElement('ul');
       var _renderNode = function renderNode(node) {
-        var _node$children, _node$children2, _node$children3, _node$children4, _node$children5;
+        var _node$children, _node$children2, _node$children3, _node$children4, _node$settings$import2, _node$children5;
         var item = document.createElement('li');
         item.dataset.inkNavigatorItem = node.id;
         var row = document.createElement('div');
@@ -10409,7 +10436,7 @@ var PanelManager = /*#__PURE__*/function () {
         var elementIcon = (0,_icons_js__WEBPACK_IMPORTED_MODULE_4__.renderIcon)(document, "lucide:".concat((0,_editorIcons_js__WEBPACK_IMPORTED_MODULE_5__.lucideName)(definition.icon)), 'ink-v2-navigator-icon');
         var elementLabel = document.createElement('span');
         elementLabel.dataset.inkNavigatorLabel = '';
-        elementLabel.textContent = node.settings.label || node.settings.text || definition.title;
+        elementLabel.textContent = node.settings.label || ((_node$settings$import2 = node.settings.importedAttributes) === null || _node$settings$import2 === void 0 ? void 0 : _node$settings$import2['data-framer-name']) || node.settings.text || definition.title;
         elementLabel.title = elementLabel.textContent;
         button.title = elementLabel.textContent;
         button.append(elementIcon, elementLabel);
@@ -10555,12 +10582,13 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renameNavigatorNode",
     value: function renameNavigatorNode(node, button) {
-      var _this12 = this;
+      var _node$settings$import3,
+        _this12 = this;
       var label = button.querySelector('[data-ink-navigator-label]');
       var definition = this.runtime.elements.get(node.type);
       var input = document.createElement('input');
       input.type = 'text';
-      input.value = node.settings.label || node.settings.text || definition.title;
+      input.value = node.settings.label || ((_node$settings$import3 = node.settings.importedAttributes) === null || _node$settings$import3 === void 0 ? void 0 : _node$settings$import3['data-framer-name']) || node.settings.text || definition.title;
       label.replaceWith(input);
       input.focus();
       input.select();
@@ -11708,6 +11736,7 @@ var StyleEngine = /*#__PURE__*/function () {
     value: function motionRules(node) {
       var _node$settings;
       var motion = (_node$settings = node.settings) === null || _node$settings === void 0 ? void 0 : _node$settings.motion;
+      if (['scroll', 'enter'].includes(motion === null || motion === void 0 ? void 0 : motion.trigger)) return ''; // Shared runtime controls progress.
       if (!motion || motion.enabled === false || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return '';
       var safeId = String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_');
       var name = "ink-motion-".concat(safeId);
@@ -12379,17 +12408,17 @@ function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArra
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
 function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 
 // Standalone control renderers — independent implementations with a uniform contract:
@@ -12492,8 +12521,16 @@ function motion(panel, control, node, value, row) {
   });
   var enabled = enabledControl.checkbox;
   var trigger = document.createElement('select');
-  ['load', 'hover'].forEach(function (name) {
-    return trigger.add(new Option(name, name));
+  Object.entries({
+    load: 'Page load',
+    hover: 'Hover',
+    enter: 'Section enters view',
+    scroll: 'Section scroll progress'
+  }).forEach(function (_ref2) {
+    var _ref3 = _slicedToArray(_ref2, 2),
+      name = _ref3[0],
+      label = _ref3[1];
+    return trigger.add(new Option(label, name));
   });
   trigger.value = current.trigger || 'load';
   var duration = document.createElement('input');
@@ -12540,6 +12577,20 @@ function motion(panel, control, node, value, row) {
   field('Iterations', iterations);
   field('Direction', direction);
   field('Keyframes', keyframes);
+  var explain = document.createElement('small');
+  explain.className = 'ink-v2-control-description';
+  explain.textContent = 'Scroll motion follows the parent section as it crosses the viewport. It runs once through the keyframes; scroll progress ignores duration, delay, iterations, and direction. Preview to see it.';
+  wrapper.appendChild(explain);
+  var syncFields = function syncFields() {
+    var scroll = trigger.value === 'scroll';
+    duration.disabled = scroll;
+    delay.disabled = scroll;
+    iterations.disabled = ['scroll', 'enter'].includes(trigger.value);
+    direction.disabled = iterations.disabled;
+    explain.hidden = !iterations.disabled;
+  };
+  trigger.addEventListener('change', syncFields);
+  syncFields();
   var status = document.createElement('small');
   status.className = 'ink-v2-control-description';
   wrapper.appendChild(status);
@@ -12573,7 +12624,7 @@ function motion(panel, control, node, value, row) {
   return row;
 }
 function slider(panel, control, node, value, row) {
-  var _control$min, _control$max, _control$step, _ref2, _control$default;
+  var _control$min, _control$max, _control$step, _ref4, _control$default;
   var host = document.createElement('div');
   host.className = 'ink-v2-slider';
   var range = document.createElement('input');
@@ -12587,7 +12638,7 @@ function slider(panel, control, node, value, row) {
   number.max = range.max;
   number.step = range.step;
   var size = value && _typeof(value) === 'object' ? value.size : value;
-  var initial = size === '' || size === undefined || size === null ? (_ref2 = (_control$default = control["default"]) !== null && _control$default !== void 0 ? _control$default : control.min) !== null && _ref2 !== void 0 ? _ref2 : 0 : size;
+  var initial = size === '' || size === undefined || size === null ? (_ref4 = (_control$default = control["default"]) !== null && _control$default !== void 0 ? _control$default : control.min) !== null && _ref4 !== void 0 ? _ref4 : 0 : size;
   range.value = initial;
   number.value = range.value;
   var unit = control.units ? document.createElement('select') : null;
@@ -12722,10 +12773,10 @@ function layoutFlow(panel, control, node, _value, row) {
   choices.className = 'ink-v2-layout-flow';
   choices.setAttribute('role', 'radiogroup');
   choices.setAttribute('aria-label', 'Layout flow');
-  [['free', 'Freeform'], ['vertical', 'Vertical'], ['horizontal', 'Horizontal'], ['grid', 'Grid']].forEach(function (_ref3) {
-    var _ref4 = _slicedToArray(_ref3, 2),
-      mode = _ref4[0],
-      label = _ref4[1];
+  [['free', 'Freeform'], ['vertical', 'Vertical'], ['horizontal', 'Horizontal'], ['grid', 'Grid']].forEach(function (_ref5) {
+    var _ref6 = _slicedToArray(_ref5, 2),
+      mode = _ref6[0],
+      label = _ref6[1];
     var button = document.createElement('button');
     button.type = 'button';
     button.title = label;
@@ -12799,10 +12850,10 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     var menu = document.createElement('div');
     menu.className = 'ink-v2-resize-menu';
     menu.hidden = true;
-    [['fixed', 'Fixed'], ['relative', 'Relative'], ['hug', 'Hug contents'], ['fill', 'Fill container']].forEach(function (_ref5) {
-      var _ref6 = _slicedToArray(_ref5, 2),
-        nextMode = _ref6[0],
-        label = _ref6[1];
+    [['fixed', 'Fixed'], ['relative', 'Relative'], ['hug', 'Hug contents'], ['fill', 'Fill container']].forEach(function (_ref7) {
+      var _ref8 = _slicedToArray(_ref7, 2),
+        nextMode = _ref8[0],
+        label = _ref8[1];
       var option = document.createElement('button');
       option.type = 'button';
       option.dataset.mode = nextMode;
@@ -12838,11 +12889,11 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     });
     var limits = document.createElement('div');
     limits.className = 'ink-v2-resize-limits';
-    [['min', "Min ".concat(property)], ['max', "Max ".concat(property)]].forEach(function (_ref7) {
+    [['min', "Min ".concat(property)], ['max', "Max ".concat(property)]].forEach(function (_ref9) {
       var _value$size;
-      var _ref8 = _slicedToArray(_ref7, 2),
-        kind = _ref8[0],
-        label = _ref8[1];
+      var _ref10 = _slicedToArray(_ref9, 2),
+        kind = _ref10[0],
+        label = _ref10[1];
       var limit = document.createElement('label');
       limit.append(label);
       var input = document.createElement('input');
@@ -12863,10 +12914,10 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     menus.push([menu, mode]);
     mode.addEventListener('click', function () {
       var opening = menu.hidden;
-      menus.forEach(function (_ref9) {
-        var _ref10 = _slicedToArray(_ref9, 2),
-          other = _ref10[0],
-          trigger = _ref10[1];
+      menus.forEach(function (_ref11) {
+        var _ref12 = _slicedToArray(_ref11, 2),
+          other = _ref12[0],
+          trigger = _ref12[1];
         other.hidden = true;
         trigger.classList.remove('is-active');
       });
@@ -12911,11 +12962,11 @@ function positioning(panel, control, node, _value, row) {
   modes.className = 'ink-v2-position-modes';
   modes.setAttribute('role', 'radiogroup');
   modes.setAttribute('aria-label', 'Position mode');
-  [['flow', 'Flow', flowValue], ['absolute', 'Absolute', 'absolute'], ['fixed', 'Fixed', 'fixed'], ['sticky', 'Sticky', 'sticky']].forEach(function (_ref11) {
-    var _ref12 = _slicedToArray(_ref11, 3),
-      mode = _ref12[0],
-      label = _ref12[1],
-      value = _ref12[2];
+  [['flow', 'Flow', flowValue], ['absolute', 'Absolute', 'absolute'], ['fixed', 'Fixed', 'fixed'], ['sticky', 'Sticky', 'sticky']].forEach(function (_ref13) {
+    var _ref14 = _slicedToArray(_ref13, 3),
+      mode = _ref14[0],
+      label = _ref14[1],
+      value = _ref14[2];
     var selected = activeMode === mode;
     var button = document.createElement('button');
     button.type = 'button';
@@ -13146,10 +13197,10 @@ function alignmentGap(panel, control, node, _value, row) {
   });
   unit.value = gaps.unit || 'px';
   var distribution = document.createElement('select');
-  [['Packed', 'flex-start'], ['Center', 'center'], ['Space between', 'space-between'], ['Space around', 'space-around'], ['Space evenly', 'space-evenly']].forEach(function (_ref13) {
-    var _ref14 = _slicedToArray(_ref13, 2),
-      label = _ref14[0],
-      value = _ref14[1];
+  [['Packed', 'flex-start'], ['Center', 'center'], ['Space between', 'space-between'], ['Space around', 'space-around'], ['Space evenly', 'space-evenly']].forEach(function (_ref15) {
+    var _ref16 = _slicedToArray(_ref15, 2),
+      label = _ref16[0],
+      value = _ref16[1];
     return distribution.add(new Option(label, value));
   });
   distribution.value = justify;
@@ -13176,10 +13227,10 @@ function alignmentGap(panel, control, node, _value, row) {
   paddingPopover.appendChild(paddingUnit);
   host.appendChild(paddingPopover);
   var closePopovers = function closePopovers(except) {
-    [[popover, settings], [paddingPopover, individual]].forEach(function (_ref15) {
-      var _ref16 = _slicedToArray(_ref15, 2),
-        menu = _ref16[0],
-        button = _ref16[1];
+    [[popover, settings], [paddingPopover, individual]].forEach(function (_ref17) {
+      var _ref18 = _slicedToArray(_ref17, 2),
+        menu = _ref18[0],
+        button = _ref18[1];
       if (menu !== except) {
         menu.hidden = true;
         button.classList.remove('is-active');
@@ -13410,10 +13461,10 @@ var colorChannels = function colorChannels(source) {
     a: 1
   };
 };
-var colorHex = function colorHex(_ref17) {
-  var r = _ref17.r,
-    g = _ref17.g,
-    b = _ref17.b;
+var colorHex = function colorHex(_ref19) {
+  var r = _ref19.r,
+    g = _ref19.g,
+    b = _ref19.b;
   return "#".concat([r, g, b].map(function (value) {
     return Math.round(clamp(value, 0, 255)).toString(16).padStart(2, '0');
   }).join(''));
@@ -13467,10 +13518,10 @@ var projectPalette = function projectPalette(panel, selectedNode) {
   });
   return found;
 };
-var rgbToHsv = function rgbToHsv(_ref18) {
-  var r = _ref18.r,
-    g = _ref18.g,
-    b = _ref18.b;
+var rgbToHsv = function rgbToHsv(_ref20) {
+  var r = _ref20.r,
+    g = _ref20.g,
+    b = _ref20.b;
   var rr = r / 255;
   var gg = g / 255;
   var bb = b / 255;
@@ -13485,12 +13536,12 @@ var rgbToHsv = function rgbToHsv(_ref18) {
     v: max
   };
 };
-var hsvToRgb = function hsvToRgb(_ref19) {
-  var h = _ref19.h,
-    s = _ref19.s,
-    v = _ref19.v,
-    _ref19$a = _ref19.a,
-    a = _ref19$a === void 0 ? 1 : _ref19$a;
+var hsvToRgb = function hsvToRgb(_ref21) {
+  var h = _ref21.h,
+    s = _ref21.s,
+    v = _ref21.v,
+    _ref21$a = _ref21.a,
+    a = _ref21$a === void 0 ? 1 : _ref21$a;
   var c = v * s;
   var x = c * (1 - Math.abs(h / 60 % 2 - 1));
   var m = v - c;
@@ -13689,13 +13740,13 @@ function cssFilters(panel, control, node, value, row) {
   var add = document.createElement('select');
   add.setAttribute('aria-label', 'Add filter');
   add.add(new Option('Add filter…', ''));
-  definitions.filter(function (_ref21) {
-    var _ref22 = _slicedToArray(_ref21, 1),
-      name = _ref22[0];
-    return filters[name] === undefined;
-  }).forEach(function (_ref23) {
+  definitions.filter(function (_ref23) {
     var _ref24 = _slicedToArray(_ref23, 1),
       name = _ref24[0];
+    return filters[name] === undefined;
+  }).forEach(function (_ref25) {
+    var _ref26 = _slicedToArray(_ref25, 1),
+      name = _ref26[0];
     return add.add(new Option(name[0].toUpperCase() + name.slice(1), name));
   });
   add.disabled = add.options.length === 1;
@@ -13703,17 +13754,17 @@ function cssFilters(panel, control, node, value, row) {
     if (add.value) panel.setValue(control, node, _objectSpread(_objectSpread({}, filters), {}, _defineProperty({}, add.value, ['blur', 'hue'].includes(add.value) ? 0 : 100)));
   });
   wrapper.appendChild(add);
-  definitions.filter(function (_ref25) {
-    var _ref26 = _slicedToArray(_ref25, 1),
-      name = _ref26[0];
+  definitions.filter(function (_ref27) {
+    var _ref28 = _slicedToArray(_ref27, 1),
+      name = _ref28[0];
     return filters[name] !== undefined;
-  }).forEach(function (_ref27) {
+  }).forEach(function (_ref29) {
     var _filters$name;
-    var _ref28 = _slicedToArray(_ref27, 4),
-      name = _ref28[0],
-      min = _ref28[1],
-      max = _ref28[2],
-      step = _ref28[3];
+    var _ref30 = _slicedToArray(_ref29, 4),
+      name = _ref30[0],
+      min = _ref30[1],
+      max = _ref30[2],
+      step = _ref30[3];
     var label = document.createElement('label');
     label.textContent = name;
     var input = document.createElement('input');
@@ -14227,10 +14278,10 @@ function url(panel, control, node, value, row) {
   var summary = document.createElement('summary');
   summary.textContent = '⚙';
   options.appendChild(summary);
-  [['isExternal', 'Open in new window'], ['nofollow', 'Add nofollow']].forEach(function (_ref29) {
-    var _ref30 = _slicedToArray(_ref29, 2),
-      name = _ref30[0],
-      text = _ref30[1];
+  [['isExternal', 'Open in new window'], ['nofollow', 'Add nofollow']].forEach(function (_ref31) {
+    var _ref32 = _slicedToArray(_ref31, 2),
+      name = _ref32[0],
+      text = _ref32[1];
     var label = document.createElement('label');
     var checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -14468,10 +14519,10 @@ function border(panel, control, node, value, row) {
   var legacy = value && _typeof(value) === 'object' ? value : {};
   var current = panel.currentValue(styleControl, node) || legacy.style || '';
   var style = document.createElement('select');
-  [["", 'Default'], ['none', 'None'], ['solid', 'Solid'], ['double', 'Double'], ['dotted', 'Dotted'], ['dashed', 'Dashed'], ['groove', 'Groove']].forEach(function (_ref31) {
-    var _ref32 = _slicedToArray(_ref31, 2),
-      name = _ref32[0],
-      label = _ref32[1];
+  [["", 'Default'], ['none', 'None'], ['solid', 'Solid'], ['double', 'Double'], ['dotted', 'Dotted'], ['dashed', 'Dashed'], ['groove', 'Groove']].forEach(function (_ref33) {
+    var _ref34 = _slicedToArray(_ref33, 2),
+      name = _ref34[0],
+      label = _ref34[1];
     return style.add(new Option(label, name));
   });
   style.value = current;
@@ -14525,10 +14576,10 @@ function repeater(panel, control, node, value, row) {
     summary.innerHTML = "<span>\u22EE\u22EE</span><strong>".concat(item[control.titleField] || item.title || "Item ".concat(index + 1), "</strong>");
     var tools = document.createElement('span');
     tools.className = 'ink-v2-repeater-tools';
-    [['↑', -1], ['↓', 1]].forEach(function (_ref33) {
-      var _ref34 = _slicedToArray(_ref33, 2),
-        label = _ref34[0],
-        direction = _ref34[1];
+    [['↑', -1], ['↓', 1]].forEach(function (_ref35) {
+      var _ref36 = _slicedToArray(_ref35, 2),
+        label = _ref36[0],
+        direction = _ref36[1];
       var button = document.createElement('button');
       button.type = 'button';
       button.textContent = label;
@@ -14536,9 +14587,9 @@ function repeater(panel, control, node, value, row) {
       button.addEventListener('click', function (event) {
         event.preventDefault();
         var next = _toConsumableArray(items);
-        var _ref35 = [next[index + direction], next[index]];
-        next[index] = _ref35[0];
-        next[index + direction] = _ref35[1];
+        var _ref37 = [next[index + direction], next[index]];
+        next[index] = _ref37[0];
+        next[index + direction] = _ref37[1];
         update(next);
       });
       tools.appendChild(button);
@@ -14568,7 +14619,7 @@ function repeater(panel, control, node, value, row) {
     var fields = document.createElement('div');
     fields.className = 'ink-v2-repeater-fields';
     (control.fields || []).forEach(function (field) {
-      var _ref36, _item$field$name;
+      var _ref38, _item$field$name;
       var label = document.createElement('label');
       label.textContent = field.label || field.name;
       var input;
@@ -14581,7 +14632,7 @@ function repeater(panel, control, node, value, row) {
         input = document.createElement(field.type === 'textarea' ? 'textarea' : 'input');
         if (input.tagName === 'INPUT') input.type = field.type === 'number' ? 'number' : 'text';
       }
-      input.value = (_ref36 = (_item$field$name = item[field.name]) !== null && _item$field$name !== void 0 ? _item$field$name : field["default"]) !== null && _ref36 !== void 0 ? _ref36 : '';
+      input.value = (_ref38 = (_item$field$name = item[field.name]) !== null && _item$field$name !== void 0 ? _item$field$name : field["default"]) !== null && _ref38 !== void 0 ? _ref38 : '';
       input.addEventListener('change', function () {
         var next = structuredClone(items);
         next[index][field.name] = field.type === 'number' ? Number(input.value) : input.value;
@@ -14666,11 +14717,11 @@ function background(panel, control, node, value, row) {
   choices.setAttribute('aria-label', overlay ? 'Overlay fill type' : 'Fill type');
   var backgroundChoices = [['classic', 'square', 'Solid'], ['gradient', 'blend', 'Gradient'], ['image', 'image', 'Image'], ['pattern', 'grid-2x2', 'Pattern']];
   if (!overlay && (control.state || 'base') === 'base') backgroundChoices.push(['video', 'square-play', 'Video'], ['slideshow', 'images', 'Slideshow'], ['shader', 'waves', 'Shader']);
-  backgroundChoices.forEach(function (_ref37) {
-    var _ref38 = _slicedToArray(_ref37, 3),
-      choiceValue = _ref38[0],
-      iconName = _ref38[1],
-      title = _ref38[2];
+  backgroundChoices.forEach(function (_ref39) {
+    var _ref40 = _slicedToArray(_ref39, 3),
+      choiceValue = _ref40[0],
+      iconName = _ref40[1],
+      title = _ref40[2];
     var button = document.createElement('button');
     button.type = 'button';
     button.title = title;
@@ -14779,11 +14830,11 @@ function background(panel, control, node, value, row) {
     var patterns = [['Dots', 'radial-gradient(circle, #81818a 1px, transparent 1px)', '12px 12px'], ['Lines', 'repeating-linear-gradient(45deg, transparent 0px 9px, #81818a 9px 10px)', 'auto'], ['Grid', 'linear-gradient(#81818a 1px, transparent 1px), linear-gradient(90deg, #81818a 1px, transparent 1px)', '20px 20px'], ['Checker', 'conic-gradient(#81818a 25%, transparent 0% 50%, #81818a 0% 75%, transparent 0%)', '24px 24px']];
     var _gallery = document.createElement('div');
     _gallery.className = 'ink-shader-gallery';
-    patterns.forEach(function (_ref39) {
-      var _ref40 = _slicedToArray(_ref39, 3),
-        title = _ref40[0],
-        image = _ref40[1],
-        size = _ref40[2];
+    patterns.forEach(function (_ref41) {
+      var _ref42 = _slicedToArray(_ref41, 3),
+        title = _ref42[0],
+        image = _ref42[1],
+        size = _ref42[2];
       var button = document.createElement('button');
       button.type = 'button';
       button.textContent = title;
@@ -14989,10 +15040,10 @@ function background(panel, control, node, value, row) {
   if (typeof fillImage === 'string') swatch.style.backgroundImage = fillImage;
   if (typeof fillColor === 'string') swatch.style.backgroundColor = fillColor;
   var name = document.createElement('span');
-  name.textContent = displayedMode === 'shader' ? ((_SHADER_PRESETS$find = _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.find(function (_ref41) {
+  name.textContent = displayedMode === 'shader' ? ((_SHADER_PRESETS$find = _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.find(function (_ref43) {
     var _node$settings$shader2;
-    var _ref42 = _slicedToArray(_ref41, 1),
-      id = _ref42[0];
+    var _ref44 = _slicedToArray(_ref43, 1),
+      id = _ref44[0];
     return id === ((_node$settings$shader2 = node.settings.shaderFill) === null || _node$settings$shader2 === void 0 ? void 0 : _node$settings$shader2.preset);
   })) === null || _SHADER_PRESETS$find === void 0 ? void 0 : _SHADER_PRESETS$find[1]) || 'Custom shader' : displayedMode === 'gradient' ? 'Gradient' : ['video', 'slideshow'].includes(displayedMode) ? displayedMode[0].toUpperCase() + displayedMode.slice(1) : fillImage ? 'Image' : fillColor || 'Add fill…';
   trigger.append(swatch, name);
@@ -15068,13 +15119,13 @@ function renderShaderFill(panel, node, wrapper) {
   var gallery = document.createElement('div');
   gallery.className = 'ink-shader-gallery';
   gallery.setAttribute('aria-label', 'Shader presets');
-  _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.forEach(function (_ref43) {
-    var _ref44 = _slicedToArray(_ref43, 5),
-      id = _ref44[0],
-      title = _ref44[1],
-      a = _ref44[2],
-      b = _ref44[3],
-      c = _ref44[4];
+  _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.forEach(function (_ref45) {
+    var _ref46 = _slicedToArray(_ref45, 5),
+      id = _ref46[0],
+      title = _ref46[1],
+      a = _ref46[2],
+      b = _ref46[3],
+      c = _ref46[4];
     var button = document.createElement('button');
     button.type = 'button';
     button.textContent = title;
@@ -15095,10 +15146,10 @@ function renderShaderFill(panel, node, wrapper) {
   proxy.setValue = function (control, _node, value) {
     return update(_defineProperty({}, control.name, value));
   };
-  [['colorA', 'Base'], ['colorB', 'Primary'], ['colorC', 'Accent']].forEach(function (_ref45) {
-    var _ref46 = _slicedToArray(_ref45, 2),
-      name = _ref46[0],
-      label = _ref46[1];
+  [['colorA', 'Base'], ['colorB', 'Primary'], ['colorC', 'Accent']].forEach(function (_ref47) {
+    var _ref48 = _slicedToArray(_ref47, 2),
+      name = _ref48[0],
+      label = _ref48[1];
     var row = document.createElement('div');
     row.className = 'ink-v2-control';
     row.append(label);
@@ -15119,13 +15170,13 @@ function renderShaderFill(panel, node, wrapper) {
   });
   animate.append(check, 'Animate');
   wrapper.appendChild(animate);
-  [['speed', 'Speed', 0, 2, .05], ['intensity', 'Intensity', 0, 1, .01], ['grain', 'Grain', 0, .3, .01]].forEach(function (_ref47) {
-    var _ref48 = _slicedToArray(_ref47, 5),
-      name = _ref48[0],
-      label = _ref48[1],
-      min = _ref48[2],
-      max = _ref48[3],
-      step = _ref48[4];
+  [['speed', 'Speed', 0, 2, .05], ['intensity', 'Intensity', 0, 1, .01], ['grain', 'Grain', 0, .3, .01]].forEach(function (_ref49) {
+    var _ref50 = _slicedToArray(_ref49, 5),
+      name = _ref50[0],
+      label = _ref50[1],
+      min = _ref50[2],
+      max = _ref50[3],
+      step = _ref50[4];
     var row = document.createElement('label');
     row.className = 'ink-shader-number';
     row.append(label);
@@ -15225,10 +15276,10 @@ function shapeDivider(panel, control, node, value, row) {
   };
   var type = document.createElement('select');
   type.add(new Option('None', ''));
-  Object.entries(_elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__.ELEMENTOR_SHAPES).forEach(function (_ref49) {
-    var _ref50 = _slicedToArray(_ref49, 2),
-      key = _ref50[0],
-      shape = _ref50[1];
+  Object.entries(_elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__.ELEMENTOR_SHAPES).forEach(function (_ref51) {
+    var _ref52 = _slicedToArray(_ref51, 2),
+      key = _ref52[0],
+      shape = _ref52[1];
     return type.add(new Option(shape.title, key));
   });
   type.value = dividerValue.type || '';
@@ -15249,15 +15300,15 @@ function shapeDivider(panel, control, node, value, row) {
       });
     });
     field('Color', colorInput);
-    [].concat(_toConsumableArray(shapeMeta.heightOnly ? [] : [['Width', 'width', 100, 300, 100, '%']]), [['Height', 'height', 0, 500, 100, 'px']]).forEach(function (_ref51) {
+    [].concat(_toConsumableArray(shapeMeta.heightOnly ? [] : [['Width', 'width', 100, 300, 100, '%']]), [['Height', 'height', 0, 500, 100, 'px']]).forEach(function (_ref53) {
       var _dividerValue$key;
-      var _ref52 = _slicedToArray(_ref51, 6),
-        labelText = _ref52[0],
-        key = _ref52[1],
-        min = _ref52[2],
-        max = _ref52[3],
-        fallback = _ref52[4],
-        unit = _ref52[5];
+      var _ref54 = _slicedToArray(_ref53, 6),
+        labelText = _ref54[0],
+        key = _ref54[1],
+        min = _ref54[2],
+        max = _ref54[3],
+        fallback = _ref54[4],
+        unit = _ref54[5];
       var group = document.createElement('div');
       group.className = 'ink-v2-shape-range';
       var range = document.createElement('input');
@@ -15289,10 +15340,10 @@ function shapeDivider(panel, control, node, value, row) {
       group.append(range, number, suffix);
       field(labelText, group);
     });
-    [].concat(_toConsumableArray(shapeMeta.flip ? [['Flip', 'flip']] : []), _toConsumableArray(shapeMeta.negative ? [['Invert', 'invert']] : []), [['Bring to Front', 'front']]).forEach(function (_ref53) {
-      var _ref54 = _slicedToArray(_ref53, 2),
-        labelText = _ref54[0],
-        key = _ref54[1];
+    [].concat(_toConsumableArray(shapeMeta.flip ? [['Flip', 'flip']] : []), _toConsumableArray(shapeMeta.negative ? [['Invert', 'invert']] : []), [['Bring to Front', 'front']]).forEach(function (_ref55) {
+      var _ref56 = _slicedToArray(_ref55, 2),
+        labelText = _ref56[0],
+        key = _ref56[1];
       var _switchControl2 = switchControl({
           checked: !!dividerValue[key],
           ariaLabel: labelText
@@ -15508,25 +15559,25 @@ function wysiwyg(panel, control, node, value, row) {
     level: 3
   }], [10, 'toggleBlockquote', '❝', 'blockquote', null], [11, 'toggleCodeBlock', '</>', 'codeBlock', null], [12, 'setHorizontalRule', '—', null, null]];
   var refreshActive = function refreshActive() {
-    commands.forEach(function (_ref55) {
-      var _ref56 = _slicedToArray(_ref55, 5),
-        index = _ref56[0],
-        command = _ref56[1],
-        label = _ref56[2],
-        stateCommand = _ref56[3],
-        arg = _ref56[4];
+    commands.forEach(function (_ref57) {
+      var _ref58 = _slicedToArray(_ref57, 5),
+        index = _ref58[0],
+        command = _ref58[1],
+        label = _ref58[2],
+        stateCommand = _ref58[3],
+        arg = _ref58[4];
       if (!stateCommand) return;
       var button = toolbar.querySelector("[data-cmd=\"".concat(index, "\"]"));
       if (button) button.classList.toggle('is-active', adapter.isActive(stateCommand));
     });
   };
-  commands.forEach(function (_ref57) {
-    var _ref58 = _slicedToArray(_ref57, 5),
-      index = _ref58[0],
-      command = _ref58[1],
-      label = _ref58[2],
-      stateCommand = _ref58[3],
-      arg = _ref58[4];
+  commands.forEach(function (_ref59) {
+    var _ref60 = _slicedToArray(_ref59, 5),
+      index = _ref60[0],
+      command = _ref60[1],
+      label = _ref60[2],
+      stateCommand = _ref60[3],
+      arg = _ref60[4];
     var button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
@@ -15598,10 +15649,10 @@ function dataBinding(panel, control, node, _value, row) {
   var sourceSelect = document.createElement('select');
   sourceSelect.setAttribute('aria-label', 'Data source');
   sourceSelect.add(new Option('Static', ''));
-  Object.entries(sources).forEach(function (_ref59) {
-    var _ref60 = _slicedToArray(_ref59, 2),
-      key = _ref60[0],
-      def = _ref60[1];
+  Object.entries(sources).forEach(function (_ref61) {
+    var _ref62 = _slicedToArray(_ref61, 2),
+      key = _ref62[0],
+      def = _ref62[1];
     return sourceSelect.add(new Option(def.label || key, key));
   });
   sourceSelect.value = currentSource;
@@ -15616,10 +15667,10 @@ function dataBinding(panel, control, node, _value, row) {
       return;
     }
     fieldSelect.add(new Option('Choose field…', ''));
-    Object.entries(def.fields || {}).forEach(function (_ref61) {
-      var _ref62 = _slicedToArray(_ref61, 2),
-        path = _ref62[0],
-        label = _ref62[1];
+    Object.entries(def.fields || {}).forEach(function (_ref63) {
+      var _ref64 = _slicedToArray(_ref63, 2),
+        path = _ref64[0],
+        label = _ref64[1];
       return fieldSelect.add(new Option(label, path));
     });
     fieldSelect.value = currentField;
@@ -22426,6 +22477,24 @@ function registerInkShaderElement(registry) {
   });
   return registry;
 }
+
+/***/ }),
+
+/***/ "./src/core/scrollMotionRuntime.js":
+/*!*****************************************!*\
+  !*** ./src/core/scrollMotionRuntime.js ***!
+  \*****************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   SCROLL_MOTION_RUNTIME: () => (/* binding */ SCROLL_MOTION_RUNTIME)
+/* harmony export */ });
+var _templateObject;
+function _taggedTemplateLiteral(e, t) { return t || (t = e.slice(0)), Object.freeze(Object.defineProperties(e, { raw: { value: Object.freeze(t) } })); }
+// Shared by Preview and exported pages. Motion remains ordinary editable element data.
+var SCROLL_MOTION_RUNTIME = String.raw(_templateObject || (_templateObject = _taggedTemplateLiteral(["(function () {\n    if (window.__inkScrollMotion) return;\n    window.__inkScrollMotion = true;\n    const records = new Map();\n    const reduced = matchMedia('(prefers-reduced-motion: reduce)');\n    let scheduled = false;\n    const inactive = () => reduced.matches || document.body.classList.contains('ink-builder-design');\n    const allowed = new Set(['offset', 'transform', 'opacity', 'filter', 'clip-path', 'background-color', 'color']);\n    function update() {\n        scheduled = false;\n        for (const [element, record] of records) {\n            if (!element.isConnected || inactive()) {\n                record.animation.cancel(); records.delete(element); continue;\n            }\n            // The parent is the stable scroll section: animating the target's transform must\n            // never alter its own scroll measurement (which causes feedback and jitter).\n            const rect = element.parentElement.getBoundingClientRect();\n            if (record.trigger === 'scroll') {\n                const progress = Math.max(0, Math.min(1, (innerHeight - rect.top) / (innerHeight + rect.height)));\n                record.animation.currentTime = progress * record.duration;\n            } else if (!record.started && rect.top < innerHeight && rect.bottom > 0) {\n                record.started = true; record.animation.play();\n            }\n        }\n    }\n    function schedule() {\n        if (!scheduled) { scheduled = true; requestAnimationFrame(update); }\n    }\n    function scan() {\n        if (!inactive()) document.querySelectorAll('[data-ink-scroll-motion]').forEach((element) => {\n            if (records.has(element)) return;\n            try {\n                const motion = JSON.parse(element.getAttribute('data-ink-scroll-motion'));\n                if (!['scroll', 'enter'].includes(motion.trigger) || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return;\n                const frames = motion.keyframes.map((frame) => Object.fromEntries(Object.entries(frame).filter(([key]) => allowed.has(key))));\n                const duration = Math.max(1, Number(motion.duration) || 800);\n                const animation = element.animate(frames, {\n                    duration, fill: 'both', iterations: 1,\n                    easing: motion.easing || 'linear',\n                    delay: motion.trigger === 'enter' ? Number(motion.delay) || 0 : 0,\n                });\n                animation.pause();\n                records.set(element, { animation, duration, trigger: motion.trigger, started: false });\n            } catch (error) { console.warn('Ink motion could not start', error.message); }\n        });\n        schedule();\n    }\n    addEventListener('scroll', schedule, { passive: true, capture: true });\n    addEventListener('resize', schedule, { passive: true });\n    reduced.addEventListener('change', scan);\n    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });\n    new MutationObserver(scan).observe(document.body, { attributes: true, attributeFilter: ['class'] });\n    scan();\n})();"])));
 
 /***/ }),
 

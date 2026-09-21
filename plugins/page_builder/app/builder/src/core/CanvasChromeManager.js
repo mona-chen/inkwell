@@ -40,7 +40,7 @@ export default class CanvasChromeManager {
         const x = iframe.left - stage.left + left * scale, y = iframe.top - stage.top + top * scale, width = (right - left) * scale, height = (bottom - top) * scale;
         this.host.style.cssText = `left:${x}px;top:${y}px;width:${width}px;height:${height}px`;
         const node = selected.at(-1).node;
-        this.label.textContent = selected.length > 1 ? `${selected.length} layers` : node.settings.label || this.runtime.elements.get(node.type).title;
+        this.label.textContent = selected.length > 1 ? `${selected.length} layers` : node.settings.label || node.settings.importedAttributes?.['data-framer-name'] || this.runtime.elements.get(node.type).title;
         this.size.textContent = `${Math.round(right - left)} × ${Math.round(bottom - top)}`;
         this.actions.querySelector('[data-selection-action="parent"]').disabled = !this.runtime.document.parentOf(node.id);
         this.actions.querySelector('[data-selection-action="duplicate"]').disabled = selected.length > 1 || node.settings.locked;

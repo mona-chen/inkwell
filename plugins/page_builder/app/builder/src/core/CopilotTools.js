@@ -75,6 +75,7 @@ export function createCopilotTools(runtime, builder) {
         });
         return {
             documentVersion: 2,
+            motion: { setting: 'motion', triggers: ['load', 'hover', 'enter', 'scroll'], example: { enabled: true, trigger: 'scroll', easing: 'linear', keyframes: [{ offset: 0, transform: 'translateX(0px)' }, { offset: 1, transform: 'translateX(-240px)' }] }, guidance: 'Set motion on a native layer with update_element. enter and scroll use the parent section as their viewport reference, respect reduced motion, and run in Preview/published pages. Motion stays editable in the Motion panel.' },
             elements: groups,
             styleShape: { desktop: { base: { color: '#111827', padding: { top: 24, right: 24, bottom: 24, left: 24, unit: 'px' } } }, tablet: { base: {} }, mobile: { base: {} } },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },

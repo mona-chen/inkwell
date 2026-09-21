@@ -347,13 +347,13 @@ export default class PanelManager {
         wrapper.innerHTML = `<div class="ink-v2-element-title"><button type="button" data-back aria-label="Back to elements"><span class="material-symbols-rounded">arrow_back</span></button><span class="ink-v2-edit-label">Edit</span><strong>${definition.title}${titleSuffix}</strong></div><div class="ink-v2-control-tabs"></div><div class="ink-v2-controls"></div>`;
         wrapper.querySelector('[data-back]').addEventListener('click', () => { this.runtime.selection.clear(); if (window.sidebarTabManager) window.sidebarTabManager.openTab(document.querySelector('[data-tab="widgets"]')); const main = this.runtime.panel; if (main) { main.route = 'elements'; main.render(); } });
         const identity = document.createElement('div'); identity.className = 'ink-inspector-identity';
-        const name = document.createElement('input'); name.type = 'text'; name.value = node.settings.label || definition.title; name.setAttribute('aria-label', 'Layer name');
+        const name = document.createElement('input'); name.type = 'text'; name.value = node.settings.label || node.settings.importedAttributes?.['data-framer-name'] || definition.title; name.setAttribute('aria-label', 'Layer name');
         name.addEventListener('change', () => this.runtime.update(node.id, { settings: { label: name.value.trim() || definition.title } }, 'Rename layer'));
         const path = document.createElement('nav'); path.className = 'ink-inspector-path'; path.setAttribute('aria-label', 'Selection ancestors');
         const ancestors = this.runtime.document.pathTo(node.id).slice(0, -1);
         const page = document.createElement('button'); page.type = 'button'; page.textContent = 'Page'; page.addEventListener('click', () => this.runtime.selection.clear()); path.appendChild(page);
         ancestors.forEach((ancestor) => {
-            const button = document.createElement('button'); button.type = 'button'; button.textContent = ancestor.settings.label || this.runtime.elements.get(ancestor.type).title;
+            const button = document.createElement('button'); button.type = 'button'; button.textContent = ancestor.settings.label || ancestor.settings.importedAttributes?.['data-framer-name'] || this.runtime.elements.get(ancestor.type).title;
             button.addEventListener('click', () => this.runtime.selection.select(ancestor.id)); path.append('›', button);
         });
         identity.append(name, path); wrapper.querySelector('.ink-v2-element-title').replaceWith(identity);
@@ -674,7 +674,7 @@ export default class PanelManager {
             toggle.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); this.toggleNavigatorCollapse(node.id); }); row.appendChild(toggle);
             const button = document.createElement('button'); button.type = 'button'; button.dataset.inkNavigatorId = node.id; button.draggable = true; button.tabIndex = 0;
             const elementIcon = renderIcon(document, `lucide:${lucideName(definition.icon)}`, 'ink-v2-navigator-icon');
-            const elementLabel = document.createElement('span'); elementLabel.dataset.inkNavigatorLabel = ''; elementLabel.textContent = node.settings.label || node.settings.text || definition.title; elementLabel.title = elementLabel.textContent; button.title = elementLabel.textContent;
+            const elementLabel = document.createElement('span'); elementLabel.dataset.inkNavigatorLabel = ''; elementLabel.textContent = node.settings.label || node.settings.importedAttributes?.['data-framer-name'] || node.settings.text || definition.title; elementLabel.title = elementLabel.textContent; button.title = elementLabel.textContent;
             button.append(elementIcon, elementLabel);
             if (node.id === this.runtime.selection.selectedId) button.classList.add('is-active');
             if (node.settings.hidden) button.classList.add('is-hidden');
@@ -741,7 +741,7 @@ export default class PanelManager {
     renameNavigatorNode(node, button) {
         const label = button.querySelector('[data-ink-navigator-label]');
         const definition = this.runtime.elements.get(node.type);
-        const input = document.createElement('input'); input.type = 'text'; input.value = node.settings.label || node.settings.text || definition.title; label.replaceWith(input); input.focus(); input.select();
+        const input = document.createElement('input'); input.type = 'text'; input.value = node.settings.label || node.settings.importedAttributes?.['data-framer-name'] || node.settings.text || definition.title; label.replaceWith(input); input.focus(); input.select();
         const commit = () => this.runtime.update(node.id, { settings: { label: input.value.trim() } }, 'Rename element');
         input.addEventListener('blur', commit, { once: true });
         input.addEventListener('keydown', (key) => { if (key.key === 'Enter') input.blur(); if (key.key === 'Escape') this.render(); });
