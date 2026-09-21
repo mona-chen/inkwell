@@ -1,5 +1,5 @@
 const clone = (value) => value == null ? value : structuredClone(value);
-import { mergeStyles, emptyStyles } from './StyleValueModel.js';
+import { mergeStyles, normalizeStyles, emptyStyles, yieldSizeFloors } from './StyleValueModel.js';
 
 // Component states and interactions are a universal element contract, not a per-type feature:
 // any layer can be a state provider ("monthly / yearly") and any layer can trigger a change.
@@ -65,11 +65,13 @@ export default class ElementRegistry {    constructor() { this.definitions = new
     create(type, overrides = {}) {
         const definition = this.get(type);
         const defaults = typeof definition.defaults === 'function' ? definition.defaults() : (definition.defaults || {});
+        const authored = normalizeStyles(overrides.styles || {});
+        const merged = mergeStyles(emptyStyles(), { ...(defaults.styles || {}), ...(overrides.styles || {}) });
         return {
             id: overrides.id || crypto.randomUUID(),
             type,
             settings: { ...(clone(defaults.settings) || {}), ...(clone(overrides.settings) || {}) },
-            styles: mergeStyles(emptyStyles(), { ...(defaults.styles || {}), ...(overrides.styles || {}) }),
+            styles: yieldSizeFloors(merged, { authored, defaults: normalizeStyles(defaults.styles || {}) }),
             ...(definition.acceptsChildren ? { children: clone(overrides.children || defaults.children || []) } : {}),
         };
     }

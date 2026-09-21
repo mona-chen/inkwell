@@ -10,12 +10,16 @@ const componentStateSelector = (state) => `[data-ink-state="${stateNameFromKey(s
 const DEVICE_WIDTHS = { desktop: null, tablet: 'tablet', mobile: 'mobile' };
 import { usedFonts, fontImportUrl, customFontFaces } from './fonts.js';
 import { DEFAULT_THEME_COLORS, DEFAULT_THEME_TYPOGRAPHY, DEFAULT_THEME_SPACING } from './themeDefaults.js';
+import { isRecord, previewValue, shapeOf, sizeCss, toSize } from './styleValues.js';
 
 export default class StyleEngine {
     constructor({ registry, responsive, events } = {}) {
         this.registry = registry;
         this.responsive = responsive;
         this.events = events;
+        // Declarations the compiler could not express as CSS. The audit surfaces them, because a
+        // dropped value is invisible in the canvas and only shows up as "the design did not apply".
+        this.diagnostics = [];
     }
 
     // Prefixing with the canvas root gives authored values stable precedence over base component
@@ -46,11 +50,18 @@ export default class StyleEngine {
 
     value(value) {
         if (Array.isArray(value)) return value.map((item) => this.value(item)).filter(Boolean).join(', ');
+        // `{ value, unit }` is the CSS-native spelling of the canonical `{ size, unit }`. Normalizing
+        // it here means a payload that says "7px" renders as 7px instead of falling back to whatever
+        // the element's default size was.
+        if (isRecord(value) && !Object.hasOwn(value, 'size') && shapeOf(value) === 'size') {
+            const converted = sizeCss(value);
+            if (converted) return converted;
+        }
         // Shadow records also have a blur field. They must reach the x/y branch below;
         // only a record without positional axes is a CSS-filter control value.
         if (value && typeof value === 'object' && !('x' in value || 'y' in value) && ['blur', 'brightness', 'contrast', 'saturate', 'hue'].some((key) => key in value)) return `blur(${Number(value.blur) || 0}px) brightness(${Number(value.brightness) || 100}%) contrast(${Number(value.contrast) || 100}%) saturate(${Number(value.saturate) || 100}%) hue-rotate(${Number(value.hue) || 0}deg)`;
         if (value && typeof value === 'object' && 'strokeWidth' in value) return `${Number(value.strokeWidth) || 0}${value.unit || 'px'} ${value.color || 'currentColor'}`;
-        if (value && typeof value === 'object' && 'size' in value) return `${value.size}${Object.hasOwn(value, 'unit') ? value.unit : 'px'}`;
+        if (value && typeof value === 'object' && 'size' in value) return sizeCss(value);
         if (value && typeof value === 'object' && ['top', 'right', 'bottom', 'left'].some((side) => side in value)) {
             const unit = value.unit || 'px';
             return ['top', 'right', 'bottom', 'left'].map((side) => `${Number(value[side]) || 0}${unit}`).join(' ');
@@ -66,14 +77,37 @@ export default class StyleEngine {
             const width = typeof value.width === 'object' ? this.value(value.width) : `${Number(value.width) || 0}${value.unit || 'px'}`;
             return `${width} ${value.style || 'solid'} ${value.color || 'currentColor'}`;
         }
-        return value;
+        // An object the compiler cannot express is dropped by `declarations` and reported there.
+        // Stringifying it would publish "[object Object]" as a real declaration.
+        return isRecord(value) ? null : value;
     }
 
-    declarations(values = {}) {
+    declarations(values = {}, context = null) {
         return Object.entries(values)
             .filter(([, value]) => value !== null && value !== undefined && value !== '')
-            .map(([property, value]) => `${property}:${property === 'background-image' && typeof value === 'string' && value && !/^(url|linear-gradient|radial-gradient)/.test(value) ? `url("${value.replaceAll('"', '\\"')}")` : this.value(value)};`)
+            .map(([property, value]) => {
+                const css = property === 'background-image' && typeof value === 'string' && value && !/^(url|linear-gradient|radial-gradient)/.test(value)
+                    ? `url("${value.replaceAll('"', '\\"')}")`
+                    : this.value(value);
+                if (css === null) { this.reportUnsupported(property, value, context); return ''; }
+                return `${property}:${css};`;
+            })
+            .filter(Boolean)
             .join('');
+    }
+
+    // Kept small and bounded: the point is to name the offending property, not to log a page.
+    reportUnsupported(property, value, context = null) {
+        if (this.diagnostics.length >= 40) return;
+        this.diagnostics.push({
+            nodeId: context?.id || null,
+            type: context?.type || null,
+            device: context?.device || null,
+            state: context?.state || null,
+            property,
+            problem: shapeOf(value) === 'unknown' ? 'unrecognized value shape' : 'unrecognized value',
+            value: previewValue(value),
+        });
     }
 
     nodeRules(node) {
@@ -110,7 +144,7 @@ export default class StyleEngine {
                 });
                 const pseudo = STATE_PSEUDOS[state] ? `:${state}` : (isComponentStateKey(state) ? componentStateSelector(state) : '');
                 bySelector.forEach((values, selector) => {
-                    const declarations = this.declarations(values);
+                    const declarations = this.declarations(values, { id: node.id, type: node.type, device, state });
                     if (!declarations) return;
                     const rule = `${this.selector(node.id, `${pseudo}${selector}`)}{${declarations}}`;
                     css += width ? `@media(max-width:${width}px){${rule}}` : rule;
@@ -180,6 +214,7 @@ export default class StyleEngine {
     }
 
     compile(document) {
+        this.diagnostics = [];
         const settings = document.data.settings || {};
         const theme = settings.theme || {};
         const colors = { ...DEFAULT_THEME_COLORS, ...(theme.colors || {}) };

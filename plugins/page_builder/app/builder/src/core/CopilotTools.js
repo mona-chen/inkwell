@@ -9,6 +9,8 @@ import {
 } from './designTokens.js';
 import { archetype, buildSection, composePage, listArchetypes } from './sectionArchetypes.js';
 import { materializeSpec, specNodeCount } from './elementSpec.js';
+import { auditStore } from './designAudit.js';
+import { isUnsupportedValue, previewValue, shapeOf } from './styleValues.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -122,6 +124,25 @@ export function createCopilotTools(runtime, builder) {
             },
             elements: groups,
             styleShape: { desktop: { base: { color: '#111827', padding: { top: 24, right: 24, bottom: 24, left: 24, unit: 'px' } } }, tablet: { base: {} }, mobile: { base: {} } },
+            styleContract: {
+                shape: 'styles is { desktop|tablet|mobile: { base|hover|focus|active|"state:<name>": { controlName: value } } }. A flat { base: {...} } is accepted and normalized.',
+                valueShapes: {
+                    size: '{ size: 7, unit: "px" } — width, height, min/max width and height, font-size, border-radius, border-width, icon-size',
+                    box: '{ top, right, bottom, left, unit } — padding, margin, inset',
+                    gap: '{ row, column, unit } — gap, row-gap, column-gap',
+                    border: '{ width, style, color } — border, border-top and friends',
+                    shadow: '{ x, y, blur, spread, color } — box-shadow, text-shadow',
+                    filter: '{ blur, brightness, contrast, saturate, hue } — filter',
+                    color: '"#RRGGBB" (or any CSS color string)',
+                    keyword: '"fit-content" | "auto" | "100%" | "100vh" — plain CSS strings are passed through',
+                },
+                rules: [
+                    'Sizes are always { size, unit }. { value, unit } is accepted and normalized to it, but the inspector writes { size, unit } — prefer that spelling.',
+                    'Use the control name the element actually declares. Frames, containers, text and inputs carry `background`; a Button carries `background-color` (its surface) — call get_element_schema when unsure.',
+                    'A record the compiler does not recognize is dropped from the stylesheet rather than published, and audit_design reports it. Never invent a record shape; use a plain CSS string instead.',
+                    'Element styles are authoritative over custom CSS: write layout, type, colour and spacing as node styles and keep custom CSS for what nodes cannot express.',
+                ],
+            },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },
             shaderFills: { presets: SHADER_PRESETS.map(([id]) => id), setting: 'shaderFill', example: { enabled: true, preset: 'mesh-gradient', speed: .5, intensity: .7 }, customShader: CUSTOM_SHADER_EXAMPLE, guidance: 'Apply shader fills to existing layers with set_shader_fill. Custom GLSL compiles before applying and stays editable in Fill.' },
             composition: {
@@ -141,6 +162,43 @@ export function createCopilotTools(runtime, builder) {
     const countSpec = specNodeCount;
     const materialize = (spec, parent = null) => materializeSpec(runtime, spec, parent);
 
+    // The write half of the style contract. Storage is always repaired to the canonical shape, and
+    // a value the compiler will have to drop is reported back in the tool result so the next call
+    // can correct it. A silently dropped value is how a page ends up styled in the tree and
+    // unstyled on screen.
+    const styleWarnings = (styles) => {
+        const warnings = [];
+        const inspect = (settings, where) => {
+            Object.entries(settings || {}).forEach(([key, value]) => {
+                if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+                const shape = shapeOf(value);
+                if (isUnsupportedValue(value)) warnings.push(`styles.${where}.${key} = ${previewValue(value)} is not a value the builder can compile; use a CSS string or a documented record.`);
+                else if (shape === 'size' && !Object.hasOwn(value, 'size')) warnings.push(`styles.${where}.${key}: normalized { value, unit } to the canonical { size, unit }.`);
+            });
+        };
+        Object.entries(styles || {}).forEach(([bucket, value]) => {
+            if (!value || typeof value !== 'object') return;
+            const nested = Object.keys(value).some((key) => ['base', 'hover', 'focus', 'active'].includes(key) || key.startsWith('state:'));
+            if (nested) Object.entries(value).forEach(([state, settings]) => inspect(settings, `${bucket}.${state}`));
+            else inspect(value, bucket);
+        });
+        return warnings;
+    };
+
+    const treeStyleWarnings = (tree, path = 'root', out = []) => {
+        if (!tree || typeof tree !== 'object' || out.length >= 12) return out;
+        styleWarnings(tree.styles).forEach((warning) => out.push(`${path}: ${warning}`));
+        (tree.children || []).forEach((child, index) => treeStyleWarnings(child, `${path}.${index}`, out));
+        return out.slice(0, 12);
+    };
+
+    const withWarnings = (result, warnings) => warnings.length ? { ...result, warnings } : result;
+
+    // Tools that answered a plain `ok` keep answering exactly that on a clean write, so an existing
+    // caller never has to learn a new result shape. A warning upgrades the answer to JSON, because a
+    // dropped value is the one case the next call has to act on.
+    const okUnlessWarned = (warnings) => warnings.length ? asJson({ ok: true, warnings }) : 'ok';
+
     const validateCustomCode = (value, label) => {
         const text = String(value || '');
         if (text.length > MAX_CUSTOM_CODE_LENGTH) throw new RangeError(`${label} exceeds ${MAX_CUSTOM_CODE_LENGTH} characters.`);
@@ -158,7 +216,7 @@ export function createCopilotTools(runtime, builder) {
     };
 
     const replacePage = (args) => {
-        if (!Array.isArray(args.children) || !args.children.length) throw new TypeError('replace_page requires a non-empty children array; the existing page was preserved.');
+        if (!Array.isArray(args.children) || !args.children.length) throw new TypeError('replace_page requires a non-empty children array; the existing page was preserved. Send the complete tree in one call, or build the page section by section with append_tree when it is too large for one payload.');
         const specs = args.children;
         const nodeCount = specs.reduce((sum, spec) => sum + countSpec(spec), 0);
         if (nodeCount > MAX_TREE_NODES) throw new RangeError(`Page has ${nodeCount} nodes; maximum is ${MAX_TREE_NODES}.`);
@@ -179,7 +237,7 @@ export function createCopilotTools(runtime, builder) {
             do: () => { runtime.document.replace(after.store); builder.customCode.update(after.css, after.js); runtime.selection.clear(); },
             undo: () => { runtime.document.replace(before.store); builder.customCode.update(before.css, before.js); runtime.selection.clear(); },
         });
-        return { ok: true, nodes: nodeCount, roots: children.length, message: 'Page composed as one undoable change.' };
+        return withWarnings({ ok: true, nodes: nodeCount, roots: children.length, message: 'Page composed as one undoable change.' }, children.flatMap((child, index) => treeStyleWarnings(child, `children.${index}`)).slice(0, 12));
     };
 
     const appendTree = (args) => {
@@ -193,7 +251,7 @@ export function createCopilotTools(runtime, builder) {
         const insertion = { parentId: parent?.id || null, index: parent ? (parent.children?.length || 0) : runtime.document.data.children.length };
         runtime.history.execute({ label: 'AI add layout', do: () => runtime.document.insert(node, insertion), undo: () => runtime.document.remove(node.id) });
         runtime.selection.select(node.id);
-        return { ok: true, nodes: total, id: node.id };
+        return withWarnings({ ok: true, nodes: total, id: node.id }, treeStyleWarnings(args.tree));
     };
 
     // Composing a page is choosing archetypes and filling them in. There is no bespoke aesthetic
@@ -314,6 +372,17 @@ export function createCopilotTools(runtime, builder) {
         return { ok: true };
     };
 
+    // Every rule the page is compiled against, as one string: the page's own CSS plus the canvas
+    // vocabulary it sits inside. Cross-origin sheets (Google Fonts) are skipped rather than thrown.
+    const stylesheetText = () => {
+        let text = builder.customCode.getCss();
+        const doc = builder.iframeDoc;
+        if (doc) [...doc.styleSheets].forEach((sheet) => {
+            try { [...sheet.cssRules].forEach((rule) => { text += rule.cssText; }); } catch { /* cross-origin */ }
+        });
+        return text;
+    };
+
     const auditDesign = () => {
         const root = builder.canvasRoot;
         const elements = root ? [...root.querySelectorAll('[data-ink-element-id]')] : [];
@@ -363,11 +432,19 @@ export function createCopilotTools(runtime, builder) {
         if (tinyText.length) issues.push({ severity: 'warning', code: 'tiny-text', message: `${tinyText.length} sampled elements render below 12px.`, elements: tinyText });
         if (collapsedHeadings.length) issues.push({ severity: 'error', code: 'collapsed-headings', message: `${collapsedHeadings.length} headings wrap into five or more lines inside unusually narrow columns.`, elements: collapsedHeadings });
         if (narrowContent.length) issues.push({ severity: 'error', code: 'narrow-content-column', message: `${narrowContent.length} content containers occupy less than 60% of a wide column parent, leaving accidental dead space.`, elements: narrowContent });
+        // The store-level rules read the same data the compiler does, so "it renders" and "it means
+        // what the design says" are checked by one pass instead of by eye.
+        const storeIssues = auditStore({ nodes: allNodes, cssText: stylesheetText(), diagnostics: runtime.styles?.diagnostics || [] });
+        issues.push(...storeIssues);
         let score = 100;
         issues.forEach((issue) => { score -= issue.severity === 'error' ? 20 : 8; });
         return {
             score: Math.max(0, score),
-            summary: { nodes: allNodes.length, roots: roots.length, sections: sectionLike, h1s, actions, emptyContainers, collapsedHeadings: collapsedHeadings.length, narrowContentColumns: narrowContent.length, customCssCharacters: builder.customCode.getCss().length, customJsCharacters: builder.customCode.getJs().length },
+            summary: { nodes: allNodes.length, roots: roots.length, sections: sectionLike, h1s, actions, emptyContainers, collapsedHeadings: collapsedHeadings.length, narrowContentColumns: narrowContent.length,
+                uncompilableStyles: storeIssues.filter((issue) => issue.code === 'uncompilable-styles').length,
+                inertClassHooks: (storeIssues.find((issue) => issue.code === 'inert-class-hooks')?.classes || []).length,
+                glyphAsGraphic: storeIssues.filter((issue) => issue.code === 'glyph-as-graphic').length,
+                customCssCharacters: builder.customCode.getCss().length, customJsCharacters: builder.customCode.getJs().length },
             issues,
             instruction: issues.length ? 'Fix the errors first, then warnings, and run audit_design again.' : 'The structural and rendered checks pass. Finish with a concise user-facing summary.',
         };
@@ -408,14 +485,15 @@ export function createCopilotTools(runtime, builder) {
                     if (target && !runtime.elements.get(target.node.type).acceptsChildren) return 'target cannot contain children';
                     const node = runtime.insert(args.type, { parentId: target?.node.id || null, index: target ? (target.node.children?.length || 0) : runtime.document.data.children.length }, { settings: args.settings, styles: args.styles });
                     runtime.selection.select(node.id);
-                    return asJson({ ok: true, id: node.id, type: node.type });
+                    return asJson(withWarnings({ ok: true, id: node.id, type: node.type }, styleWarnings(args.styles)));
                 }
                 case 'update_element':
                     if (!target) return 'element not found';
                     runtime.update(target.node.id, { settings: args.settings || {} }, 'AI edit element'); return 'ok';
                 case 'set_styles':
                     if (!target) return 'element not found';
-                    runtime.update(target.node.id, { styles: args.styles || {} }, 'AI set styles'); return 'ok';
+                    runtime.update(target.node.id, { styles: args.styles || {} }, 'AI set styles');
+                    return okUnlessWarned(styleWarnings(args.styles));
                 case 'move_element': {
                     if (!target) return 'element not found';
                     const destination = resolve(args.targetPath || args.targetId);
@@ -497,7 +575,7 @@ export function createCopilotTools(runtime, builder) {
         }, required: ['siteName', 'hero', 'projects', 'proof', 'process', 'closing'] } },
         { name: 'compose_page', description: 'Compose a whole page from named section archetypes as one undoable change. sections is an array of { name, variant, content } (a bare name string is also accepted); content fills the section (title, lede, cta, items, plans, faq, ...). tokens overrides the design tokens for this page, or preset names one of the built-in themes. Call list_archetypes first for names, variants and token names.', parameters: { type: 'object', properties: { sections: { type: 'array', items: { type: 'object', additionalProperties: true } }, content: { type: 'object', additionalProperties: true }, tokens: { type: 'object', additionalProperties: true }, preset: { type: 'string' }, customJs: { type: 'string' } } } },
         { name: 'compose_section', description: 'Append one named archetype section to the page (or inside a path/id). archetype is a name from list_archetypes; variant selects the layout; content fills it; tokens override the palette. The section is real, editable elements and the archetype CSS is installed if missing.', parameters: { type: 'object', properties: { archetype: { type: 'string' }, variant: { type: 'string' }, content: { type: 'object', additionalProperties: true }, tokens: { type: 'object', additionalProperties: true }, path: { type: 'string' }, id: { type: 'string' }, sticky: { type: 'boolean' } }, required: ['archetype'] } },
-        { name: 'set_design_tokens', description: 'Set the page design tokens (the design system). tokens is { colors: { background, surface, text, muted, accent, accentContrast, border }, typography: { fontFamily, headingFamily, baseSize, scale, lineHeight, headingWeight, headingTracking, textWidth }, shape: { radius, radiusSmall, borderWidth }, spacing: { contentWidth, pageGutter, sectionGap, blockGap, sectionPadding }, motion: { duration, easing, stagger } }. Writes the page theme and the CSS custom properties, so every archetype section and every token-aware rule follows.', parameters: { type: 'object', properties: { tokens: { type: 'object', additionalProperties: true } }, required: ['tokens'] } },
+        { name: 'set_design_tokens', description: 'Set the page design tokens (the design system). tokens is { colors: { background, surface, text, muted, accent, accentContrast, border }, typography: { fontFamily, headingFamily, baseSize, scale, lineHeight, headingWeight, headingTracking, textWidth }, shape: { radius, radiusSmall, borderWidth }, spacing: { contentWidth, pageGutter, sectionGap, blockGap, sectionPadding }, motion: { duration, easing, stagger } }. Writes the page theme, the CSS custom properties AND the stylesheet that consumes them (headings, paragraphs and links follow the type scale and palette), so setting the palette once styles archetype sections and raw elements alike. Set this before composing.', parameters: { type: 'object', properties: { tokens: { type: 'object', additionalProperties: true } }, required: ['tokens'] } },
         { name: 'list_archetypes', description: 'List the named section archetypes and their variants, the built-in theme presets, and the current design tokens. Call before composing.', parameters: { type: 'object', properties: {} } },
         { name: 'replace_page', description: 'Compose an original page or app interface as a complete recursive native element tree in one undo step. Use responsive node styles for editable layout, typography, fills, and effects; optional custom CSS/JS enhances the native elements. Preserve existing content unless the request calls for replacement.', parameters: { type: 'object', properties: { settings: { type: 'object' }, children: { type: 'array', items: treeNodeSchema }, customCss: { type: 'string' }, customJs: { type: 'string' } }, required: ['children'] } },
         { name: 'append_tree', description: 'Append one complete recursive layout tree at the root or inside a container. Preferred for an Add section request.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' }, tree: treeNodeSchema }, required: ['tree'] } },

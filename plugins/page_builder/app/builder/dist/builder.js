@@ -4022,6 +4022,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _designTokens_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./designTokens.js */ "./src/core/designTokens.js");
 /* harmony import */ var _sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./sectionArchetypes.js */ "./src/core/sectionArchetypes.js");
 /* harmony import */ var _elementSpec_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./elementSpec.js */ "./src/core/elementSpec.js");
+/* harmony import */ var _designAudit_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./designAudit.js */ "./src/core/designAudit.js");
+/* harmony import */ var _styleValues_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./styleValues.js */ "./src/core/styleValues.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -4039,6 +4041,8 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+
+
 
 
 
@@ -4276,6 +4280,20 @@ function createCopilotTools(runtime, builder) {
           base: {}
         }
       },
+      styleContract: {
+        shape: 'styles is { desktop|tablet|mobile: { base|hover|focus|active|"state:<name>": { controlName: value } } }. A flat { base: {...} } is accepted and normalized.',
+        valueShapes: {
+          size: '{ size: 7, unit: "px" } — width, height, min/max width and height, font-size, border-radius, border-width, icon-size',
+          box: '{ top, right, bottom, left, unit } — padding, margin, inset',
+          gap: '{ row, column, unit } — gap, row-gap, column-gap',
+          border: '{ width, style, color } — border, border-top and friends',
+          shadow: '{ x, y, blur, spread, color } — box-shadow, text-shadow',
+          filter: '{ blur, brightness, contrast, saturate, hue } — filter',
+          color: '"#RRGGBB" (or any CSS color string)',
+          keyword: '"fit-content" | "auto" | "100%" | "100vh" — plain CSS strings are passed through'
+        },
+        rules: ['Sizes are always { size, unit }. { value, unit } is accepted and normalized to it, but the inspector writes { size, unit } — prefer that spelling.', 'Use the control name the element actually declares. Frames, containers, text and inputs carry `background`; a Button carries `background-color` (its surface) — call get_element_schema when unsure.', 'A record the compiler does not recognize is dropped from the stylesheet rather than published, and audit_design reports it. Never invent a record shape; use a plain CSS string instead.', 'Element styles are authoritative over custom CSS: write layout, type, colour and spacing as node styles and keep custom CSS for what nodes cannot express.']
+      },
       customCode: {
         css: true,
         javascript: true,
@@ -4317,6 +4335,67 @@ function createCopilotTools(runtime, builder) {
     var parent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
     return (0,_elementSpec_js__WEBPACK_IMPORTED_MODULE_5__.materializeSpec)(runtime, spec, parent);
   };
+
+  // The write half of the style contract. Storage is always repaired to the canonical shape, and
+  // a value the compiler will have to drop is reported back in the tool result so the next call
+  // can correct it. A silently dropped value is how a page ends up styled in the tree and
+  // unstyled on screen.
+  var styleWarnings = function styleWarnings(styles) {
+    var warnings = [];
+    var inspect = function inspect(settings, where) {
+      Object.entries(settings || {}).forEach(function (_ref3) {
+        var _ref4 = _slicedToArray(_ref3, 2),
+          key = _ref4[0],
+          value = _ref4[1];
+        if (!value || _typeof(value) !== 'object' || Array.isArray(value)) return;
+        var shape = (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_7__.shapeOf)(value);
+        if ((0,_styleValues_js__WEBPACK_IMPORTED_MODULE_7__.isUnsupportedValue)(value)) warnings.push("styles.".concat(where, ".").concat(key, " = ").concat((0,_styleValues_js__WEBPACK_IMPORTED_MODULE_7__.previewValue)(value), " is not a value the builder can compile; use a CSS string or a documented record."));else if (shape === 'size' && !Object.hasOwn(value, 'size')) warnings.push("styles.".concat(where, ".").concat(key, ": normalized { value, unit } to the canonical { size, unit }."));
+      });
+    };
+    Object.entries(styles || {}).forEach(function (_ref5) {
+      var _ref6 = _slicedToArray(_ref5, 2),
+        bucket = _ref6[0],
+        value = _ref6[1];
+      if (!value || _typeof(value) !== 'object') return;
+      var nested = Object.keys(value).some(function (key) {
+        return ['base', 'hover', 'focus', 'active'].includes(key) || key.startsWith('state:');
+      });
+      if (nested) Object.entries(value).forEach(function (_ref7) {
+        var _ref8 = _slicedToArray(_ref7, 2),
+          state = _ref8[0],
+          settings = _ref8[1];
+        return inspect(settings, "".concat(bucket, ".").concat(state));
+      });else inspect(value, bucket);
+    });
+    return warnings;
+  };
+  var _treeStyleWarnings = function treeStyleWarnings(tree) {
+    var path = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'root';
+    var out = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : [];
+    if (!tree || _typeof(tree) !== 'object' || out.length >= 12) return out;
+    styleWarnings(tree.styles).forEach(function (warning) {
+      return out.push("".concat(path, ": ").concat(warning));
+    });
+    (tree.children || []).forEach(function (child, index) {
+      return _treeStyleWarnings(child, "".concat(path, ".").concat(index), out);
+    });
+    return out.slice(0, 12);
+  };
+  var withWarnings = function withWarnings(result, warnings) {
+    return warnings.length ? _objectSpread(_objectSpread({}, result), {}, {
+      warnings: warnings
+    }) : result;
+  };
+
+  // Tools that answered a plain `ok` keep answering exactly that on a clean write, so an existing
+  // caller never has to learn a new result shape. A warning upgrades the answer to JSON, because a
+  // dropped value is the one case the next call has to act on.
+  var okUnlessWarned = function okUnlessWarned(warnings) {
+    return warnings.length ? asJson({
+      ok: true,
+      warnings: warnings
+    }) : 'ok';
+  };
   var validateCustomCode = function validateCustomCode(value, label) {
     var text = String(value || '');
     if (text.length > MAX_CUSTOM_CODE_LENGTH) throw new RangeError("".concat(label, " exceeds ").concat(MAX_CUSTOM_CODE_LENGTH, " characters."));
@@ -4343,7 +4422,7 @@ function createCopilotTools(runtime, builder) {
     });
   };
   var replacePage = function replacePage(args) {
-    if (!Array.isArray(args.children) || !args.children.length) throw new TypeError('replace_page requires a non-empty children array; the existing page was preserved.');
+    if (!Array.isArray(args.children) || !args.children.length) throw new TypeError('replace_page requires a non-empty children array; the existing page was preserved. Send the complete tree in one call, or build the page section by section with append_tree when it is too large for one payload.');
     var specs = args.children;
     var nodeCount = specs.reduce(function (sum, spec) {
       return sum + countSpec(spec);
@@ -4380,12 +4459,14 @@ function createCopilotTools(runtime, builder) {
         runtime.selection.clear();
       }
     });
-    return {
+    return withWarnings({
       ok: true,
       nodes: nodeCount,
       roots: children.length,
       message: 'Page composed as one undoable change.'
-    };
+    }, children.flatMap(function (child, index) {
+      return _treeStyleWarnings(child, "children.".concat(index));
+    }).slice(0, 12));
   };
   var appendTree = function appendTree(args) {
     var _parent$children;
@@ -4410,11 +4491,11 @@ function createCopilotTools(runtime, builder) {
       }
     });
     runtime.selection.select(node.id);
-    return {
+    return withWarnings({
       ok: true,
       nodes: total,
       id: node.id
-    };
+    }, _treeStyleWarnings(args.tree));
   };
 
   // Composing a page is choosing archetypes and filling them in. There is no bespoke aesthetic
@@ -4426,9 +4507,9 @@ function createCopilotTools(runtime, builder) {
   var tokensFromArgs = function tokensFromArgs(args) {
     var _args$tokens;
     return (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.normalizeTokens)(_objectSpread(_objectSpread(_objectSpread({}, args.preset ? (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.presetTokens)(args.preset) || {} : {}), args.tokens || {}), {}, {
-      colors: _objectSpread(_objectSpread({}, ((_args$tokens = args.tokens) === null || _args$tokens === void 0 ? void 0 : _args$tokens.colors) || {}), Object.fromEntries(Object.entries(args.palette || {}).filter(function (_ref3) {
-        var _ref4 = _slicedToArray(_ref3, 2),
-          value = _ref4[1];
+      colors: _objectSpread(_objectSpread({}, ((_args$tokens = args.tokens) === null || _args$tokens === void 0 ? void 0 : _args$tokens.colors) || {}), Object.fromEntries(Object.entries(args.palette || {}).filter(function (_ref9) {
+        var _ref10 = _slicedToArray(_ref9, 2),
+          value = _ref10[1];
         return value != null;
       })))
     }));
@@ -4619,7 +4700,23 @@ function createCopilotTools(runtime, builder) {
       ok: true
     };
   };
+
+  // Every rule the page is compiled against, as one string: the page's own CSS plus the canvas
+  // vocabulary it sits inside. Cross-origin sheets (Google Fonts) are skipped rather than thrown.
+  var stylesheetText = function stylesheetText() {
+    var text = builder.customCode.getCss();
+    var doc = builder.iframeDoc;
+    if (doc) _toConsumableArray(doc.styleSheets).forEach(function (sheet) {
+      try {
+        _toConsumableArray(sheet.cssRules).forEach(function (rule) {
+          text += rule.cssText;
+        });
+      } catch (_unused) {/* cross-origin */}
+    });
+    return text;
+  };
   var auditDesign = function auditDesign() {
+    var _runtime$styles, _storeIssues$find;
     var root = builder.canvasRoot;
     var elements = root ? _toConsumableArray(root.querySelectorAll('[data-ink-element-id]')) : [];
     var roots = runtime.document.data.children;
@@ -4735,6 +4832,14 @@ function createCopilotTools(runtime, builder) {
       message: "".concat(narrowContent.length, " content containers occupy less than 60% of a wide column parent, leaving accidental dead space."),
       elements: narrowContent
     });
+    // The store-level rules read the same data the compiler does, so "it renders" and "it means
+    // what the design says" are checked by one pass instead of by eye.
+    var storeIssues = (0,_designAudit_js__WEBPACK_IMPORTED_MODULE_6__.auditStore)({
+      nodes: allNodes,
+      cssText: stylesheetText(),
+      diagnostics: ((_runtime$styles = runtime.styles) === null || _runtime$styles === void 0 ? void 0 : _runtime$styles.diagnostics) || []
+    });
+    issues.push.apply(issues, _toConsumableArray(storeIssues));
     var score = 100;
     issues.forEach(function (issue) {
       score -= issue.severity === 'error' ? 20 : 8;
@@ -4750,6 +4855,15 @@ function createCopilotTools(runtime, builder) {
         emptyContainers: emptyContainers,
         collapsedHeadings: collapsedHeadings.length,
         narrowContentColumns: narrowContent.length,
+        uncompilableStyles: storeIssues.filter(function (issue) {
+          return issue.code === 'uncompilable-styles';
+        }).length,
+        inertClassHooks: (((_storeIssues$find = storeIssues.find(function (issue) {
+          return issue.code === 'inert-class-hooks';
+        })) === null || _storeIssues$find === void 0 ? void 0 : _storeIssues$find.classes) || []).length,
+        glyphAsGraphic: storeIssues.filter(function (issue) {
+          return issue.code === 'glyph-as-graphic';
+        }).length,
         customCssCharacters: builder.customCode.getCss().length,
         customJsCharacters: builder.customCode.getJs().length
       },
@@ -4775,9 +4889,9 @@ function createCopilotTools(runtime, builder) {
             var definition = runtime.elements.get(args.type);
             return asJson(_objectSpread(_objectSpread({}, compactDefinition(definition)), {}, {
               controls: definition.controls.map(function (control) {
-                return Object.fromEntries(Object.entries(control).filter(function (_ref5) {
-                  var _ref6 = _slicedToArray(_ref5, 1),
-                    key = _ref6[0];
+                return Object.fromEntries(Object.entries(control).filter(function (_ref11) {
+                  var _ref12 = _slicedToArray(_ref11, 1),
+                    key = _ref12[0];
                   return ['name', 'type', 'target', 'part', 'options', 'default', 'units', 'min', 'max', 'step', 'responsive', 'condition'].includes(key);
                 }));
               })
@@ -4789,9 +4903,9 @@ function createCopilotTools(runtime, builder) {
             type: target.node.type,
             settings: target.node.settings,
             styles: target.node.styles,
-            children: (target.node.children || []).map(function (_ref7) {
-              var id = _ref7.id,
-                type = _ref7.type;
+            children: (target.node.children || []).map(function (_ref13) {
+              var id = _ref13.id,
+                type = _ref13.type;
               return {
                 id: id,
                 type: type
@@ -4860,11 +4974,11 @@ function createCopilotTools(runtime, builder) {
               styles: args.styles
             });
             runtime.selection.select(node.id);
-            return asJson({
+            return asJson(withWarnings({
               ok: true,
               id: node.id,
               type: node.type
-            });
+            }, styleWarnings(args.styles)));
           }
         case 'update_element':
           if (!target) return 'element not found';
@@ -4877,7 +4991,7 @@ function createCopilotTools(runtime, builder) {
           runtime.update(target.node.id, {
             styles: args.styles || {}
           }, 'AI set styles');
-          return 'ok';
+          return okUnlessWarned(styleWarnings(args.styles));
         case 'move_element':
           {
             var _destination$parent, _runtime$document$get;
@@ -5397,7 +5511,7 @@ function createCopilotTools(runtime, builder) {
     }
   }, {
     name: 'set_design_tokens',
-    description: 'Set the page design tokens (the design system). tokens is { colors: { background, surface, text, muted, accent, accentContrast, border }, typography: { fontFamily, headingFamily, baseSize, scale, lineHeight, headingWeight, headingTracking, textWidth }, shape: { radius, radiusSmall, borderWidth }, spacing: { contentWidth, pageGutter, sectionGap, blockGap, sectionPadding }, motion: { duration, easing, stagger } }. Writes the page theme and the CSS custom properties, so every archetype section and every token-aware rule follows.',
+    description: 'Set the page design tokens (the design system). tokens is { colors: { background, surface, text, muted, accent, accentContrast, border }, typography: { fontFamily, headingFamily, baseSize, scale, lineHeight, headingWeight, headingTracking, textWidth }, shape: { radius, radiusSmall, borderWidth }, spacing: { contentWidth, pageGutter, sectionGap, blockGap, sectionPadding }, motion: { duration, easing, stagger } }. Writes the page theme, the CSS custom properties AND the stylesheet that consumes them (headings, paragraphs and links follow the type scale and palette), so setting the palette once styles archetype sections and raw elements alike. Set this before composing.',
     parameters: {
       type: 'object',
       properties: {
@@ -7709,6 +7823,7 @@ var EditorDocument = /*#__PURE__*/function () {
   return _createClass(EditorDocument, [{
     key: "normalize",
     value: function normalize() {
+      var _this = this;
       var data = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
       var document = {
         version: 2,
@@ -7769,7 +7884,15 @@ var EditorDocument = /*#__PURE__*/function () {
             delete node.settings.grouping;
           }
         }
-        if (node && node.styles && _typeof(node.styles) === 'object') node.styles = (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStyles)(node.styles);
+        if (node && node.styles && _typeof(node.styles) === 'object') {
+          node.styles = (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStyles)(node.styles);
+          // A page saved before the floor rule learned to yield carries the element's placeholder
+          // min-size next to an explicit size. Treating the placeholder as authored is what kept
+          // a designed 7px accent dot rendering at 120x80, so heal it once here.
+          (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.yieldSizeFloors)(node.styles, {
+            defaults: _this.typeFloors(node.type)
+          });
+        }
         if ((node === null || node === void 0 ? void 0 : node.type) === 'button' && BUTTON_SIZE_PRESETS[(_node$settings4 = node.settings) === null || _node$settings4 === void 0 ? void 0 : _node$settings4.size]) {
           var preset = BUTTON_SIZE_PRESETS[node.settings.size];
           var base = node.styles.desktop.base;
@@ -7800,14 +7923,14 @@ var EditorDocument = /*#__PURE__*/function () {
   }, {
     key: "reindex",
     value: function reindex() {
-      var _this = this;
+      var _this2 = this;
       this.index = new Map();
       var _visit2 = function visit(node) {
         var parent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
         if (!node.id) throw new Error('Every element node requires a stable id.');
-        if (_this.index.has(node.id)) throw new Error("Duplicate element id: ".concat(node.id));
-        _this.registry.get(node.type);
-        _this.index.set(node.id, {
+        if (_this2.index.has(node.id)) throw new Error("Duplicate element id: ".concat(node.id));
+        _this2.registry.get(node.type);
+        _this2.index.set(node.id, {
           node: node,
           parent: parent
         });
@@ -7927,13 +8050,27 @@ var EditorDocument = /*#__PURE__*/function () {
         to: destination
       };
     }
+
+    // The element type's own default styles, normalized. Style writes need them to tell a
+    // placeholder size floor ("keep a fresh Frame visible") from one the author chose.
+  }, {
+    key: "typeFloors",
+    value: function typeFloors(type) {
+      var _this$registry, _this$registry$has;
+      if (!((_this$registry = this.registry) !== null && _this$registry !== void 0 && (_this$registry$has = _this$registry.has) !== null && _this$registry$has !== void 0 && _this$registry$has.call(_this$registry, type))) return null;
+      var definition = this.registry.get(type);
+      var defaults = typeof definition.defaults === 'function' ? definition.defaults() : definition.defaults || {};
+      return defaults.styles ? (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStyles)(defaults.styles) : null;
+    }
   }, {
     key: "update",
     value: function update(id, patch) {
       var node = this.get(id);
       if (!node) throw new Error("Unknown element id: ".concat(id));
       if (patch.settings) node.settings = _objectSpread(_objectSpread({}, node.settings), clone(patch.settings));
-      if (patch.styles) node.styles = (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.mergeStyles)(node.styles, patch.styles);
+      if (patch.styles) node.styles = (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.mergeStyles)(node.styles, patch.styles, {
+        defaultFloors: this.typeFloors(node.type)
+      });
       this.emit('document:update', {
         id: id,
         patch: clone(patch)
@@ -9082,11 +9219,16 @@ var ElementRegistry = /*#__PURE__*/function () {
       var overrides = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       var definition = this.get(type);
       var defaults = typeof definition.defaults === 'function' ? definition.defaults() : definition.defaults || {};
+      var authored = (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStyles)(overrides.styles || {});
+      var merged = (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.mergeStyles)((0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.emptyStyles)(), _objectSpread(_objectSpread({}, defaults.styles || {}), overrides.styles || {}));
       return _objectSpread({
         id: overrides.id || crypto.randomUUID(),
         type: type,
         settings: _objectSpread(_objectSpread({}, clone(defaults.settings) || {}), clone(overrides.settings) || {}),
-        styles: (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.mergeStyles)((0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.emptyStyles)(), _objectSpread(_objectSpread({}, defaults.styles || {}), overrides.styles || {}))
+        styles: (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.yieldSizeFloors)(merged, {
+          authored: authored,
+          defaults: (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStyles)(defaults.styles || {})
+        })
       }, definition.acceptsChildren ? {
         children: clone(overrides.children || defaults.children || [])
       } : {});
@@ -12734,6 +12876,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./motionGroups.js */ "./src/core/motionGroups.js");
 /* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
 /* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
+/* harmony import */ var _styleValues_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./styleValues.js */ "./src/core/styleValues.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -12775,6 +12918,7 @@ var DEVICE_WIDTHS = {
 };
 
 
+
 var StyleEngine = /*#__PURE__*/function () {
   function StyleEngine() {
     var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
@@ -12785,6 +12929,9 @@ var StyleEngine = /*#__PURE__*/function () {
     this.registry = registry;
     this.responsive = responsive;
     this.events = events;
+    // Declarations the compiler could not express as CSS. The audit surfaces them, because a
+    // dropped value is invisible in the canvas and only shows up as "the design did not apply".
+    this.diagnostics = [];
   }
 
   // Prefixing with the canvas root gives authored values stable precedence over base component
@@ -12843,13 +12990,20 @@ var StyleEngine = /*#__PURE__*/function () {
       if (Array.isArray(_value)) return _value.map(function (item) {
         return _this.value(item);
       }).filter(Boolean).join(', ');
+      // `{ value, unit }` is the CSS-native spelling of the canonical `{ size, unit }`. Normalizing
+      // it here means a payload that says "7px" renders as 7px instead of falling back to whatever
+      // the element's default size was.
+      if ((0,_styleValues_js__WEBPACK_IMPORTED_MODULE_5__.isRecord)(_value) && !Object.hasOwn(_value, 'size') && (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_5__.shapeOf)(_value) === 'size') {
+        var converted = (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_5__.sizeCss)(_value);
+        if (converted) return converted;
+      }
       // Shadow records also have a blur field. They must reach the x/y branch below;
       // only a record without positional axes is a CSS-filter control value.
       if (_value && _typeof(_value) === 'object' && !('x' in _value || 'y' in _value) && ['blur', 'brightness', 'contrast', 'saturate', 'hue'].some(function (key) {
         return key in _value;
       })) return "blur(".concat(Number(_value.blur) || 0, "px) brightness(").concat(Number(_value.brightness) || 100, "%) contrast(").concat(Number(_value.contrast) || 100, "%) saturate(").concat(Number(_value.saturate) || 100, "%) hue-rotate(").concat(Number(_value.hue) || 0, "deg)");
       if (_value && _typeof(_value) === 'object' && 'strokeWidth' in _value) return "".concat(Number(_value.strokeWidth) || 0).concat(_value.unit || 'px', " ").concat(_value.color || 'currentColor');
-      if (_value && _typeof(_value) === 'object' && 'size' in _value) return "".concat(_value.size).concat(Object.hasOwn(_value, 'unit') ? _value.unit : 'px');
+      if (_value && _typeof(_value) === 'object' && 'size' in _value) return (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_5__.sizeCss)(_value);
       if (_value && _typeof(_value) === 'object' && ['top', 'right', 'bottom', 'left'].some(function (side) {
         return side in _value;
       })) {
@@ -12870,13 +13024,16 @@ var StyleEngine = /*#__PURE__*/function () {
         var width = _typeof(_value.width) === 'object' ? this.value(_value.width) : "".concat(Number(_value.width) || 0).concat(_value.unit || 'px');
         return "".concat(width, " ").concat(_value.style || 'solid', " ").concat(_value.color || 'currentColor');
       }
-      return _value;
+      // An object the compiler cannot express is dropped by `declarations` and reported there.
+      // Stringifying it would publish "[object Object]" as a real declaration.
+      return (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_5__.isRecord)(_value) ? null : _value;
     }
   }, {
     key: "declarations",
     value: function declarations() {
       var _this2 = this;
       var values = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+      var context = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
       return Object.entries(values).filter(function (_ref2) {
         var _ref3 = _slicedToArray(_ref2, 2),
           value = _ref3[1];
@@ -12885,8 +13042,30 @@ var StyleEngine = /*#__PURE__*/function () {
         var _ref5 = _slicedToArray(_ref4, 2),
           property = _ref5[0],
           value = _ref5[1];
-        return "".concat(property, ":").concat(property === 'background-image' && typeof value === 'string' && value && !/^(url|linear-gradient|radial-gradient)/.test(value) ? "url(\"".concat(value.replaceAll('"', '\\"'), "\")") : _this2.value(value), ";");
-      }).join('');
+        var css = property === 'background-image' && typeof value === 'string' && value && !/^(url|linear-gradient|radial-gradient)/.test(value) ? "url(\"".concat(value.replaceAll('"', '\\"'), "\")") : _this2.value(value);
+        if (css === null) {
+          _this2.reportUnsupported(property, value, context);
+          return '';
+        }
+        return "".concat(property, ":").concat(css, ";");
+      }).filter(Boolean).join('');
+    }
+
+    // Kept small and bounded: the point is to name the offending property, not to log a page.
+  }, {
+    key: "reportUnsupported",
+    value: function reportUnsupported(property, value) {
+      var context = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
+      if (this.diagnostics.length >= 40) return;
+      this.diagnostics.push({
+        nodeId: (context === null || context === void 0 ? void 0 : context.id) || null,
+        type: (context === null || context === void 0 ? void 0 : context.type) || null,
+        device: (context === null || context === void 0 ? void 0 : context.device) || null,
+        state: (context === null || context === void 0 ? void 0 : context.state) || null,
+        property: property,
+        problem: (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_5__.shapeOf)(value) === 'unknown' ? 'unrecognized value shape' : 'unrecognized value',
+        value: (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_5__.previewValue)(value)
+      });
     }
   }, {
     key: "nodeRules",
@@ -12933,7 +13112,12 @@ var StyleEngine = /*#__PURE__*/function () {
           });
           var pseudo = STATE_PSEUDOS[state] ? ":".concat(state) : (0,_states_js__WEBPACK_IMPORTED_MODULE_0__.isComponentStateKey)(state) ? componentStateSelector(state) : '';
           bySelector.forEach(function (values, selector) {
-            var declarations = _this3.declarations(values);
+            var declarations = _this3.declarations(values, {
+              id: node.id,
+              type: node.type,
+              device: device,
+              state: state
+            });
             if (!declarations) return;
             var rule = "".concat(_this3.selector(node.id, "".concat(pseudo).concat(selector)), "{").concat(declarations, "}");
             css += width ? "@media(max-width:".concat(width, "px){").concat(rule, "}") : rule;
@@ -13024,6 +13208,7 @@ var StyleEngine = /*#__PURE__*/function () {
     key: "compile",
     value: function compile(document) {
       var _this4 = this;
+      this.diagnostics = [];
       var settings = document.data.settings || {};
       var theme = settings.theme || {};
       var colors = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__.DEFAULT_THEME_COLORS), theme.colors || {});
@@ -13112,9 +13297,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   isStateBucket: () => (/* binding */ isStateBucket),
 /* harmony export */   mergeStyles: () => (/* binding */ mergeStyles),
 /* harmony export */   normalizeStyles: () => (/* binding */ normalizeStyles),
-/* harmony export */   resolveLocation: () => (/* binding */ resolveLocation)
+/* harmony export */   resolveLocation: () => (/* binding */ resolveLocation),
+/* harmony export */   yieldSizeFloors: () => (/* binding */ yieldSizeFloors)
 /* harmony export */ });
 /* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
+/* harmony import */ var _styleValues_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./styleValues.js */ "./src/core/styleValues.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -13144,6 +13331,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 //   { tablet: {...} }      -> tablet.base
 //   { hover: {...} }       -> desktop.hover
 //   { desktop: {...} }     -> desktop.base (when the value is a flat control map)
+//
+// Individual control values are normalized too, so every path that writes styles -- the panel, the
+// Copilot, the importer, drag & drop -- stores canonical `{ size, unit }` sizing records.
+
 
 
 var DEVICES = ['desktop', 'tablet', 'mobile'];
@@ -13203,37 +13394,99 @@ function normalizeStyles(styles) {
           // Legacy flat maps use `state:open`; normalize the suffix so `state:Open` and
           // `state:open` can never become two buckets for one variant.
           var name = (0,_states_js__WEBPACK_IMPORTED_MODULE_0__.isComponentStateKey)(state) ? "state:".concat((0,_states_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStateName)(state.slice('state:'.length))) : state;
-          out[key][name] = _objectSpread(_objectSpread({}, out[key][name]), settings);
+          out[key][name] = _objectSpread(_objectSpread({}, out[key][name]), (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.normalizeStyleValues)(settings));
         }
       } else {
-        out[key].base = _objectSpread(_objectSpread({}, out[key].base), value || {});
+        out[key].base = _objectSpread(_objectSpread({}, out[key].base), (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.normalizeStyleValues)(value || {}));
       }
     } else if ((0,_states_js__WEBPACK_IMPORTED_MODULE_0__.isComponentStateKey)(key)) {
-      out.desktop["state:".concat((0,_states_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStateName)(key.slice('state:'.length)))] = _objectSpread(_objectSpread({}, out.desktop.base), value || {});
+      out.desktop["state:".concat((0,_states_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStateName)(key.slice('state:'.length)))] = _objectSpread(_objectSpread({}, out.desktop.base), (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.normalizeStyleValues)(value || {}));
     } else if (STATE_KEYS.has(key)) {
-      out.desktop[key] = _objectSpread(_objectSpread({}, out.desktop[key]), value || {});
+      out.desktop[key] = _objectSpread(_objectSpread({}, out.desktop[key]), (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.normalizeStyleValues)(value || {}));
     } else {
-      out.desktop.base[key] = value;
+      out.desktop.base[key] = (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.normalizeStyleValue)(value);
     }
   }
   return out;
 }
+var _sameValue = function sameValue(a, b) {
+  if (a === b) return true;
+  if (!(0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.isRecord)(a) || !(0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.isRecord)(b)) return false;
+  var keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(function (key) {
+    return _sameValue(a[key], b[key]);
+  });
+};
 
-// Deep-merge a styles patch (nested or legacy-flat) into existing nested styles.
-function mergeStyles(existing, patch) {
-  var out = normalizeStyles(existing);
-  for (var _i3 = 0, _Object$entries3 = Object.entries(normalizeStyles(patch)); _i3 < _Object$entries3.length; _i3++) {
+// A size floor (`min-width`/`min-height`) that is exactly the element type's own placeholder is a
+// placeholder, not a decision: it exists so a freshly inserted element is visible and selectable.
+// It has to yield the moment a size is set on that axis, or an explicit `width: 7px` silently
+// renders at the 120px default -- which is how a designed 7px accent dot ended up as a 120x80 slab.
+// A floor with any other value was authored on purpose (a card can want `width: 100%` above
+// `min-width: 240px`) and is always kept.
+//
+// `authored` names the buckets a write is actively setting, so a merged patch is judged only on what
+// it says. Passing null instead judges the stored values, which is what heals a page saved by an
+// older builder.
+function yieldSizeFloors(styles) {
+  var _ref = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+    _ref$authored = _ref.authored,
+    authored = _ref$authored === void 0 ? null : _ref$authored,
+    _ref$defaults = _ref.defaults,
+    defaults = _ref$defaults === void 0 ? null : _ref$defaults;
+  var axes = {
+    width: 'min-width',
+    height: 'min-height'
+  };
+  for (var _i3 = 0, _Object$entries3 = Object.entries(styles || {}); _i3 < _Object$entries3.length; _i3++) {
     var _Object$entries3$_i = _slicedToArray(_Object$entries3[_i3], 2),
       device = _Object$entries3$_i[0],
-      deviceValue = _Object$entries3$_i[1];
-    for (var _i4 = 0, _Object$entries4 = Object.entries(deviceValue); _i4 < _Object$entries4.length; _i4++) {
+      states = _Object$entries3$_i[1];
+    for (var _i4 = 0, _Object$entries4 = Object.entries(states || {}); _i4 < _Object$entries4.length; _i4++) {
+      var _defaults$device, _authored$device;
       var _Object$entries4$_i = _slicedToArray(_Object$entries4[_i4], 2),
         state = _Object$entries4$_i[0],
-        settings = _Object$entries4$_i[1];
+        target = _Object$entries4$_i[1];
+      if (!target) continue;
+      var floor = (defaults === null || defaults === void 0 || (_defaults$device = defaults[device]) === null || _defaults$device === void 0 ? void 0 : _defaults$device[state]) || {};
+      var set = (authored === null || authored === void 0 || (_authored$device = authored[device]) === null || _authored$device === void 0 ? void 0 : _authored$device[state]) || null;
+      for (var _i5 = 0, _Object$entries5 = Object.entries(axes); _i5 < _Object$entries5.length; _i5++) {
+        var _Object$entries5$_i = _slicedToArray(_Object$entries5[_i5], 2),
+          axis = _Object$entries5$_i[0],
+          property = _Object$entries5$_i[1];
+        if (floor[property] === undefined || !_sameValue(target[property], floor[property])) continue;
+        var sized = set ? axis in set : target[axis] !== undefined && !_sameValue(target[axis], floor[axis]);
+        if (sized) delete target[property];
+      }
+    }
+  }
+  return styles;
+}
+
+// Deep-merge a styles patch (nested or legacy-flat) into existing nested styles. `defaultFloors` is
+// the element type's normalized default styles, so the merge can tell a placeholder floor from one
+// the author set.
+function mergeStyles(existing, patch) {
+  var _ref2 = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {},
+    _ref2$defaultFloors = _ref2.defaultFloors,
+    defaultFloors = _ref2$defaultFloors === void 0 ? null : _ref2$defaultFloors;
+  var out = normalizeStyles(existing);
+  var authored = normalizeStyles(patch);
+  for (var _i6 = 0, _Object$entries6 = Object.entries(authored); _i6 < _Object$entries6.length; _i6++) {
+    var _Object$entries6$_i = _slicedToArray(_Object$entries6[_i6], 2),
+      device = _Object$entries6$_i[0],
+      deviceValue = _Object$entries6$_i[1];
+    for (var _i7 = 0, _Object$entries7 = Object.entries(deviceValue); _i7 < _Object$entries7.length; _i7++) {
+      var _Object$entries7$_i = _slicedToArray(_Object$entries7[_i7], 2),
+        state = _Object$entries7$_i[0],
+        settings = _Object$entries7$_i[1];
       out[device][state] = _objectSpread(_objectSpread({}, out[device][state]), settings);
     }
   }
-  return out;
+  return yieldSizeFloors(out, {
+    authored: authored,
+    defaults: defaultFloors
+  });
 }
 
 // Resolve which (device, state) a control value lives at for the given editor context.
@@ -18772,6 +19025,174 @@ function interactions(panel, control, node, value, row) {
 
 /***/ }),
 
+/***/ "./src/core/designAudit.js":
+/*!*********************************!*\
+  !*** ./src/core/designAudit.js ***!
+  \*********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   auditStore: () => (/* binding */ auditStore),
+/* harmony export */   classNamesOf: () => (/* binding */ classNamesOf),
+/* harmony export */   glyphAsGraphic: () => (/* binding */ glyphAsGraphic),
+/* harmony export */   inertClassHooks: () => (/* binding */ inertClassHooks),
+/* harmony export */   uncompilableStyles: () => (/* binding */ uncompilableStyles),
+/* harmony export */   walkNodes: () => (/* binding */ walkNodes)
+/* harmony export */ });
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+// Design-quality rules that read the STORE rather than the painted canvas.
+//
+// The canvas-level checks (overflow, tiny text, collapsed headings) catch layout that breaks after
+// it renders. These catch the failure mode that renders "successfully" and still ships a broken
+// page: a value the compiler could not express, a class hook nothing styles, or a text primitive
+// pressed into service as a graphic. All three are invisible in a screenshot review, which is why
+// they belong in the audit the Copilot is required to run.
+
+var TEXT_TYPES = new Set(['heading', 'paragraph', 'link', 'text', 'span', 'label', 'inline-text']);
+
+// Framework hooks are provided by the canvas vocabulary, never by page CSS.
+var FRAMEWORK_CLASS = /^ink-/;
+var walkNodes = function walkNodes() {
+  var roots = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+  var all = [];
+  var _visit = function visit(node) {
+    all.push(node);
+    (node.children || []).forEach(_visit);
+  };
+  roots.forEach(_visit);
+  return all;
+};
+var baseOf = function baseOf(node) {
+  var styles = node === null || node === void 0 ? void 0 : node.styles;
+  if (!styles || _typeof(styles) !== 'object') return {};
+  var device = styles.desktop || styles;
+  if (!device || _typeof(device) !== 'object') return {};
+  return device.base || device;
+};
+var classNamesOf = function classNamesOf(node) {
+  var _node$settings;
+  return String((node === null || node === void 0 || (_node$settings = node.settings) === null || _node$settings === void 0 ? void 0 : _node$settings.cssClasses) || '').split(/\s+/).filter(Boolean);
+};
+var fillOf = function fillOf(base) {
+  var _base$background;
+  var fill = (_base$background = base.background) !== null && _base$background !== void 0 ? _base$background : base['background-color'];
+  if (typeof fill !== 'string') return null;
+  var value = fill.trim().toLowerCase();
+  return value && value !== 'transparent' && value !== 'none' ? fill : null;
+};
+
+// A fixed pixel box small enough that only a glyph or a swatch fits in it.
+var fixedBoxOf = function fixedBoxOf(base) {
+  var size = function size(value) {
+    var _value$size;
+    if (!value || _typeof(value) !== 'object') return null;
+    var raw = (_value$size = value.size) !== null && _value$size !== void 0 ? _value$size : value.value;
+    var px = Number(raw);
+    if (!Number.isFinite(px) || px <= 0) return null;
+    var unit = value.unit || 'px';
+    return unit === 'px' ? px : null;
+  };
+  var width = size(base.width);
+  var height = size(base.height);
+  return width !== null && height !== null ? {
+    width: width,
+    height: height
+  } : null;
+};
+
+// 1. Values the compiler dropped. The page looks styled in the tree and unstyled on screen.
+function uncompilableStyles() {
+  var diagnostics = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+  if (!diagnostics.length) return [];
+  var properties = _toConsumableArray(new Set(diagnostics.map(function (entry) {
+    return entry.property;
+  }))).slice(0, 6);
+  return [{
+    severity: 'error',
+    code: 'uncompilable-styles',
+    message: "".concat(diagnostics.length, " style values could not be compiled to CSS and were dropped (").concat(properties.join(', '), "). Sizes are stored as { size, unit }; a record the compiler does not recognize renders as the element's default."),
+    entries: diagnostics.slice(0, 6)
+  }];
+}
+
+// 2. Classes on real elements that no stylesheet defines. The author named a design that never
+//    arrived, which is exactly how a page reads as "a pile of containers".
+function inertClassHooks() {
+  var nodes = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+  var cssText = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  var used = new Set();
+  nodes.forEach(function (node) {
+    return classNamesOf(node).forEach(function (name) {
+      if (!FRAMEWORK_CLASS.test(name)) used.add(name);
+    });
+  });
+  if (!used.size) return [];
+  var missing = _toConsumableArray(used).filter(function (name) {
+    return !new RegExp("\\.".concat(name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "(?![\\w-])")).test(cssText);
+  });
+  if (!missing.length) return [];
+  return [{
+    severity: 'error',
+    code: 'inert-class-hooks',
+    message: "".concat(missing.length, " class hook(s) are set on elements but defined by no stylesheet (").concat(missing.slice(0, 8).join(', '), "). Either write their rules (set_custom_css) or remove the class."),
+    classes: missing.slice(0, 12)
+  }];
+}
+
+// 3. A text primitive carrying a surface and a fixed box: the element is drawing a badge, a swatch
+//    or a tile with type, so its label clips to a single character and the inspector shows a
+//    paragraph where the design wants a shape.
+function glyphAsGraphic() {
+  var nodes = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+  var flagged = [];
+  nodes.forEach(function (node) {
+    var _node$settings2;
+    if (!TEXT_TYPES.has(node.type)) return;
+    var base = baseOf(node);
+    var fill = fillOf(base);
+    if (!fill) return;
+    var box = fixedBoxOf(base);
+    if (!box || box.width > 120 || box.height > 120) return;
+    flagged.push(_objectSpread({
+      id: node.id,
+      type: node.type,
+      text: String(((_node$settings2 = node.settings) === null || _node$settings2 === void 0 ? void 0 : _node$settings2.text) || '').slice(0, 40),
+      fill: fill
+    }, box));
+  });
+  return flagged.length ? [{
+    severity: 'warning',
+    code: 'glyph-as-graphic',
+    message: "".concat(flagged.length, " text element(s) are being used as shapes: they carry a fill and a fixed ").concat(flagged[0].width, "\xD7").concat(flagged[0].height, "px box, so long labels clip. Use a Frame with a text child, or drop the fixed box."),
+    elements: flagged.slice(0, 8)
+  }] : [];
+}
+function auditStore() {
+  var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    _ref$nodes = _ref.nodes,
+    nodes = _ref$nodes === void 0 ? [] : _ref$nodes,
+    _ref$cssText = _ref.cssText,
+    cssText = _ref$cssText === void 0 ? '' : _ref$cssText,
+    _ref$diagnostics = _ref.diagnostics,
+    diagnostics = _ref$diagnostics === void 0 ? [] : _ref$diagnostics;
+  return [].concat(_toConsumableArray(uncompilableStyles(diagnostics)), _toConsumableArray(inertClassHooks(nodes, cssText)), _toConsumableArray(glyphAsGraphic(nodes)));
+}
+
+/***/ }),
+
 /***/ "./src/core/designTokens.js":
 /*!**********************************!*\
   !*** ./src/core/designTokens.js ***!
@@ -18782,6 +19203,7 @@ function interactions(panel, control, node, value, row) {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   ARCHETYPE_CSS: () => (/* binding */ ARCHETYPE_CSS),
+/* harmony export */   BASE_CSS: () => (/* binding */ BASE_CSS),
 /* harmony export */   COMPONENT_CSS: () => (/* binding */ COMPONENT_CSS),
 /* harmony export */   DEFAULT_TOKENS: () => (/* binding */ DEFAULT_TOKENS),
 /* harmony export */   SECTION_CSS: () => (/* binding */ SECTION_CSS),
@@ -18789,7 +19211,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   applyDesignTokens: () => (/* binding */ applyDesignTokens),
 /* harmony export */   describeTokens: () => (/* binding */ describeTokens),
 /* harmony export */   designCss: () => (/* binding */ designCss),
+/* harmony export */   designRuleCss: () => (/* binding */ designRuleCss),
 /* harmony export */   ensureDesignCss: () => (/* binding */ ensureDesignCss),
+/* harmony export */   ensureDesignRules: () => (/* binding */ ensureDesignRules),
 /* harmony export */   normalizeTokens: () => (/* binding */ normalizeTokens),
 /* harmony export */   presetNames: () => (/* binding */ presetNames),
 /* harmony export */   presetTokens: () => (/* binding */ presetTokens),
@@ -19602,11 +20026,25 @@ var SECTION_CSS = "/* Ink design system \u2014 section rhythm (token driven) */\
 // container, and the orbit deck turns its children into 3D space for the motion group.
 var COMPONENT_CSS = ".ink-canvas-root .ink-arch-price-yearly{display:none}\n.ink-canvas-root [data-ink-state=\"yearly\"] .ink-arch-price-monthly{display:none!important}\n.ink-canvas-root [data-ink-state=\"yearly\"] .ink-arch-price-yearly{display:block!important}\n.ink-canvas-root .ink-arch-orbit-deck{transform-style:preserve-3d;perspective:1200px}\n.ink-canvas-root .ink-arch-orbit-deck > *{transform-style:preserve-3d}";
 
-// One stylesheet per page: the variables an author's own CSS can lean on, plus the archetype
-// vocabulary, the section rhythm and the component states. Emitted into the page's custom CSS,
-// ahead of any authored rules.
+// The token base layer: the rules that carry the palette and type scale onto RAW primitives, so a
+// page composed element by element (replace_page / append_tree) follows the same design language as
+// one composed from archetypes. Without this, tokens are variables nothing reads.
+//
+// Specificity is deliberate. `.ink-canvas-root :where(...)` is one class: it outranks the canvas
+// defaults (one class, earlier stylesheet) and always loses to the compiler's per-element rules
+// (`.ink-canvas-root .ink-el-<id>`, two classes), so an authored value is never overridden.
+var BASE_CSS = ".ink-canvas-root :where(.ink-el-heading){margin:0;color:var(--ink-t-text);font-family:var(--ink-t-heading-font);font-weight:var(--ink-t-heading-weight);line-height:1.15;letter-spacing:var(--ink-t-heading-tracking);text-wrap:balance}\n.ink-canvas-root :where(h1.ink-el-heading){font-size:var(--ink-t-h1)}\n.ink-canvas-root :where(h2.ink-el-heading){font-size:var(--ink-t-h2)}\n.ink-canvas-root :where(h3.ink-el-heading){font-size:var(--ink-t-h3)}\n.ink-canvas-root :where(h4.ink-el-heading){font-size:var(--ink-t-h4)}\n.ink-canvas-root :where(h5.ink-el-heading){font-size:var(--ink-t-h5)}\n.ink-canvas-root :where(h6.ink-el-heading){font-size:var(--ink-t-small)}\n.ink-canvas-root :where(.ink-el-paragraph){margin:0;color:var(--ink-t-text);font-family:var(--ink-t-font);font-size:var(--ink-t-base);line-height:var(--ink-t-line);max-width:var(--ink-t-text-width)}\n.ink-canvas-root :where(.ink-el-link){color:inherit;text-decoration:none}\n.ink-canvas-root :where(.ink-el-link):hover{color:var(--ink-t-accent)}";
+
+// The rules that CONSUME the token variables: archetype vocabulary, section rhythm, component
+// states, and the base layer above.
+function designRuleCss() {
+  return "".concat(ARCHETYPE_CSS, "\n").concat(SECTION_CSS, "\n").concat(COMPONENT_CSS, "\n").concat(BASE_CSS);
+}
+
+// One stylesheet per page: the variables an author's own CSS can lean on, plus every rule that
+// consumes them. Emitted into the page's custom CSS, ahead of any authored rules.
 function designCss(raw) {
-  return "".concat(tokenCssBlock(raw), "\n").concat(ARCHETYPE_CSS, "\n").concat(SECTION_CSS, "\n").concat(COMPONENT_CSS);
+  return "".concat(tokenCssBlock(raw), "\n").concat(designRuleCss());
 }
 
 // Just the custom properties, for callers that already carry the rest of the sheet (the importer
@@ -19630,6 +20068,15 @@ function ensureDesignCss(css, raw) {
   return text ? "".concat(installed, "\n").concat(text) : installed;
 }
 
+// Install only the consuming rules, for callers that write the token variables themselves (a token
+// edit replaces the `:root` block in place, and must not leave the page with variables nothing
+// reads).
+function ensureDesignRules(css) {
+  var text = String(css || '');
+  if (/\.ink-arch-section\b/.test(text)) return text;
+  return text ? "".concat(designRuleCss(), "\n").concat(text) : designRuleCss();
+}
+
 // Apply a design language to the live document: theme settings + the token variables in custom CSS.
 // History-aware (both calls are undoable), and shared by `set_design_tokens` and Site Settings.
 function applyDesignTokens(_ref7, raw) {
@@ -19648,7 +20095,11 @@ function applyDesignTokens(_ref7, raw) {
   var block = tokenCssBlock(tokens);
   // `g`: an imported page can carry a token block from the capture AND the one the design system
   // installed, and a token edit has to win in both places.
-  var nextCss = /:root\{--ink-t-bg:/.test(existing) ? existing.replace(/:root\{--ink-t-bg:[^}]*\}/g, block) : "".concat(block, "\n").concat(existing);
+  var withTokens = /:root\{--ink-t-bg:/.test(existing) ? existing.replace(/:root\{--ink-t-bg:[^}]*\}/g, block) : "".concat(block, "\n").concat(existing);
+  // A token is only real once a rule reads it. Installing the consuming sheet here is what makes
+  // `set_design_tokens` style a page on its own, instead of leaving `--ink-t-*` on `:root` with
+  // nothing on screen following it.
+  var nextCss = ensureDesignRules(withTokens);
   // The Copilot passes a history-recording commit; the panel writes straight through.
   if (typeof commit === 'function') commit(nextCss, customCode.getJs(), label);else customCode.update(nextCss, customCode.getJs());
   return tokens;
@@ -28574,6 +29025,151 @@ function describeInteraction(record) {
   var target = record.target === 'query' ? record.selector : (INTERACTION_TARGET_LABELS[record.target] || record.target).toLowerCase();
   var suffix = record.state || record.className || '';
   return "".concat(event, " \u2192 ").concat(action).concat(suffix ? " ".concat(suffix) : '', " (").concat(target, ")");
+}
+
+/***/ }),
+
+/***/ "./src/core/styleValues.js":
+/*!*********************************!*\
+  !*** ./src/core/styleValues.js ***!
+  \*********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   BORDER_KEYS: () => (/* binding */ BORDER_KEYS),
+/* harmony export */   BOX_KEYS: () => (/* binding */ BOX_KEYS),
+/* harmony export */   FILTER_KEYS: () => (/* binding */ FILTER_KEYS),
+/* harmony export */   GAP_KEYS: () => (/* binding */ GAP_KEYS),
+/* harmony export */   SHADOW_KEYS: () => (/* binding */ SHADOW_KEYS),
+/* harmony export */   SIZE_KEYS: () => (/* binding */ SIZE_KEYS),
+/* harmony export */   STROKE_KEYS: () => (/* binding */ STROKE_KEYS),
+/* harmony export */   isRecord: () => (/* binding */ isRecord),
+/* harmony export */   isUnsupportedValue: () => (/* binding */ isUnsupportedValue),
+/* harmony export */   normalizeStyleValue: () => (/* binding */ normalizeStyleValue),
+/* harmony export */   normalizeStyleValues: () => (/* binding */ normalizeStyleValues),
+/* harmony export */   previewValue: () => (/* binding */ previewValue),
+/* harmony export */   shapeOf: () => (/* binding */ shapeOf),
+/* harmony export */   sizeCss: () => (/* binding */ sizeCss),
+/* harmony export */   toSize: () => (/* binding */ toSize)
+/* harmony export */ });
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+// Style values have five producers -- the panel controls, the Copilot, the Sections library, the
+// importer, and drag & drop -- and every one of them has to mean the same thing to the compiler.
+//
+// Two spellings of a size exist in the wild: the builder's canonical `{ size, unit }` and the
+// CSS-native `{ value, unit }`. Both express the same intent, so both are accepted and normalized
+// to the canonical shape at the storage boundary, which is also what the inspector controls read.
+//
+// A record that is none of the known shapes has no CSS meaning. The compiler drops and reports it
+// instead of stringifying it into the stylesheet, because `width:[object Object]` is how a designed
+// page silently degrades back into a pile of unstyled containers.
+
+var isRecord = function isRecord(value) {
+  return Boolean(value) && _typeof(value) === 'object' && !Array.isArray(value);
+};
+var present = function present(value, keys) {
+  return keys.some(function (key) {
+    return Object.hasOwn(value, key) && value[key] !== undefined && value[key] !== null;
+  });
+};
+var SIZE_KEYS = ['size', 'value'];
+var BOX_KEYS = ['top', 'right', 'bottom', 'left'];
+var GAP_KEYS = ['row', 'column'];
+var SHADOW_KEYS = ['x', 'y'];
+var FILTER_KEYS = ['blur', 'brightness', 'contrast', 'saturate', 'hue'];
+var BORDER_KEYS = ['style', 'width'];
+var STROKE_KEYS = ['strokeWidth'];
+
+// Which record this is. `unknown` means the compiler has no way to render it as CSS.
+function shapeOf(value) {
+  if (!isRecord(value)) return _typeof(value);
+  if (present(value, FILTER_KEYS) && !present(value, SHADOW_KEYS)) return 'filter';
+  if (present(value, STROKE_KEYS)) return 'stroke';
+  if (present(value, SIZE_KEYS)) return 'size';
+  if (present(value, BOX_KEYS)) return 'box';
+  if (present(value, GAP_KEYS)) return 'gap';
+  if (present(value, SHADOW_KEYS)) return 'shadow';
+  if (present(value, BORDER_KEYS)) return 'border';
+  return 'unknown';
+}
+
+// The canonical `{ size, unit }` for either spelling, or null when this is not a size at all.
+function toSize(value) {
+  if (shapeOf(value) !== 'size') return null;
+  var raw = Object.hasOwn(value, 'size') ? value.size : value.value;
+  var size = Number(raw);
+  if (!Number.isFinite(size)) return null;
+  return {
+    size: size,
+    unit: typeof value.unit === 'string' && value.unit ? value.unit : 'px'
+  };
+}
+function sizeCss(value) {
+  var size = toSize(value);
+  return size ? "".concat(size.size).concat(size.unit) : null;
+}
+
+// True when the compiler will have to drop this value: a record it does not recognize, or a size
+// whose magnitude is not a number. Callers use this to warn at write time, before the value is
+// stored and the design quietly stops applying.
+function isUnsupportedValue(value) {
+  if (!isRecord(value)) return false;
+  var shape = shapeOf(value);
+  if (shape === 'unknown') return true;
+  if (shape === 'size') return toSize(value) === null;
+  return false;
+}
+
+// Repair a single value into canonical storage shape. Anything unrecognized is returned untouched
+// rather than dropped: the audit reports it, and losing an author's value would be worse than
+// publishing a declaration the compiler can skip.
+function normalizeStyleValue(value) {
+  if (Array.isArray(value)) return value.map(function (item) {
+    return normalizeStyleValue(item);
+  });
+  if (!isRecord(value)) return value;
+  var shape = shapeOf(value);
+  if (shape === 'size') return toSize(value) || value;
+  // Records with independent sides share one unit; storing it explicitly keeps the inspector
+  // control and the compiler reading the same thing.
+  if ((shape === 'box' || shape === 'gap') && typeof value.unit !== 'string') return _objectSpread({
+    unit: 'px'
+  }, value);
+  return value;
+}
+
+// Normalize one (device, state) control map.
+function normalizeStyleValues() {
+  var settings = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  var out = {};
+  for (var _i = 0, _Object$entries = Object.entries(settings); _i < _Object$entries.length; _i++) {
+    var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
+      key = _Object$entries$_i[0],
+      value = _Object$entries$_i[1];
+    out[key] = normalizeStyleValue(value);
+  }
+  return out;
+}
+
+// A short, safe preview of a value for tool warnings and audit messages.
+function previewValue(value) {
+  if (value === null || value === undefined) return String(value);
+  if (_typeof(value) !== 'object') return String(value).slice(0, 60);
+  if (Array.isArray(value)) return "[".concat(value.length, " items]");
+  return "{".concat(Object.keys(value).slice(0, 6).join(', '), "}");
 }
 
 /***/ }),

@@ -655,6 +655,63 @@ async function main() {
     check("selection opens schema-driven controls", state.controls > 0, `${state.controls} controls`);
     check("canvas renders Ink element overlays", state.overlays === 3, `${state.overlays} overlays`);
 
+    // The style contract. A payload that spells a size `{ value, unit }` must publish as 7px, and a
+    // record the compiler cannot express must be reported rather than stringified into the sheet as
+    // "[object Object]" -- which is what silently turned a 7px accent dot into a 120x80 slab.
+    state = await client.evaluate(`(function(){
+      var b=window.builder, r=b.runtime, canvas=b.iframeDoc;
+      // This probe mutates the page, so it snapshots the custom code and the history depth, and puts
+      // both back before the next check runs. Undoing the depth back is what keeps a later check's
+      // "one gesture, one undo step" contract measurable: the stack has a hard limit, and leftover
+      // entries would push a later gesture into the shifting ceiling instead of growing.
+      var cssBefore=b.customCode.getCss(), jsBefore=b.customCode.getJs(), depthBefore=r.history.undoStack.length;
+      var styles=function(){ return canvas.getElementById('ink-builder-v2-styles').textContent; };
+      // Ask the compiler for one element's own rule rather than scraping the sheet: a node id can
+      // start with a digit, which CSS.escape renders as an escape sequence in the published selector.
+      var ruleFor=function(node){ return r.styles.nodeRules(node); };
+      var dot=r.insert('frame', {}, { settings:{label:'Smoke dot'}, styles:{desktop:{base:{display:'block','width':{unit:'px',value:7},'height':{unit:'px',value:7},background:'#B4451F'}}} });
+      var dotCss=ruleFor(dot);
+      var dotRect=canvas.querySelector('[data-ink-element-id="'+dot.id+'"]').getBoundingClientRect();
+      var dotSize=Math.round(dotRect.width)+'x'+Math.round(dotRect.height);
+      var stored=JSON.parse(JSON.stringify(r.document.get(dot.id).styles.desktop.base));
+      var rogue=r.insert('paragraph', {parentId:null}, { settings:{text:'Rogue',cssClasses:'smoke-inert-hook'}, styles:{desktop:{base:{'width':{nonsense:true}}}} });
+      var rogueRule=ruleFor(rogue);
+      var setStyles=JSON.parse(b.copilotTools.execute('set_styles', {id:rogue.id, styles:{desktop:{base:{'min-height':{unit:'px',value:12}}}}}).content);
+      var audit=JSON.parse(b.copilotTools.execute('audit_design', {}).content);
+      var codes=audit.issues.map(function(issue){return issue.code;});
+      var sheet=styles();
+      // The merge path matters as much as the insert path: a frame that already carries the default
+      // 120px floor must still yield it when a later edit (the panel or set_styles) sizes it.
+      var merge=r.insert('frame', {});
+      var floorBefore=r.document.get(merge.id).styles.desktop.base['min-width'];
+      b.copilotTools.execute('set_styles', {id:merge.id, styles:{desktop:{base:{width:{size:9,unit:'px'}}}}});
+      var floorAfter=r.document.get(merge.id).styles.desktop.base['min-width'];
+      b.copilotTools.execute('set_design_tokens', { tokens:{ colors:{ accent:'#B4451F', background:'#F7F4EE' }, typography:{ baseSize:17 } } });
+      var cssAfter=b.customCode.getCss();
+      var guard=0;
+      while (r.history.undoStack.length > depthBefore && guard++ < 30) r.history.undo();
+      b.customCode.update(cssBefore, jsBefore);
+      return {
+        historyRestored: r.history.undoStack.length === depthBefore,
+        sizeRepaired: JSON.stringify(stored.width)==='{"size":7,"unit":"px"}' && JSON.stringify(stored.height)==='{"size":7,"unit":"px"}',
+        dotCompiled: dotCss.indexOf('width:7px')>=0 && dotCss.indexOf('height:7px')>=0,
+        dotSize: dotSize,
+        dotFloorYielded: !('min-width' in stored) && !('min-height' in stored),
+        mergeFloorYielded: floorBefore !== undefined && floorAfter === undefined,
+        noObjectObject: sheet.indexOf('[object Object]')<0,
+        rogueDropped: rogueRule==='',
+        warned: (setStyles.warnings||[]).length>0,
+        auditCodes: codes,
+        tokensConsumed: cssAfter.indexOf('.ink-arch-section')>=0 && cssAfter.indexOf('.ink-el-heading')>=0 && cssAfter.indexOf('--ink-t-h1')>=0,
+        tokensRestored: b.customCode.getCss()===cssBefore
+      };
+    })()`);
+    check("a { value, unit } size is stored, published, and rendered as a size", state.sizeRepaired && state.dotCompiled && state.dotSize === '7x7' && state.dotFloorYielded && state.mergeFloorYielded && state.historyRestored, JSON.stringify(state));
+    check("the compiler never publishes an object as a declaration", state.noObjectObject && state.rogueDropped, JSON.stringify(state));
+    check("an uncompilable value is reported back to the caller", state.warned, JSON.stringify(state));
+    check("audit_design reports dropped values and inert class hooks", state.auditCodes.indexOf('uncompilable-styles')>=0 && state.auditCodes.indexOf('inert-class-hooks')>=0, JSON.stringify(state));
+    check("set_design_tokens installs the stylesheet that consumes the tokens", state.tokensConsumed && state.tokensRestored, JSON.stringify(state));
+
     state = await client.evaluate(`(function(){
       var r=builder.runtime, canvas=builder.iframeDoc;
       var timeline=r.insert('timeline-accordion',{}, {settings:{behavior:'single',defaultOpen:0,transitionDuration:120,items:[

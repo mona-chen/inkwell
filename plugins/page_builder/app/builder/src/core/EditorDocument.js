@@ -1,5 +1,5 @@
 const clone = (value) => structuredClone(value);
-import { normalizeStyles, mergeStyles } from './StyleValueModel.js';
+import { normalizeStyles, mergeStyles, yieldSizeFloors } from './StyleValueModel.js';
 
 const BUTTON_SIZE_PRESETS = {
     xs: { fontSize: 13, padding: [10, 20], radius: 2 },
@@ -54,7 +54,13 @@ export default class EditorDocument {
                     delete node.settings.grouping;
                 }
             }
-            if (node && node.styles && typeof node.styles === 'object') node.styles = normalizeStyles(node.styles);
+            if (node && node.styles && typeof node.styles === 'object') {
+                node.styles = normalizeStyles(node.styles);
+                // A page saved before the floor rule learned to yield carries the element's placeholder
+                // min-size next to an explicit size. Treating the placeholder as authored is what kept
+                // a designed 7px accent dot rendering at 120x80, so heal it once here.
+                yieldSizeFloors(node.styles, { defaults: this.typeFloors(node.type) });
+            }
             if (node?.type === 'button' && BUTTON_SIZE_PRESETS[node.settings?.size]) {
                 const preset = BUTTON_SIZE_PRESETS[node.settings.size];
                 const base = node.styles.desktop.base;
@@ -133,11 +139,20 @@ export default class EditorDocument {
         return { from: origin, to: destination };
     }
 
+    // The element type's own default styles, normalized. Style writes need them to tell a
+    // placeholder size floor ("keep a fresh Frame visible") from one the author chose.
+    typeFloors(type) {
+        if (!this.registry?.has?.(type)) return null;
+        const definition = this.registry.get(type);
+        const defaults = typeof definition.defaults === 'function' ? definition.defaults() : (definition.defaults || {});
+        return defaults.styles ? normalizeStyles(defaults.styles) : null;
+    }
+
     update(id, patch) {
         const node = this.get(id);
         if (!node) throw new Error(`Unknown element id: ${id}`);
         if (patch.settings) node.settings = { ...node.settings, ...clone(patch.settings) };
-        if (patch.styles) node.styles = mergeStyles(node.styles, patch.styles);
+        if (patch.styles) node.styles = mergeStyles(node.styles, patch.styles, { defaultFloors: this.typeFloors(node.type) });
         this.emit('document:update', { id, patch: clone(patch) });
         return node;
     }

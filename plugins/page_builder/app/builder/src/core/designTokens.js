@@ -402,11 +402,34 @@ export const COMPONENT_CSS = `.ink-canvas-root .ink-arch-price-yearly{display:no
 .ink-canvas-root .ink-arch-orbit-deck{transform-style:preserve-3d;perspective:1200px}
 .ink-canvas-root .ink-arch-orbit-deck > *{transform-style:preserve-3d}`;
 
-// One stylesheet per page: the variables an author's own CSS can lean on, plus the archetype
-// vocabulary, the section rhythm and the component states. Emitted into the page's custom CSS,
-// ahead of any authored rules.
+// The token base layer: the rules that carry the palette and type scale onto RAW primitives, so a
+// page composed element by element (replace_page / append_tree) follows the same design language as
+// one composed from archetypes. Without this, tokens are variables nothing reads.
+//
+// Specificity is deliberate. `.ink-canvas-root :where(...)` is one class: it outranks the canvas
+// defaults (one class, earlier stylesheet) and always loses to the compiler's per-element rules
+// (`.ink-canvas-root .ink-el-<id>`, two classes), so an authored value is never overridden.
+export const BASE_CSS = `.ink-canvas-root :where(.ink-el-heading){margin:0;color:var(--ink-t-text);font-family:var(--ink-t-heading-font);font-weight:var(--ink-t-heading-weight);line-height:1.15;letter-spacing:var(--ink-t-heading-tracking);text-wrap:balance}
+.ink-canvas-root :where(h1.ink-el-heading){font-size:var(--ink-t-h1)}
+.ink-canvas-root :where(h2.ink-el-heading){font-size:var(--ink-t-h2)}
+.ink-canvas-root :where(h3.ink-el-heading){font-size:var(--ink-t-h3)}
+.ink-canvas-root :where(h4.ink-el-heading){font-size:var(--ink-t-h4)}
+.ink-canvas-root :where(h5.ink-el-heading){font-size:var(--ink-t-h5)}
+.ink-canvas-root :where(h6.ink-el-heading){font-size:var(--ink-t-small)}
+.ink-canvas-root :where(.ink-el-paragraph){margin:0;color:var(--ink-t-text);font-family:var(--ink-t-font);font-size:var(--ink-t-base);line-height:var(--ink-t-line);max-width:var(--ink-t-text-width)}
+.ink-canvas-root :where(.ink-el-link){color:inherit;text-decoration:none}
+.ink-canvas-root :where(.ink-el-link):hover{color:var(--ink-t-accent)}`;
+
+// The rules that CONSUME the token variables: archetype vocabulary, section rhythm, component
+// states, and the base layer above.
+export function designRuleCss() {
+    return `${ARCHETYPE_CSS}\n${SECTION_CSS}\n${COMPONENT_CSS}\n${BASE_CSS}`;
+}
+
+// One stylesheet per page: the variables an author's own CSS can lean on, plus every rule that
+// consumes them. Emitted into the page's custom CSS, ahead of any authored rules.
 export function designCss(raw) {
-    return `${tokenCssBlock(raw)}\n${ARCHETYPE_CSS}\n${SECTION_CSS}\n${COMPONENT_CSS}`;
+    return `${tokenCssBlock(raw)}\n${designRuleCss()}`;
 }
 
 // Just the custom properties, for callers that already carry the rest of the sheet (the importer
@@ -425,6 +448,15 @@ export function ensureDesignCss(css, raw) {
     return text ? `${installed}\n${text}` : installed;
 }
 
+// Install only the consuming rules, for callers that write the token variables themselves (a token
+// edit replaces the `:root` block in place, and must not leave the page with variables nothing
+// reads).
+export function ensureDesignRules(css) {
+    const text = String(css || '');
+    if (/\.ink-arch-section\b/.test(text)) return text;
+    return text ? `${designRuleCss()}\n${text}` : designRuleCss();
+}
+
 // Apply a design language to the live document: theme settings + the token variables in custom CSS.
 // History-aware (both calls are undoable), and shared by `set_design_tokens` and Site Settings.
 export function applyDesignTokens({ runtime, customCode }, raw, { label = 'Apply design tokens', commit } = {}) {
@@ -434,7 +466,11 @@ export function applyDesignTokens({ runtime, customCode }, raw, { label = 'Apply
     const block = tokenCssBlock(tokens);
     // `g`: an imported page can carry a token block from the capture AND the one the design system
     // installed, and a token edit has to win in both places.
-    const nextCss = /:root\{--ink-t-bg:/.test(existing) ? existing.replace(/:root\{--ink-t-bg:[^}]*\}/g, block) : `${block}\n${existing}`;
+    const withTokens = /:root\{--ink-t-bg:/.test(existing) ? existing.replace(/:root\{--ink-t-bg:[^}]*\}/g, block) : `${block}\n${existing}`;
+    // A token is only real once a rule reads it. Installing the consuming sheet here is what makes
+    // `set_design_tokens` style a page on its own, instead of leaving `--ink-t-*` on `:root` with
+    // nothing on screen following it.
+    const nextCss = ensureDesignRules(withTokens);
     // The Copilot passes a history-recording commit; the panel writes straight through.
     if (typeof commit === 'function') commit(nextCss, customCode.getJs(), label);
     else customCode.update(nextCss, customCode.getJs());
