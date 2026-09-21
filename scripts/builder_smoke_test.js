@@ -339,6 +339,262 @@ async function main() {
       return state;
     })()`);
     check("every library section inserts as editable canvas nodes with the design system, and undoes cleanly", state.inserted===state.names&&!state.failed.length&&state.tokens&&state.editable&&state.rendered&&state.reverted, JSON.stringify(state));
+    // ------------------------------------------------------------------
+    // Control UX: the value fields, the panel search, the per-control menu,
+    // layer identity, grid tracks, the easing editor and the target picker.
+    // Each check drives the real panel, so a control that only looks right
+    // fails here.
+    // ------------------------------------------------------------------
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      r.document.replace({version:2,type:'page',settings:{title:'Control UX'},children:[]});
+      var node=r.insert('container',{},{settings:{label:'Probe'}});
+      r.selection.select(node.id); p.activeTab='advanced'; p.render();
+      var row=document.querySelector('#SettingsContainer [data-ink-control="z-index"]');
+      var input=row&&row.querySelector('input[aria-label="Z-index"]');
+      if(!input) return {missing:true};
+      input.value='12*2'; input.dispatchEvent(new Event('change',{bubbles:true}));
+      var typed=r.document.get(node.id).styles.desktop.base['z-index'];
+      var field=document.querySelector('#SettingsContainer [data-ink-control="z-index"] input[aria-label="Z-index"]');
+      field.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));
+      var stepped=r.document.get(node.id).styles.desktop.base['z-index'];
+      var live=document.querySelector('#SettingsContainer [data-ink-control="z-index"] input[aria-label="Z-index"]');
+      live.value='not a number'; live.dispatchEvent(new Event('change',{bubbles:true}));
+      var invalid=live.getAttribute('aria-invalid')==='true';
+      var note=live.closest('.ink-v2-control').querySelector('.ink-v2-field-note');
+      return {typed:typed, stepped:stepped, invalid:invalid, kept:r.document.get(node.id).styles.desktop.base['z-index'], note:note?note.textContent:''};
+    })()`);
+    check("a number field evaluates typed maths and steps with the arrow keys", state.typed === 24 && state.stepped === 25, JSON.stringify(state));
+    check("a number field refuses nonsense with a reason instead of committing NaN", state.invalid === true && state.kept === 25 && /Try a number/.test(state.note || ''), JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      var node=r.document.data.children[0];
+      r.selection.select(node.id); p.activeTab='advanced'; p.render();
+      var row=document.querySelector('#SettingsContainer [data-ink-control="min-width"]');
+      if(!row) return {missing:true};
+      var input=row.querySelector('input[aria-label="Minimum width"]');
+      input.value='24rem'; input.dispatchEvent(new Event('change',{bubbles:true}));
+      var stored=r.document.get(node.id).styles.desktop.base['min-width'];
+      var after=document.querySelector('#SettingsContainer [data-ink-control="min-width"]');
+      var unit=after.querySelector('select[aria-label="Minimum width unit"]');
+      return {stored:stored, unit:unit&&unit.value, options:unit?Array.from(unit.options).map(function(option){return option.value}):[]};
+    })()`);
+    check("typing a unit moves the unit select instead of keeping the old one", state.stored && state.stored.size === 24 && state.stored.unit === 'rem' && state.unit === 'rem', JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      r.document.replace({version:2,type:'page',settings:{title:'Mixed'},children:[]});
+      var a=r.insert('container',{},{settings:{label:'A'},styles:{desktop:{base:{'z-index':1}}}});
+      var b=r.insert('container',{},{settings:{label:'B'},styles:{desktop:{base:{'z-index':9}}}});
+      r.selection.select(a.id); r.selection.select(b.id,{additive:true});
+      p.activeTab='advanced'; p.render();
+      var row=document.querySelector('#SettingsContainer [data-ink-control="z-index"]');
+      if(!row) return {missing:true};
+      var mixed=row.dataset.mixed==='1' && !!row.querySelector('.ink-v2-mixed-badge');
+      var empty=row.querySelector('input[aria-label="Z-index"]').value==='';
+      row.querySelector('input[aria-label="Z-index"]').value='4';
+      row.querySelector('input[aria-label="Z-index"]').dispatchEvent(new Event('change',{bubbles:true}));
+      return {mixed:mixed, empty:empty, applied:[r.document.get(a.id).styles.desktop.base['z-index'], r.document.get(b.id).styles.desktop.base['z-index']]};
+    })()`);
+    check("a control shared by several layers reads Mixed until one value is written for all of them", state.mixed === true && state.empty === true && state.applied[0] === 4 && state.applied[1] === 4, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      var node=r.document.data.children[0];
+      r.selection.select(node.id); p.activeTab='advanced'; p.render();
+      var search=document.querySelector('#SettingsContainer .ink-v2-control-search input');
+      if(!search) return {missing:true};
+      var total=document.querySelectorAll('#SettingsContainer .ink-v2-control').length;
+      search.value='z-index'; search.dispatchEvent(new Event('input',{bubbles:true}));
+      var visible=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control')).filter(function(row){return !row.hidden});
+      var count=document.querySelector('.ink-v2-control-search-count').textContent;
+      var hit=visible.length===1 && visible[0].dataset.inkControl==='z-index';
+      search.value='zzzzz'; search.dispatchEvent(new Event('input',{bubbles:true}));
+      var none=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control')).every(function(row){return row.hidden});
+      var explained=!document.querySelector('.ink-v2-control-search-empty').hidden;
+      search.value=''; search.dispatchEvent(new Event('input',{bubbles:true}));
+      var restored=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control')).every(function(row){return !row.hidden});
+      return {total:total, count:count, hit:hit, none:none, explained:explained, restored:restored};
+    })()`);
+    check("panel search narrows the settings on screen and explains when nothing matches", state.hit && state.count === `1 of ${state.total}` && state.none && state.explained && state.restored, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      var node=r.document.data.children[0];
+      r.update(node.id,{styles:{desktop:{base:{'z-index':3,'position':'absolute'}}}},'Seed positioning');
+      r.selection.select(node.id); p.activeTab='advanced'; p.render();
+      var row=document.querySelector('#SettingsContainer [data-ink-control="z-index"]');
+      var trigger=row.querySelector('.ink-v2-control-menu-trigger');
+      if(!trigger) return {missing:true};
+      trigger.click();
+      var menu=row.querySelector('.ink-v2-control-menu');
+      var items=Array.from(menu.querySelectorAll('button')).map(function(button){return button.textContent});
+      var open=!menu.hidden && trigger.getAttribute('aria-expanded')==='true';
+      Array.from(menu.querySelectorAll('button')).find(function(button){return button.textContent==='Reset to default'}).click();
+      var cleared=r.document.get(node.id).styles.desktop.base['z-index'];
+      var rowAgain=document.querySelector('#SettingsContainer [data-ink-control="z-index"]');
+      rowAgain.querySelector('.ink-v2-control-menu-trigger').click();
+      var menuAgain=rowAgain.querySelector('.ink-v2-control-menu');
+      var sectionEntry=Array.from(menuAgain.querySelectorAll('button')).find(function(button){return /^Reset [A-Z]/.test(button.textContent)});
+      var label=sectionEntry.textContent;
+      sectionEntry.click();
+      return {open:open, items:items, cleared:cleared, label:label, zIndex:r.document.get(node.id).styles.desktop.base['z-index'], position:r.document.get(node.id).styles.desktop.base.position};
+    })()`);
+    check("each control offers copy, paste, reset and a one-click section reset", state.open === true && state.items.length === 4 && state.cleared === '' && state.label === 'Reset Positioning' && (state.zIndex === '' || state.zIndex === undefined), JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      r.document.replace({version:2,type:'page',settings:{title:'Identity'},children:[]});
+      var node=r.insert('container',{},{settings:{label:'Card'}});
+      r.selection.select(node.id); p.activeTab='advanced'; p.render();
+      var classes=document.querySelector('#SettingsContainer [data-ink-control="cssClasses"] input');
+      var idField=document.querySelector('#SettingsContainer [data-ink-control="cssId"] input');
+      if(!classes||!idField) return {missing:true};
+      classes.value='ux-card hero-card'; classes.dispatchEvent(new Event('change',{bubbles:true}));
+      idField=document.querySelector('#SettingsContainer [data-ink-control="cssId"] input');
+      idField.value='ux-probe'; idField.dispatchEvent(new Event('change',{bubbles:true}));
+      var element=builder.canvasRoot.querySelector('[data-ink-element-id="'+node.id+'"]');
+      return {className:element?element.className:'', id:element?element.id:''};
+    })()`);
+    check("every layer carries class and ID controls, and the canvas applies them", /ux-card/.test(state.className) && /hero-card/.test(state.className) && state.id === 'ux-probe', JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      r.document.replace({version:2,type:'page',settings:{title:'Groups'},children:[]});
+      var node=r.insert('container',{},{settings:{label:'Grouped'}});
+      r.selection.select(node.id); p.activeTab='all'; p.render();
+      var order=['content','layout','typography','appearance','transform','responsive','component','interaction','motion','advanced'];
+      var groups=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-section-group'));
+      var keys=groups.map(function(group){return group.dataset.group});
+      var ranks=keys.map(function(key){return order.indexOf(key)});
+      var labels=groups.map(function(group){return group.querySelector('summary span').textContent});
+      var sections=Array.from(document.querySelectorAll('#SettingsContainer details[data-section]')).map(function(section){return section.dataset.section});
+      return {
+        keys:keys, ranks:ranks, labels:labels,
+        sorted:ranks.every(function(rank,index){return rank>=0&&(index===0||rank>=ranks[index-1])}),
+        nested:groups.length>0&&groups.every(function(group){return group.querySelectorAll('.ink-v2-section-list > .ink-v2-control-section').length>0}),
+        open:groups.filter(function(group){return group.open}).map(function(group){return group.dataset.group}),
+        closed:groups.filter(function(group){return !group.open}).length,
+        vague:labels.filter(function(label){return /Additional Options|Decorations/.test(label)}).length,
+        straySection:sections.filter(function(section){return /additional-options|decorations/.test(section)}).length
+      };
+    })()`);
+    check("the inspector groups its sections under a handful of named buckets", !!state.keys && state.keys.length >= 3 && state.keys.length <= 8 && state.sorted && state.nested && state.open.length > 0 && state.closed > 0 && state.vague === 0 && state.straySection === 0, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      r.document.replace({version:2,type:'page',settings:{title:'States'},children:[]});
+      var node=r.insert('container',{},{settings:{label:'Accordion',stateNames:['open']}});
+      r.selection.select(node.id); p.activeTab='all'; p.render();
+      var bar=document.querySelector('#SettingsContainer .ink-inspector-states');
+      var select=bar&&bar.querySelector('select');
+      if(!select) return {missing:true};
+      var options=Array.from(select.options).map(function(option){return option.value});
+      select.value='state:open'; select.dispatchEvent(new Event('change',{bubbles:true}));
+      var element=builder.canvasRoot.querySelector('[data-ink-element-id="'+node.id+'"]');
+      var result={options:options, preview:element?element.dataset.inkState:null, perSection:document.querySelectorAll('#SettingsContainer details[data-section] > summary > .ink-v2-states').length};
+      p.activeState='base'; r.remove(node.id); p.render();
+      return result;
+    })()`);
+    check("one state selector in the inspector previews a state for every section", state.options && state.options.indexOf('state:open') >= 0 && state.preview === 'open' && state.perSection === 0, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      r.document.replace({version:2,type:'page',settings:{title:'Grid'},children:[]});
+      var node=r.insert('container',{},{settings:{label:'Grid probe'},styles:{desktop:{base:{display:'grid'}}}});
+      r.selection.select(node.id); p.activeTab='content'; p.render();
+      var row=document.querySelector('#SettingsContainer [data-ink-control="grid-template-columns"]');
+      if(!row) return {missing:true, sections:Array.from(document.querySelectorAll('#SettingsContainer details')).map(function(section){return section.dataset.section})};
+      var presets=Array.from(row.querySelectorAll('.ink-v2-tracks-presets button')).map(function(button){return button.textContent});
+      var rail=row.querySelectorAll('.ink-v2-tracks-segment').length;
+      Array.from(row.querySelectorAll('.ink-v2-tracks-presets button')).find(function(button){return button.textContent==='3'}).click();
+      var stored=r.document.get(node.id).styles.desktop.base['grid-template-columns'];
+      var again=document.querySelector('#SettingsContainer [data-ink-control="grid-template-columns"]');
+      again.querySelector('.ink-v2-tracks-count button:last-child').click();
+      return {presets:presets, rail:rail, stored:stored, grown:r.document.get(node.id).styles.desktop.base['grid-template-columns']};
+    })()`);
+    check("grid columns are edited as tracks, not as a template string", Array.isArray(state.presets) && state.stored === 'repeat(3, 1fr)' && state.grown === 'repeat(4, 1fr)', JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      var node=r.document.data.children[0];
+      r.selection.select(node.id); p.activeTab='advanced'; p.render();
+      var row=document.querySelector('#SettingsContainer [data-ink-control="motion"]');
+      if(!row) return {missing:true};
+      // The first view names the effect and offers a preview; the physics stay one disclosure down.
+      var animation=document.querySelector('#SettingsContainer [data-ink-control="motion"] select[aria-label="Animation"]');
+      var advanced=document.querySelector('#SettingsContainer [data-ink-control="motion"] .ink-v2-motion-advanced');
+      var shell={options:Array.from(animation.options).map(function(option){return option.value}), closed:advanced?advanced.open===false:null, physicsInside:!!(advanced&&advanced.querySelector('.ink-v2-easing-spring'))};
+      animation.value='fade-up'; animation.dispatchEvent(new Event('change',{bubbles:true}));
+      var summary=document.querySelector('#SettingsContainer [data-ink-control="motion"] .ink-v2-motion-summary-text');
+      var frames=document.querySelectorAll('#SettingsContainer [data-ink-control="motion"] .ink-v2-timeline-row').length;
+      var add=Array.from(document.querySelectorAll('#SettingsContainer [data-ink-control="motion"] .ink-v2-timeline-tools button')).find(function(button){return button.textContent==='Add keyframe'});
+      add.click();
+      var grew=(r.document.get(node.id).settings.motion.keyframes||[]).length;
+      var preset=document.querySelector('#SettingsContainer [data-ink-control="motion"] .ink-v2-easing select');
+      var options=Array.from(preset.options).map(function(option){return option.value});
+      preset.value='back-out'; preset.dispatchEvent(new Event('change',{bubbles:true}));
+      var easing=r.document.get(node.id).settings.motion.easing;
+      document.querySelector('#SettingsContainer [data-ink-control="motion"] .ink-v2-easing-toggle').click();
+      var body=document.querySelector('#SettingsContainer [data-ink-control="motion"] .ink-v2-easing-body');
+      var path=body.querySelector('.ink-v2-easing-path');
+      var handles=body.querySelectorAll('.ink-v2-easing-handle').length;
+      var springTab=Array.from(body.querySelectorAll('.ink-v2-easing-tabs button')).find(function(button){return button.textContent==='Spring'});
+      springTab.click();
+      var spring=body.querySelector('.ink-v2-easing-spring');
+      var stiffness=spring.querySelector('input');
+      stiffness.value='300'; stiffness.dispatchEvent(new Event('change',{bubbles:true}));
+      var motion=r.document.get(node.id).settings.motion;
+      return {shell:shell, summary:summary?summary.textContent:'', frames:frames, grew:grew, options:options, easing:easing, path:path?path.getAttribute('d').slice(0,12):'', handles:handles, springEasing:motion&&motion.easing, springParams:motion&&motion.spring};
+    })()`);
+    check("motion leads with a named effect and a preview, and keeps physics under Advanced", !!state.shell && state.shell.options.indexOf('none') >= 0 && state.shell.options.indexOf('fade-up') >= 0 && state.shell.closed === true && state.shell.physicsInside && /Fade/.test(state.summary), JSON.stringify(state.shell) + ' ' + (state.summary || ''));
+    check("keyframes are a timeline of rows rather than a JSON blob", state.frames === 2 && state.grew === 3, JSON.stringify(state));
+    check("the easing editor offers presets, a drawable curve, and a spring that writes legal CSS", state.options.indexOf('back-out') >= 0 && state.easing === 'cubic-bezier(0.34,1.56,0.64,1)' && /^M/.test(state.path || '') && state.handles === 2 && /^cubic-bezier\(/.test(state.springEasing || '') && state.springParams && state.springParams.stiffness === 300, JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      var node=r.document.data.children[0];
+      r.selection.select(node.id); p.activeTab='advanced'; p.render();
+      document.querySelector('#SettingsContainer [data-ink-control="motion"] .ink-v2-easing-toggle').click();
+      var chips=Array.from(document.querySelectorAll('#SettingsContainer [data-ink-control="motion"] .ink-v2-easing-chip'));
+      var snappy=chips.find(function(chip){return chip.textContent==='Snappy'});
+      if(!snappy) return {missing:true};
+      snappy.click();
+      var again=Array.from(document.querySelectorAll('#SettingsContainer [data-ink-control="motion"] .ink-v2-easing-chip'));
+      return {chips:chips.map(function(chip){return chip.textContent}), easing:r.document.get(node.id).settings.motion.easing, active:!!again.find(function(chip){return chip.textContent==='Snappy'&&chip.classList.contains('is-active')})};
+    })()`);
+    check("easing presets are named for designers rather than for maths", state.easing === 'cubic-bezier(0.16,1,0.3,1)' && state.active === true && (state.chips || []).indexOf('Custom') >= 0, JSON.stringify(state));
+
+    state = await client.evaluate(`(async function(){
+      var r=builder.runtime, p=r.settingsPanel;
+      r.document.replace({version:2,type:'page',settings:{title:'Picker'},children:[]});
+      var panel=r.insert('container',{},{settings:{label:'Mega panel'}});
+      var trigger=r.insert('button',{},{settings:{text:'Open'}});
+      // A selector target needs a selector to exist at all, so seed a placeholder and let the
+      // picker replace it with the layer the author clicks.
+      r.update(trigger.id,{settings:{interactions:[{on:'click',action:'toggleState',target:'query',selector:'.ink-el-missing',state:'open'}]}},'Seed interaction');
+      r.selection.select(trigger.id); p.activeTab='advanced'; p.render();
+      var row=document.querySelector('#SettingsContainer [data-ink-control="interactions"]');
+      var pick=row&&Array.from(row.querySelectorAll('button')).find(function(button){return button.textContent==='Pick on canvas'});
+      if(!pick) return {missing:true};
+      var unresolved=row.querySelector('.ink-v2-target-status');
+      var before=unresolved&&unresolved.dataset.state;
+      pick.click();
+      await new Promise(function(resolve){setTimeout(resolve,40)});
+      var armed=pick.classList.contains('is-armed');
+      builder.canvasRoot.querySelector('[data-ink-element-id="'+panel.id+'"]').click();
+      await new Promise(function(resolve){setTimeout(resolve,40)});
+      var stored=r.document.get(trigger.id).settings.interactions[0];
+      var status=document.querySelector('#SettingsContainer [data-ink-control="interactions"] .ink-v2-target-status');
+      var result={before:before, armed:armed, selector:stored.selector, status:status&&status.textContent, found:status&&status.dataset.state};
+      // Put the canvas back the way this block found it: an empty document, the default tab, and no
+      // armed picker. Leaking any of the three would fail unrelated checks further down the run.
+      p.activeTab='all'; p.controlFilter=''; r.selection.cancelPick();
+      r.remove(trigger.id); r.remove(panel.id); p.render();
+      return result;
+    })()`);
+    check("an interaction target is picked on the canvas instead of typed as a selector", state.before === 'missing' && state.armed === true && state.found === 'found' && /^\.ink-el-/.test(state.selector || '') && /Mega panel/.test(state.status || ''), JSON.stringify(state));
     state = await client.evaluate(`(function(){var button=document.querySelector('.ink-v2-panel-collapse');var resizer=document.querySelector('.ink-v2-panel-resizer');button.click();var collapsed=document.body.classList.contains('ink-panel-collapsed');button.click();return {button:!!button,resizer:!!resizer,collapsed:collapsed,restored:!document.body.classList.contains('ink-panel-collapsed')}})()`);
     check("Ink panel can resize and collapse", state.button && state.resizer && state.collapsed && state.restored, JSON.stringify(state));
     state = await client.evaluate(`(function(){var n=builder.navigator;n.toggle();var visible=!n.window.hidden;n.setDocked(true);var docked=n.window.classList.contains('is-docked')&&document.body.classList.contains('ink-structure-docked');n.hide();return {visible:visible,docked:docked,hidden:n.window.hidden&&!document.body.classList.contains('ink-structure-docked')}})()`);
@@ -881,7 +1137,9 @@ async function main() {
     state = await client.evaluate(`(function(){
       var b=builder,r=b.runtime,p=r.settingsPanel,before=JSON.stringify(b.getData());
       var n=r.insert('container',{},{});r.selection.select(n.id);p.activeTab='all';p.render();
-      var sectionNames=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-controls > details > summary > span:first-child')).map(function(x){return x.textContent;});
+      // Sections now live inside named groups, so read them in document order rather than as direct
+      // children of the controls host.
+      var sectionNames=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-controls details[data-section] > summary > span:first-child')).map(function(x){return x.textContent;});
       var ordered=['Position','Layout','Appearance','Fill','Stroke','Effects'].every(function(name,i,list){return sectionNames.includes(name)&&(!i||sectionNames.indexOf(name)>sectionNames.indexOf(list[i-1]));});
       var slider=document.querySelector('#SettingsContainer [data-ink-control="opacity"] input[type="range"]');
       slider.closest('details').open=true;slider.focus();var start=r.history.undoStack.length;
@@ -1451,6 +1709,9 @@ async function main() {
       var adv=Array.from(tabs).find(function(t){return /advanced/i.test(t.textContent);}); if(adv)adv.click();
       var scaleRow=doc.querySelector('.ink-v2-control[data-ink-control="scale"]');
       var input=scaleRow&&scaleRow.querySelector('input');
+      // Scale sits in a group that starts collapsed, so open it the way an author would.
+      var ancestor=scaleRow&&scaleRow.closest('details');
+      while(ancestor){ancestor.open=true;ancestor=ancestor.parentElement&&ancestor.parentElement.closest('details');}
       var focused=false; if(input){ input.focus(); focused=doc.activeElement===input; input.value='1.5'; }
       // A live edit re-renders the panel via document:update (just like typing in Scale).
       r.update(el.id,{styles:{base:{scale:1.5}}},'Set scale');
@@ -1508,7 +1769,7 @@ async function main() {
       r.selection.select(btn.id);
       var styleTab=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-tabs button')).find(function(t){return t.textContent.trim().toLowerCase().endsWith('style')});
       if(styleTab) styleTab.click();
-      result.statesSwitcher=!!document.querySelector('#SettingsContainer .ink-v2-states');
+      result.statesSwitcher=!!document.querySelector('#SettingsContainer .ink-inspector-states select');
       r.remove(container.id);
       return result;
     })()`);

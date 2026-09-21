@@ -8101,10 +8101,42 @@ var EditorRuntime = /*#__PURE__*/function () {
     this.registerControls();
   }
 
-  // Panel control renderers, composably registered so PanelManager stays thin. Each
-  // renderer is an independent module with the uniform contract
-  // (panel, control, node, value, row) => row.
+  // Ask the author to click a layer on the canvas on a control's behalf. Resolves with the
+  // element id, or null when the pick is cancelled (Escape, or arming another pick).
   return _createClass(EditorRuntime, [{
+    key: "pickElement",
+    value: function pickElement() {
+      var _this2 = this;
+      if (this.selection.pendingPick) this.selection.cancelPick();
+      return new Promise(function (resolve) {
+        var finish = function finish(id) {
+          offPicked();
+          offCancelled();
+          document.removeEventListener('keydown', onKey, true);
+          resolve(id);
+        };
+        var onKey = function onKey(event) {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            _this2.selection.cancelPick();
+          }
+        };
+        var offPicked = _this2.events.on('picker:picked', function (_ref5) {
+          var id = _ref5.id;
+          return finish(id);
+        });
+        var offCancelled = _this2.events.on('picker:cancelled', function () {
+          return finish(null);
+        });
+        document.addEventListener('keydown', onKey, true);
+        _this2.selection.armPick();
+      });
+    }
+
+    // Panel control renderers, composably registered so PanelManager stays thin. Each
+    // renderer is an independent module with the uniform contract
+    // (panel, control, node, value, row) => row.
+  }, {
     key: "registerControls",
     value: function registerControls() {
       var controls = this.controls;
@@ -8146,6 +8178,9 @@ var EditorRuntime = /*#__PURE__*/function () {
       });
       controls.register('button', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.actionButton);
       controls.register('hidden', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.hidden);
+      controls.register('number', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.number);
+      controls.register('size', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.size);
+      controls.register('grid-tracks', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.gridTracks);
       controls.register('state-names', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.stateNames);
       controls.register('interactions', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.interactions);
     }
@@ -8157,9 +8192,9 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "mount",
     value: function mount(root) {
-      var _ref5 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
-        panel = _ref5.panel,
-        settingsPanel = _ref5.settingsPanel;
+      var _ref6 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+        panel = _ref6.panel,
+        settingsPanel = _ref6.settingsPanel;
       this.canvas.mount(root);
       if (panel) {
         this.panel = new _PanelManager_js__WEBPACK_IMPORTED_MODULE_13__["default"]({
@@ -8187,17 +8222,17 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "insert",
     value: function insert(type) {
-      var _this2 = this;
+      var _this3 = this;
       var target = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       var overrides = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
       var node = this.create(type, overrides);
       this.history.execute({
         label: "Add ".concat(this.elements.get(type).title),
         "do": function _do() {
-          return _this2.document.insert(node, target);
+          return _this3.document.insert(node, target);
         },
         undo: function undo() {
-          return _this2.document.remove(node.id);
+          return _this3.document.remove(node.id);
         }
       });
       return node;
@@ -8205,19 +8240,19 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "update",
     value: function update(id, patch) {
-      var _this3 = this;
+      var _this4 = this;
       var label = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'Change settings';
       var before = structuredClone(this.document.get(id));
       this.history.execute({
         label: label,
         "do": function _do() {
-          return _this3.document.update(id, patch);
+          return _this4.document.update(id, patch);
         },
         undo: function undo() {
-          var node = _this3.document.get(id);
+          var node = _this4.document.get(id);
           node.settings = before.settings;
           node.styles = before.styles;
-          _this3.events.emit('document:update', {
+          _this4.events.emit('document:update', {
             id: id,
             patch: before
           });
@@ -8227,19 +8262,19 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "updateDocumentSettings",
     value: function updateDocumentSettings(patch) {
-      var _this4 = this;
+      var _this5 = this;
       var label = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'Change page settings';
       var before = structuredClone(this.document.data.settings);
       this.history.execute({
         label: label,
         "do": function _do() {
-          _this4.document.updateSettings(patch);
-          if (patch.breakpoints) _this4.responsive.breakpoints = _objectSpread(_objectSpread({}, _this4.responsive.breakpoints), patch.breakpoints);
+          _this5.document.updateSettings(patch);
+          if (patch.breakpoints) _this5.responsive.breakpoints = _objectSpread(_objectSpread({}, _this5.responsive.breakpoints), patch.breakpoints);
         },
         undo: function undo() {
-          _this4.document.data.settings = before;
-          _this4.responsive.breakpoints = _objectSpread({}, before.breakpoints);
-          _this4.events.emit('document:settings', {
+          _this5.document.data.settings = before;
+          _this5.responsive.breakpoints = _objectSpread({}, before.breakpoints);
+          _this5.events.emit('document:settings', {
             settings: structuredClone(before)
           });
         }
@@ -8248,7 +8283,7 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "remove",
     value: function remove(id) {
-      var _this5 = this;
+      var _this6 = this;
       var node = this.document.get(id);
       if (!node) return false;
       var selectedPath = this.selection.selectedId ? this.document.pathTo(this.selection.selectedId) : [];
@@ -8263,10 +8298,10 @@ var EditorRuntime = /*#__PURE__*/function () {
       this.history.execute({
         label: 'Delete element',
         "do": function _do() {
-          return _this5.document.remove(id);
+          return _this6.document.remove(id);
         },
         undo: function undo() {
-          return _this5.document.insert(node, origin);
+          return _this6.document.insert(node, origin);
         }
       });
       if (selectedPath.some(function (ancestor) {
@@ -8277,12 +8312,12 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "removeMany",
     value: function removeMany(ids) {
-      var _this6 = this;
+      var _this7 = this;
       var unique = _toConsumableArray(new Set(ids)).filter(function (id) {
-        return _this6.document.get(id);
+        return _this7.document.get(id);
       });
       var roots = unique.filter(function (id) {
-        return !_this6.document.pathTo(id).slice(0, -1).some(function (node) {
+        return !_this7.document.pathTo(id).slice(0, -1).some(function (node) {
           return unique.includes(node.id);
         });
       });
@@ -8292,11 +8327,11 @@ var EditorRuntime = /*#__PURE__*/function () {
         label: "Delete ".concat(roots.length, " element").concat(roots.length === 1 ? '' : 's'),
         "do": function _do() {
           return roots.forEach(function (id) {
-            return _this6.document.remove(id);
+            return _this7.document.remove(id);
           });
         },
         undo: function undo() {
-          return _this6.document.replace(before);
+          return _this7.document.replace(before);
         }
       });
       this.selection.clear();
@@ -8305,7 +8340,7 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "move",
     value: function move(id, target) {
-      var _this7 = this;
+      var _this8 = this;
       var parent = this.document.parentOf(id);
       var siblings = parent ? parent.children : this.document.data.children;
       var origin = {
@@ -8317,16 +8352,16 @@ var EditorRuntime = /*#__PURE__*/function () {
       this.history.execute({
         label: 'Move element',
         "do": function _do() {
-          return _this7.document.move(id, target);
+          return _this8.document.move(id, target);
         },
         undo: function undo() {
-          var currentParent = _this7.document.parentOf(id);
-          var currentSiblings = currentParent ? currentParent.children : _this7.document.data.children;
+          var currentParent = _this8.document.parentOf(id);
+          var currentSiblings = currentParent ? currentParent.children : _this8.document.data.children;
           var currentIndex = currentSiblings.findIndex(function (node) {
             return node.id === id;
           });
           var insertionIndex = origin.index + (origin.parentId === ((currentParent === null || currentParent === void 0 ? void 0 : currentParent.id) || null) && currentIndex < origin.index ? 1 : 0);
-          _this7.document.move(id, {
+          _this8.document.move(id, {
             parentId: origin.parentId,
             index: insertionIndex
           });
@@ -8336,7 +8371,7 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "duplicate",
     value: function duplicate(id) {
-      var _this8 = this;
+      var _this9 = this;
       var source = this.document.get(id);
       if (!source) return null;
       var _regenerate = function regenerate(node) {
@@ -8355,13 +8390,13 @@ var EditorRuntime = /*#__PURE__*/function () {
       this.history.execute({
         label: 'Duplicate element',
         "do": function _do() {
-          return _this8.document.insert(copy, {
+          return _this9.document.insert(copy, {
             parentId: (parent === null || parent === void 0 ? void 0 : parent.id) || null,
             index: index
           });
         },
         undo: function undo() {
-          return _this8.document.remove(copy.id);
+          return _this9.document.remove(copy.id);
         }
       });
       this.selection.select(copy.id);
@@ -8374,13 +8409,13 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "canGroupSelection",
     value: function canGroupSelection() {
-      var _this9 = this;
+      var _this10 = this;
       var ids = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : _toConsumableArray(this.selection.selectedIds);
       var selected = _toConsumableArray(new Set(ids)).map(function (id) {
-        return _this9.document.get(id);
+        return _this10.document.get(id);
       }).filter(Boolean);
       var roots = selected.filter(function (node) {
-        return !_this9.document.pathTo(node.id).slice(0, -1).some(function (ancestor) {
+        return !_this10.document.pathTo(node.id).slice(0, -1).some(function (ancestor) {
           return selected.some(function (candidate) {
             return candidate.id === ancestor.id;
           });
@@ -8389,20 +8424,20 @@ var EditorRuntime = /*#__PURE__*/function () {
       if (roots.length < 2) return false;
       var parent = this.document.parentOf(roots[0].id);
       return roots.every(function (node) {
-        return _this9.document.parentOf(node.id) === parent;
+        return _this10.document.parentOf(node.id) === parent;
       });
     }
   }, {
     key: "groupSelection",
     value: function groupSelection() {
-      var _this10 = this;
+      var _this11 = this;
       var ids = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : _toConsumableArray(this.selection.selectedIds);
       if (!this.canGroupSelection(ids)) return null;
       var selected = _toConsumableArray(new Set(ids)).map(function (id) {
-        return _this10.document.get(id);
+        return _this11.document.get(id);
       }).filter(Boolean);
       var roots = selected.filter(function (node) {
-        return !_this10.document.pathTo(node.id).slice(0, -1).some(function (ancestor) {
+        return !_this11.document.pathTo(node.id).slice(0, -1).some(function (ancestor) {
           return selected.some(function (candidate) {
             return candidate.id === ancestor.id;
           });
@@ -8424,19 +8459,19 @@ var EditorRuntime = /*#__PURE__*/function () {
         label: "Group ".concat(ordered.length, " layers"),
         "do": function _do() {
           group.children = ordered.map(function (node) {
-            var _this10$document$remo;
-            return (_this10$document$remo = _this10.document.remove(node.id)) === null || _this10$document$remo === void 0 ? void 0 : _this10$document$remo.node;
+            var _this11$document$remo;
+            return (_this11$document$remo = _this11.document.remove(node.id)) === null || _this11$document$remo === void 0 ? void 0 : _this11$document$remo.node;
           }).filter(Boolean);
-          _this10.document.insert(group, {
+          _this11.document.insert(group, {
             parentId: (parent === null || parent === void 0 ? void 0 : parent.id) || null,
             index: index
           });
         },
         undo: function undo() {
-          var _this10$document$remo2;
-          var restored = (_this10$document$remo2 = _this10.document.remove(group.id)) === null || _this10$document$remo2 === void 0 ? void 0 : _this10$document$remo2.node;
+          var _this11$document$remo2;
+          var restored = (_this11$document$remo2 = _this11.document.remove(group.id)) === null || _this11$document$remo2 === void 0 ? void 0 : _this11$document$remo2.node;
           ((restored === null || restored === void 0 ? void 0 : restored.children) || []).forEach(function (child, childIndex) {
-            return _this10.document.insert(child, {
+            return _this11.document.insert(child, {
               parentId: (parent === null || parent === void 0 ? void 0 : parent.id) || null,
               index: index + childIndex
             });
@@ -8450,7 +8485,7 @@ var EditorRuntime = /*#__PURE__*/function () {
     key: "ungroup",
     value: function ungroup() {
       var _group$settings,
-        _this11 = this,
+        _this12 = this,
         _children$at;
       var id = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.selection.selectedId;
       var group = this.document.get(id);
@@ -8462,10 +8497,10 @@ var EditorRuntime = /*#__PURE__*/function () {
       this.history.execute({
         label: "Ungroup ".concat(children.length, " layers"),
         "do": function _do() {
-          var _this11$document$remo;
-          var source = (_this11$document$remo = _this11.document.remove(group.id)) === null || _this11$document$remo === void 0 ? void 0 : _this11$document$remo.node;
+          var _this12$document$remo;
+          var source = (_this12$document$remo = _this12.document.remove(group.id)) === null || _this12$document$remo === void 0 ? void 0 : _this12$document$remo.node;
           ((source === null || source === void 0 ? void 0 : source.children) || []).forEach(function (child, childIndex) {
-            return _this11.document.insert(child, {
+            return _this12.document.insert(child, {
               parentId: (parent === null || parent === void 0 ? void 0 : parent.id) || null,
               index: index + childIndex
             });
@@ -8473,10 +8508,10 @@ var EditorRuntime = /*#__PURE__*/function () {
         },
         undo: function undo() {
           children.forEach(function (child) {
-            return _this11.document.remove(child.id);
+            return _this12.document.remove(child.id);
           });
           group.children = children;
-          _this11.document.insert(group, {
+          _this12.document.insert(group, {
             parentId: (parent === null || parent === void 0 ? void 0 : parent.id) || null,
             index: index
           });
@@ -8499,17 +8534,17 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "frameSelection",
     value: function frameSelection() {
-      var _this12 = this,
+      var _this13 = this,
         _this$canvas$instance,
         _parentElement$queryS,
         _parentElement$queryS2;
       var ids = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : _toConsumableArray(this.selection.selectedIds);
       if (!this.canFrameSelection(ids)) return null;
       var selected = _toConsumableArray(new Set(ids)).map(function (id) {
-        return _this12.document.get(id);
+        return _this13.document.get(id);
       }).filter(Boolean);
       var roots = selected.filter(function (node) {
-        return !_this12.document.pathTo(node.id).slice(0, -1).some(function (ancestor) {
+        return !_this13.document.pathTo(node.id).slice(0, -1).some(function (ancestor) {
           return selected.some(function (candidate) {
             return candidate.id === ancestor.id;
           });
@@ -8521,8 +8556,8 @@ var EditorRuntime = /*#__PURE__*/function () {
         return siblings.indexOf(a) - siblings.indexOf(b);
       });
       var nodes = ordered.map(function (node) {
-        var _this12$canvas$instan;
-        return (_this12$canvas$instan = _this12.canvas.instances.get(node.id)) === null || _this12$canvas$instan === void 0 ? void 0 : _this12$canvas$instan.element;
+        var _this13$canvas$instan;
+        return (_this13$canvas$instan = _this13.canvas.instances.get(node.id)) === null || _this13$canvas$instan === void 0 ? void 0 : _this13$canvas$instan.element;
       }).filter(Boolean);
       var parentElement = parent ? (_this$canvas$instance = this.canvas.instances.get(parent.id)) === null || _this$canvas$instance === void 0 ? void 0 : _this$canvas$instance.element : this.canvas.root;
       var childHost = (parentElement === null || parentElement === void 0 || (_parentElement$queryS = parentElement.querySelector) === null || _parentElement$queryS === void 0 ? void 0 : _parentElement$queryS.call(parentElement, ':scope > [data-ink-children]')) || (parentElement === null || parentElement === void 0 || (_parentElement$queryS2 = parentElement.querySelector) === null || _parentElement$queryS2 === void 0 ? void 0 : _parentElement$queryS2.call(parentElement, '[data-ink-children]')) || parentElement;
@@ -8648,10 +8683,10 @@ var EditorRuntime = /*#__PURE__*/function () {
       this.history.execute({
         label: "Frame ".concat(ordered.length, " layers"),
         "do": function _do() {
-          return _this12.document.replace(after);
+          return _this13.document.replace(after);
         },
         undo: function undo() {
-          return _this12.document.replace(before);
+          return _this13.document.replace(before);
         }
       });
       this.selection.select(frame.id);
@@ -8667,7 +8702,7 @@ var EditorRuntime = /*#__PURE__*/function () {
         _frameBase$top$size,
         _frameBase$top,
         _targetParent$childre,
-        _this13 = this,
+        _this14 = this,
         _children$at2;
       var id = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.selection.selectedId;
       var frame = this.document.get(id);
@@ -8723,10 +8758,10 @@ var EditorRuntime = /*#__PURE__*/function () {
       this.history.execute({
         label: "Unframe ".concat(children.length, " layers"),
         "do": function _do() {
-          return _this13.document.replace(after);
+          return _this14.document.replace(after);
         },
         undo: function undo() {
-          return _this13.document.replace(before);
+          return _this14.document.replace(before);
         }
       });
       this.selection.select(((_children$at2 = children.at(-1)) === null || _children$at2 === void 0 ? void 0 : _children$at2.id) || null);
@@ -8762,7 +8797,7 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "paste",
     value: function paste() {
-      var _this14 = this;
+      var _this15 = this;
       var targetId = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : null;
       if (!this.clipboard) return null;
       var _regenerate2 = function regenerate(node) {
@@ -8780,10 +8815,10 @@ var EditorRuntime = /*#__PURE__*/function () {
       this.history.execute({
         label: 'Paste element',
         "do": function _do() {
-          return _this14.document.insert(copy, insertion);
+          return _this15.document.insert(copy, insertion);
         },
         undo: function undo() {
-          return _this14.document.remove(copy.id);
+          return _this15.document.remove(copy.id);
         }
       });
       this.selection.select(copy.id);
@@ -8816,50 +8851,18 @@ var EditorRuntime = /*#__PURE__*/function () {
   }, {
     key: "insertSection",
     value: function insertSection() {
-      var _this15 = this;
+      var _this16 = this;
       var structure = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '50,50';
       var section = this.create('section');
       this.history.execute({
         label: 'Add section',
         "do": function _do() {
-          return _this15.document.insert(section, {});
+          return _this16.document.insert(section, {});
         },
         undo: function undo() {
-          return _this15.document.remove(section.id);
+          return _this16.document.remove(section.id);
         }
       });
-      var columns = this.create('columns', {
-        settings: {
-          structure: structure
-        },
-        children: String(structure).split(',').map(function () {
-          return _this15.create('column');
-        })
-      });
-      this.history.execute({
-        label: 'Add columns',
-        "do": function _do() {
-          return _this15.document.insert(columns, {
-            parentId: section.id
-          });
-        },
-        undo: function undo() {
-          return _this15.document.remove(columns.id);
-        }
-      });
-      this.selection.select(section.id);
-      return section;
-    }
-
-    // Insert a column structure into an existing container (empty-container "Add structure").
-  }, {
-    key: "insertStructureAt",
-    value: function insertStructureAt(parentId) {
-      var _this16 = this;
-      var structure = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '50,50';
-      if (!parentId) return this.insertSection(structure);
-      var parent = this.document.get(parentId);
-      if (!parent) return null;
       var columns = this.create('columns', {
         settings: {
           structure: structure
@@ -8871,14 +8874,46 @@ var EditorRuntime = /*#__PURE__*/function () {
       this.history.execute({
         label: 'Add columns',
         "do": function _do() {
-          var _parent$children;
           return _this16.document.insert(columns, {
+            parentId: section.id
+          });
+        },
+        undo: function undo() {
+          return _this16.document.remove(columns.id);
+        }
+      });
+      this.selection.select(section.id);
+      return section;
+    }
+
+    // Insert a column structure into an existing container (empty-container "Add structure").
+  }, {
+    key: "insertStructureAt",
+    value: function insertStructureAt(parentId) {
+      var _this17 = this;
+      var structure = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '50,50';
+      if (!parentId) return this.insertSection(structure);
+      var parent = this.document.get(parentId);
+      if (!parent) return null;
+      var columns = this.create('columns', {
+        settings: {
+          structure: structure
+        },
+        children: String(structure).split(',').map(function () {
+          return _this17.create('column');
+        })
+      });
+      this.history.execute({
+        label: 'Add columns',
+        "do": function _do() {
+          var _parent$children;
+          return _this17.document.insert(columns, {
             parentId: parentId,
             index: ((_parent$children = parent.children) === null || _parent$children === void 0 ? void 0 : _parent$children.length) || 0
           });
         },
         undo: function undo() {
-          return _this16.document.remove(columns.id);
+          return _this17.document.remove(columns.id);
         }
       });
       this.selection.select(columns.id);
@@ -8947,6 +8982,26 @@ var INTERACTION_CONTROLS = [{
   type: 'interactions',
   label: 'Interactions'
 }];
+
+// Class and ID are element attributes, not a per-type feature: any layer can carry them, so custom
+// CSS, anchor links, and interactions can target a container exactly as they target a heading. The
+// renderer already applies both to every node; this is the missing way to author them.
+var IDENTITY_CONTROLS = [{
+  tab: 'advanced',
+  target: 'settings',
+  section: 'Custom attributes',
+  name: 'cssId',
+  type: 'text',
+  label: 'CSS ID'
+}, {
+  tab: 'advanced',
+  target: 'settings',
+  section: 'Custom attributes',
+  name: 'cssClasses',
+  type: 'text',
+  label: 'CSS classes',
+  description: 'Space-separated classes. Custom CSS and interactions can target them.'
+}];
 var ElementRegistry = /*#__PURE__*/function () {
   function ElementRegistry() {
     _classCallCheck(this, ElementRegistry);
@@ -8979,6 +9034,14 @@ var ElementRegistry = /*#__PURE__*/function () {
       }
       var controls = _toConsumableArray(definition.controls || []);
       if (definition.interactive !== false && !definition.internal) controls.push.apply(controls, INTERACTION_CONTROLS);
+      if (!definition.internal) {
+        var declaredNames = new Set(controls.map(function (control) {
+          return control.name;
+        }));
+        IDENTITY_CONTROLS.forEach(function (control) {
+          if (!declaredNames.has(control.name)) controls.push(control);
+        });
+      }
       this.definitions.set(definition.type, Object.freeze(_objectSpread(_objectSpread({
         title: definition.type,
         icon: 'widgets',
@@ -9701,6 +9764,121 @@ var valueFor = function valueFor(option) {
   return _typeof(option) === 'object' ? option.value : option;
 };
 
+// The inspector's information architecture. An author thinks in a handful of groups — how big is
+// it, what does it look like, how does it behave — not in CSS property buckets. Every section is
+// assigned to a group here, so element definitions keep declaring sections without deciding where
+// those sections live in the panel.
+var SECTION_GROUPS = [{
+  key: 'content',
+  label: 'Content'
+}, {
+  key: 'layout',
+  label: 'Layout'
+}, {
+  key: 'typography',
+  label: 'Typography'
+}, {
+  key: 'appearance',
+  label: 'Appearance'
+}, {
+  key: 'transform',
+  label: 'Transform'
+}, {
+  key: 'responsive',
+  label: 'Responsive'
+}, {
+  key: 'component',
+  label: 'Component'
+}, {
+  key: 'interaction',
+  label: 'Interaction'
+}, {
+  key: 'motion',
+  label: 'Motion'
+}, {
+  key: 'advanced',
+  label: 'Advanced'
+}];
+var SECTION_GROUP_ORDER = SECTION_GROUPS.map(function (group) {
+  return group.key;
+});
+var SECTION_GROUP_OF = {
+  Layout: 'layout',
+  Container: 'layout',
+  Frame: 'layout',
+  Grid: 'layout',
+  Spacing: 'layout',
+  Positioning: 'layout',
+  Position: 'layout',
+  'Flex item': 'layout',
+  Sizing: 'layout',
+  Alignment: 'layout',
+  Overflow: 'layout',
+  'Image sizing': 'layout',
+  Typography: 'typography',
+  Text: 'typography',
+  Heading: 'typography',
+  Title: 'typography',
+  Caption: 'typography',
+  Font: 'typography',
+  'Text shadow': 'typography',
+  Appearance: 'appearance',
+  Fill: 'appearance',
+  Background: 'appearance',
+  Gradient: 'appearance',
+  Stroke: 'appearance',
+  Border: 'appearance',
+  Effects: 'appearance',
+  Shadow: 'appearance',
+  Overlay: 'appearance',
+  Decorations: 'appearance',
+  'Shape divider': 'appearance',
+  Filter: 'appearance',
+  Depth: 'appearance',
+  Surface: 'appearance',
+  Transform: 'transform',
+  'Vector editing': 'transform',
+  Constraints: 'responsive',
+  Responsive: 'responsive',
+  Visibility: 'responsive',
+  Hide: 'responsive',
+  Semantics: 'advanced',
+  Reference: 'advanced',
+  Attributes: 'advanced',
+  Accessibility: 'advanced',
+  'Custom attributes': 'advanced',
+  'Additional Options': 'advanced',
+  Code: 'advanced',
+  HTML: 'advanced',
+  States: 'component',
+  'Component states': 'component',
+  Interaction: 'interaction',
+  Link: 'interaction',
+  Anchor: 'interaction',
+  Actions: 'interaction',
+  Motion: 'motion',
+  Animation: 'motion',
+  'Exit animation': 'motion',
+  Sticky: 'motion'
+};
+// Anything an element type invents for itself (a counter's Numbers, a map's Tiles) stays next to
+// the content it describes instead of being pushed into a generic bucket.
+var GROUP_FOR_TAB = {
+  content: 'content',
+  style: 'appearance',
+  advanced: 'advanced'
+};
+// Only the groups an author reaches for constantly start expanded; everything else is one row.
+var OPEN_GROUPS = {
+  all: ['content', 'layout', 'appearance'],
+  content: ['content'],
+  style: ['layout', 'appearance'],
+  advanced: ['advanced']
+};
+var groupForSection = function groupForSection(section, tab) {
+  return SECTION_GROUP_OF[section] || GROUP_FOR_TAB[tab] || 'appearance';
+};
+
 // Capture the identity + value of the control input the user is actively editing, so a live
 // document:update re-render can hand the keyboard back to the same control instead of dropping
 // it and scrolling the panel to the top.
@@ -9731,6 +9909,12 @@ var restoreFocusState = function restoreFocusState(body, state) {
     if (sectionEl) sectionEl.open = true;
   }
   if (!row) return;
+  // Reveal the control before focusing it: a re-render rebuilds the panel from the current group
+  // state, and a control inside a collapsed group cannot take focus.
+  for (var node = row.closest('details'); node; node = (_node$parentElement = node.parentElement) === null || _node$parentElement === void 0 ? void 0 : _node$parentElement.closest('details')) {
+    var _node$parentElement;
+    node.open = true;
+  }
   var input = row.querySelectorAll('input, select, textarea')[state.index || 0];
   if (!input || state.value !== null && String(input.value) !== state.value) return;
   input.focus();
@@ -9754,8 +9938,8 @@ var PanelManager = /*#__PURE__*/function () {
     this.route = role === 'settings' ? 'settings' : role === 'navigator' ? 'navigator' : 'elements';
     this.activeTab = 'all';
     this.openSections = new Map();
-    this.activeState = 'base'; // 'base' | 'hover' | 'focus' (Elementor Normal/Hover/Focus)
-    this.sectionStates = new Map();
+    this.activeState = 'base'; // the inspector's one state selector: 'base' | 'hover' | 'focus' | 'state:open'
+    this.openGroups = new Map();
     this.shapeDividerSides = new Map();
     // Opening the library from a container establishes an insertion context. Keep it
     // while the user adds several children; selecting the first inserted child must not
@@ -9769,6 +9953,10 @@ var PanelManager = /*#__PURE__*/function () {
       if (Array.isArray(saved)) this.expandedNodes = new Set(saved);
     } catch (_) {}
     this.navigatorDragId = null;
+    // Per-control tools: a copied value to paste onto another layer, and the text typed into the
+    // panel's own search field.
+    this.controlClipboard = null;
+    this.controlFilter = '';
     this.unsubscribers = [];
     this.abort = new AbortController();
     this.renderAbort = new AbortController();
@@ -10417,15 +10605,15 @@ var PanelManager = /*#__PURE__*/function () {
         _node$settings$import;
       var node = this.runtime.document.get(this.runtime.selection.selectedId);
       if (!node) {
-        var empty = document.createElement('div');
-        empty.className = 'ink-studio-empty';
-        empty.innerHTML = '<span class="material-symbols-rounded">touch_app</span><h2>Make it yours</h2><p>Select a layer to adjust its layout, appearance, and behavior. Double-click text to write directly on the canvas.</p><button type="button" data-start="frame">Draw a frame <kbd>F</kbd></button><button type="button" data-start="heading">Add text <kbd>T</kbd></button><button type="button" data-start="elements">Explore elements <kbd>I</kbd></button>';
-        empty.querySelectorAll('[data-start]').forEach(function (button) {
+        var _empty = document.createElement('div');
+        _empty.className = 'ink-studio-empty';
+        _empty.innerHTML = '<span class="material-symbols-rounded">touch_app</span><h2>Make it yours</h2><p>Select a layer to adjust its layout, appearance, and behavior. Double-click text to write directly on the canvas.</p><button type="button" data-start="frame">Draw a frame <kbd>F</kbd></button><button type="button" data-start="heading">Add text <kbd>T</kbd></button><button type="button" data-start="elements">Explore elements <kbd>I</kbd></button>';
+        _empty.querySelectorAll('[data-start]').forEach(function (button) {
           return button.addEventListener('click', function () {
             if (button.dataset.start === 'elements') _this6.runtime.events.emit('library:open', {});else _this6.runtime.panel.insertDefinition(button.dataset.start);
           });
         });
-        return empty;
+        return _empty;
       }
       var definition = this.runtime.elements.get(node.type);
       var selectedCount = this.runtime.selection.selectedIds.size;
@@ -10477,6 +10665,49 @@ var PanelManager = /*#__PURE__*/function () {
       });
       identity.append(name, path);
       wrapper.querySelector('.ink-v2-element-title').replaceWith(identity);
+      // One state selector for the whole inspector. A "Normal" dropdown repeated under every
+      // section read as form noise; the author picks the state once and every state-aware section
+      // below follows it.
+      var declaredStates = (0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateNames)(definition, node.settings).map(function (name) {
+        return (0,_states_js__WEBPACK_IMPORTED_MODULE_2__.stateKey)(name);
+      });
+      var stateAware = _toConsumableArray(new Set([].concat(_toConsumableArray(definition.controls.filter(function (control) {
+        return (_this6.activeTab === 'all' || control.tab === _this6.activeTab) && control.states;
+      }).flatMap(function (control) {
+        return Array.isArray(control.states) ? control.states : ['base', 'hover'];
+      })), _toConsumableArray(declaredStates))));
+      if (stateAware.length > 1) {
+        if (!stateAware.includes(this.activeState)) this.activeState = stateAware[0];
+        var bar = document.createElement('div');
+        bar.className = 'ink-inspector-states';
+        var caption = document.createElement('span');
+        caption.className = 'ink-inspector-states-label';
+        caption.textContent = 'State';
+        var labels = _objectSpread({
+          base: 'Default',
+          hover: 'Hover',
+          focus: 'Focus',
+          active: 'Active'
+        }, Object.fromEntries(Object.entries((0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateLabels)(definition, node.settings)).map(function (_ref13) {
+          var _ref14 = _slicedToArray(_ref13, 2),
+            name = _ref14[0],
+            label = _ref14[1];
+          return [(0,_states_js__WEBPACK_IMPORTED_MODULE_2__.stateKey)(name), label];
+        })));
+        var select = document.createElement('select');
+        select.setAttribute('aria-label', 'Preview state');
+        stateAware.forEach(function (state) {
+          return select.add(new Option(labels[state] || state, state));
+        });
+        select.value = this.activeState;
+        select.addEventListener('change', function () {
+          _this6.activeState = select.value;
+          _this6.previewComponentState(node, select.value);
+          _this6.render();
+        });
+        bar.append(caption, select);
+        identity.appendChild(bar);
+      }
       if (['div', 'section', 'column'].includes(node.type) && !definition.controls.some(function (control) {
         return control.type === 'layout-flow';
       })) {
@@ -10498,10 +10729,10 @@ var PanelManager = /*#__PURE__*/function () {
         }], ['Grid', {
           display: 'grid',
           'grid-template-columns': 'repeat(2, minmax(0, 1fr))'
-        }]].forEach(function (_ref13) {
-          var _ref14 = _slicedToArray(_ref13, 2),
-            label = _ref14[0],
-            patch = _ref14[1];
+        }]].forEach(function (_ref15) {
+          var _ref16 = _slicedToArray(_ref15, 2),
+            label = _ref16[0],
+            patch = _ref16[1];
           var button = document.createElement('button');
           button.type = 'button';
           button.textContent = label;
@@ -10526,7 +10757,7 @@ var PanelManager = /*#__PURE__*/function () {
       if (!availableTabs.includes(this.activeTab)) this.activeTab = availableTabs[0] || 'content';
       availableTabs.forEach(function (tab) {
         var labels = _objectSpread({
-          all: 'All',
+          all: 'Design',
           content: 'Content',
           style: 'Style',
           advanced: 'Advanced'
@@ -10553,8 +10784,76 @@ var PanelManager = /*#__PURE__*/function () {
       filterLabel.textContent = this.activeTab === 'all' ? 'All properties' : "".concat(this.activeTab[0].toUpperCase()).concat(this.activeTab.slice(1), " properties");
       tabs.replaceWith(filter);
       filter.append(filterLabel, tabs);
+      // Panel search: filter the settings that are on screen instead of making an author hunt
+      // through sections. It filters the visible tab; the hint names the tab that matches when
+      // this one does not.
+      var search = document.createElement('div');
+      search.className = 'ink-v2-control-search';
+      var searchIcon = document.createElement('span');
+      searchIcon.className = 'material-symbols-rounded';
+      searchIcon.setAttribute('aria-hidden', 'true');
+      searchIcon.textContent = 'search';
+      var searchInput = document.createElement('input');
+      searchInput.type = 'search';
+      searchInput.value = this.controlFilter;
+      searchInput.placeholder = 'Find a setting';
+      searchInput.setAttribute('aria-label', 'Find a setting');
+      var searchCount = document.createElement('span');
+      searchCount.className = 'ink-v2-control-search-count';
+      search.append(searchIcon, searchInput, searchCount);
+      var empty = document.createElement('p');
+      empty.className = 'ink-v2-control-search-empty';
+      empty.hidden = true;
+      filter.after(search);
+      var rows = [];
+      var groupNodes = [];
+      var matchText = function matchText(candidate) {
+        return "".concat(candidate.label || '', " ").concat(candidate.name || '', " ").concat(candidate.section || '', " ").concat(candidate.type || '').toLowerCase();
+      };
+      var applyFilter = function applyFilter() {
+        var query = searchInput.value.trim().toLowerCase();
+        _this6.controlFilter = query;
+        var shown = 0;
+        rows.forEach(function (entry) {
+          var match = !query || entry.text.includes(query);
+          entry.row.hidden = !match;
+          if (match) shown += 1;
+        });
+        sections.forEach(function (section) {
+          var anyVisible = _toConsumableArray(section.querySelectorAll('.ink-v2-control')).some(function (row) {
+            return !row.hidden;
+          });
+          section.hidden = !anyVisible;
+          if (query && anyVisible) section.open = true;
+        });
+        groupNodes.forEach(function (group) {
+          var anyVisible = _toConsumableArray(group.querySelectorAll('.ink-v2-control')).some(function (row) {
+            return !row.hidden;
+          });
+          group.hidden = !anyVisible;
+          if (query && anyVisible) group.open = true;
+        });
+        searchCount.textContent = query ? "".concat(shown, " of ").concat(rows.length) : '';
+        var elsewhere = query && !shown ? ['content', 'style', 'advanced'].filter(function (tab) {
+          return tab !== _this6.activeTab && definition.controls.some(function (candidate) {
+            return candidate.tab === tab && matchText(candidate).includes(query);
+          });
+        }) : [];
+        empty.hidden = !(query && !shown);
+        empty.textContent = elsewhere.length ? "No settings match \"".concat(query, "\" in this tab. Try the ").concat(elsewhere.map(function (tab) {
+          return tab[0].toUpperCase() + tab.slice(1);
+        }).join(' or '), " tab.") : "No settings match \"".concat(query, "\".");
+      };
+      searchInput.addEventListener('input', applyFilter);
+      searchInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          searchInput.value = '';
+          applyFilter();
+        }
+      });
       var controlsHost = wrapper.querySelector('.ink-v2-controls');
       var sections = new Map();
+      var groups = new Map();
       var tabControls = definition.controls.filter(function (control) {
         return (_this6.activeTab === 'all' || control.tab === _this6.activeTab) && _this6.controlIsActive(control, node);
       });
@@ -10609,7 +10908,7 @@ var PanelManager = /*#__PURE__*/function () {
             section: section
           });
         });
-        var order = ['Positioning', 'Layout', 'Image', 'Shader', 'Content', 'Text', 'Heading', 'Typography', 'Appearance', 'Fill', 'Background', 'Stroke', 'Border', 'Effects'];
+        var order = ['Positioning', 'Layout', 'Grid', 'Image', 'Shader', 'Content', 'Text', 'Heading', 'Typography', 'Appearance', 'Fill', 'Background', 'Stroke', 'Border', 'Effects'];
         tabControls.sort(function (a, b) {
           var rank = function rank(section) {
             return order.includes(section) ? order.indexOf(section) : 99;
@@ -10619,70 +10918,64 @@ var PanelManager = /*#__PURE__*/function () {
       }
       tabControls.forEach(function (control) {
         if (!sections.has(control.section)) {
+          var groupKey = groupForSection(control.section, control.tab);
+          if (!groups.has(groupKey)) {
+            var _SECTION_GROUPS$find;
+            var group = document.createElement('details');
+            // "section group" rather than "control group": the control rows already own
+            // .ink-v2-control-group for grouped inputs inside a single control.
+            group.className = 'ink-v2-section-group';
+            group.dataset.group = groupKey;
+            var groupLabel = ((_SECTION_GROUPS$find = SECTION_GROUPS.find(function (entry) {
+              return entry.key === groupKey;
+            })) === null || _SECTION_GROUPS$find === void 0 ? void 0 : _SECTION_GROUPS$find.label) || 'Properties';
+            group.innerHTML = "<summary><span>".concat(groupLabel, "</span><span class=\"ink-v2-section-chevron\" aria-hidden=\"true\">\u2304</span></summary><div class=\"ink-v2-section-list\"></div>");
+            var store = "".concat(node.type, ":").concat(_this6.activeTab, ":").concat(groupKey);
+            group.open = _this6.openGroups.has(store) ? _this6.openGroups.get(store) : (OPEN_GROUPS[_this6.activeTab] || OPEN_GROUPS.all).includes(groupKey);
+            group.addEventListener('toggle', function () {
+              if (group.isConnected) _this6.openGroups.set(store, group.open);
+            });
+            groups.set(groupKey, group);
+            groupNodes.push(group);
+            controlsHost.appendChild(group);
+          }
           var _section = document.createElement('details');
           _section.className = 'ink-v2-control-section';
           _section.dataset.section = String(control.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-          _section.open = control.section !== 'Additional Options';
           _section.innerHTML = "<summary><span>".concat(control.section === 'Positioning' ? 'Position' : control.section, "</span><span class=\"ink-v2-section-chevron\" aria-hidden=\"true\">\u2304</span></summary>");
+          // The group carries the collapse decision, so a section opens with it and only
+          // remembers its own toggle once the author closes it deliberately.
           var key = "".concat(node.type, ":").concat(_this6.activeTab, ":").concat(control.section);
-          if (_this6.openSections.has(key)) _section.open = _this6.openSections.get(key);else if (_this6.activeTab === 'all') _section.open = ['Appearance', 'Layout', 'Positioning', 'Typography', 'Text', 'Content', 'Heading', 'Button', 'Image', 'Shader'].includes(control.section);
+          _section.open = _this6.openSections.has(key) ? _this6.openSections.get(key) : true;
           _section.addEventListener('toggle', function () {
             if (_section.isConnected) _this6.openSections.set(key, _section.open);
           });
           sections.set(control.section, _section);
-          controlsHost.appendChild(_section);
+          groups.get(groupKey).querySelector('.ink-v2-section-list').appendChild(_section);
         }
         var section = sections.get(control.section);
-        if (control.states && !section.querySelector('.ink-v2-states')) {
-          // The state switcher covers the CSS pseudo-class buckets plus every component
-          // state the selected element type advertises (for example a dropdown's Open).
-          var _definition = _this6.runtime.elements.get(node.type);
-          var declaredStates = (0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateNames)(_definition, node.settings);
-          var available = [].concat(_toConsumableArray(tabControls.filter(function (candidate) {
-            return candidate.section === control.section && candidate.states;
-          }).flatMap(function (candidate) {
-            return Array.isArray(candidate.states) ? candidate.states : ['base', 'hover'];
-          })), _toConsumableArray(declaredStates.map(function (name) {
-            return (0,_states_js__WEBPACK_IMPORTED_MODULE_2__.stateKey)(name);
-          })));
-          var stateOptions = _toConsumableArray(new Set(available));
-          var _active = stateOptions.includes(_this6.sectionStates.get(control.section)) ? _this6.sectionStates.get(control.section) : stateOptions[0];
-          _this6.sectionStates.set(control.section, _active);
-          var states = document.createElement('div');
-          states.className = 'ink-v2-states';
-          var labels = _objectSpread({
-            base: 'Normal',
-            hover: 'Hover',
-            focus: 'Focus',
-            active: 'Active'
-          }, Object.fromEntries(Object.entries((0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateLabels)(_this6.runtime.elements.get(node.type), node.settings)).map(function (_ref15) {
-            var _ref16 = _slicedToArray(_ref15, 2),
-              name = _ref16[0],
-              label = _ref16[1];
-            return [(0,_states_js__WEBPACK_IMPORTED_MODULE_2__.stateKey)(name), label];
-          })));
-          var select = document.createElement('select');
-          select.setAttribute('aria-label', "".concat(control.section, " state"));
-          stateOptions.forEach(function (state) {
-            return select.add(new Option(labels[state] || state, state));
-          });
-          select.value = _active;
-          select.addEventListener('click', function (event) {
-            return event.stopPropagation();
-          });
-          select.addEventListener('change', function () {
-            _this6.sectionStates.set(control.section, select.value);
-            _this6.previewComponentState(node, select.value);
-            _this6.render();
-          });
-          states.appendChild(select);
-          section.querySelector('summary').insertBefore(states, section.querySelector('.ink-v2-section-chevron'));
-        }
-        var state = control.states ? _this6.sectionStates.get(control.section) || 'base' : control.state;
-        section.appendChild(_this6.renderControl(state ? _objectSpread(_objectSpread({}, control), {}, {
+        // State-capable controls follow the inspector's one state selector, as long as the
+        // element actually declares the state being previewed.
+        var stateList = Array.isArray(control.states) ? control.states : ['base', 'hover'];
+        var state = control.states ? [].concat(_toConsumableArray(stateList), _toConsumableArray(declaredStates)).includes(_this6.activeState) ? _this6.activeState : 'base' : control.state;
+        var controlRow = _this6.renderControl(state ? _objectSpread(_objectSpread({}, control), {}, {
           state: state
-        }) : control, node));
+        }) : control, node);
+        rows.push({
+          row: controlRow,
+          text: matchText(control)
+        });
+        section.appendChild(controlRow);
       });
+      // Groups read in a fixed order — layout before appearance before motion — whichever section
+      // an element definition happens to declare first.
+      groupNodes.sort(function (a, b) {
+        return SECTION_GROUP_ORDER.indexOf(a.dataset.group) - SECTION_GROUP_ORDER.indexOf(b.dataset.group);
+      }).forEach(function (group) {
+        return controlsHost.appendChild(group);
+      });
+      controlsHost.appendChild(empty);
+      applyFilter();
       return wrapper;
     }
   }, {
@@ -10780,6 +11073,137 @@ var PanelManager = /*#__PURE__*/function () {
       });
     }
 
+    // Do the selected layers agree on this control's value? A disagreement is shown as "Mixed"
+    // instead of pretending one layer's value is shared by all of them.
+  }, {
+    key: "mixedValueFor",
+    value: function mixedValueFor(control, node) {
+      var _this9 = this,
+        _this$currentValue;
+      var ids = _toConsumableArray(this.runtime.selection.selectedIds);
+      if (ids.length < 2) return false;
+      var targets = ids.map(function (id) {
+        return _this9.runtime.document.get(id);
+      }).filter(function (candidate) {
+        return candidate && candidate.type === node.type;
+      });
+      if (targets.length < 2) return false;
+      var first = JSON.stringify((_this$currentValue = this.currentValue(control, targets[0])) !== null && _this$currentValue !== void 0 ? _this$currentValue : null);
+      return targets.some(function (target) {
+        var _this9$currentValue;
+        return JSON.stringify((_this9$currentValue = _this9.currentValue(control, target)) !== null && _this9$currentValue !== void 0 ? _this9$currentValue : null) !== first;
+      });
+    }
+
+    // Reset every control in a section in one undo step.
+  }, {
+    key: "resetSection",
+    value: function resetSection(control, node) {
+      var _this10 = this;
+      var definition = this.runtime.elements.get(node.type);
+      var siblings = definition.controls.filter(function (candidate) {
+        return candidate.section === control.section && (_this10.activeTab === 'all' || candidate.tab === _this10.activeTab);
+      });
+      this.runtime.history.begin("Reset ".concat(control.section || 'settings'));
+      siblings.forEach(function (candidate) {
+        var _candidate$default;
+        return _this10.setValue(candidate, node, (_candidate$default = candidate["default"]) !== null && _candidate$default !== void 0 ? _candidate$default : '');
+      });
+      this.runtime.history.commit();
+      this.render();
+    }
+
+    // Per-control menu: copy a value onto another layer, reset one control, or reset its section.
+    // Right-click opens it; a small trigger appears when the row is hovered or focused, so the
+    // menu is discoverable without a mouse.
+  }, {
+    key: "attachControlMenu",
+    value: function attachControlMenu(row, control, node) {
+      var _this11 = this;
+      var trigger = document.createElement('button');
+      trigger.type = 'button';
+      trigger.className = 'ink-v2-control-menu-trigger';
+      trigger.setAttribute('aria-haspopup', 'menu');
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.setAttribute('aria-label', "".concat(control.label || control.name, " options"));
+      trigger.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">more_vert</span>';
+      var menu = document.createElement('div');
+      menu.className = 'ink-v2-control-menu';
+      menu.hidden = true;
+      menu.setAttribute('role', 'menu');
+      var close = function close() {
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      };
+      var open = function open() {
+        menu.replaceChildren();
+        var entry = function entry(label, run) {
+          var _ref19 = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {},
+            _ref19$disabled = _ref19.disabled,
+            disabled = _ref19$disabled === void 0 ? false : _ref19$disabled;
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.setAttribute('role', 'menuitem');
+          button.textContent = label;
+          button.disabled = disabled;
+          button.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+            run();
+          });
+          menu.appendChild(button);
+        };
+        var copied = _this11.controlClipboard && _this11.controlClipboard.name === control.name ? _this11.controlClipboard : null;
+        entry('Copy value', function () {
+          _this11.controlClipboard = {
+            name: control.name,
+            value: structuredClone(_this11.currentValue(control, node))
+          };
+        });
+        entry('Paste value', function () {
+          return _this11.setValue(control, node, structuredClone(copied.value));
+        }, {
+          disabled: !copied
+        });
+        entry('Reset to default', function () {
+          var _control$default;
+          _this11.setValue(control, node, (_control$default = control["default"]) !== null && _control$default !== void 0 ? _control$default : '');
+          _this11.render();
+        });
+        entry("Reset ".concat(control.section || 'section'), function () {
+          return _this11.resetSection(control, node);
+        });
+        menu.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        var _dismiss = function dismiss(event) {
+          if (menu.contains(event.target) || trigger.contains(event.target)) return;
+          document.removeEventListener('pointerdown', _dismiss, true);
+          close();
+        };
+        setTimeout(function () {
+          return document.addEventListener('pointerdown', _dismiss, true);
+        }, 0);
+      };
+      trigger.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (menu.hidden) open();else close();
+      });
+      trigger.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          close();
+          trigger.focus();
+        }
+      });
+      row.addEventListener('contextmenu', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        open();
+      });
+      row.append(trigger, menu);
+    }
+
     // A continuous gesture previews live, keeps its DOM/focus, and becomes one undo step.
   }, {
     key: "scrubValue",
@@ -10808,7 +11232,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renderResponsiveSwitcher",
     value: function renderResponsiveSwitcher(control, node) {
-      var _this9 = this;
+      var _this12 = this;
       var device = this.runtime.responsive.device;
       var icons = {
         desktop: 'desktop_windows',
@@ -10833,9 +11257,9 @@ var PanelManager = /*#__PURE__*/function () {
         button.setAttribute('role', 'menuitem');
         button.innerHTML = "<span class=\"material-symbols-rounded\">".concat(icons[name], "</span><span>").concat(name[0].toUpperCase() + name.slice(1), "</span>");
         button.addEventListener('click', function () {
-          _this9.setDevice(name);
+          _this12.setDevice(name);
           holder.classList.remove('is-open');
-          _this9.render();
+          _this12.render();
         });
         popover.appendChild(button);
       });
@@ -10944,7 +11368,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renderControl",
     value: function renderControl(control, node) {
-      var _this10 = this;
+      var _this13 = this;
       var row = document.createElement('div');
       row.className = 'ink-v2-control';
       // Stable identifier so render() can restore focus to the same control after a live edit.
@@ -10952,7 +11376,7 @@ var PanelManager = /*#__PURE__*/function () {
       row.dataset.inkControl = String(control.name || control.label || '').replace(/[^a-z0-9-]+/gi, '-');
       // Thread the active Normal/Hover/Focus state into state-capable controls.
       if (control.states && !control.state) control = _objectSpread(_objectSpread({}, control), {}, {
-        state: this.sectionStates.get(control.section) || 'base'
+        state: this.activeState || 'base'
       });
       if (control.type !== 'background' && !control.hideLabel) {
         var label = document.createElement('label');
@@ -10969,7 +11393,19 @@ var PanelManager = /*#__PURE__*/function () {
         hint.textContent = control.description;
         row.appendChild(hint);
       }
-      var value = this.currentValue(control, node);
+      // A control shared by several selected layers reads "Mixed" until the author writes a value,
+      // which is then applied to every layer of that type (see setValue's batch edit).
+      var mixed = this.mixedValueFor(control, node);
+      if (mixed) row.dataset.mixed = '1';
+      var value = mixed ? '' : this.currentValue(control, node);
+      if (mixed && !control.hideLabel) {
+        var badge = document.createElement('span');
+        badge.className = 'ink-v2-mixed-badge';
+        badge.textContent = 'Mixed';
+        badge.title = "Editing ".concat(this.runtime.selection.selectedIds.size, " layers");
+        row.appendChild(badge);
+      }
+      this.attachControlMenu(row, control, node);
       // Composably delegated to the control registry (see EditorRuntime registrations).
       var renderer = this.runtime.controls.has(control.type) ? this.runtime.controls.get(control.type) : null;
       if (renderer) return renderer(this, control, node, value, row);
@@ -10979,7 +11415,7 @@ var PanelManager = /*#__PURE__*/function () {
         input.value = value;
         input.classList.toggle('ink-v2-code', control.type === 'code');
       } else if (['select', 'select2', 'font', 'animation', 'exit-animation', 'hover-animation'].includes(control.type)) {
-        var _control$default;
+        var _control$default2;
         input = document.createElement('select');
         (control.options || []).forEach(function (option) {
           var item = document.createElement('option');
@@ -10987,7 +11423,7 @@ var PanelManager = /*#__PURE__*/function () {
           item.textContent = labelFor(option);
           input.appendChild(item);
         });
-        input.value = value !== '' && value !== undefined && value !== null ? value : (_control$default = control["default"]) !== null && _control$default !== void 0 ? _control$default : '';
+        input.value = value !== '' && value !== undefined && value !== null ? value : (_control$default2 = control["default"]) !== null && _control$default2 !== void 0 ? _control$default2 : '';
       } else if (control.type === 'choose' || control.type === 'visual-choice') {
         input = document.createElement('div');
         input.className = 'ink-v2-choose';
@@ -11004,7 +11440,7 @@ var PanelManager = /*#__PURE__*/function () {
           button.setAttribute('role', 'radio');
           button.setAttribute('aria-checked', value === valueFor(option) ? 'true' : 'false');
           button.addEventListener('click', function () {
-            return _this10.setValue(control, node, valueFor(option));
+            return _this13.setValue(control, node, valueFor(option));
           });
           input.appendChild(button);
         });
@@ -11028,7 +11464,7 @@ var PanelManager = /*#__PURE__*/function () {
         unit.value = (value === null || value === void 0 ? void 0 : value.unit) || ((_control$units = control.units) === null || _control$units === void 0 ? void 0 : _control$units[0]) || 'px';
         input.append(number, unit);
         var _commit = function _commit() {
-          return _this10.setValue(control, node, number.value === '' ? '' : {
+          return _this13.setValue(control, node, number.value === '' ? '' : {
             size: Number(number.value),
             unit: unit.value
           });
@@ -11044,14 +11480,14 @@ var PanelManager = /*#__PURE__*/function () {
         row.appendChild(input);
         return row;
       } else {
-        var _control$default2;
+        var _control$default3;
         input = document.createElement('input');
         input.type = control.type === 'color' ? 'color' : control.type === 'number' ? 'number' : control.type === 'url' ? 'url' : control.type === 'date-time' ? 'datetime-local' : 'text';
-        input.value = value !== '' && value !== undefined && value !== null ? value : (_control$default2 = control["default"]) !== null && _control$default2 !== void 0 ? _control$default2 : control.type === 'color' ? '#000000' : '';
+        input.value = value !== '' && value !== undefined && value !== null ? value : (_control$default3 = control["default"]) !== null && _control$default3 !== void 0 ? _control$default3 : control.type === 'color' ? '#000000' : '';
       }
       var commit = function commit() {
         var next = input.value;
-        _this10.setValue(control, node, next);
+        _this13.setValue(control, node, next);
       };
       input.addEventListener('change', commit);
       input.addEventListener('blur', commit);
@@ -11069,7 +11505,7 @@ var PanelManager = /*#__PURE__*/function () {
         reset.title = 'Inherit from wider device';
         reset.innerHTML = '<span class="material-symbols-rounded">restart_alt</span>';
         reset.addEventListener('click', function () {
-          return _this10.setValue(control, node, '');
+          return _this13.setValue(control, node, '');
         });
         row.appendChild(reset);
       }
@@ -11078,7 +11514,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renderNavigator",
     value: function renderNavigator() {
-      var _this11 = this;
+      var _this14 = this;
       var wrapper = document.createElement('div');
       wrapper.className = 'ink-v2-navigator';
       var list = document.createElement('ul');
@@ -11089,18 +11525,18 @@ var PanelManager = /*#__PURE__*/function () {
         var row = document.createElement('div');
         row.className = 'ink-v2-navigator-row';
         row.setAttribute('role', 'treeitem');
-        if ((_node$children = node.children) !== null && _node$children !== void 0 && _node$children.length) row.setAttribute('aria-expanded', _this11.expandedNodes.has(node.id) ? 'true' : 'false');
-        var definition = _this11.runtime.elements.get(node.type);
+        if ((_node$children = node.children) !== null && _node$children !== void 0 && _node$children.length) row.setAttribute('aria-expanded', _this14.expandedNodes.has(node.id) ? 'true' : 'false');
+        var definition = _this14.runtime.elements.get(node.type);
         var toggle = document.createElement('button');
         toggle.type = 'button';
         toggle.className = 'ink-v2-navigator-toggle';
-        toggle.textContent = (_node$children2 = node.children) !== null && _node$children2 !== void 0 && _node$children2.length ? _this11.expandedNodes.has(node.id) ? '⌄' : '›' : '';
+        toggle.textContent = (_node$children2 = node.children) !== null && _node$children2 !== void 0 && _node$children2.length ? _this14.expandedNodes.has(node.id) ? '⌄' : '›' : '';
         toggle.disabled = !((_node$children3 = node.children) !== null && _node$children3 !== void 0 && _node$children3.length);
         toggle.setAttribute('aria-label', (_node$children4 = node.children) !== null && _node$children4 !== void 0 && _node$children4.length ? 'Toggle children' : '');
         toggle.addEventListener('click', function (event) {
           event.preventDefault();
           event.stopPropagation();
-          _this11.toggleNavigatorCollapse(node.id);
+          _this14.toggleNavigatorCollapse(node.id);
         });
         row.appendChild(toggle);
         var button = document.createElement('button');
@@ -11115,30 +11551,30 @@ var PanelManager = /*#__PURE__*/function () {
         elementLabel.title = elementLabel.textContent;
         button.title = elementLabel.textContent;
         button.append(elementIcon, elementLabel);
-        if (node.id === _this11.runtime.selection.selectedId) button.classList.add('is-active');
+        if (node.id === _this14.runtime.selection.selectedId) button.classList.add('is-active');
         if (node.settings.hidden) button.classList.add('is-hidden');
         if (node.settings.locked) button.classList.add('is-locked');
         button.addEventListener('click', function (event) {
-          _this11.runtime.selection.select(node.id, {
+          _this14.runtime.selection.select(node.id, {
             additive: event.shiftKey || event.metaKey || event.ctrlKey
           });
-          _this11.route = 'navigator';
-          _this11.render();
-          _this11.scrollCanvasTo(node.id);
+          _this14.route = 'navigator';
+          _this14.render();
+          _this14.scrollCanvasTo(node.id);
         });
         button.addEventListener('pointerenter', function () {
-          return _this11.runtime.selection.hover(node.id);
+          return _this14.runtime.selection.hover(node.id);
         });
         button.addEventListener('pointerleave', function () {
-          return _this11.runtime.selection.hover(null);
+          return _this14.runtime.selection.hover(null);
         });
         button.addEventListener('dblclick', function (event) {
           event.preventDefault();
           event.stopPropagation();
-          _this11.renameNavigatorNode(node, button);
+          _this14.renameNavigatorNode(node, button);
         });
         button.addEventListener('dragstart', function () {
-          _this11.navigatorDragId = node.id;
+          _this14.navigatorDragId = node.id;
         });
         row.appendChild(button);
         var tools = document.createElement('span');
@@ -11152,7 +11588,7 @@ var PanelManager = /*#__PURE__*/function () {
         visibility.addEventListener('click', function (event) {
           event.preventDefault();
           event.stopPropagation();
-          _this11.runtime.update(node.id, {
+          _this14.runtime.update(node.id, {
             settings: {
               hidden: !node.settings.hidden
             }
@@ -11168,7 +11604,7 @@ var PanelManager = /*#__PURE__*/function () {
         lock.addEventListener('click', function (event) {
           event.preventDefault();
           event.stopPropagation();
-          _this11.runtime.update(node.id, {
+          _this14.runtime.update(node.id, {
             settings: {
               locked: !node.settings.locked
             }
@@ -11177,25 +11613,25 @@ var PanelManager = /*#__PURE__*/function () {
         tools.appendChild(lock);
         row.appendChild(tools);
         row.addEventListener('dragover', function (event) {
-          return _this11.navigatorDragOver(event, row, node);
+          return _this14.navigatorDragOver(event, row, node);
         });
         row.addEventListener('dragleave', function () {
           row.classList.remove('is-drop-target');
           delete row.dataset.inkNavDrop;
         });
         row.addEventListener('drop', function (event) {
-          return _this11.navigatorDrop(event, row, node);
+          return _this14.navigatorDrop(event, row, node);
         });
         row.addEventListener('contextmenu', function (event) {
           event.preventDefault();
           event.stopPropagation();
           // Preserve an existing multi-selection when opening its context menu so the
           // user can group those layers just like in a design tool.
-          if (!_this11.runtime.selection.selectedIds.has(node.id)) _this11.runtime.selection.select(node.id);
-          _this11.openNavigatorMenu(event, node, button);
+          if (!_this14.runtime.selection.selectedIds.has(node.id)) _this14.runtime.selection.select(node.id);
+          _this14.openNavigatorMenu(event, node, button);
         });
         item.appendChild(row);
-        if ((_node$children5 = node.children) !== null && _node$children5 !== void 0 && _node$children5.length && _this11.expandedNodes.has(node.id)) {
+        if ((_node$children5 = node.children) !== null && _node$children5 !== void 0 && _node$children5.length && _this14.expandedNodes.has(node.id)) {
           var children = document.createElement('ul');
           node.children.forEach(function (child) {
             return children.appendChild(_renderNode(child));
@@ -11210,7 +11646,7 @@ var PanelManager = /*#__PURE__*/function () {
       wrapper.appendChild(list);
       wrapper.setAttribute('role', 'tree');
       wrapper.addEventListener('keydown', function (event) {
-        return _this11.navigatorKeydown(event, wrapper);
+        return _this14.navigatorKeydown(event, wrapper);
       });
       return wrapper;
     }
@@ -11224,12 +11660,12 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "revealNavigatorSelection",
     value: function revealNavigatorSelection() {
-      var _this12 = this;
+      var _this15 = this;
       var selectedId = this.runtime.selection.selectedId;
       if (!selectedId) return;
       var path = this.runtime.document.pathTo(selectedId) || [];
       path.slice(0, -1).forEach(function (ancestor) {
-        return _this12.expandedNodes.add(ancestor.id);
+        return _this15.expandedNodes.add(ancestor.id);
       });
       this.persistNavigatorExpansion();
     }
@@ -11258,7 +11694,7 @@ var PanelManager = /*#__PURE__*/function () {
     key: "renameNavigatorNode",
     value: function renameNavigatorNode(node, button) {
       var _node$settings$import3,
-        _this13 = this;
+        _this16 = this;
       var label = button.querySelector('[data-ink-navigator-label]');
       var definition = this.runtime.elements.get(node.type);
       var input = document.createElement('input');
@@ -11268,7 +11704,7 @@ var PanelManager = /*#__PURE__*/function () {
       input.focus();
       input.select();
       var commit = function commit() {
-        return _this13.runtime.update(node.id, {
+        return _this16.runtime.update(node.id, {
           settings: {
             label: input.value.trim()
           }
@@ -11279,7 +11715,7 @@ var PanelManager = /*#__PURE__*/function () {
       });
       input.addEventListener('keydown', function (key) {
         if (key.key === 'Enter') input.blur();
-        if (key.key === 'Escape') _this13.render();
+        if (key.key === 'Escape') _this16.render();
       });
     }
   }, {
@@ -11332,7 +11768,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "openNavigatorMenu",
     value: function openNavigatorMenu(event, node, button) {
-      var _this14 = this,
+      var _this17 = this,
         _node$settings2,
         _node$settings3;
       this.closeNavigatorMenu();
@@ -11342,32 +11778,32 @@ var PanelManager = /*#__PURE__*/function () {
       var selectedIds = _toConsumableArray(this.runtime.selection.selectedIds);
       var canGroup = this.runtime.canGroupSelection(selectedIds);
       var actions = [['edit', 'edit', 'Edit', function () {
-        return _this14.runtime.selection.select(node.id);
+        return _this17.runtime.selection.select(node.id);
       }]].concat(_toConsumableArray(canGroup ? [['frame', 'crop', 'Frame selected layers', function () {
-        return _this14.runtime.frameSelection(selectedIds);
+        return _this17.runtime.frameSelection(selectedIds);
       }]] : []), _toConsumableArray(node.type === 'frame' && (_node$settings2 = node.settings) !== null && _node$settings2 !== void 0 && _node$settings2.frameSelection ? [['unframe', 'ungroup', 'Unframe', function () {
-        return _this14.runtime.unframe(node.id);
+        return _this17.runtime.unframe(node.id);
       }]] : []), _toConsumableArray(canGroup ? [['group', 'group', 'Group selected layers', function () {
-        return _this14.runtime.groupSelection(selectedIds);
+        return _this17.runtime.groupSelection(selectedIds);
       }]] : []), _toConsumableArray(node.type === 'group' && (_node$settings3 = node.settings) !== null && _node$settings3 !== void 0 && _node$settings3.grouping ? [['ungroup', 'ungroup', 'Ungroup', function () {
-        return _this14.runtime.ungroup(node.id);
+        return _this17.runtime.ungroup(node.id);
       }]] : []), [['duplicate', 'content_copy', 'Duplicate', function () {
-        return _this14.runtime.duplicate(node.id);
+        return _this17.runtime.duplicate(node.id);
       }], ['copy', 'content_copy', 'Copy', function () {
-        return _this14.runtime.copy(node.id);
+        return _this17.runtime.copy(node.id);
       }], ['paste', 'content_paste', 'Paste', function () {
-        return _this14.runtime.paste(node.id);
+        return _this17.runtime.paste(node.id);
       }], ['rename', 'edit_note', 'Rename', function () {
-        return _this14.renameNavigatorNode(node, button);
+        return _this17.renameNavigatorNode(node, button);
       }], ['delete', 'delete', 'Delete', function () {
-        return _this14.runtime.remove(node.id);
+        return _this17.runtime.remove(node.id);
       }]]);
-      actions.forEach(function (_ref19) {
-        var _ref20 = _slicedToArray(_ref19, 4),
-          action = _ref20[0],
-          icon = _ref20[1],
-          label = _ref20[2],
-          run = _ref20[3];
+      actions.forEach(function (_ref20) {
+        var _ref21 = _slicedToArray(_ref20, 4),
+          action = _ref21[0],
+          icon = _ref21[1],
+          label = _ref21[2],
+          run = _ref21[3];
         var item = document.createElement('button');
         item.type = 'button';
         item.dataset.action = action;
@@ -11377,7 +11813,7 @@ var PanelManager = /*#__PURE__*/function () {
         item.append(actionIcon, actionLabel);
         item.addEventListener('click', function () {
           run();
-          _this14.closeNavigatorMenu();
+          _this17.closeNavigatorMenu();
         });
         menu.appendChild(item);
       });
@@ -11647,18 +12083,49 @@ var SelectionManager = /*#__PURE__*/function () {
     this.selectedId = null;
     this.selectedIds = new Set();
     this.hoveredId = null;
+    this.pendingPick = null;
   }
+
+  // Element picking: while a pick is armed the next selection resolves the pick instead of
+  // changing the selection, so a control can ask the author to click a layer on the canvas.
+  // Hovering still works, which is what makes aiming at a layer feel like the canvas.
   return _createClass(SelectionManager, [{
+    key: "armPick",
+    value: function armPick() {
+      var _this$events;
+      if (this.pendingPick) this.cancelPick();
+      this.pendingPick = {
+        armed: true
+      };
+      (_this$events = this.events) === null || _this$events === void 0 || _this$events.emit('picker:armed', {});
+    }
+  }, {
+    key: "cancelPick",
+    value: function cancelPick() {
+      var _this$events2;
+      if (!this.pendingPick) return;
+      this.pendingPick = null;
+      (_this$events2 = this.events) === null || _this$events2 === void 0 || _this$events2.emit('picker:cancelled', {});
+    }
+  }, {
     key: "select",
     value: function select(id) {
-      var _this$events;
+      var _this$events4;
       var _ref2 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
         _ref2$additive = _ref2.additive,
         additive = _ref2$additive === void 0 ? false : _ref2$additive;
       if (id && !this.document.get(id)) throw new Error("Cannot select unknown element: ".concat(id));
+      if (id && this.pendingPick) {
+        var _this$events3;
+        this.pendingPick = null;
+        (_this$events3 = this.events) === null || _this$events3 === void 0 || _this$events3.emit('picker:picked', {
+          id: id
+        });
+        return;
+      }
       if (!additive) this.selectedIds = new Set(id ? [id] : []);else if (id) this.selectedIds.has(id) ? this.selectedIds["delete"](id) : this.selectedIds.add(id);
       this.selectedId = id && this.selectedIds.has(id) ? id : _toConsumableArray(this.selectedIds).at(-1) || null;
-      (_this$events = this.events) === null || _this$events === void 0 || _this$events.emit('selection:change', {
+      (_this$events4 = this.events) === null || _this$events4 === void 0 || _this$events4.emit('selection:change', {
         id: this.selectedId,
         ids: _toConsumableArray(this.selectedIds),
         path: this.selectedId ? this.document.pathTo(this.selectedId).map(function (node) {
@@ -11669,10 +12136,10 @@ var SelectionManager = /*#__PURE__*/function () {
   }, {
     key: "hover",
     value: function hover(id) {
-      var _this$events2;
+      var _this$events5;
       if (id === this.hoveredId) return;
       this.hoveredId = id;
-      (_this$events2 = this.events) === null || _this$events2 === void 0 || _this$events2.emit('selection:hover', {
+      (_this$events5 = this.events) === null || _this$events5 === void 0 || _this$events5.emit('selection:hover', {
         id: id
       });
     }
@@ -12207,9 +12674,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (/* binding */ StyleEngine)
 /* harmony export */ });
 /* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
-/* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./motionGroups.js */ "./src/core/motionGroups.js");
-/* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
-/* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
+/* harmony import */ var _easing_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./easing.js */ "./src/core/easing.js");
+/* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./motionGroups.js */ "./src/core/motionGroups.js");
+/* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
+/* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -12230,6 +12698,7 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+
 
 
 var STATE_PSEUDOS = {
@@ -12447,7 +12916,7 @@ var StyleEngine = /*#__PURE__*/function () {
     key: "pinRules",
     value: function pinRules(node) {
       var _node$settings2, _group$pin;
-      var group = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_1__.normalizeMotionGroup)((_node$settings2 = node.settings) === null || _node$settings2 === void 0 ? void 0 : _node$settings2.motionGroup);
+      var group = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.normalizeMotionGroup)((_node$settings2 = node.settings) === null || _node$settings2 === void 0 ? void 0 : _node$settings2.motionGroup);
       if (!(group !== null && group !== void 0 && (_group$pin = group.pin) !== null && _group$pin !== void 0 && _group$pin.enabled)) return '';
       var distance = group.pin.distance;
       return "".concat(this.selector(node.id), "{position:relative;min-height:calc(100vh + ").concat(distance, "vh)}").concat(this.selector(node.id), " > [data-ink-children]{position:sticky;top:0}");
@@ -12461,7 +12930,7 @@ var StyleEngine = /*#__PURE__*/function () {
     value: function motionRules(node) {
       var _node$settings3;
       var context = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-      var motion = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_1__.effectiveMotion)((_node$settings3 = node.settings) === null || _node$settings3 === void 0 ? void 0 : _node$settings3.motion, context.group, context.index || 0);
+      var motion = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.effectiveMotion)((_node$settings3 = node.settings) === null || _node$settings3 === void 0 ? void 0 : _node$settings3.motion, context.group, context.index || 0);
       if (!motion || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return '';
       if (['scroll', 'enter'].includes(motion.trigger)) return ''; // Shared runtime controls progress.
       var safeId = String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -12486,7 +12955,7 @@ var StyleEngine = /*#__PURE__*/function () {
       var duration = Math.max(1, Number(motion.duration) || 800);
       var delay = Number(motion.delay) || 0;
       var iterations = motion.iterations === 'infinite' ? 'infinite' : Math.max(1, Number(motion.iterations) || 1);
-      var easing = /^[a-z-]+$|^cubic-bezier\([\d.,\s-]+\)$|^steps\([\d,\s-]+\)$/i.test(String(motion.easing || '')) ? motion.easing : 'ease';
+      var easing = _easing_js__WEBPACK_IMPORTED_MODULE_1__.EASING_CSS_PATTERN.test(String(motion.easing || '').trim()) ? String(motion.easing).trim() : 'ease';
       var direction = ['normal', 'reverse', 'alternate', 'alternate-reverse'].includes(motion.direction) ? motion.direction : 'normal';
       // A group hover plays every child when the *group* is hovered -- this is what makes an
       // unfold card work, and it is the difference between real choreography and a per-layer
@@ -12501,10 +12970,10 @@ var StyleEngine = /*#__PURE__*/function () {
       var _this4 = this;
       var settings = document.data.settings || {};
       var theme = settings.theme || {};
-      var colors = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_COLORS), theme.colors || {});
-      var typography = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_TYPOGRAPHY), theme.typography || {});
-      var spacing = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_SPACING), theme.spacing || {});
-      var css = ":root{--ink-color-primary:".concat(colors.primary, ";--ink-color-secondary:").concat(colors.secondary, ";--ink-color-text:").concat(colors.text, ";--ink-color-accent:").concat(colors.accent, ";--ink-content-width:").concat(Number(spacing.contentWidth) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_SPACING.contentWidth, "px;--ink-page-gutter:").concat(Number(spacing.pageGutter) || 0, "px;--ink-section-gap:").concat(Number(spacing.sectionGap) || 0, "px}body{background:").concat(settings.backgroundColor || '#ffffff', ";color:var(--ink-color-text);font-family:").concat(typography.fontFamily, ";font-size:").concat(Number(typography.baseSize) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_TYPOGRAPHY.baseSize, "px;line-height:").concat(Number(typography.lineHeight) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_TYPOGRAPHY.lineHeight, "}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter);color:inherit}");
+      var colors = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__.DEFAULT_THEME_COLORS), theme.colors || {});
+      var typography = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__.DEFAULT_THEME_TYPOGRAPHY), theme.typography || {});
+      var spacing = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__.DEFAULT_THEME_SPACING), theme.spacing || {});
+      var css = ":root{--ink-color-primary:".concat(colors.primary, ";--ink-color-secondary:").concat(colors.secondary, ";--ink-color-text:").concat(colors.text, ";--ink-color-accent:").concat(colors.accent, ";--ink-content-width:").concat(Number(spacing.contentWidth) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__.DEFAULT_THEME_SPACING.contentWidth, "px;--ink-page-gutter:").concat(Number(spacing.pageGutter) || 0, "px;--ink-section-gap:").concat(Number(spacing.sectionGap) || 0, "px}body{background:").concat(settings.backgroundColor || '#ffffff', ";color:var(--ink-color-text);font-family:").concat(typography.fontFamily, ";font-size:").concat(Number(typography.baseSize) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__.DEFAULT_THEME_TYPOGRAPHY.baseSize, "px;line-height:").concat(Number(typography.lineHeight) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_4__.DEFAULT_THEME_TYPOGRAPHY.lineHeight, "}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter);color:inherit}");
       var _visit = function visit(node) {
         var _node$settings4;
         var context = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
@@ -12514,7 +12983,7 @@ var StyleEngine = /*#__PURE__*/function () {
         css += _this4.motionRules(node, context);
         // A group on this node orchestrates its own children; grandchildren inherit nothing, so
         // nesting a group inside a group stays explicit and each timeline has one owner.
-        var group = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_1__.normalizeMotionGroup)((_node$settings4 = node.settings) === null || _node$settings4 === void 0 ? void 0 : _node$settings4.motionGroup);
+        var group = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.normalizeMotionGroup)((_node$settings4 = node.settings) === null || _node$settings4 === void 0 ? void 0 : _node$settings4.motionGroup);
         var children = node.children || [];
         children.forEach(function (child, index) {
           return _visit(child, group ? {
@@ -12530,10 +12999,10 @@ var StyleEngine = /*#__PURE__*/function () {
       css += document.data.settings.customCss || '';
       // Google Fonts: @import must be the first rules in the stylesheet so the font survives
       // published output (the body keeps this style tag; the head is dropped).
-      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.usedFonts)(document);
-      css = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.customFontFaces)(document) + css;
+      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_3__.usedFonts)(document);
+      css = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_3__.customFontFaces)(document) + css;
       if (fonts.length) css = fonts.map(function (family) {
-        return "@import url('".concat((0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.fontImportUrl)(family), "');");
+        return "@import url('".concat((0,_fonts_js__WEBPACK_IMPORTED_MODULE_3__.fontImportUrl)(family), "');");
       }).join('') + css;
       return css;
     }
@@ -12548,7 +13017,7 @@ var StyleEngine = /*#__PURE__*/function () {
       }
       style.textContent = this.compile(document);
       // Load used Google Fonts into the editor iframe so live editing shows them immediately.
-      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.usedFonts)(document);
+      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_3__.usedFonts)(document);
       var existing = targetDocument.querySelectorAll('link[data-ink-google-font]');
       var loaded = new Set();
       existing.forEach(function (link) {
@@ -12561,7 +13030,7 @@ var StyleEngine = /*#__PURE__*/function () {
         link.rel = 'stylesheet';
         link.dataset.inkGoogleFont = '';
         link.dataset.inkFont = family;
-        link.href = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.fontImportUrl)(family);
+        link.href = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_3__.fontImportUrl)(family);
         targetDocument.head.appendChild(link);
       });
       return style;
@@ -13130,9 +13599,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   cssFilters: () => (/* binding */ cssFilters),
 /* harmony export */   dataBinding: () => (/* binding */ dataBinding),
 /* harmony export */   dimensions: () => (/* binding */ dimensions),
+/* harmony export */   easingEditor: () => (/* binding */ easingEditor),
 /* harmony export */   gallery: () => (/* binding */ gallery),
 /* harmony export */   gaps: () => (/* binding */ gaps),
 /* harmony export */   gradient: () => (/* binding */ gradient),
+/* harmony export */   gridTracks: () => (/* binding */ gridTracks),
 /* harmony export */   hidden: () => (/* binding */ hidden),
 /* harmony export */   icon: () => (/* binding */ icon),
 /* harmony export */   imageDimensions: () => (/* binding */ imageDimensions),
@@ -13142,19 +13613,25 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   media: () => (/* binding */ media),
 /* harmony export */   motion: () => (/* binding */ motion),
 /* harmony export */   motionGroup: () => (/* binding */ motionGroup),
+/* harmony export */   motionTimeline: () => (/* binding */ motionTimeline),
 /* harmony export */   notice: () => (/* binding */ notice),
+/* harmony export */   number: () => (/* binding */ number),
+/* harmony export */   numericField: () => (/* binding */ numericField),
 /* harmony export */   popoverToggle: () => (/* binding */ popoverToggle),
 /* harmony export */   positioning: () => (/* binding */ positioning),
 /* harmony export */   repeater: () => (/* binding */ repeater),
 /* harmony export */   resizing: () => (/* binding */ resizing),
+/* harmony export */   resolveTargetLabel: () => (/* binding */ resolveTargetLabel),
 /* harmony export */   shadow: () => (/* binding */ shadow),
 /* harmony export */   shapeDivider: () => (/* binding */ shapeDivider),
+/* harmony export */   size: () => (/* binding */ size),
 /* harmony export */   slider: () => (/* binding */ slider),
 /* harmony export */   stateNames: () => (/* binding */ stateNames),
 /* harmony export */   sticky: () => (/* binding */ sticky),
 /* harmony export */   structure: () => (/* binding */ structure),
 /* harmony export */   switcher: () => (/* binding */ switcher),
 /* harmony export */   textStroke: () => (/* binding */ textStroke),
+/* harmony export */   tracksEditor: () => (/* binding */ tracksEditor),
 /* harmony export */   typography: () => (/* binding */ typography),
 /* harmony export */   url: () => (/* binding */ url),
 /* harmony export */   wysiwyg: () => (/* binding */ wysiwyg)
@@ -13167,25 +13644,31 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../elementorShapes.js */ "./src/core/elementorShapes.js");
 /* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../states.js */ "./src/core/states.js");
 /* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../motionGroups.js */ "./src/core/motionGroups.js");
+/* harmony import */ var _valueInput_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ../valueInput.js */ "./src/core/valueInput.js");
+/* harmony import */ var _easing_js__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../easing.js */ "./src/core/easing.js");
+/* harmony import */ var _gridTracks_js__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../gridTracks.js */ "./src/core/gridTracks.js");
+var _excluded = ["offset"];
 function _toArray(r) { return _arrayWithHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableRest(); }
 function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */ _regeneratorRuntime = function _regeneratorRuntime() { return e; }; var t, e = {}, r = Object.prototype, n = r.hasOwnProperty, o = Object.defineProperty || function (t, e, r) { t[e] = r.value; }, i = "function" == typeof Symbol ? Symbol : {}, a = i.iterator || "@@iterator", c = i.asyncIterator || "@@asyncIterator", u = i.toStringTag || "@@toStringTag"; function define(t, e, r) { return Object.defineProperty(t, e, { value: r, enumerable: !0, configurable: !0, writable: !0 }), t[e]; } try { define({}, ""); } catch (t) { define = function define(t, e, r) { return t[e] = r; }; } function wrap(t, e, r, n) { var i = e && e.prototype instanceof Generator ? e : Generator, a = Object.create(i.prototype), c = new Context(n || []); return o(a, "_invoke", { value: makeInvokeMethod(t, r, c) }), a; } function tryCatch(t, e, r) { try { return { type: "normal", arg: t.call(e, r) }; } catch (t) { return { type: "throw", arg: t }; } } e.wrap = wrap; var h = "suspendedStart", l = "suspendedYield", f = "executing", s = "completed", y = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} var p = {}; define(p, a, function () { return this; }); var d = Object.getPrototypeOf, v = d && d(d(values([]))); v && v !== r && n.call(v, a) && (p = v); var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p); function defineIteratorMethods(t) { ["next", "throw", "return"].forEach(function (e) { define(t, e, function (t) { return this._invoke(e, t); }); }); } function AsyncIterator(t, e) { function invoke(r, o, i, a) { var c = tryCatch(t[r], t, o); if ("throw" !== c.type) { var u = c.arg, h = u.value; return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) { invoke("next", t, i, a); }, function (t) { invoke("throw", t, i, a); }) : e.resolve(h).then(function (t) { u.value = t, i(u); }, function (t) { return invoke("throw", t, i, a); }); } a(c.arg); } var r; o(this, "_invoke", { value: function value(t, n) { function callInvokeWithMethodAndArg() { return new e(function (e, r) { invoke(t, n, e, r); }); } return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg(); } }); } function makeInvokeMethod(e, r, n) { var o = h; return function (i, a) { if (o === f) throw Error("Generator is already running"); if (o === s) { if ("throw" === i) throw a; return { value: t, done: !0 }; } for (n.method = i, n.arg = a;;) { var c = n.delegate; if (c) { var u = maybeInvokeDelegate(c, n); if (u) { if (u === y) continue; return u; } } if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) { if (o === h) throw o = s, n.arg; n.dispatchException(n.arg); } else "return" === n.method && n.abrupt("return", n.arg); o = f; var p = tryCatch(e, r, n); if ("normal" === p.type) { if (o = n.done ? s : l, p.arg === y) continue; return { value: p.arg, done: n.done }; } "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg); } }; } function maybeInvokeDelegate(e, r) { var n = r.method, o = e.iterator[n]; if (o === t) return r.delegate = null, "throw" === n && e.iterator["return"] && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y; var i = tryCatch(o, e.iterator, r.arg); if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y; var a = i.arg; return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y); } function pushTryEntry(t) { var e = { tryLoc: t[0] }; 1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e); } function resetTryEntry(t) { var e = t.completion || {}; e.type = "normal", delete e.arg, t.completion = e; } function Context(t) { this.tryEntries = [{ tryLoc: "root" }], t.forEach(pushTryEntry, this), this.reset(!0); } function values(e) { if (e || "" === e) { var r = e[a]; if (r) return r.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) { var o = -1, i = function next() { for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next; return next.value = t, next.done = !0, next; }; return i.next = i; } } throw new TypeError(_typeof(e) + " is not iterable"); } return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", { value: GeneratorFunctionPrototype, configurable: !0 }), o(GeneratorFunctionPrototype, "constructor", { value: GeneratorFunction, configurable: !0 }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) { var e = "function" == typeof t && t.constructor; return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name)); }, e.mark = function (t) { return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t; }, e.awrap = function (t) { return { __await: t }; }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () { return this; }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) { void 0 === i && (i = Promise); var a = new AsyncIterator(wrap(t, r, n, o), i); return e.isGeneratorFunction(r) ? a : a.next().then(function (t) { return t.done ? t.value : a.next(); }); }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () { return this; }), define(g, "toString", function () { return "[object Generator]"; }), e.keys = function (t) { var e = Object(t), r = []; for (var n in e) r.push(n); return r.reverse(), function next() { for (; r.length;) { var t = r.pop(); if (t in e) return next.value = t, next.done = !1, next; } return next.done = !0, next; }; }, e.values = values, Context.prototype = { constructor: Context, reset: function reset(e) { if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t); }, stop: function stop() { this.done = !0; var t = this.tryEntries[0].completion; if ("throw" === t.type) throw t.arg; return this.rval; }, dispatchException: function dispatchException(e) { if (this.done) throw e; var r = this; function handle(n, o) { return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o; } for (var o = this.tryEntries.length - 1; o >= 0; --o) { var i = this.tryEntries[o], a = i.completion; if ("root" === i.tryLoc) return handle("end"); if (i.tryLoc <= this.prev) { var c = n.call(i, "catchLoc"), u = n.call(i, "finallyLoc"); if (c && u) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } else if (c) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); } else { if (!u) throw Error("try statement without catch or finally"); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } } } }, abrupt: function abrupt(t, e) { for (var r = this.tryEntries.length - 1; r >= 0; --r) { var o = this.tryEntries[r]; if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) { var i = o; break; } } i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null); var a = i ? i.completion : {}; return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a); }, complete: function complete(t, e) { if ("throw" === t.type) throw t.arg; return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y; }, finish: function finish(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y; } }, "catch": function _catch(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.tryLoc === t) { var n = r.completion; if ("throw" === n.type) { var o = n.arg; resetTryEntry(r); } return o; } } throw Error("illegal catch attempt"); }, delegateYield: function delegateYield(e, r, n) { return this.delegate = { iterator: values(e), resultName: r, nextLoc: n }, "next" === this.method && (this.arg = t), y; } }, e; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
-function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
-function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
-function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _objectWithoutProperties(e, t) { if (null == e) return {}; var o, r, i = _objectWithoutPropertiesLoose(e, t); if (Object.getOwnPropertySymbols) { var n = Object.getOwnPropertySymbols(e); for (r = 0; r < n.length; r++) o = n[r], -1 === t.indexOf(o) && {}.propertyIsEnumerable.call(e, o) && (i[o] = e[o]); } return i; }
+function _objectWithoutPropertiesLoose(r, e) { if (null == r) return {}; var t = {}; for (var n in r) if ({}.hasOwnProperty.call(r, n)) { if (-1 !== e.indexOf(n)) continue; t[n] = r[n]; } return t; }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
-function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
-function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
-function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 
 // Standalone control renderers — independent implementations with a uniform contract:
@@ -13193,6 +13676,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 // PanelManager stays thin: renderControl() delegates here via the ControlRegistry.
 // Each renderer uses only the panel context (setValue/currentValue/renderControl/
 // runtime) — no private PanelManager state.
+
+
+
 
 
 
@@ -13252,6 +13738,968 @@ var switchControl = function switchControl() {
 };
 
 /* ------------------------------------------------------------------ *
+ * Shared field primitives: numeric scrubbing, easing curves, grid tracks
+ * ------------------------------------------------------------------ */
+
+// A numeric field with the affordances a design tool is expected to have: drag the control label to
+// scrub, type arithmetic ("12*2", "100% - 20"), step with the arrow keys (Shift = coarse, Alt =
+// fine), and read a reason when a value is clamped instead of watching it silently change.
+//
+// The field never touches the store itself: `onLive` previews inside one undo step, `onCommit`
+// closes that step, and `onSet` writes a discrete change. That keeps the panel's history rules in
+// PanelManager, where they belong.
+function numericField() {
+  var _readSize;
+  var _ref2 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    value = _ref2.value,
+    _ref2$units = _ref2.units,
+    units = _ref2$units === void 0 ? null : _ref2$units,
+    _ref2$defaultUnit = _ref2.defaultUnit,
+    defaultUnit = _ref2$defaultUnit === void 0 ? 'px' : _ref2$defaultUnit,
+    _ref2$min = _ref2.min,
+    min = _ref2$min === void 0 ? null : _ref2$min,
+    _ref2$max = _ref2.max,
+    max = _ref2$max === void 0 ? null : _ref2$max,
+    _ref2$step = _ref2.step,
+    step = _ref2$step === void 0 ? 1 : _ref2$step,
+    _ref2$ariaLabel = _ref2.ariaLabel,
+    ariaLabel = _ref2$ariaLabel === void 0 ? 'Value' : _ref2$ariaLabel,
+    _ref2$placeholder = _ref2.placeholder,
+    placeholder = _ref2$placeholder === void 0 ? '' : _ref2$placeholder,
+    _ref2$handle = _ref2.handle,
+    handle = _ref2$handle === void 0 ? null : _ref2$handle,
+    _ref2$onLive = _ref2.onLive,
+    onLive = _ref2$onLive === void 0 ? null : _ref2$onLive,
+    _ref2$onCommit = _ref2.onCommit,
+    onCommit = _ref2$onCommit === void 0 ? null : _ref2$onCommit,
+    _ref2$onSet = _ref2.onSet,
+    onSet = _ref2$onSet === void 0 ? null : _ref2$onSet;
+  var unitList = Array.isArray(units) && units.length ? _toConsumableArray(units) : null;
+  var readSize = function readSize(source) {
+    return source && _typeof(source) === 'object' ? source.size : source;
+  };
+  var readUnit = function readUnit(source) {
+    return source && _typeof(source) === 'object' ? source.unit : null;
+  };
+  var committed = {
+    size: (_readSize = readSize(value)) !== null && _readSize !== void 0 ? _readSize : '',
+    unit: readUnit(value) || defaultUnit
+  };
+  var host = document.createElement('div');
+  host.className = 'ink-v2-number-field';
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.inputMode = 'decimal';
+  input.setAttribute('aria-label', ariaLabel);
+  if (placeholder) input.placeholder = placeholder;
+  input.value = committed.size === '' || committed.size === null || committed.size === undefined ? '' : String(committed.size);
+  var unit = unitList ? document.createElement('select') : null;
+  if (unit) {
+    unit.className = 'ink-v2-unit';
+    unit.setAttribute('aria-label', "".concat(ariaLabel, " unit"));
+    unitList.forEach(function (name) {
+      return unit.add(new Option(name, name));
+    });
+    unit.value = committed.unit;
+  }
+  var note = document.createElement('small');
+  note.className = 'ink-v2-field-note';
+  note.hidden = true;
+  host.append(input);
+  if (unit) host.append(unit);
+  host.append(note);
+  var numeric = function numeric() {
+    var size = Number(committed.size);
+    return Number.isFinite(size) ? size : 0;
+  };
+  var compose = function compose(size) {
+    return unitList ? {
+      size: size,
+      unit: unit && unit.value ? unit.value : defaultUnit
+    } : size;
+  };
+  var apply = function apply(next) {
+    var _ref3 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+      _ref3$live = _ref3.live,
+      live = _ref3$live === void 0 ? false : _ref3$live;
+    if (live && onLive) {
+      onLive(next);
+      return;
+    }
+    if (onSet) {
+      onSet(next);
+      return;
+    }
+    if (onCommit) onCommit(next);
+  };
+  var noteTimer = null;
+  var explain = function explain(message) {
+    var _ref4 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+      _ref4$autoHide = _ref4.autoHide,
+      autoHide = _ref4$autoHide === void 0 ? true : _ref4$autoHide;
+    note.textContent = message;
+    note.hidden = !message;
+    if (noteTimer) clearTimeout(noteTimer);
+    if (message && autoHide) noteTimer = setTimeout(function () {
+      note.hidden = true;
+    }, 4000);
+  };
+  var show = function show(size) {
+    input.value = size === '' || size === null || size === undefined ? '' : String(size);
+  };
+  var revert = function revert() {
+    show(committed.size);
+    if (unit) unit.value = committed.unit;
+    input.removeAttribute('aria-invalid');
+    explain('');
+  };
+  var commit = function commit() {
+    var text = input.value.trim();
+    if (!text) {
+      committed = {
+        size: '',
+        unit: unit ? unit.value : defaultUnit
+      };
+      input.removeAttribute('aria-invalid');
+      explain('');
+      if (onSet) onSet('');else if (onCommit) onCommit('');
+      return;
+    }
+    var parsed = (0,_valueInput_js__WEBPACK_IMPORTED_MODULE_8__.parseValueInput)(text, {
+      current: numeric(),
+      units: unitList || [defaultUnit],
+      defaultUnit: defaultUnit
+    });
+    if (!parsed || typeof parsed.size === 'string') {
+      input.setAttribute('aria-invalid', 'true');
+      explain('Try a number, a unit like 24px, or arithmetic like 100% - 20.', {
+        autoHide: false
+      });
+      return;
+    }
+    var bounded = (0,_valueInput_js__WEBPACK_IMPORTED_MODULE_8__.clampValue)(parsed.size, {
+      min: min,
+      max: max
+    });
+    input.removeAttribute('aria-invalid');
+    if (unit && parsed.unit && Array.from(unit.options).some(function (option) {
+      return option.value === parsed.unit;
+    })) unit.value = parsed.unit;
+    committed = {
+      size: bounded.value,
+      unit: unit ? unit.value : defaultUnit
+    };
+    show(bounded.value);
+    explain(bounded.clamped ? bounded.reason : '');
+    var next = compose(bounded.value);
+    if (onSet) onSet(next);else if (onCommit) onCommit(next);
+  };
+  input.addEventListener('change', commit);
+  input.addEventListener('blur', function () {
+    if (input.hasAttribute('aria-invalid')) revert();else commit();
+  });
+  input.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commit();
+      input.blur();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      revert();
+      input.blur();
+      return;
+    }
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    var next = (0,_valueInput_js__WEBPACK_IMPORTED_MODULE_8__.stepValue)(numeric(), {
+      step: step,
+      direction: event.key === 'ArrowUp' ? 1 : -1,
+      shift: event.shiftKey,
+      alt: event.altKey,
+      min: min,
+      max: max
+    });
+    committed = {
+      size: next,
+      unit: unit ? unit.value : defaultUnit
+    };
+    show(next);
+    var composed = compose(next);
+    if (onLive) {
+      onLive(composed);
+      if (onCommit) onCommit(composed);
+    } else if (onSet) onSet(composed);
+  });
+  if (unit) unit.addEventListener('change', commit);
+
+  // Scrubbing: dragging the control's own label changes the value, which is the gesture authors
+  // expect from a number in a design tool. A click without movement changes nothing.
+  if (handle) {
+    handle.classList.add('is-scrubbable');
+    handle.addEventListener('pointerdown', function (event) {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      var startX = event.clientX;
+      var startValue = numeric();
+      var moved = false;
+      var composeFrom = function composeFrom(clientX, modifiers) {
+        return (0,_valueInput_js__WEBPACK_IMPORTED_MODULE_8__.scrubDelta)(startValue, startX, clientX, {
+          step: step,
+          shift: modifiers.shift,
+          alt: modifiers.alt,
+          min: min,
+          max: max
+        });
+      };
+      var move = function move(moveEvent) {
+        if (Math.abs(moveEvent.clientX - startX) > 2) moved = true;
+        if (!moved) return;
+        var next = composeFrom(moveEvent.clientX, {
+          shift: moveEvent.shiftKey,
+          alt: moveEvent.altKey
+        });
+        committed = {
+          size: next,
+          unit: unit ? unit.value : defaultUnit
+        };
+        show(next);
+        if (onLive) onLive(compose(next));
+      };
+      var _up = function up(upEvent) {
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', _up);
+        document.body.classList.remove('ink-is-scrubbing');
+        if (!moved) return;
+        var next = composeFrom(upEvent.clientX, {
+          shift: upEvent.shiftKey,
+          alt: upEvent.altKey
+        });
+        committed = {
+          size: next,
+          unit: unit ? unit.value : defaultUnit
+        };
+        show(next);
+        if (onCommit) onCommit(compose(next));else if (onSet) onSet(compose(next));
+      };
+      document.body.classList.add('ink-is-scrubbing');
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', _up);
+    });
+  }
+  return {
+    element: host,
+    input: input,
+    unit: unit,
+    note: note,
+    explain: explain,
+    setValue: function setValue(next) {
+      var _readSize2;
+      committed = {
+        size: (_readSize2 = readSize(next)) !== null && _readSize2 !== void 0 ? _readSize2 : '',
+        unit: readUnit(next) || defaultUnit
+      };
+      show(committed.size);
+      if (unit) unit.value = committed.unit;
+    }
+  };
+}
+
+// The easing editor: a preset list, a draggable bezier curve, and a spring tab that converts
+// physical parameters into a legal cubic-bezier while keeping the parameters beside it, so the
+// sliders come back where the author left them and the stylesheet only ever sees valid CSS.
+function easingEditor() {
+  var _matching;
+  var _ref5 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    value = _ref5.value,
+    _ref5$spring = _ref5.spring,
+    spring = _ref5$spring === void 0 ? null : _ref5$spring,
+    onChange = _ref5.onChange,
+    _ref5$onDuration = _ref5.onDuration,
+    onDuration = _ref5$onDuration === void 0 ? null : _ref5$onDuration,
+    _ref5$ariaLabel = _ref5.ariaLabel,
+    ariaLabel = _ref5$ariaLabel === void 0 ? 'Easing' : _ref5$ariaLabel;
+  var parsed = (0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.parseEasing)(value);
+  var points = _toConsumableArray(parsed.points);
+  var springState = spring && _typeof(spring) === 'object' ? _objectSpread(_objectSpread({}, _easing_js__WEBPACK_IMPORTED_MODULE_9__.SPRING_DEFAULTS), spring) : null;
+  var host = document.createElement('div');
+  host.className = 'ink-v2-easing';
+  var head = document.createElement('div');
+  head.className = 'ink-v2-easing-head';
+  var preset = document.createElement('select');
+  preset.setAttribute('aria-label', ariaLabel);
+  _easing_js__WEBPACK_IMPORTED_MODULE_9__.EASING_PRESETS.forEach(function (entry) {
+    return preset.add(new Option(entry.label, entry.id));
+  });
+  preset.add(new Option('Custom curve', 'custom'));
+  var matching = function matching() {
+    return _easing_js__WEBPACK_IMPORTED_MODULE_9__.EASING_PRESETS.find(function (entry) {
+      return entry.points.every(function (point, index) {
+        return Math.abs(point - points[index]) < 0.005;
+      });
+    });
+  };
+  preset.value = ((_matching = matching()) === null || _matching === void 0 ? void 0 : _matching.id) || 'custom';
+  var toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'ink-v2-easing-toggle';
+  toggle.textContent = 'Edit curve';
+  toggle.setAttribute('aria-expanded', 'false');
+  head.append(preset, toggle);
+  var body = document.createElement('div');
+  body.className = 'ink-v2-easing-body';
+  body.hidden = true;
+  var tabs = document.createElement('div');
+  tabs.className = 'ink-v2-easing-tabs';
+  tabs.setAttribute('role', 'tablist');
+  var curveTab = document.createElement('button');
+  curveTab.type = 'button';
+  curveTab.textContent = 'Curve';
+  curveTab.setAttribute('role', 'tab');
+  var springTab = document.createElement('button');
+  springTab.type = 'button';
+  springTab.textContent = 'Spring';
+  springTab.setAttribute('role', 'tab');
+  tabs.append(curveTab, springTab);
+  // Designer words first: the four shapes an author reaches for, plus the drawable curve. They map
+  // onto the same curves as the preset list above, so nothing here is a new vocabulary.
+  var EASING_CHIPS = [['Smooth', 'ease-in-out'], ['Snappy', 'expo-out'], ['Spring', 'back-out'], ['Bounce', 'anticipate']];
+  var chips = document.createElement('div');
+  chips.className = 'ink-v2-easing-chips';
+  var curveChips = EASING_CHIPS.map(function (_ref6) {
+    var _EASING_PRESETS$find;
+    var _ref7 = _slicedToArray(_ref6, 2),
+      label = _ref7[0],
+      id = _ref7[1];
+    var chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'ink-v2-easing-chip';
+    chip.textContent = label;
+    chip.dataset.easing = id;
+    chip.title = ((_EASING_PRESETS$find = _easing_js__WEBPACK_IMPORTED_MODULE_9__.EASING_PRESETS.find(function (entry) {
+      return entry.id === id;
+    })) === null || _EASING_PRESETS$find === void 0 ? void 0 : _EASING_PRESETS$find.label) || label;
+    chip.addEventListener('click', function () {
+      var entry = _easing_js__WEBPACK_IMPORTED_MODULE_9__.EASING_PRESETS.find(function (candidate) {
+        return candidate.id === id;
+      });
+      if (!entry) return;
+      points = _toConsumableArray(entry.points);
+      springState = null;
+      selectEasingTab('curve');
+      draw();
+      emit();
+    });
+    chips.appendChild(chip);
+    return chip;
+  });
+  var customChip = document.createElement('button');
+  customChip.type = 'button';
+  customChip.className = 'ink-v2-easing-chip';
+  customChip.textContent = 'Custom';
+  customChip.title = 'Drag the handles to shape the curve';
+  customChip.addEventListener('click', function () {
+    return selectEasingTab('curve');
+  });
+  chips.appendChild(customChip);
+  var svgNamespace = 'http://www.w3.org/2000/svg';
+  var box = (0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.easingBox)({
+    width: 128,
+    height: 128,
+    padding: 14
+  });
+  var svg = document.createElementNS(svgNamespace, 'svg');
+  svg.setAttribute('viewBox', "0 0 ".concat(box.width, " ").concat(box.height));
+  svg.setAttribute('class', 'ink-v2-easing-curve');
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', 'Easing curve editor');
+  var grid = document.createElementNS(svgNamespace, 'path');
+  grid.setAttribute('class', 'ink-v2-easing-grid');
+  grid.setAttribute('d', "M".concat(box.x(0), " ").concat(box.y(0), " L").concat(box.x(1), " ").concat(box.y(1), " M").concat(box.x(0), " ").concat(box.y(1), " L").concat(box.x(1), " ").concat(box.y(1)));
+  var curve = document.createElementNS(svgNamespace, 'path');
+  curve.setAttribute('class', 'ink-v2-easing-path');
+  var stemOne = document.createElementNS(svgNamespace, 'line');
+  stemOne.setAttribute('class', 'ink-v2-easing-stem');
+  var stemTwo = document.createElementNS(svgNamespace, 'line');
+  stemTwo.setAttribute('class', 'ink-v2-easing-stem');
+  var handleOne = document.createElementNS(svgNamespace, 'circle');
+  handleOne.setAttribute('class', 'ink-v2-easing-handle');
+  handleOne.setAttribute('r', '7');
+  handleOne.dataset.handle = 'first';
+  var handleTwo = document.createElementNS(svgNamespace, 'circle');
+  handleTwo.setAttribute('class', 'ink-v2-easing-handle');
+  handleTwo.setAttribute('r', '7');
+  handleTwo.dataset.handle = 'second';
+  var readout = document.createElementNS(svgNamespace, 'text');
+  readout.setAttribute('class', 'ink-v2-easing-readout');
+  readout.setAttribute('x', box.x(0));
+  readout.setAttribute('y', box.height - 3);
+  svg.append(grid, stemOne, stemTwo, curve, handleOne, handleTwo, readout);
+  var draw = function draw() {
+    var _matching2;
+    var drawn = (0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.bezierPath)(points, box);
+    curve.setAttribute('d', drawn.path);
+    var _points = points,
+      _points2 = _slicedToArray(_points, 4),
+      x1 = _points2[0],
+      y1 = _points2[1],
+      x2 = _points2[2],
+      y2 = _points2[3];
+    stemOne.setAttribute('x1', box.x(0));
+    stemOne.setAttribute('y1', box.y(0));
+    stemOne.setAttribute('x2', box.x(x1));
+    stemOne.setAttribute('y2', box.y(y1));
+    stemTwo.setAttribute('x1', box.x(1));
+    stemTwo.setAttribute('y1', box.y(1));
+    stemTwo.setAttribute('x2', box.x(x2));
+    stemTwo.setAttribute('y2', box.y(y2));
+    handleOne.setAttribute('cx', box.x(x1));
+    handleOne.setAttribute('cy', box.y(y1));
+    handleTwo.setAttribute('cx', box.x(x2));
+    handleTwo.setAttribute('cy', box.y(y2));
+    readout.textContent = (0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.easingCss)(points);
+    var matched = ((_matching2 = matching()) === null || _matching2 === void 0 ? void 0 : _matching2.id) || 'custom';
+    preset.value = matched;
+    curveChips.forEach(function (chip) {
+      return chip.classList.toggle('is-active', !springState && chip.dataset.easing === matched);
+    });
+  };
+  var emit = function emit() {
+    return onChange({
+      easing: (0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.easingCss)(points),
+      spring: springState
+    });
+  };
+  var dragHandle = function dragHandle(circle, index) {
+    circle.addEventListener('pointerdown', function (event) {
+      var _circle$setPointerCap;
+      if (event.button !== 0) return;
+      event.preventDefault();
+      (_circle$setPointerCap = circle.setPointerCapture) === null || _circle$setPointerCap === void 0 || _circle$setPointerCap.call(circle, event.pointerId);
+      var rect = svg.getBoundingClientRect();
+      var scaleX = box.width / rect.width;
+      var scaleY = box.height / rect.height;
+      var move = function move(moveEvent) {
+        var px = (moveEvent.clientX - rect.left) * scaleX;
+        var py = (moveEvent.clientY - rect.top) * scaleY;
+        points[index] = box.unx(px);
+        points[index + 1] = box.uny(py);
+        draw();
+      };
+      var _up2 = function up() {
+        circle.removeEventListener('pointermove', move);
+        circle.removeEventListener('pointerup', _up2);
+        document.body.classList.remove('ink-is-scrubbing');
+        springState = null;
+        emit();
+      };
+      document.body.classList.add('ink-is-scrubbing');
+      circle.addEventListener('pointermove', move);
+      circle.addEventListener('pointerup', _up2);
+    });
+  };
+  dragHandle(handleOne, 0);
+  dragHandle(handleTwo, 2);
+  var springHost = document.createElement('div');
+  springHost.className = 'ink-v2-easing-spring';
+  springHost.hidden = true;
+  // The physics explainer is documentation, not a control: it stays behind a "?" beside the tabs
+  // instead of pushing the sliders down the popover.
+  var springHint = document.createElement('p');
+  springHint.className = 'ink-v2-control-description';
+  springHint.hidden = true;
+  springHint.textContent = 'Springs are written as the closest cubic-bezier, so the motion stays native CSS. Use a keyframe timeline when you need a real multi-bounce.';
+  var springHelp = document.createElement('button');
+  springHelp.type = 'button';
+  springHelp.className = 'ink-v2-info-toggle';
+  springHelp.textContent = '?';
+  springHelp.setAttribute('aria-label', 'About springs');
+  springHelp.setAttribute('aria-expanded', 'false');
+  springHelp.addEventListener('click', function () {
+    springHint.hidden = !springHint.hidden;
+    springHelp.setAttribute('aria-expanded', String(!springHint.hidden));
+  });
+  tabs.appendChild(springHelp);
+  var springFields = {};
+  var springRanges = [['stiffness', 'Stiffness', 1, 600, 1], ['damping', 'Damping', 1, 120, 1], ['mass', 'Mass', 0.1, 5, 0.1]];
+  var applySpring = function applySpring() {
+    var _ref8 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+      _ref8$commit = _ref8.commit,
+      commit = _ref8$commit === void 0 ? false : _ref8$commit;
+    springState = {
+      stiffness: Number(springFields.stiffness.value) || _easing_js__WEBPACK_IMPORTED_MODULE_9__.SPRING_DEFAULTS.stiffness,
+      damping: Number(springFields.damping.value) || _easing_js__WEBPACK_IMPORTED_MODULE_9__.SPRING_DEFAULTS.damping,
+      mass: Number(springFields.mass.value) || _easing_js__WEBPACK_IMPORTED_MODULE_9__.SPRING_DEFAULTS.mass
+    };
+    points = (0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.springToBezier)(springState);
+    draw();
+    if (commit) emit();
+  };
+  springRanges.forEach(function (_ref9) {
+    var _springState$name, _springState;
+    var _ref10 = _slicedToArray(_ref9, 5),
+      name = _ref10[0],
+      label = _ref10[1],
+      min = _ref10[2],
+      max = _ref10[3],
+      step = _ref10[4];
+    var row = document.createElement('label');
+    row.className = 'ink-v2-easing-spring-field';
+    var text = document.createElement('span');
+    text.textContent = label;
+    var range = document.createElement('input');
+    range.type = 'range';
+    range.min = String(min);
+    range.max = String(max);
+    range.step = String(step);
+    range.value = String((_springState$name = (_springState = springState) === null || _springState === void 0 ? void 0 : _springState[name]) !== null && _springState$name !== void 0 ? _springState$name : _easing_js__WEBPACK_IMPORTED_MODULE_9__.SPRING_DEFAULTS[name]);
+    range.setAttribute('aria-label', label);
+    var value = document.createElement('output');
+    value.textContent = range.value;
+    range.addEventListener('input', function () {
+      value.textContent = range.value;
+      applySpring();
+    });
+    range.addEventListener('change', function () {
+      return applySpring({
+        commit: true
+      });
+    });
+    springFields[name] = range;
+    row.append(text, range, value);
+    springHost.appendChild(row);
+  });
+  var suggest = document.createElement('button');
+  suggest.type = 'button';
+  suggest.className = 'ink-v2-action-button';
+  suggest.textContent = 'Use recommended';
+  var refreshSuggest = function refreshSuggest() {
+    suggest.title = "Sets the duration to about when the spring settles (".concat((0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.springSettleMs)(springState || _easing_js__WEBPACK_IMPORTED_MODULE_9__.SPRING_DEFAULTS), "ms)");
+  };
+  suggest.addEventListener('click', function () {
+    if (onDuration) onDuration((0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.springSettleMs)(springState || _easing_js__WEBPACK_IMPORTED_MODULE_9__.SPRING_DEFAULTS));
+  });
+  refreshSuggest();
+  springHost.append(springHint, suggest);
+  var selectEasingTab = function selectEasingTab(name) {
+    var springActive = name === 'spring';
+    springHost.hidden = !springActive;
+    svg.hidden = springActive;
+    curveTab.classList.toggle('is-active', !springActive);
+    springTab.classList.toggle('is-active', springActive);
+    curveTab.setAttribute('aria-selected', String(!springActive));
+    springTab.setAttribute('aria-selected', String(springActive));
+  };
+  // The editor needs more room than the sidebar gives it, so the popover is positioned against the
+  // button and pinned to the viewport: it stays inside the panel's DOM (and its tests) while
+  // reading as its own surface outside the panel's width.
+  var positioned = null;
+  var positionBody = function positionBody() {
+    if (body.hidden) return;
+    var rect = toggle.getBoundingClientRect();
+    var width = Math.min(300, window.innerWidth - 24);
+    var left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+    var height = body.offsetHeight;
+    var below = rect.bottom + 6;
+    body.style.position = 'fixed';
+    body.style.width = "".concat(width, "px");
+    body.style.left = "".concat(left, "px");
+    body.style.top = "".concat(below + height > window.innerHeight - 8 ? Math.max(8, rect.top - height - 6) : below, "px");
+  };
+  var closeBody = function closeBody() {
+    body.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+    if (positioned) {
+      positioned.abort();
+      positioned = null;
+    }
+  };
+  var openBody = function openBody() {
+    body.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    draw();
+    refreshSuggest();
+    // Reposition while the popover is open: the panel scrolls under a viewport-pinned box.
+    if (positioned) positioned.abort();
+    positioned = new AbortController();
+    var _positioned = positioned,
+      signal = _positioned.signal;
+    window.addEventListener('resize', positionBody, {
+      signal: signal
+    });
+    document.addEventListener('scroll', positionBody, {
+      capture: true,
+      signal: signal
+    });
+    positionBody();
+  };
+  curveTab.addEventListener('click', function () {
+    return selectEasingTab('curve');
+  });
+  springTab.addEventListener('click', function () {
+    return selectEasingTab('spring');
+  });
+  selectEasingTab(springState ? 'spring' : 'curve');
+  body.append(tabs, chips, svg, springHost);
+  preset.addEventListener('change', function () {
+    var entry = _easing_js__WEBPACK_IMPORTED_MODULE_9__.EASING_PRESETS.find(function (candidate) {
+      return candidate.id === preset.value;
+    });
+    if (!entry) {
+      openBody();
+      return;
+    }
+    points = _toConsumableArray(entry.points);
+    springState = null;
+    draw();
+    emit();
+  });
+  toggle.addEventListener('click', function () {
+    if (body.hidden) openBody();else closeBody();
+  });
+  toggle.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !body.hidden) {
+      closeBody();
+      toggle.focus();
+    }
+  });
+  draw();
+  host.append(head, body);
+  return {
+    element: host,
+    svg: svg,
+    setValue: function setValue() {}
+  };
+}
+
+// The grid track editor: a count stepper, a proportional preview rail, and one row per track, so a
+// layout can be built by adding columns instead of typing a template string.
+function tracksEditor() {
+  var _ref11 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    value = _ref11.value,
+    onChange = _ref11.onChange,
+    _ref11$unitOptions = _ref11.unitOptions,
+    unitOptions = _ref11$unitOptions === void 0 ? _gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.TRACK_UNITS : _ref11$unitOptions;
+  var host = document.createElement('div');
+  host.className = 'ink-v2-tracks';
+  var commit = function commit(tracks) {
+    return onChange({
+      tracks: tracks,
+      css: (0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.serializeTracks)(tracks)
+    });
+  };
+  var render = function render(raw) {
+    var tracks = (0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.parseTracks)(raw);
+    host.replaceChildren();
+    var rail = document.createElement('div');
+    rail.className = 'ink-v2-tracks-rail';
+    rail.setAttribute('aria-hidden', 'true');
+    var weights = tracks.map(function (track) {
+      if (track.unit === 'fr') return Math.max(0.4, Number(track.size) || 1);
+      if (['px', 'rem', 'em', 'vw', 'ch'].includes(track.unit)) return Math.max(0.4, (Number(track.size) || 1) / 60);
+      return 1;
+    });
+    tracks.forEach(function (track, index) {
+      var segment = document.createElement('span');
+      segment.className = 'ink-v2-tracks-segment';
+      segment.style.flexGrow = String(weights[index] || 1);
+      segment.textContent = (0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.trackText)(track);
+      rail.appendChild(segment);
+    });
+    var head = document.createElement('div');
+    head.className = 'ink-v2-tracks-head';
+    var count = document.createElement('div');
+    count.className = 'ink-v2-tracks-count';
+    var less = document.createElement('button');
+    less.type = 'button';
+    less.textContent = '−';
+    less.disabled = tracks.length <= 1;
+    less.setAttribute('aria-label', 'Remove the last track');
+    var more = document.createElement('button');
+    more.type = 'button';
+    more.textContent = '+';
+    more.disabled = tracks.length >= 24;
+    more.setAttribute('aria-label', 'Add a track');
+    var countLabel = document.createElement('span');
+    countLabel.textContent = "".concat(tracks.length, " track").concat(tracks.length === 1 ? '' : 's');
+    less.addEventListener('click', function () {
+      return commit((0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.resizeTracks)(raw, tracks.length - 1));
+    });
+    more.addEventListener('click', function () {
+      return commit((0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.resizeTracks)(raw, tracks.length + 1));
+    });
+    count.append(less, countLabel, more);
+    var presets = document.createElement('div');
+    presets.className = 'ink-v2-tracks-presets';
+    [[2, '2'], [3, '3'], [4, '4']].forEach(function (_ref12) {
+      var _ref13 = _slicedToArray(_ref12, 2),
+        number = _ref13[0],
+        label = _ref13[1];
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.setAttribute('aria-label', "".concat(number, " equal tracks"));
+      button.addEventListener('click', function () {
+        return commit((0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.tracksFromCount)(number));
+      });
+      presets.appendChild(button);
+    });
+    if (!tracks.length) {
+      var auto = document.createElement('button');
+      auto.type = 'button';
+      auto.className = 'ink-v2-tracks-auto';
+      auto.textContent = 'Auto-fit cards';
+      auto.addEventListener('click', function () {
+        return onChange({
+          tracks: (0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.parseTracks)('repeat(auto-fit, minmax(220px, 1fr))'),
+          css: 'repeat(auto-fit, minmax(220px, 1fr))'
+        });
+      });
+      presets.appendChild(auto);
+    }
+    head.append(count, presets);
+    var rows = document.createElement('div');
+    rows.className = 'ink-v2-tracks-rows';
+    tracks.forEach(function (track, index) {
+      var row = document.createElement('div');
+      row.className = 'ink-v2-tracks-row';
+      var unit = document.createElement('select');
+      unit.className = 'ink-v2-unit';
+      unit.setAttribute('aria-label', "Track ".concat(index + 1, " unit"));
+      unitOptions.forEach(function (name) {
+        return unit.add(new Option(name, name));
+      });
+      unit.value = track.unit === 'raw' || track.unit === 'minmax' || track.unit === 'fit-content' ? 'auto' : track.unit;
+      var size = document.createElement('input');
+      size.type = 'text';
+      size.autocomplete = 'off';
+      size.setAttribute('aria-label', "Track ".concat(index + 1, " size"));
+      size.value = track.unit === 'raw' || track.unit === 'minmax' || track.unit === 'fit-content' ? (0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.trackText)(track) : Number.isFinite(Number(track.size)) ? String(track.size) : '';
+      size.readOnly = unit.value === 'auto';
+      var remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', "Remove track ".concat(index + 1));
+      remove.disabled = tracks.length <= 1;
+      unit.addEventListener('change', function () {
+        var next = (0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.parseTracks)(raw);
+        var value = Number(size.value);
+        next[index] = unit.value === 'auto' ? {
+          unit: 'auto'
+        } : {
+          unit: unit.value,
+          size: Number.isFinite(value) ? value : 1
+        };
+        commit(next);
+      });
+      size.addEventListener('change', function () {
+        var parsed = (0,_valueInput_js__WEBPACK_IMPORTED_MODULE_8__.parseValueInput)(size.value, {
+          current: 1,
+          units: unitOptions,
+          defaultUnit: unit.value
+        });
+        if (!parsed) {
+          size.value = (0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.trackText)(track);
+          return;
+        }
+        var next = (0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.parseTracks)(raw);
+        next[index] = typeof parsed.size === 'number' ? {
+          unit: parsed.unit || unit.value,
+          size: parsed.size
+        } : {
+          unit: parsed.size
+        };
+        commit(next);
+      });
+      remove.addEventListener('click', function () {
+        return commit((0,_gridTracks_js__WEBPACK_IMPORTED_MODULE_10__.parseTracks)(raw).filter(function (_, cursor) {
+          return cursor !== index;
+        }));
+      });
+      row.append(unit, size, remove);
+      rows.appendChild(row);
+    });
+    host.append(head, rail, rows);
+  };
+  render(value);
+  return {
+    element: host,
+    setValue: function setValue(next) {
+      return render(next);
+    }
+  };
+}
+
+// The keyframe timeline: a row per keyframe with its position, transform and opacity, a raw JSON
+// escape hatch for anything else, and a preview that plays the real animation on the canvas.
+// Property values the author did not touch survive an edit, so a hand-written or imported keyframe
+// is never flattened into a subset.
+function motionTimeline() {
+  var _ref14 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    frames = _ref14.frames,
+    onChange = _ref14.onChange,
+    _ref14$onPreview = _ref14.onPreview,
+    onPreview = _ref14$onPreview === void 0 ? null : _ref14$onPreview;
+  var list = Array.isArray(frames) ? frames : [];
+  var host = document.createElement('div');
+  host.className = 'ink-v2-timeline';
+  var rows = document.createElement('div');
+  rows.className = 'ink-v2-timeline-rows';
+  var position = function position(frame, index) {
+    var offset = Number(frame === null || frame === void 0 ? void 0 : frame.offset);
+    return Number.isFinite(offset) ? Math.max(0, Math.min(1, offset)) : index / Math.max(1, list.length - 1);
+  };
+  var edit = function edit(index, patch) {
+    return onChange(list.map(function (frame, cursor) {
+      return cursor === index ? _objectSpread(_objectSpread({}, frame), patch) : _objectSpread({}, frame);
+    }));
+  };
+  list.forEach(function (frame, index) {
+    var _frame$transform;
+    var row = document.createElement('div');
+    row.className = 'ink-v2-timeline-row';
+    var positionLabel = document.createElement('label');
+    positionLabel.className = 'ink-v2-timeline-position';
+    var offset = numericField({
+      value: Math.round(position(frame, index) * 100),
+      min: 0,
+      max: 100,
+      step: 5,
+      ariaLabel: "Keyframe ".concat(index + 1, " position"),
+      handle: positionLabel,
+      onSet: function onSet(next) {
+        return edit(index, {
+          offset: Math.round(Number(next) || 0) / 100
+        });
+      }
+    });
+    positionLabel.append(offset.element, '%');
+    var transform = document.createElement('input');
+    transform.type = 'text';
+    transform.className = 'ink-v2-timeline-transform';
+    transform.spellcheck = false;
+    transform.value = (_frame$transform = frame.transform) !== null && _frame$transform !== void 0 ? _frame$transform : '';
+    transform.placeholder = 'translateY(24px)';
+    transform.setAttribute('aria-label', "Keyframe ".concat(index + 1, " transform"));
+    commitOnFinish(transform, function () {
+      return edit(index, {
+        transform: transform.value.trim()
+      });
+    });
+    var opacity = document.createElement('input');
+    opacity.type = 'text';
+    opacity.className = 'ink-v2-timeline-opacity';
+    opacity.inputMode = 'decimal';
+    opacity.value = frame.opacity === undefined || frame.opacity === null ? '' : String(frame.opacity);
+    opacity.placeholder = 'opacity';
+    opacity.setAttribute('aria-label', "Keyframe ".concat(index + 1, " opacity"));
+    commitOnFinish(opacity, function () {
+      var next = opacity.value.trim();
+      edit(index, {
+        opacity: next === '' ? '' : Math.max(0, Math.min(1, Number(next) || 0))
+      });
+    });
+    var remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', "Remove keyframe ".concat(index + 1));
+    remove.disabled = list.length <= 2;
+    remove.addEventListener('click', function () {
+      return onChange(list.filter(function (_, cursor) {
+        return cursor !== index;
+      }));
+    });
+    row.append(positionLabel, transform, opacity, remove);
+    rows.appendChild(row);
+  });
+  host.appendChild(rows);
+  var tools = document.createElement('div');
+  tools.className = 'ink-v2-timeline-tools';
+  var add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'ink-v2-action-button';
+  add.textContent = 'Add keyframe';
+  add.addEventListener('click', function () {
+    var last = position(list.at(-1), list.length - 1);
+    var previous = list.length > 1 ? position(list.at(-2), list.length - 2) : Math.max(0, last - 0.25);
+    var offset = Math.round(Math.min(1, (last + previous) / 2 + 0.25) * 100) / 100;
+    var template = list.at(-1) || {};
+    onChange([].concat(_toConsumableArray(list.map(function (frame) {
+      return _objectSpread({}, frame);
+    })), [_objectSpread({
+      offset: offset
+    }, template.transform ? {
+      transform: template.transform
+    } : {})]));
+  });
+  tools.appendChild(add);
+  if (onPreview) {
+    var play = document.createElement('button');
+    play.type = 'button';
+    play.className = 'ink-v2-action-button';
+    play.textContent = 'Play preview';
+    play.addEventListener('click', function () {
+      if (!onPreview()) play.textContent = 'Select the layer first';
+    });
+    tools.appendChild(play);
+  }
+  host.appendChild(tools);
+  var raw = document.createElement('details');
+  raw.className = 'ink-v2-timeline-raw';
+  var summary = document.createElement('summary');
+  summary.textContent = 'Raw keyframes';
+  var textarea = document.createElement('textarea');
+  textarea.className = 'ink-v2-code';
+  textarea.rows = 6;
+  textarea.spellcheck = false;
+  textarea.value = JSON.stringify(list, null, 2);
+  textarea.setAttribute('aria-label', 'Keyframes as JSON');
+  var status = document.createElement('small');
+  status.className = 'ink-v2-field-note';
+  status.hidden = true;
+  commitOnFinish(textarea, function () {
+    try {
+      var parsed = JSON.parse(textarea.value);
+      if (!Array.isArray(parsed) || parsed.length < 2) throw new Error('Use at least two keyframes');
+      status.hidden = true;
+      textarea.removeAttribute('aria-invalid');
+      onChange(parsed);
+    } catch (error) {
+      status.textContent = error.message;
+      status.hidden = false;
+      textarea.setAttribute('aria-invalid', 'true');
+    }
+  });
+  raw.append(summary, textarea, status);
+  host.appendChild(raw);
+  return {
+    element: host
+  };
+}
+
+// What a selector actually points at, in the author's words: read the canvas, not the CSS.
+function resolveTargetLabel(panel, selector) {
+  var _panel$runtime, _element$dataset, _element$closest, _element;
+  var root = panel === null || panel === void 0 || (_panel$runtime = panel.runtime) === null || _panel$runtime === void 0 || (_panel$runtime = _panel$runtime.canvas) === null || _panel$runtime === void 0 ? void 0 : _panel$runtime.root;
+  if (!selector || !root) return '';
+  var element = null;
+  try {
+    element = root.querySelector(selector);
+  } catch (error) {
+    return '';
+  }
+  if (!element) return '';
+  var id = ((_element$dataset = element.dataset) === null || _element$dataset === void 0 ? void 0 : _element$dataset.inkElementId) || ((_element$closest = (_element = element).closest) === null || _element$closest === void 0 || (_element$closest = _element$closest.call(_element, '[data-ink-element-id]')) === null || _element$closest === void 0 || (_element$closest = _element$closest.dataset) === null || _element$closest === void 0 ? void 0 : _element$closest.inkElementId);
+  var node = id ? panel.runtime.document.get(id) : null;
+  if (!node) return '';
+  var definition = panel.runtime.elements.get(node.type);
+  return "".concat(node.settings.label || definition.title, " (").concat(definition.title, ")");
+}
+
+/* ------------------------------------------------------------------ *
  * Switcher / slider / gaps / dimensions (value editors)
  * ------------------------------------------------------------------ */
 
@@ -13272,64 +14720,95 @@ function switcher(panel, control, node, value, row) {
   row.appendChild(wrapper);
   return row;
 }
-function motion(panel, control, node, value, row) {
-  var _current$iterations;
-  var current = value && _typeof(value) === 'object' ? value : {};
-  var wrapper = document.createElement('div');
-  wrapper.className = 'ink-v2-motion-control';
-  var field = function field(labelText, input) {
-    var label = document.createElement('label');
-    label.textContent = labelText;
-    label.appendChild(input);
-    wrapper.appendChild(label);
-    return input;
-  };
-  var enabledControl = switchControl({
-    checked: !!value && current.enabled !== false,
-    ariaLabel: 'Animation enabled'
+
+// A plain number, with optional units, using the shared scrub/arithmetic field.
+function number(panel, control, node, value, row) {
+  var _control$units, _control$min, _control$max, _control$step;
+  var field = numericField({
+    value: value,
+    units: control.units || null,
+    defaultUnit: control.defaultUnit || ((_control$units = control.units) === null || _control$units === void 0 ? void 0 : _control$units[0]) || 'px',
+    min: (_control$min = control.min) !== null && _control$min !== void 0 ? _control$min : null,
+    max: (_control$max = control.max) !== null && _control$max !== void 0 ? _control$max : null,
+    step: (_control$step = control.step) !== null && _control$step !== void 0 ? _control$step : 1,
+    ariaLabel: control.label || control.name,
+    placeholder: control.placeholder || '',
+    handle: row.querySelector(':scope > label'),
+    onLive: function onLive(next) {
+      return panel.scrubValue(control, node, next, false);
+    },
+    onCommit: function onCommit(next) {
+      return panel.scrubValue(control, node, next, true);
+    },
+    onSet: function onSet(next) {
+      return panel.setValue(control, node, next);
+    }
   });
-  var enabled = enabledControl.checkbox;
-  var trigger = document.createElement('select');
-  Object.entries({
-    load: 'Page load',
-    hover: 'Hover',
-    enter: 'Section enters view',
-    scroll: 'Section scroll progress'
-  }).forEach(function (_ref2) {
-    var _ref3 = _slicedToArray(_ref2, 2),
-      name = _ref3[0],
-      label = _ref3[1];
-    return trigger.add(new Option(label, name));
+  row.appendChild(field.element);
+  return row;
+}
+
+// A size always carries a unit, so "24" can become 24px, 24rem, or 24% — the author types the unit
+// they mean instead of hunting for the select.
+function size(panel, control, node, value, row) {
+  var _control$units2, _control$min2, _control$max2, _control$step2;
+  var field = numericField({
+    value: value,
+    units: control.units || ['px'],
+    defaultUnit: ((_control$units2 = control.units) === null || _control$units2 === void 0 ? void 0 : _control$units2[0]) || 'px',
+    min: (_control$min2 = control.min) !== null && _control$min2 !== void 0 ? _control$min2 : null,
+    max: (_control$max2 = control.max) !== null && _control$max2 !== void 0 ? _control$max2 : null,
+    step: (_control$step2 = control.step) !== null && _control$step2 !== void 0 ? _control$step2 : 1,
+    ariaLabel: control.label || control.name,
+    placeholder: control.placeholder || '',
+    handle: row.querySelector(':scope > label'),
+    onLive: function onLive(next) {
+      return panel.scrubValue(control, node, next, false);
+    },
+    onCommit: function onCommit(next) {
+      return panel.scrubValue(control, node, next, true);
+    },
+    onSet: function onSet(next) {
+      return panel.setValue(control, node, next);
+    }
   });
-  trigger.value = current.trigger || 'load';
-  var duration = document.createElement('input');
-  duration.type = 'number';
-  duration.min = '1';
-  duration.step = '50';
-  duration.value = current.duration || 800;
-  var delay = document.createElement('input');
-  delay.type = 'number';
-  delay.step = '50';
-  delay.value = current.delay || 0;
-  var easing = document.createElement('select');
-  ['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier(.16,1,.3,1)'].forEach(function (name) {
-    return easing.add(new Option(name, name));
+  row.appendChild(field.element);
+  return row;
+}
+
+// Grid tracks: columns (or rows) as editable tracks instead of a template string nobody can parse.
+function gridTracks(panel, control, node, value, row) {
+  var editor = tracksEditor({
+    value: String(value !== null && value !== void 0 ? value : ''),
+    onChange: function onChange(_ref15) {
+      var css = _ref15.css;
+      return panel.setValue(control, node, css);
+    }
   });
-  easing.value = current.easing || 'ease';
-  var iterations = document.createElement('input');
-  iterations.type = 'text';
-  iterations.value = (_current$iterations = current.iterations) !== null && _current$iterations !== void 0 ? _current$iterations : 1;
-  iterations.placeholder = '1 or infinite';
-  var direction = document.createElement('select');
-  ['normal', 'reverse', 'alternate', 'alternate-reverse'].forEach(function (name) {
-    return direction.add(new Option(name, name));
-  });
-  direction.value = current.direction || 'normal';
-  var keyframes = document.createElement('textarea');
-  keyframes.className = 'ink-v2-code';
-  keyframes.rows = 8;
-  keyframes.spellcheck = false;
-  keyframes.value = JSON.stringify(current.keyframes || [{
+  row.appendChild(editor.element);
+  var hint = document.createElement('small');
+  hint.className = 'ink-v2-control-description';
+  hint.textContent = 'Written straight to the grid template. A uniform list is saved as repeat(n, …).';
+  row.appendChild(hint);
+  return row;
+}
+
+// Animation presets are the designer-facing half of motion: pick what should happen and the panel
+// writes the keyframes. The timeline stays available for exactly what the presets cannot say.
+var MOTION_PRESETS = [{
+  id: 'fade-in',
+  label: 'Fade in',
+  frames: [{
+    offset: 0,
+    opacity: 0
+  }, {
+    offset: 1,
+    opacity: 1
+  }]
+}, {
+  id: 'fade-up',
+  label: 'Fade + move up',
+  frames: [{
     offset: 0,
     opacity: 0,
     transform: 'translateY(24px)'
@@ -13337,58 +14816,319 @@ function motion(panel, control, node, value, row) {
     offset: 1,
     opacity: 1,
     transform: 'translateY(0)'
-  }], null, 2);
-  field('Enabled', enabledControl.wrapper);
+  }]
+}, {
+  id: 'scale-in',
+  label: 'Scale in',
+  frames: [{
+    offset: 0,
+    opacity: 0,
+    transform: 'scale(0.9)'
+  }, {
+    offset: 1,
+    opacity: 1,
+    transform: 'scale(1)'
+  }]
+}, {
+  id: 'slide-in',
+  label: 'Slide in from left',
+  frames: [{
+    offset: 0,
+    opacity: 0,
+    transform: 'translateX(-32px)'
+  }, {
+    offset: 1,
+    opacity: 1,
+    transform: 'translateX(0)'
+  }]
+}];
+var motionFrameSignature = function motionFrameSignature(list) {
+  return (Array.isArray(list) ? list : []).map(function (frame) {
+    var _frame$opacity, _frame$transform2;
+    return "".concat(Number(frame === null || frame === void 0 ? void 0 : frame.offset), "|").concat((_frame$opacity = frame === null || frame === void 0 ? void 0 : frame.opacity) !== null && _frame$opacity !== void 0 ? _frame$opacity : '', "|").concat((_frame$transform2 = frame === null || frame === void 0 ? void 0 : frame.transform) !== null && _frame$transform2 !== void 0 ? _frame$transform2 : '');
+  }).join('~');
+};
+var motionPresetFor = function motionPresetFor(frames, enabled) {
+  var _MOTION_PRESETS$find;
+  return enabled === false ? 'none' : ((_MOTION_PRESETS$find = MOTION_PRESETS.find(function (preset) {
+    return motionFrameSignature(preset.frames) === motionFrameSignature(frames);
+  })) === null || _MOTION_PRESETS$find === void 0 ? void 0 : _MOTION_PRESETS$find.id) || 'custom';
+};
+// Name the effect, not the mechanics: "Fade + Move", not "two keyframes".
+var describeMotionFrames = function describeMotionFrames(frames) {
+  var list = Array.isArray(frames) ? frames : [];
+  if (!list.length) return 'No animation yet';
+  var transforms = list.map(function (frame) {
+    return String((frame === null || frame === void 0 ? void 0 : frame.transform) || '');
+  }).join(' ');
+  var parts = [];
+  if (list.some(function (frame) {
+    return (frame === null || frame === void 0 ? void 0 : frame.opacity) !== undefined && (frame === null || frame === void 0 ? void 0 : frame.opacity) !== null && (frame === null || frame === void 0 ? void 0 : frame.opacity) !== '';
+  })) parts.push('Fade');
+  if (/scale\(/.test(transforms)) parts.push('Scale');
+  if (/rotate\(/.test(transforms)) parts.push('Rotate');
+  if (/translateY/.test(transforms)) parts.push('Move');
+  if (/translateX/.test(transforms)) parts.push('Slide');
+  return parts.length ? parts.join(' + ') : 'Custom motion';
+};
+function motion(panel, control, node, value, row) {
+  var _current$iterations, _current$iterations2;
+  var current = value && _typeof(value) === 'object' ? value : {};
+  var wrapper = document.createElement('div');
+  wrapper.className = 'ink-v2-motion-control';
+  // Composite controls build their own label rows so the inner number fields can scrub from the
+  // label that names them ("Duration (ms)"), not from the whole control's title.
+  var makeField = function makeField(labelText) {
+    var host = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : wrapper;
+    var label = document.createElement('label');
+    label.textContent = labelText;
+    host.appendChild(label);
+    return label;
+  };
+  var field = function field(labelText, input) {
+    var host = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : wrapper;
+    var label = makeField(labelText, host);
+    label.appendChild(input);
+    return input;
+  };
+  var enabled = current.enabled !== false;
+  var frames = Array.isArray(current.keyframes) && current.keyframes.length ? current.keyframes.map(function (frame) {
+    return _objectSpread({}, frame);
+  }) : [{
+    offset: 0,
+    opacity: 0,
+    transform: 'translateY(24px)'
+  }, {
+    offset: 1,
+    opacity: 1,
+    transform: 'translateY(0)'
+  }];
+
+  // The first decision is "what should happen", not "which CSS properties". Choosing a preset
+  // writes the keyframes; the timeline below is the escape hatch, not the entry point.
+  var animation = document.createElement('select');
+  animation.setAttribute('aria-label', 'Animation');
+  animation.add(new Option('None', 'none'));
+  MOTION_PRESETS.forEach(function (preset) {
+    return animation.add(new Option(preset.label, preset.id));
+  });
+  animation.add(new Option('Custom keyframes', 'custom'));
+  animation.value = motionPresetFor(frames, enabled);
+  var trigger = document.createElement('select');
+  Object.entries({
+    load: 'Page load',
+    hover: 'Hover',
+    enter: 'Section enters view',
+    scroll: 'Section scroll progress'
+  }).forEach(function (_ref16) {
+    var _ref17 = _slicedToArray(_ref16, 2),
+      name = _ref17[0],
+      label = _ref17[1];
+    return trigger.add(new Option(label, name));
+  });
+  trigger.value = current.trigger || 'load';
+  var iterations = document.createElement('input');
+  iterations.type = 'text';
+  iterations.value = (_current$iterations = current.iterations) !== null && _current$iterations !== void 0 ? _current$iterations : 1;
+  iterations.placeholder = '1 or infinite';
+  iterations.setAttribute('aria-label', 'Iterations');
+  var direction = document.createElement('select');
+  ['normal', 'reverse', 'alternate', 'alternate-reverse'].forEach(function (name) {
+    return direction.add(new Option(name, name));
+  });
+  direction.value = current.direction || 'normal';
+  direction.setAttribute('aria-label', 'Direction');
+
+  // Authored state lives here, so every commit writes one coherent motion object and the easing
+  // that reaches the page is always a string the stylesheet accepts.
+  var easingState = {
+    easing: (0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.validateEasing)(current.easing) || (0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.easingCss)((0,_easing_js__WEBPACK_IMPORTED_MODULE_9__.parseEasing)(current.easing).points),
+    spring: current.spring && _typeof(current.spring) === 'object' ? _objectSpread({}, current.spring) : null
+  };
+  field('Animation', animation);
+  var summary = document.createElement('div');
+  summary.className = 'ink-v2-motion-summary';
+  var summaryText = document.createElement('span');
+  summaryText.className = 'ink-v2-motion-summary-text';
+  var previewButton = document.createElement('button');
+  previewButton.type = 'button';
+  previewButton.className = 'ink-v2-action-button';
+  previewButton.textContent = 'Preview';
+  summary.append(summaryText, previewButton);
+  wrapper.appendChild(summary);
   field('Trigger', trigger);
-  field('Duration (ms)', duration);
-  field('Delay (ms)', delay);
-  field('Easing', easing);
-  field('Iterations', iterations);
-  field('Direction', direction);
-  field('Keyframes', keyframes);
-  var explain = document.createElement('small');
-  explain.className = 'ink-v2-control-description';
-  explain.textContent = 'Scroll motion follows the parent section as it crosses the viewport. It runs once through the keyframes; scroll progress ignores duration, delay, iterations, and direction. Preview to see it.';
-  wrapper.appendChild(explain);
+  var durationLabel = makeField('Duration (ms)');
+  var durationField = numericField({
+    value: current.duration || 800,
+    min: 1,
+    step: 50,
+    ariaLabel: 'Duration in milliseconds',
+    handle: durationLabel,
+    onSet: function onSet(next) {
+      return write({
+        duration: Math.max(1, Math.round(Number(next) || 800))
+      });
+    }
+  });
+  durationLabel.appendChild(durationField.element);
+  var delayLabel = makeField('Delay (ms)');
+  var delayField = numericField({
+    value: current.delay || 0,
+    step: 50,
+    ariaLabel: 'Delay in milliseconds',
+    handle: delayLabel,
+    onSet: function onSet(next) {
+      return write({
+        delay: Math.round(Number(next) || 0)
+      });
+    }
+  });
+  delayLabel.appendChild(delayField.element);
+  function write() {
+    var _patch$easing;
+    var patch = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+    if (patch.easing !== undefined || patch.spring !== undefined) easingState = {
+      easing: (_patch$easing = patch.easing) !== null && _patch$easing !== void 0 ? _patch$easing : easingState.easing,
+      spring: patch.spring === undefined ? easingState.spring : patch.spring
+    };
+    if (patch.keyframes) frames = patch.keyframes;
+    var payload = {
+      enabled: enabled,
+      trigger: trigger.value,
+      duration: Math.max(1, Math.round(Number(durationField.input.value) || 800)),
+      delay: Math.round(Number(delayField.input.value) || 0),
+      easing: easingState.easing,
+      iterations: iterations.value === 'infinite' ? 'infinite' : Math.max(1, Math.round(Number(iterations.value) || 1)),
+      direction: direction.value,
+      keyframes: frames
+    };
+    if (easingState.spring) payload.spring = easingState.spring;
+    panel.setValue(control, node, payload);
+  }
+
+  // Preview through the browser's own animation engine, so the author watches the real motion
+  // without the panel mutating the page's stylesheet.
+  var previewMotion = function previewMotion() {
+    var _panel$runtime$canvas, _element$getAnimation;
+    var element = (_panel$runtime$canvas = panel.runtime.canvas) === null || _panel$runtime$canvas === void 0 || (_panel$runtime$canvas = _panel$runtime$canvas.instances) === null || _panel$runtime$canvas === void 0 || (_panel$runtime$canvas = _panel$runtime$canvas.get(node.id)) === null || _panel$runtime$canvas === void 0 ? void 0 : _panel$runtime$canvas.element;
+    if (!(element !== null && element !== void 0 && element.animate) || !frames.length) return false;
+    var browserFrames = frames.map(function (frame, index) {
+      var offset = frame.offset,
+        rest = _objectWithoutProperties(frame, _excluded);
+      var position = Number(offset);
+      return _objectSpread({
+        offset: Number.isFinite(position) ? Math.max(0, Math.min(1, position)) : index / Math.max(1, frames.length - 1)
+      }, rest);
+    });
+    (_element$getAnimation = element.getAnimations) === null || _element$getAnimation === void 0 || _element$getAnimation.call(element).forEach(function (running) {
+      return running.cancel();
+    });
+    element.animate(browserFrames, {
+      duration: Math.max(1, Number(durationField.input.value) || 800),
+      delay: Number(delayField.input.value) || 0,
+      easing: easingState.easing,
+      iterations: iterations.value === 'infinite' ? Infinity : Math.max(1, Number(iterations.value) || 1),
+      direction: direction.value,
+      fill: 'both'
+    });
+    return true;
+  };
+  previewButton.addEventListener('click', function () {
+    return previewMotion();
+  });
+
+  // Everything a designer rarely touches lives behind one disclosure: iterations, direction, the
+  // easing curve and spring tuning, and the raw keyframe timeline.
+  var advanced = document.createElement('details');
+  advanced.className = 'ink-v2-motion-advanced';
+  advanced.innerHTML = '<summary><span>Advanced</span><span class="ink-v2-section-chevron" aria-hidden="true">⌄</span></summary>';
+  var advancedBody = document.createElement('div');
+  advancedBody.className = 'ink-v2-motion-advanced-body';
+  advanced.appendChild(advancedBody);
+  advanced.open = Boolean(current.spring) || current.easing !== undefined && !['ease', 'linear'].includes(String(current.easing)) || String((_current$iterations2 = current.iterations) !== null && _current$iterations2 !== void 0 ? _current$iterations2 : '1') !== '1' || (current.direction || 'normal') !== 'normal';
+  wrapper.appendChild(advanced);
+  var easingHost = easingEditor({
+    value: easingState.easing,
+    spring: easingState.spring,
+    onChange: function onChange(_ref18) {
+      var easing = _ref18.easing,
+        spring = _ref18.spring;
+      return write({
+        easing: easing,
+        spring: spring
+      });
+    },
+    onDuration: function onDuration(milliseconds) {
+      durationField.setValue(milliseconds);
+      write({
+        duration: milliseconds
+      });
+    }
+  });
+  var timeline = motionTimeline({
+    frames: frames,
+    onChange: function onChange(next) {
+      return write({
+        keyframes: next
+      });
+    },
+    onPreview: previewMotion
+  });
+  field('Iterations', iterations, advancedBody);
+  field('Direction', direction, advancedBody);
+  var easingLabel = makeField('Easing', advancedBody);
+  easingLabel.appendChild(easingHost.element);
+  var timelineLabel = makeField('Keyframes', advancedBody);
+  timelineLabel.appendChild(timeline.element);
+  var hint = document.createElement('small');
+  hint.className = 'ink-v2-motion-hint';
+  hint.textContent = 'Scroll motion follows this layer through the viewport and runs once.';
+  wrapper.appendChild(hint);
+  var refreshSummary = function refreshSummary() {
+    var milliseconds = Math.max(1, Math.round(Number(durationField.input.value) || 800));
+    summaryText.textContent = enabled ? "".concat(describeMotionFrames(frames), " \xB7 ").concat(milliseconds, "ms") : 'No animation';
+    previewButton.disabled = !enabled || !frames.length;
+  };
   var syncFields = function syncFields() {
     var scroll = trigger.value === 'scroll';
-    duration.disabled = scroll;
-    delay.disabled = scroll;
+    durationField.input.disabled = scroll;
+    delayField.input.disabled = scroll;
     iterations.disabled = ['scroll', 'enter'].includes(trigger.value);
     direction.disabled = iterations.disabled;
-    explain.hidden = !iterations.disabled;
+    hint.hidden = !iterations.disabled;
   };
-  trigger.addEventListener('change', syncFields);
-  syncFields();
-  var status = document.createElement('small');
-  status.className = 'ink-v2-control-description';
-  wrapper.appendChild(status);
-  var commit = function commit() {
-    var parsed;
-    try {
-      parsed = JSON.parse(keyframes.value);
-      if (!Array.isArray(parsed) || parsed.length < 2) throw new Error('Use at least two keyframes');
-    } catch (error) {
-      status.textContent = error.message;
-      keyframes.setAttribute('aria-invalid', 'true');
-      return;
-    }
-    keyframes.removeAttribute('aria-invalid');
-    status.textContent = '';
-    panel.setValue(control, node, {
-      enabled: enabled.checked,
-      trigger: trigger.value,
-      duration: Math.max(1, Number(duration.value) || 800),
-      delay: Number(delay.value) || 0,
-      easing: easing.value,
-      iterations: iterations.value === 'infinite' ? 'infinite' : Math.max(1, Number(iterations.value) || 1),
-      direction: direction.value,
-      keyframes: parsed
+  animation.addEventListener('change', function () {
+    var preset = MOTION_PRESETS.find(function (entry) {
+      return entry.id === animation.value;
     });
-  };
-  [enabled, trigger, duration, delay, easing, iterations, direction, keyframes].forEach(function (input) {
-    return input.addEventListener('change', commit);
+    if (animation.value === 'none') enabled = false;else {
+      enabled = true;
+      if (preset) frames = preset.frames.map(function (frame) {
+        return _objectSpread({}, frame);
+      });
+    }
+    write({
+      keyframes: frames
+    });
+    refreshSummary();
+    syncFields();
   });
+  trigger.addEventListener('change', function () {
+    syncFields();
+    write();
+  });
+  [iterations, direction].forEach(function (input) {
+    return input.addEventListener('change', function () {
+      return write();
+    });
+  });
+  [durationField.input, delayField.input].forEach(function (input) {
+    return input.addEventListener('change', function () {
+      refreshSummary();
+    });
+  });
+  syncFields();
+  refreshSummary();
   row.appendChild(wrapper);
   return row;
 }
@@ -13437,16 +15177,34 @@ function motionGroup(panel, control, node, value, row) {
   duration.step = '50';
   duration.value = (_group$duration = group === null || group === void 0 ? void 0 : group.duration) !== null && _group$duration !== void 0 ? _group$duration : 0;
   duration.placeholder = 'each layer';
-  var easing = document.createElement('select');
-  ['', 'linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier(.16,1,.3,1)'].forEach(function (name) {
-    return easing.add(new Option(name || 'each layer', name));
+  // The group can inherit each layer's own easing (the default) or apply one curve to the whole
+  // timeline; the editor writes the same validated cubic-bezier the single-layer Motion uses.
+  var groupEasing = (group === null || group === void 0 ? void 0 : group.easing) || '';
+  var easingHost = easingEditor({
+    value: groupEasing || 'ease',
+    onChange: function onChange(_ref19) {
+      var easing = _ref19.easing;
+      groupEasing = easing;
+      syncAndCommit();
+    }
   });
-  easing.value = (group === null || group === void 0 ? void 0 : group.easing) || '';
+  var easingInherit = document.createElement('button');
+  easingInherit.type = 'button';
+  easingInherit.className = 'ink-v2-action-button';
+  var syncInherit = function syncInherit() {
+    easingInherit.textContent = groupEasing ? 'Use each layer\'s own easing' : 'Every layer keeps its own easing';
+    easingInherit.disabled = !groupEasing;
+  };
+  easingInherit.addEventListener('click', function () {
+    groupEasing = '';
+    syncInherit();
+    syncAndCommit();
+  });
   var reference = document.createElement('select');
-  [['group', 'The group section'], ['parent', "The group\u2019s parent"]].forEach(function (_ref4) {
-    var _ref5 = _slicedToArray(_ref4, 2),
-      name = _ref5[0],
-      label = _ref5[1];
+  [['group', 'The group section'], ['parent', "The group\u2019s parent"]].forEach(function (_ref20) {
+    var _ref21 = _slicedToArray(_ref20, 2),
+      name = _ref21[0],
+      label = _ref21[1];
     return reference.add(new Option(label, name));
   });
   reference.value = (group === null || group === void 0 || (_group$scrub = group.scrub) === null || _group$scrub === void 0 ? void 0 : _group$scrub.reference) || 'group';
@@ -13478,7 +15236,7 @@ function motionGroup(panel, control, node, value, row) {
       trigger: trigger.value,
       stagger: Number(stagger.value) || 0,
       duration: Number(duration.value) || 0,
-      easing: easing.value,
+      easing: groupEasing,
       scrub: {
         reference: reference.value
       },
@@ -13497,7 +15255,7 @@ function motionGroup(panel, control, node, value, row) {
       trigger: trigger.value,
       stagger: Number(stagger.value) || 0,
       duration: Number(duration.value) || 0,
-      easing: easing.value,
+      easing: groupEasing,
       scrub: {
         reference: reference.value
       },
@@ -13519,7 +15277,7 @@ function motionGroup(panel, control, node, value, row) {
     sync();
     commit();
   };
-  [enabled, kind, trigger, stagger, duration, easing, reference, pin, distance].forEach(function (input) {
+  [enabled, kind, trigger, stagger, duration, reference, pin, distance].forEach(function (input) {
     return input.addEventListener('change', syncAndCommit);
   });
   field('Orchestrate', enabledControl.wrapper);
@@ -13527,11 +15285,13 @@ function motionGroup(panel, control, node, value, row) {
   field('Trigger', trigger);
   field('Stagger (ms)', stagger);
   field('Duration (ms)', duration);
-  field('Easing', easing);
+  field('Easing', easingHost.element);
+  wrapper.appendChild(easingInherit);
   field('Scroll reference', reference);
   field('Pin', pinControl.wrapper);
   field('Pinned distance (vh)', distance);
   wrapper.appendChild(status);
+  syncInherit();
   sync();
   row.appendChild(wrapper);
   return row;
@@ -13592,21 +15352,21 @@ function sticky(panel, control, node, value, row) {
   return row;
 }
 function slider(panel, control, node, value, row) {
-  var _control$min, _control$max, _control$step, _ref6, _control$default;
+  var _control$min3, _control$max3, _control$step3, _ref22, _control$default;
   var host = document.createElement('div');
   host.className = 'ink-v2-slider';
   var range = document.createElement('input');
   range.type = 'range';
-  range.min = (_control$min = control.min) !== null && _control$min !== void 0 ? _control$min : 0;
-  range.max = (_control$max = control.max) !== null && _control$max !== void 0 ? _control$max : 100;
-  range.step = (_control$step = control.step) !== null && _control$step !== void 0 ? _control$step : 1;
+  range.min = (_control$min3 = control.min) !== null && _control$min3 !== void 0 ? _control$min3 : 0;
+  range.max = (_control$max3 = control.max) !== null && _control$max3 !== void 0 ? _control$max3 : 100;
+  range.step = (_control$step3 = control.step) !== null && _control$step3 !== void 0 ? _control$step3 : 1;
   var number = document.createElement('input');
   number.type = 'number';
   number.min = range.min;
   number.max = range.max;
   number.step = range.step;
   var size = value && _typeof(value) === 'object' ? value.size : value;
-  var initial = size === '' || size === undefined || size === null ? (_ref6 = (_control$default = control["default"]) !== null && _control$default !== void 0 ? _control$default : control.min) !== null && _ref6 !== void 0 ? _ref6 : 0 : size;
+  var initial = size === '' || size === undefined || size === null ? (_ref22 = (_control$default = control["default"]) !== null && _control$default !== void 0 ? _control$default : control.min) !== null && _ref22 !== void 0 ? _ref22 : 0 : size;
   range.value = initial;
   number.value = range.value;
   var unit = control.units ? document.createElement('select') : null;
@@ -13657,7 +15417,7 @@ function slider(panel, control, node, value, row) {
   return row;
 }
 function gaps(panel, control, node, value, row) {
-  var _gaps$row, _gaps$column, _control$units;
+  var _gaps$row, _gaps$column, _control$units3;
   var gaps = value && _typeof(value) === 'object' ? value : {};
   var wrapper = document.createElement('div');
   wrapper.className = 'ink-v2-gaps';
@@ -13673,7 +15433,7 @@ function gaps(panel, control, node, value, row) {
   (control.units || ['px']).forEach(function (name) {
     return unit.add(new Option(name, name));
   });
-  unit.value = gaps.unit || ((_control$units = control.units) === null || _control$units === void 0 ? void 0 : _control$units[0]) || 'px';
+  unit.value = gaps.unit || ((_control$units3 = control.units) === null || _control$units3 === void 0 ? void 0 : _control$units3[0]) || 'px';
   var linked = gaps.linked !== false;
   var link = document.createElement('button');
   link.type = 'button';
@@ -13741,10 +15501,10 @@ function layoutFlow(panel, control, node, _value, row) {
   choices.className = 'ink-v2-layout-flow';
   choices.setAttribute('role', 'radiogroup');
   choices.setAttribute('aria-label', 'Layout flow');
-  [['free', 'Freeform'], ['vertical', 'Vertical'], ['horizontal', 'Horizontal'], ['grid', 'Grid']].forEach(function (_ref7) {
-    var _ref8 = _slicedToArray(_ref7, 2),
-      mode = _ref8[0],
-      label = _ref8[1];
+  [['free', 'Freeform'], ['vertical', 'Vertical'], ['horizontal', 'Horizontal'], ['grid', 'Grid']].forEach(function (_ref23) {
+    var _ref24 = _slicedToArray(_ref23, 2),
+      mode = _ref24[0],
+      label = _ref24[1];
     var button = document.createElement('button');
     button.type = 'button';
     button.title = label;
@@ -13818,18 +15578,18 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     var menu = document.createElement('div');
     menu.className = 'ink-v2-resize-menu';
     menu.hidden = true;
-    [['fixed', 'Fixed'], ['relative', 'Relative'], ['hug', 'Hug contents'], ['fill', 'Fill container']].forEach(function (_ref9) {
-      var _ref10 = _slicedToArray(_ref9, 2),
-        nextMode = _ref10[0],
-        label = _ref10[1];
+    [['fixed', 'Fixed'], ['relative', 'Relative'], ['hug', 'Hug contents'], ['fill', 'Fill container']].forEach(function (_ref25) {
+      var _ref26 = _slicedToArray(_ref25, 2),
+        nextMode = _ref26[0],
+        label = _ref26[1];
       var option = document.createElement('button');
       option.type = 'button';
       option.dataset.mode = nextMode;
       option.classList.toggle('is-active', inferred === nextMode);
       option.innerHTML = "<span>".concat(inferred === nextMode ? '✓' : '', "</span>").concat(label);
       option.addEventListener('click', function () {
-        var _panel$runtime$canvas;
-        var element = (_panel$runtime$canvas = panel.runtime.canvas.instances.get(node.id)) === null || _panel$runtime$canvas === void 0 ? void 0 : _panel$runtime$canvas.element;
+        var _panel$runtime$canvas2;
+        var element = (_panel$runtime$canvas2 = panel.runtime.canvas.instances.get(node.id)) === null || _panel$runtime$canvas2 === void 0 ? void 0 : _panel$runtime$canvas2.element;
         var parent = element === null || element === void 0 ? void 0 : element.parentElement;
         var parentStyle = parent && parent.ownerDocument.defaultView.getComputedStyle(parent);
         var mainAxis = (parentStyle === null || parentStyle === void 0 ? void 0 : parentStyle.display) === 'flex' && (parentStyle.flexDirection.startsWith('row') ? 'width' : 'height');
@@ -13857,11 +15617,11 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     });
     var limits = document.createElement('div');
     limits.className = 'ink-v2-resize-limits';
-    [['min', "Min ".concat(property)], ['max', "Max ".concat(property)]].forEach(function (_ref11) {
+    [['min', "Min ".concat(property)], ['max', "Max ".concat(property)]].forEach(function (_ref27) {
       var _value$size;
-      var _ref12 = _slicedToArray(_ref11, 2),
-        kind = _ref12[0],
-        label = _ref12[1];
+      var _ref28 = _slicedToArray(_ref27, 2),
+        kind = _ref28[0],
+        label = _ref28[1];
       var limit = document.createElement('label');
       limit.append(label);
       var input = document.createElement('input');
@@ -13882,10 +15642,10 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     menus.push([menu, mode]);
     mode.addEventListener('click', function () {
       var opening = menu.hidden;
-      menus.forEach(function (_ref13) {
-        var _ref14 = _slicedToArray(_ref13, 2),
-          other = _ref14[0],
-          trigger = _ref14[1];
+      menus.forEach(function (_ref29) {
+        var _ref30 = _slicedToArray(_ref29, 2),
+          other = _ref30[0],
+          trigger = _ref30[1];
         other.hidden = true;
         trigger.classList.remove('is-active');
       });
@@ -13930,11 +15690,11 @@ function positioning(panel, control, node, _value, row) {
   modes.className = 'ink-v2-position-modes';
   modes.setAttribute('role', 'radiogroup');
   modes.setAttribute('aria-label', 'Position mode');
-  [['flow', 'Flow', flowValue], ['absolute', 'Absolute', 'absolute'], ['fixed', 'Fixed', 'fixed'], ['sticky', 'Sticky', 'sticky']].forEach(function (_ref15) {
-    var _ref16 = _slicedToArray(_ref15, 3),
-      mode = _ref16[0],
-      label = _ref16[1],
-      value = _ref16[2];
+  [['flow', 'Flow', flowValue], ['absolute', 'Absolute', 'absolute'], ['fixed', 'Fixed', 'fixed'], ['sticky', 'Sticky', 'sticky']].forEach(function (_ref31) {
+    var _ref32 = _slicedToArray(_ref31, 3),
+      mode = _ref32[0],
+      label = _ref32[1],
+      value = _ref32[2];
     var selected = activeMode === mode;
     var button = document.createElement('button');
     button.type = 'button';
@@ -14165,10 +15925,10 @@ function alignmentGap(panel, control, node, _value, row) {
   });
   unit.value = gaps.unit || 'px';
   var distribution = document.createElement('select');
-  [['Packed', 'flex-start'], ['Center', 'center'], ['Space between', 'space-between'], ['Space around', 'space-around'], ['Space evenly', 'space-evenly']].forEach(function (_ref17) {
-    var _ref18 = _slicedToArray(_ref17, 2),
-      label = _ref18[0],
-      value = _ref18[1];
+  [['Packed', 'flex-start'], ['Center', 'center'], ['Space between', 'space-between'], ['Space around', 'space-around'], ['Space evenly', 'space-evenly']].forEach(function (_ref33) {
+    var _ref34 = _slicedToArray(_ref33, 2),
+      label = _ref34[0],
+      value = _ref34[1];
     return distribution.add(new Option(label, value));
   });
   distribution.value = justify;
@@ -14195,10 +15955,10 @@ function alignmentGap(panel, control, node, _value, row) {
   paddingPopover.appendChild(paddingUnit);
   host.appendChild(paddingPopover);
   var closePopovers = function closePopovers(except) {
-    [[popover, settings], [paddingPopover, individual]].forEach(function (_ref19) {
-      var _ref20 = _slicedToArray(_ref19, 2),
-        menu = _ref20[0],
-        button = _ref20[1];
+    [[popover, settings], [paddingPopover, individual]].forEach(function (_ref35) {
+      var _ref36 = _slicedToArray(_ref35, 2),
+        menu = _ref36[0],
+        button = _ref36[1];
       if (menu !== except) {
         menu.hidden = true;
         button.classList.remove('is-active');
@@ -14249,7 +16009,7 @@ function alignmentGap(panel, control, node, _value, row) {
   return row;
 }
 function dimensions(panel, control, node, value, row) {
-  var _control$units2;
+  var _control$units4;
   var scalar = value && _typeof(value) === 'object' ? value.size : typeof value === 'number' ? value : undefined;
   var dimensions = scalar !== undefined ? {
     top: scalar,
@@ -14262,16 +16022,16 @@ function dimensions(panel, control, node, value, row) {
   if (control.name === 'border-radius') {
     var wrapper = document.createElement('div');
     wrapper.className = 'ink-v2-radius-control';
-    var number = document.createElement('input');
-    number.type = 'number';
-    number.min = 0;
+    var _number = document.createElement('input');
+    _number.type = 'number';
+    _number.min = 0;
     var sides = ['top', 'right', 'bottom', 'left'];
     var equal = sides.every(function (side) {
       return (dimensions[side] || 0) === (dimensions.top || 0);
     });
-    number.value = equal ? dimensions.top || 0 : '';
-    number.placeholder = 'Mixed';
-    number.setAttribute('aria-label', 'Corner radius');
+    _number.value = equal ? dimensions.top || 0 : '';
+    _number.placeholder = 'Mixed';
+    _number.setAttribute('aria-label', 'Corner radius');
     var _unit = document.createElement('select');
     (control.units || ['px']).forEach(function (name) {
       return _unit.add(new Option(name, name));
@@ -14300,13 +16060,13 @@ function dimensions(panel, control, node, value, row) {
     });
     var commitAll = function commitAll() {
       return panel.setValue(control, node, _objectSpread(_objectSpread({}, Object.fromEntries(sides.map(function (side) {
-        return [side, Math.max(0, Number(number.value) || 0)];
+        return [side, Math.max(0, Number(_number.value) || 0)];
       }))), {}, {
         unit: _unit.value,
         linked: true
       }));
     };
-    commitOnFinish(number, commitAll);
+    commitOnFinish(_number, commitAll);
     _unit.addEventListener('change', function () {
       return panel.setValue(control, node, _objectSpread(_objectSpread({}, dimensions), {}, {
         unit: _unit.value
@@ -14327,7 +16087,7 @@ function dimensions(panel, control, node, value, row) {
         }));
       });
     });
-    wrapper.append(number, _unit, individual, fields);
+    wrapper.append(_number, _unit, individual, fields);
     row.appendChild(wrapper);
     return row;
   }
@@ -14352,7 +16112,7 @@ function dimensions(panel, control, node, value, row) {
     option.textContent = name;
     unit.appendChild(option);
   });
-  unit.value = dimensions.unit || ((_control$units2 = control.units) === null || _control$units2 === void 0 ? void 0 : _control$units2[0]) || 'px';
+  unit.value = dimensions.unit || ((_control$units4 = control.units) === null || _control$units4 === void 0 ? void 0 : _control$units4[0]) || 'px';
   inputs.appendChild(unit);
   var link = document.createElement('button');
   link.type = 'button';
@@ -14429,10 +16189,10 @@ var colorChannels = function colorChannels(source) {
     a: 1
   };
 };
-var colorHex = function colorHex(_ref21) {
-  var r = _ref21.r,
-    g = _ref21.g,
-    b = _ref21.b;
+var colorHex = function colorHex(_ref37) {
+  var r = _ref37.r,
+    g = _ref37.g,
+    b = _ref37.b;
   return "#".concat([r, g, b].map(function (value) {
     return Math.round(clamp(value, 0, 255)).toString(16).padStart(2, '0');
   }).join(''));
@@ -14441,7 +16201,7 @@ var colorCss = function colorCss(rgba) {
   return rgba.a >= 0.999 ? colorHex(rgba) : "rgba(".concat(Math.round(rgba.r), ",").concat(Math.round(rgba.g), ",").concat(Math.round(rgba.b), ",").concat(Number(rgba.a.toFixed(2)), ")");
 };
 var projectPalette = function projectPalette(panel, selectedNode) {
-  var _panel$runtime$canvas2, _instances$values;
+  var _panel$runtime$canvas3, _instances$values;
   var found = [];
   var seen = new Set();
   var add = function add(source) {
@@ -14470,7 +16230,7 @@ var projectPalette = function projectPalette(panel, selectedNode) {
   // Selection colors lead, followed by the complete editable document and custom code.
   _scan(selectedNode);
   _scan(panel.runtime.document.data);
-  var instances = (_panel$runtime$canvas2 = panel.runtime.canvas) === null || _panel$runtime$canvas2 === void 0 ? void 0 : _panel$runtime$canvas2.instances;
+  var instances = (_panel$runtime$canvas3 = panel.runtime.canvas) === null || _panel$runtime$canvas3 === void 0 ? void 0 : _panel$runtime$canvas3.instances;
   var selectedInstance = selectedNode && (instances === null || instances === void 0 ? void 0 : instances.get(selectedNode.id));
   var ordered = [selectedInstance].concat(_toConsumableArray((instances === null || instances === void 0 || (_instances$values = instances.values) === null || _instances$values === void 0 ? void 0 : _instances$values.call(instances)) || [])).filter(Boolean);
   ordered.slice(0, 80).forEach(function (instance) {
@@ -14486,10 +16246,10 @@ var projectPalette = function projectPalette(panel, selectedNode) {
   });
   return found;
 };
-var rgbToHsv = function rgbToHsv(_ref22) {
-  var r = _ref22.r,
-    g = _ref22.g,
-    b = _ref22.b;
+var rgbToHsv = function rgbToHsv(_ref38) {
+  var r = _ref38.r,
+    g = _ref38.g,
+    b = _ref38.b;
   var rr = r / 255;
   var gg = g / 255;
   var bb = b / 255;
@@ -14504,12 +16264,12 @@ var rgbToHsv = function rgbToHsv(_ref22) {
     v: max
   };
 };
-var hsvToRgb = function hsvToRgb(_ref23) {
-  var h = _ref23.h,
-    s = _ref23.s,
-    v = _ref23.v,
-    _ref23$a = _ref23.a,
-    a = _ref23$a === void 0 ? 1 : _ref23$a;
+var hsvToRgb = function hsvToRgb(_ref39) {
+  var h = _ref39.h,
+    s = _ref39.s,
+    v = _ref39.v,
+    _ref39$a = _ref39.a,
+    a = _ref39$a === void 0 ? 1 : _ref39$a;
   var c = v * s;
   var x = c * (1 - Math.abs(h / 60 % 2 - 1));
   var m = v - c;
@@ -14708,13 +16468,13 @@ function cssFilters(panel, control, node, value, row) {
   var add = document.createElement('select');
   add.setAttribute('aria-label', 'Add filter');
   add.add(new Option('Add filter…', ''));
-  definitions.filter(function (_ref25) {
-    var _ref26 = _slicedToArray(_ref25, 1),
-      name = _ref26[0];
+  definitions.filter(function (_ref41) {
+    var _ref42 = _slicedToArray(_ref41, 1),
+      name = _ref42[0];
     return filters[name] === undefined;
-  }).forEach(function (_ref27) {
-    var _ref28 = _slicedToArray(_ref27, 1),
-      name = _ref28[0];
+  }).forEach(function (_ref43) {
+    var _ref44 = _slicedToArray(_ref43, 1),
+      name = _ref44[0];
     return add.add(new Option(name[0].toUpperCase() + name.slice(1), name));
   });
   add.disabled = add.options.length === 1;
@@ -14722,17 +16482,17 @@ function cssFilters(panel, control, node, value, row) {
     if (add.value) panel.setValue(control, node, _objectSpread(_objectSpread({}, filters), {}, _defineProperty({}, add.value, ['blur', 'hue'].includes(add.value) ? 0 : 100)));
   });
   wrapper.appendChild(add);
-  definitions.filter(function (_ref29) {
-    var _ref30 = _slicedToArray(_ref29, 1),
-      name = _ref30[0];
+  definitions.filter(function (_ref45) {
+    var _ref46 = _slicedToArray(_ref45, 1),
+      name = _ref46[0];
     return filters[name] !== undefined;
-  }).forEach(function (_ref31) {
+  }).forEach(function (_ref47) {
     var _filters$name;
-    var _ref32 = _slicedToArray(_ref31, 4),
-      name = _ref32[0],
-      min = _ref32[1],
-      max = _ref32[2],
-      step = _ref32[3];
+    var _ref48 = _slicedToArray(_ref47, 4),
+      name = _ref48[0],
+      min = _ref48[1],
+      max = _ref48[2],
+      step = _ref48[3];
     var label = document.createElement('label');
     label.textContent = name;
     var input = document.createElement('input');
@@ -15201,7 +16961,7 @@ function gallery(panel, control, node, value, row) {
   return row;
 }
 function imageDimensions(panel, control, node, value, row) {
-  var _dimensions$width, _dimensions$height, _control$units3;
+  var _dimensions$width, _dimensions$height, _control$units5;
   var dimensions = value && _typeof(value) === 'object' ? value : {};
   var wrapper = document.createElement('div');
   wrapper.className = 'ink-v2-image-dimensions';
@@ -15217,7 +16977,7 @@ function imageDimensions(panel, control, node, value, row) {
   (control.units || ['px', '%']).forEach(function (name) {
     return unit.add(new Option(name, name));
   });
-  unit.value = dimensions.unit || ((_control$units3 = control.units) === null || _control$units3 === void 0 ? void 0 : _control$units3[0]) || 'px';
+  unit.value = dimensions.unit || ((_control$units5 = control.units) === null || _control$units5 === void 0 ? void 0 : _control$units5[0]) || 'px';
   var commit = function commit() {
     return panel.setValue(control, node, {
       width: Number(width.value) || 0,
@@ -15246,10 +17006,10 @@ function url(panel, control, node, value, row) {
   var summary = document.createElement('summary');
   summary.textContent = '⚙';
   options.appendChild(summary);
-  [['isExternal', 'Open in new window'], ['nofollow', 'Add nofollow']].forEach(function (_ref33) {
-    var _ref34 = _slicedToArray(_ref33, 2),
-      name = _ref34[0],
-      text = _ref34[1];
+  [['isExternal', 'Open in new window'], ['nofollow', 'Add nofollow']].forEach(function (_ref49) {
+    var _ref50 = _slicedToArray(_ref49, 2),
+      name = _ref50[0],
+      text = _ref50[1];
     var label = document.createElement('label');
     var checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -15487,10 +17247,10 @@ function border(panel, control, node, value, row) {
   var legacy = value && _typeof(value) === 'object' ? value : {};
   var current = panel.currentValue(styleControl, node) || legacy.style || '';
   var style = document.createElement('select');
-  [["", 'Default'], ['none', 'None'], ['solid', 'Solid'], ['double', 'Double'], ['dotted', 'Dotted'], ['dashed', 'Dashed'], ['groove', 'Groove']].forEach(function (_ref35) {
-    var _ref36 = _slicedToArray(_ref35, 2),
-      name = _ref36[0],
-      label = _ref36[1];
+  [["", 'Default'], ['none', 'None'], ['solid', 'Solid'], ['double', 'Double'], ['dotted', 'Dotted'], ['dashed', 'Dashed'], ['groove', 'Groove']].forEach(function (_ref51) {
+    var _ref52 = _slicedToArray(_ref51, 2),
+      name = _ref52[0],
+      label = _ref52[1];
     return style.add(new Option(label, name));
   });
   style.value = current;
@@ -15544,10 +17304,10 @@ function repeater(panel, control, node, value, row) {
     summary.innerHTML = "<span>\u22EE\u22EE</span><strong>".concat(item[control.titleField] || item.title || "Item ".concat(index + 1), "</strong>");
     var tools = document.createElement('span');
     tools.className = 'ink-v2-repeater-tools';
-    [['↑', -1], ['↓', 1]].forEach(function (_ref37) {
-      var _ref38 = _slicedToArray(_ref37, 2),
-        label = _ref38[0],
-        direction = _ref38[1];
+    [['↑', -1], ['↓', 1]].forEach(function (_ref53) {
+      var _ref54 = _slicedToArray(_ref53, 2),
+        label = _ref54[0],
+        direction = _ref54[1];
       var button = document.createElement('button');
       button.type = 'button';
       button.textContent = label;
@@ -15555,9 +17315,9 @@ function repeater(panel, control, node, value, row) {
       button.addEventListener('click', function (event) {
         event.preventDefault();
         var next = _toConsumableArray(items);
-        var _ref39 = [next[index + direction], next[index]];
-        next[index] = _ref39[0];
-        next[index + direction] = _ref39[1];
+        var _ref55 = [next[index + direction], next[index]];
+        next[index] = _ref55[0];
+        next[index + direction] = _ref55[1];
         update(next);
       });
       tools.appendChild(button);
@@ -15587,7 +17347,7 @@ function repeater(panel, control, node, value, row) {
     var fields = document.createElement('div');
     fields.className = 'ink-v2-repeater-fields';
     (control.fields || []).forEach(function (field) {
-      var _ref40, _item$field$name;
+      var _ref56, _item$field$name;
       var label = document.createElement('label');
       label.textContent = field.label || field.name;
       var input;
@@ -15600,7 +17360,7 @@ function repeater(panel, control, node, value, row) {
         input = document.createElement(field.type === 'textarea' ? 'textarea' : 'input');
         if (input.tagName === 'INPUT') input.type = field.type === 'number' ? 'number' : 'text';
       }
-      input.value = (_ref40 = (_item$field$name = item[field.name]) !== null && _item$field$name !== void 0 ? _item$field$name : field["default"]) !== null && _ref40 !== void 0 ? _ref40 : '';
+      input.value = (_ref56 = (_item$field$name = item[field.name]) !== null && _item$field$name !== void 0 ? _item$field$name : field["default"]) !== null && _ref56 !== void 0 ? _ref56 : '';
       input.addEventListener('change', function () {
         var next = structuredClone(items);
         next[index][field.name] = field.type === 'number' ? Number(input.value) : input.value;
@@ -15685,11 +17445,11 @@ function background(panel, control, node, value, row) {
   choices.setAttribute('aria-label', overlay ? 'Overlay fill type' : 'Fill type');
   var backgroundChoices = [['classic', 'square', 'Solid'], ['gradient', 'blend', 'Gradient'], ['image', 'image', 'Image'], ['pattern', 'grid-2x2', 'Pattern']];
   if (!overlay && (control.state || 'base') === 'base') backgroundChoices.push(['video', 'square-play', 'Video'], ['slideshow', 'images', 'Slideshow'], ['shader', 'waves', 'Shader']);
-  backgroundChoices.forEach(function (_ref41) {
-    var _ref42 = _slicedToArray(_ref41, 3),
-      choiceValue = _ref42[0],
-      iconName = _ref42[1],
-      title = _ref42[2];
+  backgroundChoices.forEach(function (_ref57) {
+    var _ref58 = _slicedToArray(_ref57, 3),
+      choiceValue = _ref58[0],
+      iconName = _ref58[1],
+      title = _ref58[2];
     var button = document.createElement('button');
     button.type = 'button';
     button.title = title;
@@ -15798,11 +17558,11 @@ function background(panel, control, node, value, row) {
     var patterns = [['Dots', 'radial-gradient(circle, #81818a 1px, transparent 1px)', '12px 12px'], ['Lines', 'repeating-linear-gradient(45deg, transparent 0px 9px, #81818a 9px 10px)', 'auto'], ['Grid', 'linear-gradient(#81818a 1px, transparent 1px), linear-gradient(90deg, #81818a 1px, transparent 1px)', '20px 20px'], ['Checker', 'conic-gradient(#81818a 25%, transparent 0% 50%, #81818a 0% 75%, transparent 0%)', '24px 24px']];
     var _gallery = document.createElement('div');
     _gallery.className = 'ink-shader-gallery';
-    patterns.forEach(function (_ref43) {
-      var _ref44 = _slicedToArray(_ref43, 3),
-        title = _ref44[0],
-        image = _ref44[1],
-        size = _ref44[2];
+    patterns.forEach(function (_ref59) {
+      var _ref60 = _slicedToArray(_ref59, 3),
+        title = _ref60[0],
+        image = _ref60[1],
+        size = _ref60[2];
       var button = document.createElement('button');
       button.type = 'button';
       button.textContent = title;
@@ -16008,10 +17768,10 @@ function background(panel, control, node, value, row) {
   if (typeof fillImage === 'string') swatch.style.backgroundImage = fillImage;
   if (typeof fillColor === 'string') swatch.style.backgroundColor = fillColor;
   var name = document.createElement('span');
-  name.textContent = displayedMode === 'shader' ? ((_SHADER_PRESETS$find = _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.find(function (_ref45) {
+  name.textContent = displayedMode === 'shader' ? ((_SHADER_PRESETS$find = _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.find(function (_ref61) {
     var _node$settings$shader2;
-    var _ref46 = _slicedToArray(_ref45, 1),
-      id = _ref46[0];
+    var _ref62 = _slicedToArray(_ref61, 1),
+      id = _ref62[0];
     return id === ((_node$settings$shader2 = node.settings.shaderFill) === null || _node$settings$shader2 === void 0 ? void 0 : _node$settings$shader2.preset);
   })) === null || _SHADER_PRESETS$find === void 0 ? void 0 : _SHADER_PRESETS$find[1]) || 'Custom shader' : displayedMode === 'gradient' ? 'Gradient' : ['video', 'slideshow'].includes(displayedMode) ? displayedMode[0].toUpperCase() + displayedMode.slice(1) : fillImage ? 'Image' : fillColor || 'Add fill…';
   trigger.append(swatch, name);
@@ -16087,13 +17847,13 @@ function renderShaderFill(panel, node, wrapper) {
   var gallery = document.createElement('div');
   gallery.className = 'ink-shader-gallery';
   gallery.setAttribute('aria-label', 'Shader presets');
-  _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.forEach(function (_ref47) {
-    var _ref48 = _slicedToArray(_ref47, 5),
-      id = _ref48[0],
-      title = _ref48[1],
-      a = _ref48[2],
-      b = _ref48[3],
-      c = _ref48[4];
+  _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.forEach(function (_ref63) {
+    var _ref64 = _slicedToArray(_ref63, 5),
+      id = _ref64[0],
+      title = _ref64[1],
+      a = _ref64[2],
+      b = _ref64[3],
+      c = _ref64[4];
     var button = document.createElement('button');
     button.type = 'button';
     button.textContent = title;
@@ -16114,10 +17874,10 @@ function renderShaderFill(panel, node, wrapper) {
   proxy.setValue = function (control, _node, value) {
     return update(_defineProperty({}, control.name, value));
   };
-  [['colorA', 'Base'], ['colorB', 'Primary'], ['colorC', 'Accent']].forEach(function (_ref49) {
-    var _ref50 = _slicedToArray(_ref49, 2),
-      name = _ref50[0],
-      label = _ref50[1];
+  [['colorA', 'Base'], ['colorB', 'Primary'], ['colorC', 'Accent']].forEach(function (_ref65) {
+    var _ref66 = _slicedToArray(_ref65, 2),
+      name = _ref66[0],
+      label = _ref66[1];
     var row = document.createElement('div');
     row.className = 'ink-v2-control';
     row.append(label);
@@ -16138,13 +17898,13 @@ function renderShaderFill(panel, node, wrapper) {
   });
   animate.append(check, 'Animate');
   wrapper.appendChild(animate);
-  [['speed', 'Speed', 0, 2, .05], ['intensity', 'Intensity', 0, 1, .01], ['grain', 'Grain', 0, .3, .01]].forEach(function (_ref51) {
-    var _ref52 = _slicedToArray(_ref51, 5),
-      name = _ref52[0],
-      label = _ref52[1],
-      min = _ref52[2],
-      max = _ref52[3],
-      step = _ref52[4];
+  [['speed', 'Speed', 0, 2, .05], ['intensity', 'Intensity', 0, 1, .01], ['grain', 'Grain', 0, .3, .01]].forEach(function (_ref67) {
+    var _ref68 = _slicedToArray(_ref67, 5),
+      name = _ref68[0],
+      label = _ref68[1],
+      min = _ref68[2],
+      max = _ref68[3],
+      step = _ref68[4];
     var row = document.createElement('label');
     row.className = 'ink-shader-number';
     row.append(label);
@@ -16244,10 +18004,10 @@ function shapeDivider(panel, control, node, value, row) {
   };
   var type = document.createElement('select');
   type.add(new Option('None', ''));
-  Object.entries(_elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__.ELEMENTOR_SHAPES).forEach(function (_ref53) {
-    var _ref54 = _slicedToArray(_ref53, 2),
-      key = _ref54[0],
-      shape = _ref54[1];
+  Object.entries(_elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__.ELEMENTOR_SHAPES).forEach(function (_ref69) {
+    var _ref70 = _slicedToArray(_ref69, 2),
+      key = _ref70[0],
+      shape = _ref70[1];
     return type.add(new Option(shape.title, key));
   });
   type.value = dividerValue.type || '';
@@ -16268,15 +18028,15 @@ function shapeDivider(panel, control, node, value, row) {
       });
     });
     field('Color', colorInput);
-    [].concat(_toConsumableArray(shapeMeta.heightOnly ? [] : [['Width', 'width', 100, 300, 100, '%']]), [['Height', 'height', 0, 500, 100, 'px']]).forEach(function (_ref55) {
+    [].concat(_toConsumableArray(shapeMeta.heightOnly ? [] : [['Width', 'width', 100, 300, 100, '%']]), [['Height', 'height', 0, 500, 100, 'px']]).forEach(function (_ref71) {
       var _dividerValue$key;
-      var _ref56 = _slicedToArray(_ref55, 6),
-        labelText = _ref56[0],
-        key = _ref56[1],
-        min = _ref56[2],
-        max = _ref56[3],
-        fallback = _ref56[4],
-        unit = _ref56[5];
+      var _ref72 = _slicedToArray(_ref71, 6),
+        labelText = _ref72[0],
+        key = _ref72[1],
+        min = _ref72[2],
+        max = _ref72[3],
+        fallback = _ref72[4],
+        unit = _ref72[5];
       var group = document.createElement('div');
       group.className = 'ink-v2-shape-range';
       var range = document.createElement('input');
@@ -16308,10 +18068,10 @@ function shapeDivider(panel, control, node, value, row) {
       group.append(range, number, suffix);
       field(labelText, group);
     });
-    [].concat(_toConsumableArray(shapeMeta.flip ? [['Flip', 'flip']] : []), _toConsumableArray(shapeMeta.negative ? [['Invert', 'invert']] : []), [['Bring to Front', 'front']]).forEach(function (_ref57) {
-      var _ref58 = _slicedToArray(_ref57, 2),
-        labelText = _ref58[0],
-        key = _ref58[1];
+    [].concat(_toConsumableArray(shapeMeta.flip ? [['Flip', 'flip']] : []), _toConsumableArray(shapeMeta.negative ? [['Invert', 'invert']] : []), [['Bring to Front', 'front']]).forEach(function (_ref73) {
+      var _ref74 = _slicedToArray(_ref73, 2),
+        labelText = _ref74[0],
+        key = _ref74[1];
       var _switchControl3 = switchControl({
           checked: !!dividerValue[key],
           ariaLabel: labelText
@@ -16527,25 +18287,25 @@ function wysiwyg(panel, control, node, value, row) {
     level: 3
   }], [10, 'toggleBlockquote', '❝', 'blockquote', null], [11, 'toggleCodeBlock', '</>', 'codeBlock', null], [12, 'setHorizontalRule', '—', null, null]];
   var refreshActive = function refreshActive() {
-    commands.forEach(function (_ref59) {
-      var _ref60 = _slicedToArray(_ref59, 5),
-        index = _ref60[0],
-        command = _ref60[1],
-        label = _ref60[2],
-        stateCommand = _ref60[3],
-        arg = _ref60[4];
+    commands.forEach(function (_ref75) {
+      var _ref76 = _slicedToArray(_ref75, 5),
+        index = _ref76[0],
+        command = _ref76[1],
+        label = _ref76[2],
+        stateCommand = _ref76[3],
+        arg = _ref76[4];
       if (!stateCommand) return;
       var button = toolbar.querySelector("[data-cmd=\"".concat(index, "\"]"));
       if (button) button.classList.toggle('is-active', adapter.isActive(stateCommand));
     });
   };
-  commands.forEach(function (_ref61) {
-    var _ref62 = _slicedToArray(_ref61, 5),
-      index = _ref62[0],
-      command = _ref62[1],
-      label = _ref62[2],
-      stateCommand = _ref62[3],
-      arg = _ref62[4];
+  commands.forEach(function (_ref77) {
+    var _ref78 = _slicedToArray(_ref77, 5),
+      index = _ref78[0],
+      command = _ref78[1],
+      label = _ref78[2],
+      stateCommand = _ref78[3],
+      arg = _ref78[4];
     var button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
@@ -16617,10 +18377,10 @@ function dataBinding(panel, control, node, _value, row) {
   var sourceSelect = document.createElement('select');
   sourceSelect.setAttribute('aria-label', 'Data source');
   sourceSelect.add(new Option('Static', ''));
-  Object.entries(sources).forEach(function (_ref63) {
-    var _ref64 = _slicedToArray(_ref63, 2),
-      key = _ref64[0],
-      def = _ref64[1];
+  Object.entries(sources).forEach(function (_ref79) {
+    var _ref80 = _slicedToArray(_ref79, 2),
+      key = _ref80[0],
+      def = _ref80[1];
     return sourceSelect.add(new Option(def.label || key, key));
   });
   sourceSelect.value = currentSource;
@@ -16635,10 +18395,10 @@ function dataBinding(panel, control, node, _value, row) {
       return;
     }
     fieldSelect.add(new Option('Choose field…', ''));
-    Object.entries(def.fields || {}).forEach(function (_ref65) {
-      var _ref66 = _slicedToArray(_ref65, 2),
-        path = _ref66[0],
-        label = _ref66[1];
+    Object.entries(def.fields || {}).forEach(function (_ref81) {
+      var _ref82 = _slicedToArray(_ref81, 2),
+        path = _ref82[0],
+        label = _ref82[1];
       return fieldSelect.add(new Option(label, path));
     });
     fieldSelect.value = currentField;
@@ -16787,16 +18547,80 @@ function interactions(panel, control, node, value, row) {
       detail.appendChild(field('Class', className));
     }
     if (record.target === 'query') {
+      // The target of an interaction is a layer, not a CSS string: pick it on the canvas, and
+      // the panel reports what the selector currently resolves to (or that nothing matches).
+      var picker = document.createElement('div');
+      picker.className = 'ink-v2-target-picker';
+      var pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'ink-v2-action-button';
+      pick.textContent = 'Pick on canvas';
       var selector = document.createElement('input');
       selector.type = 'text';
       selector.value = record.selector || '';
-      selector.placeholder = '.pricing-panel-yearly';
+      selector.placeholder = '.ink-el-…  or any CSS selector';
+      selector.setAttribute('aria-label', 'Target selector');
       commitOnFinish(selector, function () {
         return update({
           selector: selector.value.trim()
         });
       });
-      detail.appendChild(field('Selector', selector));
+      var resolved = document.createElement('small');
+      resolved.className = 'ink-v2-target-status';
+      var describe = function describe() {
+        var label = resolveTargetLabel(panel, selector.value.trim());
+        if (label) {
+          resolved.textContent = "Targets ".concat(label);
+          resolved.dataset.state = 'found';
+          return;
+        }
+        resolved.textContent = selector.value.trim() ? 'No layer matches this selector' : 'No target picked yet';
+        resolved.dataset.state = 'missing';
+      };
+      describe();
+      selector.addEventListener('input', describe);
+      pick.addEventListener('click', /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
+        var picked, next;
+        return _regeneratorRuntime().wrap(function _callee2$(_context2) {
+          while (1) switch (_context2.prev = _context2.next) {
+            case 0:
+              if (!(typeof panel.runtime.pickElement !== 'function')) {
+                _context2.next = 2;
+                break;
+              }
+              return _context2.abrupt("return");
+            case 2:
+              pick.classList.add('is-armed');
+              pick.textContent = 'Click a layer…';
+              _context2.next = 6;
+              return panel.runtime.pickElement();
+            case 6:
+              picked = _context2.sent;
+              pick.classList.remove('is-armed');
+              pick.textContent = 'Pick on canvas';
+              if (picked) {
+                _context2.next = 13;
+                break;
+              }
+              resolved.textContent = 'Pick cancelled';
+              resolved.dataset.state = 'missing';
+              return _context2.abrupt("return");
+            case 13:
+              next = ".ink-el-".concat(picked);
+              selector.value = next;
+              describe();
+              update({
+                selector: next,
+                target: 'query'
+              });
+            case 17:
+            case "end":
+              return _context2.stop();
+          }
+        }, _callee2);
+      })));
+      picker.append(pick, selector, resolved);
+      detail.appendChild(field('Target layer', picker));
     }
     var delay = document.createElement('input');
     delay.type = 'number';
@@ -16828,7 +18652,7 @@ function interactions(panel, control, node, value, row) {
   wrapper.appendChild(add);
   var hint = document.createElement('small');
   hint.className = 'ink-v2-control-description';
-  hint.textContent = 'Runs in Preview and on the published page. Use a selector target to change another layer, such as a panel that should open.';
+  hint.textContent = 'Runs in Preview and on the published page. Pick a target layer on the canvas to change it — a panel that should open, for example.';
   wrapper.appendChild(hint);
   row.appendChild(wrapper);
   return row;
@@ -16863,6 +18687,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   tokensFromEvidence: () => (/* binding */ tokensFromEvidence),
 /* harmony export */   tokensFromPageSettings: () => (/* binding */ tokensFromPageSettings)
 /* harmony export */ });
+/* harmony import */ var _easing_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./easing.js */ "./src/core/easing.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -16890,8 +18715,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 //
 // Everything here is data plus one pure function to render CSS from it. No runtime, no framework.
 
+
 var HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
-var EASING = /^(?:[a-z-]+|cubic-bezier\([\d.,\s-]+\)|steps\([\d,\s-]+\))$/i;
 var FONT_STACK = /^[a-zA-Z0-9 ,"'_-]+$/;
 var clamp = function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -17206,7 +19031,7 @@ function normalizeTokens(raw) {
     },
     motion: {
       duration: clamp(Math.round(number(motion.duration, DEFAULT_TOKENS.motion.duration)), 0, 4000),
-      easing: EASING.test(String(motion.easing || '')) ? String(motion.easing) : DEFAULT_TOKENS.motion.easing,
+      easing: _easing_js__WEBPACK_IMPORTED_MODULE_0__.EASING_CSS_PATTERN.test(String(motion.easing || '').trim()) ? String(motion.easing).trim() : DEFAULT_TOKENS.motion.easing,
       stagger: clamp(Math.round(number(motion.stagger, DEFAULT_TOKENS.motion.stagger)), 0, 800)
     }
   };
@@ -17719,6 +19544,331 @@ function applyDesignTokens(_ref7, raw) {
 function describeTokens(raw) {
   var t = normalizeTokens(raw);
   return "".concat(t.colors.accent, " on ").concat(t.colors.background, " \xB7 ").concat(t.typography.fontFamily.split(',')[0], " ").concat(t.typography.baseSize, "px/").concat(t.typography.scale, " \xB7 radius ").concat(t.shape.radius, "px \xB7 ").concat(t.spacing.contentWidth, "px");
+}
+
+/***/ }),
+
+/***/ "./src/core/easing.js":
+/*!****************************!*\
+  !*** ./src/core/easing.js ***!
+  \****************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   EASING_CSS_PATTERN: () => (/* binding */ EASING_CSS_PATTERN),
+/* harmony export */   EASING_KEYWORDS: () => (/* binding */ EASING_KEYWORDS),
+/* harmony export */   EASING_PRESETS: () => (/* binding */ EASING_PRESETS),
+/* harmony export */   SPRING_DEFAULTS: () => (/* binding */ SPRING_DEFAULTS),
+/* harmony export */   bezierPath: () => (/* binding */ bezierPath),
+/* harmony export */   bezierValueAt: () => (/* binding */ bezierValueAt),
+/* harmony export */   easingBox: () => (/* binding */ easingBox),
+/* harmony export */   easingCss: () => (/* binding */ easingCss),
+/* harmony export */   isBezierPoints: () => (/* binding */ isBezierPoints),
+/* harmony export */   parseEasing: () => (/* binding */ parseEasing),
+/* harmony export */   springSettleMs: () => (/* binding */ springSettleMs),
+/* harmony export */   springToBezier: () => (/* binding */ springToBezier),
+/* harmony export */   validateEasing: () => (/* binding */ validateEasing)
+/* harmony export */ });
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+// Motion easing vocabulary: the presets the panel offers, the curve maths behind the editor, and
+// the single place that decides which easing strings may reach the stylesheet.
+//
+// Springs are stored as an approximation: the page always carries a legal cubic-bezier in
+// `motion.easing`, and the physical parameters are kept alongside it in `motion.spring` so the
+// author can reopen the editor with the sliders where they left them. A real multi-bounce spring
+// is a keyframe timeline job, which the Motion panel also offers.
+//
+// Dependency-free on purpose: the panel, the renderer and the node tests share this module.
+
+// The one grammar that decides whether an easing may reach a stylesheet. StyleEngine and the
+// design tokens import this pattern, so the panel can never save an easing the CSS silently drops.
+// Only animation-timing-function syntax is allowed: no braces, semicolons, or nested functions.
+var EASING_CSS_PATTERN = /^(?:[a-z-]+|cubic-bezier\([\d.,\s-]+\)|steps\([\d,\s-]*(?:,[\s]*(?:start|end|jump-start|jump-end|jump-none|jump-both))?\)|linear\([\d.,%\s-]+\))$/i;
+
+// Canonical keyword values. A curve that matches one of these is written as the keyword, so an
+// untouched "Ease out" stays readable in the saved page.
+var EASING_KEYWORDS = {
+  linear: [0, 0, 1, 1],
+  ease: [0.25, 0.1, 0.25, 1],
+  'ease-in': [0.42, 0, 1, 1],
+  'ease-out': [0, 0, 0.58, 1],
+  'ease-in-out': [0.42, 0, 0.58, 1]
+};
+var EASING_PRESETS = [{
+  id: 'linear',
+  label: 'Linear',
+  points: EASING_KEYWORDS.linear
+}, {
+  id: 'ease',
+  label: 'Ease',
+  points: EASING_KEYWORDS.ease
+}, {
+  id: 'ease-in',
+  label: 'Ease in',
+  points: EASING_KEYWORDS['ease-in']
+}, {
+  id: 'ease-out',
+  label: 'Ease out',
+  points: EASING_KEYWORDS['ease-out']
+}, {
+  id: 'ease-in-out',
+  label: 'Ease in out',
+  points: EASING_KEYWORDS['ease-in-out']
+}, {
+  id: 'expo-out',
+  label: 'Expo out',
+  points: [0.16, 1, 0.3, 1]
+}, {
+  id: 'quart-in-out',
+  label: 'Quart in out',
+  points: [0.76, 0, 0.24, 1]
+}, {
+  id: 'back-out',
+  label: 'Back out',
+  points: [0.34, 1.56, 0.64, 1]
+}, {
+  id: 'anticipate',
+  label: 'Anticipate',
+  points: [0.36, -0.07, 0.19, 0.97]
+}, {
+  id: 'soft-spring',
+  label: 'Soft spring',
+  points: [0.2, 0.8, 0.2, 1]
+}];
+var SPRING_DEFAULTS = {
+  stiffness: 220,
+  damping: 22,
+  mass: 1
+};
+var clamp = function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, Number(value)));
+};
+var round = function round(value) {
+  return Math.round(Number(value) * 1000) / 1000;
+};
+var samePoints = function samePoints(a, b) {
+  return a.every(function (value, index) {
+    return Math.abs(Number(value) - Number(b[index])) < 0.005;
+  });
+};
+function isBezierPoints(points) {
+  return Array.isArray(points) && points.length === 4 && points.every(function (value) {
+    return Number.isFinite(Number(value));
+  });
+}
+
+// Authored easing (a keyword, a cubic-bezier, or a bare preset name) -> editor state.
+function parseEasing(text) {
+  var raw = String(text !== null && text !== void 0 ? text : '').trim();
+  if (!raw) return {
+    kind: 'keyword',
+    keyword: 'ease',
+    points: _toConsumableArray(EASING_KEYWORDS.ease)
+  };
+  if (Object.hasOwn(EASING_KEYWORDS, raw.toLowerCase())) {
+    var keyword = raw.toLowerCase();
+    return {
+      kind: 'keyword',
+      keyword: keyword,
+      points: _toConsumableArray(EASING_KEYWORDS[keyword])
+    };
+  }
+  var bezier = raw.match(/^cubic-bezier\(([^)]+)\)$/i);
+  if (bezier) {
+    var points = bezier[1].split(',').map(function (part) {
+      return Number(part.trim());
+    });
+    if (isBezierPoints(points)) return {
+      kind: 'bezier',
+      points: points.map(function (value, index) {
+        return index % 2 === 0 ? clamp(value, 0, 1) : value;
+      })
+    };
+  }
+  var preset = EASING_PRESETS.find(function (entry) {
+    return entry.id === raw.toLowerCase();
+  });
+  if (preset) return {
+    kind: 'bezier',
+    points: _toConsumableArray(preset.points)
+  };
+  return {
+    kind: 'other',
+    points: _toConsumableArray(EASING_KEYWORDS.ease)
+  };
+}
+
+// Curve -> stylesheet text. Keywords win when the curve is exactly a keyword's curve.
+function easingCss(points) {
+  if (!isBezierPoints(points)) return 'ease';
+  var _points$map = points.map(Number),
+    _points$map2 = _slicedToArray(_points$map, 4),
+    x1 = _points$map2[0],
+    y1 = _points$map2[1],
+    x2 = _points$map2[2],
+    y2 = _points$map2[3];
+  for (var _i = 0, _Object$entries = Object.entries(EASING_KEYWORDS); _i < _Object$entries.length; _i++) {
+    var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
+      keyword = _Object$entries$_i[0],
+      canonical = _Object$entries$_i[1];
+    if (samePoints([x1, y1, x2, y2], canonical)) return keyword;
+  }
+  return "cubic-bezier(".concat(clamp(x1, 0, 1), ",").concat(round(y1), ",").concat(clamp(x2, 0, 1), ",").concat(round(y2), ")");
+}
+function validateEasing(text) {
+  var raw = String(text !== null && text !== void 0 ? text : '').trim();
+  return EASING_CSS_PATTERN.test(raw) ? raw : '';
+}
+
+// Physical spring parameters -> the closest single-overshoot cubic-bezier. Damping ratio decides
+// whether the curve overshoots at all; the overshoot size sets how far past 1 the first handle
+// reaches, which is exactly how a back-out curve behaves.
+function springToBezier() {
+  var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    _ref$stiffness = _ref.stiffness,
+    stiffness = _ref$stiffness === void 0 ? SPRING_DEFAULTS.stiffness : _ref$stiffness,
+    _ref$damping = _ref.damping,
+    damping = _ref$damping === void 0 ? SPRING_DEFAULTS.damping : _ref$damping,
+    _ref$mass = _ref.mass,
+    mass = _ref$mass === void 0 ? SPRING_DEFAULTS.mass : _ref$mass;
+  var k = Math.max(1, Number(stiffness) || SPRING_DEFAULTS.stiffness);
+  var c = Math.max(0, Number(damping) || 0);
+  var m = Math.max(0.05, Number(mass) || SPRING_DEFAULTS.mass);
+  var omega = Math.sqrt(k / m);
+  var zeta = c / (2 * Math.sqrt(k * m));
+  if (zeta >= 1) return [0.22, 1, 0.36, 1];
+  var overshoot = Math.exp(-zeta * Math.PI / Math.sqrt(1 - zeta * zeta));
+  return [round(clamp(0.12 + 0.4 * zeta, 0.06, 0.5)), round(clamp(1 + 1.6 * overshoot, 1, 1.8)), round(clamp(0.62 + 0.2 * zeta, 0.5, 0.92)), 1];
+}
+
+// How long the spring takes to settle within 2% of its target: a useful default duration, so
+// choosing a spring does not leave the author guessing at the millisecond field.
+function springSettleMs() {
+  var _ref2 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    _ref2$stiffness = _ref2.stiffness,
+    stiffness = _ref2$stiffness === void 0 ? SPRING_DEFAULTS.stiffness : _ref2$stiffness,
+    _ref2$damping = _ref2.damping,
+    damping = _ref2$damping === void 0 ? SPRING_DEFAULTS.damping : _ref2$damping,
+    _ref2$mass = _ref2.mass,
+    mass = _ref2$mass === void 0 ? SPRING_DEFAULTS.mass : _ref2$mass;
+  var k = Math.max(1, Number(stiffness) || SPRING_DEFAULTS.stiffness);
+  var c = Math.max(0, Number(damping) || 0);
+  var m = Math.max(0.05, Number(mass) || SPRING_DEFAULTS.mass);
+  var omega = Math.sqrt(k / m);
+  var zeta = c / (2 * Math.sqrt(k * m));
+  var settle = (zeta <= 0 ? 1 / omega * 8 : -Math.log(0.02) / (zeta * omega)) * 1000;
+  return Math.round(clamp(settle * 0.5, 80, 4000));
+}
+
+// Cubic-bezier evaluation for the editor preview and the curve path.
+function bezierAxis(a, b, t) {
+  var inv = 1 - t;
+  return 3 * inv * inv * t * a + 3 * inv * t * t * b + t * t * t;
+}
+function bezierValueAt(points, progress) {
+  if (!isBezierPoints(points)) return Number(progress) || 0;
+  var _points$map3 = points.map(Number),
+    _points$map4 = _slicedToArray(_points$map3, 4),
+    x1 = _points$map4[0],
+    y1 = _points$map4[1],
+    x2 = _points$map4[2],
+    y2 = _points$map4[3];
+  var target = clamp(progress, 0, 1);
+  var low = 0;
+  var high = 1;
+  var t = target;
+  for (var step = 0; step < 32; step += 1) {
+    var x = bezierAxis(x1, x2, t);
+    if (Math.abs(x - target) < 1e-5) break;
+    if (x < target) low = t;else high = t;
+    t = (low + high) / 2;
+  }
+  return bezierAxis(y1, y2, t);
+}
+
+// The drawing box for the curve editor: one place that knows how time and progress map onto SVG
+// coordinates, so the handle a reader drags and the path they see can never disagree.
+function easingBox() {
+  var _ref3 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    _ref3$width = _ref3.width,
+    width = _ref3$width === void 0 ? 100 : _ref3$width,
+    _ref3$height = _ref3.height,
+    height = _ref3$height === void 0 ? 100 : _ref3$height,
+    _ref3$padding = _ref3.padding,
+    padding = _ref3$padding === void 0 ? 12 : _ref3$padding;
+  var spanX = width - padding * 2;
+  var spanY = (height - padding * 2) / 1.4;
+  return {
+    width: width,
+    height: height,
+    padding: padding,
+    x: function x(value) {
+      return padding + clamp(value, 0, 1) * spanX;
+    },
+    y: function y(value) {
+      return height - padding - (clamp(value, -0.4, 1.8) + 0.4) * spanY;
+    },
+    unx: function unx(pixels) {
+      return clamp((Number(pixels) - padding) / spanX, 0, 1);
+    },
+    uny: function uny(pixels) {
+      return clamp((height - padding - Number(pixels)) / spanY - 0.4, -0.4, 1.8);
+    }
+  };
+}
+
+// SVG path for the curve editor: x is time, y is progress, drawn inside a box with padding so an
+// overshooting curve is not clipped. Accepts a box from `easingBox` or the options to build one.
+function bezierPath(points) {
+  var boxOrOptions = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+  var box = typeof (boxOrOptions === null || boxOrOptions === void 0 ? void 0 : boxOrOptions.x) === 'function' ? boxOrOptions : easingBox(boxOrOptions);
+  var samples = Number.isFinite(boxOrOptions.samples) ? boxOrOptions.samples : 48;
+  var _map = (isBezierPoints(points) ? points : EASING_KEYWORDS.ease).map(Number),
+    _map2 = _slicedToArray(_map, 4),
+    x1 = _map2[0],
+    y1 = _map2[1],
+    x2 = _map2[2],
+    y2 = _map2[3];
+  var steps = [];
+  for (var index = 0; index <= samples; index += 1) {
+    var t = index / samples;
+    steps.push("".concat(index === 0 ? 'M' : 'L').concat(round(box.x(bezierAxis(x1, x2, t))), " ").concat(round(box.y(bezierAxis(y1, y2, t)))));
+  }
+  return {
+    path: steps.join(' '),
+    handle1: {
+      x: round(box.x(x1)),
+      y: round(box.y(y1))
+    },
+    handle2: {
+      x: round(box.x(x2)),
+      y: round(box.y(y2))
+    },
+    origin: {
+      x: round(box.x(0)),
+      y: round(box.y(0))
+    },
+    end: {
+      x: round(box.x(1)),
+      y: round(box.y(1))
+    },
+    bounds: {
+      width: box.width,
+      height: box.height,
+      padding: box.padding
+    }
+  };
 }
 
 /***/ }),
@@ -18337,6 +20487,220 @@ function availableFonts(document) {
   })), _toConsumableArray(customFonts(document).map(function (font) {
     return font.family;
   })))));
+}
+
+/***/ }),
+
+/***/ "./src/core/gridTracks.js":
+/*!********************************!*\
+  !*** ./src/core/gridTracks.js ***!
+  \********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   TRACK_KEYWORDS: () => (/* binding */ TRACK_KEYWORDS),
+/* harmony export */   TRACK_UNITS: () => (/* binding */ TRACK_UNITS),
+/* harmony export */   gridTemplate: () => (/* binding */ gridTemplate),
+/* harmony export */   parseTrack: () => (/* binding */ parseTrack),
+/* harmony export */   parseTracks: () => (/* binding */ parseTracks),
+/* harmony export */   resizeTracks: () => (/* binding */ resizeTracks),
+/* harmony export */   serializeTracks: () => (/* binding */ serializeTracks),
+/* harmony export */   splitTracks: () => (/* binding */ splitTracks),
+/* harmony export */   trackCount: () => (/* binding */ trackCount),
+/* harmony export */   trackText: () => (/* binding */ trackText),
+/* harmony export */   tracksFromCount: () => (/* binding */ tracksFromCount)
+/* harmony export */ });
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+// Grid track model: the list of columns (or rows) behind a grid layer, so the panel can offer
+// tracks an author adds, removes, and sizes instead of a raw CSS string.
+//
+// The parsed model is what the editor renders and what the tests assert; `gridTemplate` is the
+// only thing that reaches the stylesheet, so printed output stays exactly the CSS an author would
+// have typed by hand — including collapsing a uniform list back into `repeat(n, 1fr)`.
+//
+// Dependency-free: shared by the control renderer and the node tests.
+
+var TRACK_UNITS = ['fr', 'px', '%', 'rem', 'em', 'vw', 'vh', 'ch', 'auto', 'minmax'];
+var TRACK_KEYWORDS = ['auto', 'min-content', 'max-content'];
+var clampCount = function clampCount(count) {
+  return Math.max(1, Math.min(24, Math.round(Number(count) || 1)));
+};
+var round = function round(value) {
+  return Math.round(Number(value) * 1000) / 1000;
+};
+
+// Split on whitespace, but never inside `minmax(…)` / `fit-content(…)`.
+function splitTracks(text) {
+  var source = String(text !== null && text !== void 0 ? text : '').trim();
+  if (!source) return [];
+  var tokens = [];
+  var depth = 0;
+  var current = '';
+  var _iterator = _createForOfIteratorHelper(source),
+    _step;
+  try {
+    for (_iterator.s(); !(_step = _iterator.n()).done;) {
+      var character = _step.value;
+      if (character === '(') depth += 1;
+      if (character === ')') depth = Math.max(0, depth - 1);
+      if (/\s/.test(character) && depth === 0) {
+        if (current) tokens.push(current);
+        current = '';
+        continue;
+      }
+      current += character;
+    }
+  } catch (err) {
+    _iterator.e(err);
+  } finally {
+    _iterator.f();
+  }
+  if (current) tokens.push(current);
+  return tokens;
+}
+function parseSize(text) {
+  var raw = String(text !== null && text !== void 0 ? text : '').trim();
+  if (!raw) return null;
+  if (TRACK_KEYWORDS.includes(raw.toLowerCase())) return {
+    unit: raw.toLowerCase()
+  };
+  var sized = raw.match(/^(-?[\d.]+)([a-z%]*)$/i);
+  if (!sized) return {
+    unit: 'raw',
+    value: raw
+  };
+  var unit = (sized[2] || 'px').toLowerCase();
+  return {
+    unit: unit,
+    size: round(Number(sized[1]))
+  };
+}
+
+// One token -> one track. Unknown syntax is preserved verbatim (`unit: 'raw'`) so an imported or
+// hand-written template survives a visit to the panel untouched.
+function parseTrack(token) {
+  var raw = String(token !== null && token !== void 0 ? token : '').trim();
+  var lowered = raw.toLowerCase();
+  if (TRACK_KEYWORDS.includes(lowered)) return {
+    unit: lowered,
+    raw: raw
+  };
+  var fit = lowered.match(/^fit-content\((.+)\)$/);
+  if (fit) return {
+    unit: 'fit-content',
+    size: parseSize(fit[1]),
+    raw: raw
+  };
+  var minmax = lowered.match(/^minmax\(([^,]+),([^)]+)\)$/);
+  if (minmax) return {
+    unit: 'minmax',
+    min: parseSize(minmax[1]) || {
+      unit: 'auto'
+    },
+    max: parseSize(minmax[2]) || {
+      unit: 'auto'
+    },
+    raw: raw
+  };
+  var sized = parseSize(raw);
+  if (sized && sized.unit !== 'raw') return _objectSpread(_objectSpread({}, sized), {}, {
+    raw: raw
+  });
+  return {
+    unit: 'raw',
+    raw: raw
+  };
+}
+function parseTracks(text) {
+  var tokens = splitTracks(text);
+  // `repeat(n, track)` is expanded into real tracks, so the editor lists what the browser lays out.
+  var tracks = [];
+  tokens.forEach(function (token) {
+    var repeat = token.match(/^repeat\(\s*(\d+)\s*,\s*(.+)\)$/i);
+    if (!repeat) {
+      tracks.push(parseTrack(token));
+      return;
+    }
+    var count = clampCount(repeat[1]);
+    var inner = splitTracks(repeat[2]).length ? splitTracks(repeat[2]) : [repeat[2]];
+    for (var index = 0; index < count; index += 1) tracks.push(parseTrack(inner[index % inner.length]));
+  });
+  return tracks;
+}
+function sizeText(size) {
+  var _size$value, _size$size;
+  if (!size) return 'auto';
+  if (size.unit === 'raw') return String((_size$value = size.value) !== null && _size$value !== void 0 ? _size$value : '');
+  if (TRACK_KEYWORDS.includes(size.unit)) return size.unit;
+  if (size.unit === 'fit-content') return "fit-content(".concat(sizeText(size.size), ")");
+  // A bare zero is written as `0` so `minmax(0, 1fr)` round-trips exactly as authored.
+  if (Number(size.size) === 0 && size.unit === 'px') return '0';
+  return "".concat(round((_size$size = size.size) !== null && _size$size !== void 0 ? _size$size : 0)).concat(size.unit);
+}
+function trackText(track) {
+  var _track$raw;
+  if (!track) return '';
+  if (track.unit === 'raw') return String((_track$raw = track.raw) !== null && _track$raw !== void 0 ? _track$raw : '');
+  if (track.unit === 'minmax') return "minmax(".concat(sizeText(track.min || {
+    unit: 'auto'
+  }), ", ").concat(sizeText(track.max || {
+    unit: 'auto'
+  }), ")");
+  if (track.unit === 'fit-content') return "fit-content(".concat(sizeText(track.size), ")");
+  return sizeText(track);
+}
+
+// Uniform tracks print as `repeat(n, x)` — the same shorthand the Grid layout preset uses.
+function serializeTracks(tracks) {
+  var list = (Array.isArray(tracks) ? tracks : []).filter(Boolean);
+  if (!list.length) return '';
+  var texts = list.map(trackText);
+  if (list.length > 1 && texts.every(function (text) {
+    return text === texts[0];
+  })) return "repeat(".concat(list.length, ", ").concat(texts[0], ")");
+  return texts.join(' ');
+}
+function gridTemplate(value) {
+  return serializeTracks(parseTracks(value));
+}
+function trackCount(value) {
+  return parseTracks(value).length;
+}
+
+// Add or remove tracks without disturbing the sizes already chosen. A new track copies the last
+// one (the Figma/Webflow "duplicate this column" behaviour) so a two-column layout keeps matching
+// gutters when it grows to three.
+function resizeTracks(value, count) {
+  var _ref = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {},
+    _ref$unit = _ref.unit,
+    unit = _ref$unit === void 0 ? 'fr' : _ref$unit;
+  var target = clampCount(count);
+  var tracks = parseTracks(value);
+  var template = tracks.at(-1) || {
+    unit: unit,
+    size: unit === 'fr' ? 1 : 0
+  };
+  while (tracks.length < target) tracks.push(structuredClone(template));
+  return tracks.slice(0, target);
+}
+function tracksFromCount(count) {
+  var unit = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'fr';
+  var tracks = [];
+  for (var index = 0; index < clampCount(count); index += 1) tracks.push({
+    unit: unit,
+    size: unit === 'fr' ? 1 : 0
+  });
+  return tracks;
 }
 
 /***/ }),
@@ -21945,7 +24309,7 @@ var layoutControls = [{
   target: 'styles',
   section: 'Grid',
   name: 'grid-template-columns',
-  type: 'text',
+  type: 'grid-tracks',
   label: 'Columns',
   responsive: true,
   condition: {
@@ -21956,7 +24320,7 @@ var layoutControls = [{
   target: 'styles',
   section: 'Grid',
   name: 'grid-template-rows',
-  type: 'text',
+  type: 'grid-tracks',
   label: 'Rows',
   responsive: true,
   condition: {
@@ -22029,7 +24393,7 @@ var containerLayoutControls = [{
   target: 'styles',
   section: 'Container',
   name: 'grid-template-columns',
-  type: 'text',
+  type: 'grid-tracks',
   label: 'Columns',
   responsive: true,
   condition: {
@@ -22040,7 +24404,7 @@ var containerLayoutControls = [{
   target: 'styles',
   section: 'Container',
   name: 'grid-template-rows',
-  type: 'text',
+  type: 'grid-tracks',
   label: 'Rows',
   responsive: true,
   condition: {
@@ -22089,7 +24453,7 @@ var containerLayoutControls = [{
 }, {
   tab: 'content',
   target: 'styles',
-  section: 'Additional Options',
+  section: 'Layout',
   name: 'overflow',
   type: 'select',
   label: 'Overflow',
@@ -22105,7 +24469,7 @@ var containerLayoutControls = [{
   }]
 }, {
   tab: 'content',
-  section: 'Additional Options',
+  section: 'Semantics',
   name: 'tag',
   type: 'select',
   label: 'HTML Tag',
@@ -22442,7 +24806,7 @@ var containerSurfaceControls = [surfaceControls[0], {
 }].concat(_toConsumableArray(surfaceControls.slice(1)), [{
   tab: 'style',
   target: 'settings',
-  section: 'Decorations',
+  section: 'Shape divider',
   name: 'shape-divider',
   type: 'shape-divider',
   label: 'Shape divider'
@@ -22832,7 +25196,7 @@ function registerInkFoundationElements(registry) {
     },
     controls: [].concat(layoutControls, [{
       tab: 'content',
-      section: 'Additional Options',
+      section: 'Semantics',
       name: 'tag',
       type: 'select',
       label: 'HTML tag',
@@ -24734,6 +27098,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   motionGroupItems: () => (/* binding */ motionGroupItems),
 /* harmony export */   normalizeMotionGroup: () => (/* binding */ normalizeMotionGroup)
 /* harmony export */ });
+/* harmony import */ var _easing_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./easing.js */ "./src/core/easing.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -24752,6 +27117,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 // This is what lets an imported deck unfold on hover, a grid reveal card by card, or a pinned
 // section scrub a whole timeline, using only data the builder already stores.
 
+
 var MOTION_GROUP_TRIGGERS = ['inherit', 'load', 'enter', 'hover', 'scroll'];
 var MOTION_GROUP_KINDS = ['group', 'stagger', 'unfold', 'orbit3d', 'scrub', 'carousel'];
 var MOTION_GROUP_TRIGGER_LABELS = {
@@ -24769,7 +27135,6 @@ var MOTION_GROUP_KIND_LABELS = {
   scrub: 'Scroll timeline',
   carousel: 'Carousel'
 };
-var EASING_PATTERN = /^(?:[a-z-]+|cubic-bezier\([\d.,\s-]+\)|steps\([\d,\s-]+\)|linear\([\d.,\s-]*\))$/i;
 var clamp = function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 };
@@ -24799,7 +27164,7 @@ function normalizeMotionGroup(raw) {
   if (duration) group.duration = duration;
   var delay = clamp(Math.round(number(raw.delay)), 0, 60000);
   if (delay) group.delay = delay;
-  if (EASING_PATTERN.test(String(raw.easing || ''))) group.easing = String(raw.easing);
+  if (_easing_js__WEBPACK_IMPORTED_MODULE_0__.EASING_CSS_PATTERN.test(String(raw.easing || '').trim())) group.easing = String(raw.easing);
   if (raw.iterations === 'infinite') group.iterations = 'infinite';else {
     var iterations = clamp(Math.round(number(raw.iterations, 1)), 1, 99);
     if (iterations !== 1) group.iterations = iterations;
@@ -26090,6 +28455,284 @@ var DEFAULT_THEME_SPACING = Object.freeze({
   pageGutter: 10,
   sectionGap: 0
 });
+
+/***/ }),
+
+/***/ "./src/core/valueInput.js":
+/*!********************************!*\
+  !*** ./src/core/valueInput.js ***!
+  \********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   clampValue: () => (/* binding */ clampValue),
+/* harmony export */   cssUnits: () => (/* binding */ cssUnits),
+/* harmony export */   evaluateExpression: () => (/* binding */ evaluateExpression),
+/* harmony export */   formatValue: () => (/* binding */ formatValue),
+/* harmony export */   parseValueInput: () => (/* binding */ parseValueInput),
+/* harmony export */   roundValue: () => (/* binding */ roundValue),
+/* harmony export */   scrubDelta: () => (/* binding */ scrubDelta),
+/* harmony export */   sizeKeywords: () => (/* binding */ sizeKeywords),
+/* harmony export */   stepValue: () => (/* binding */ stepValue)
+/* harmony export */ });
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+// Numeric field semantics shared by every value control in the panel: what an author may type,
+// how arrow keys and scrubbing move the value, and how an out-of-range value is explained.
+//
+// This module is deliberately dependency-free and DOM-free. The panel, the control renderers, and
+// the node tests all read the same rules, so "12*2" means one thing in the builder and one thing
+// in the test suite. Nothing here uses eval(): the expression is parsed and evaluated directly.
+
+var CSS_UNITS = ['px', 'rem', 'em', '%', 'vw', 'vh', 'vmin', 'vmax', 'ch', 'ex', 'fr', 'deg', 'turn', 'rad', 's', 'ms'];
+var SIZE_KEYWORDS = ['auto', 'fit-content', 'min-content', 'max-content', 'none', 'initial', 'inherit', 'unset'];
+var clean = function clean(value) {
+  return String(value !== null && value !== void 0 ? value : '').trim();
+};
+function cssUnits() {
+  return [].concat(CSS_UNITS);
+}
+function sizeKeywords() {
+  return [].concat(SIZE_KEYWORDS);
+}
+
+// Round away binary float noise (0.1 + 0.2) without pretending to more precision than a browser uses.
+function roundValue(value) {
+  var precision = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 3;
+  var factor = Math.pow(10, precision);
+  return Math.round(Number(value) * factor) / factor;
+}
+
+// `N%` means "N percent of the current value" (the Figma/Webflow convention): 50% of 240 is 120.
+// Without a current value a percentage is just the ratio, which is what a pure calculator expects.
+function applyPercent(value, current) {
+  if (Number.isFinite(current)) return value / 100 * Number(current);
+  return value / 100;
+}
+
+// Recursive-descent parser: expression -> term -> unary -> primary. Supports + - * / ( ) and the
+// percentage suffix, and rejects anything else (so a stray "min(" can never be evaluated as math).
+function evaluateExpression(text) {
+  var _ref = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+    _ref$current = _ref.current,
+    current = _ref$current === void 0 ? null : _ref$current;
+  var source = String(text !== null && text !== void 0 ? text : '');
+  if (!source.trim()) return null;
+  if (source.trim().startsWith('=')) source = source.trim().slice(1);
+  var index = 0;
+  var peek = function peek() {
+    return source[index];
+  };
+  var skipSpace = function skipSpace() {
+    while (index < source.length && /\s/.test(source[index])) index += 1;
+  };
+  var fail = function fail() {
+    throw new SyntaxError('bad expression');
+  };
+  var parsePrimary = function parsePrimary() {
+    skipSpace();
+    if (peek() === '(') {
+      index += 1;
+      var value = parseExpression();
+      skipSpace();
+      if (peek() !== ')') fail();
+      index += 1;
+      return value;
+    }
+    var start = index;
+    while (index < source.length && /[0-9.]/.test(source[index])) index += 1;
+    if (start === index) fail();
+    var literal = Number(source.slice(start, index));
+    if (!Number.isFinite(literal)) fail();
+    skipSpace();
+    if (peek() === '%') {
+      index += 1;
+      return applyPercent(literal, current);
+    }
+    return literal;
+  };
+  var _parseUnary = function parseUnary() {
+    skipSpace();
+    if (peek() === '-') {
+      index += 1;
+      return -_parseUnary();
+    }
+    if (peek() === '+') {
+      index += 1;
+      return _parseUnary();
+    }
+    return parsePrimary();
+  };
+  var parseTerm = function parseTerm() {
+    var value = _parseUnary();
+    for (;;) {
+      skipSpace();
+      var operator = peek();
+      if (operator !== '*' && operator !== '/') return value;
+      index += 1;
+      var next = _parseUnary();
+      if (operator === '*') value *= next;else {
+        if (next === 0) fail();
+        value /= next;
+      }
+    }
+  };
+  function parseExpression() {
+    var value = parseTerm();
+    for (;;) {
+      skipSpace();
+      var operator = peek();
+      if (operator !== '+' && operator !== '-') return value;
+      index += 1;
+      var next = parseTerm();
+      value = operator === '+' ? value + next : value - next;
+    }
+  }
+  try {
+    var result = parseExpression();
+    skipSpace();
+    if (index !== source.length || !Number.isFinite(result)) return null;
+    return result;
+  } catch (error) {
+    return null;
+  }
+}
+
+// What the author typed -> a stored value. Returns null for input that must not be committed
+// (invalid math, an unknown unit, a half-typed expression), so a stray keystroke can never
+// overwrite a real value with NaN.
+function parseValueInput(text) {
+  var _ref2 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+    _ref2$current = _ref2.current,
+    current = _ref2$current === void 0 ? null : _ref2$current,
+    _ref2$units = _ref2.units,
+    units = _ref2$units === void 0 ? ['px'] : _ref2$units,
+    _ref2$defaultUnit = _ref2.defaultUnit,
+    defaultUnit = _ref2$defaultUnit === void 0 ? 'px' : _ref2$defaultUnit;
+  var raw = clean(text);
+  if (!raw) return null;
+  var lowered = raw.toLowerCase();
+  if (SIZE_KEYWORDS.includes(lowered)) return {
+    size: lowered,
+    unit: ''
+  };
+  var match = raw.match(/^([+-]?[0-9.,\s*/%()+\-]*?)\s*([a-z%]{0,4})$/i);
+  if (!match) return null;
+  var _match = _slicedToArray(match, 3),
+    expression = _match[1],
+    suffix = _match[2];
+  var unit = suffix ? suffix.toLowerCase() : '';
+  if (unit && !CSS_UNITS.includes(unit)) return null;
+  var resolved = evaluateExpression(expression, {
+    current: current
+  });
+  if (resolved === null) return null;
+  var nextUnit = unit && !(units.length === 1 && units[0] === unit) ? unit : unit || (current && _typeof(current) === 'object' && current.unit ? current.unit : defaultUnit);
+  return {
+    size: roundValue(resolved),
+    unit: nextUnit
+  };
+}
+
+// Arrow keys and drag-scrub share one stepping rule: Alt/Option is a fine step, Shift is a coarse
+// one, and every result lands on the control's step grid so values stay tidy.
+function stepValue(value) {
+  var _ref3 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+    _ref3$step = _ref3.step,
+    step = _ref3$step === void 0 ? 1 : _ref3$step,
+    _ref3$direction = _ref3.direction,
+    direction = _ref3$direction === void 0 ? 1 : _ref3$direction,
+    _ref3$shift = _ref3.shift,
+    shift = _ref3$shift === void 0 ? false : _ref3$shift,
+    _ref3$alt = _ref3.alt,
+    alt = _ref3$alt === void 0 ? false : _ref3$alt,
+    _ref3$min = _ref3.min,
+    min = _ref3$min === void 0 ? null : _ref3$min,
+    _ref3$max = _ref3.max,
+    max = _ref3$max === void 0 ? null : _ref3$max;
+  var base = Number(step) || 1;
+  var multiplier = alt ? 0.1 : shift ? 10 : 1;
+  var next = roundValue((Number(value) || 0) + base * multiplier * direction);
+  var bounded = clampValue(next, {
+    min: min,
+    max: max
+  });
+  return bounded.value;
+}
+
+// Out-of-range input is corrected visibly rather than silently: the panel shows the reason.
+function clampValue(value) {
+  var _ref4 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+    _ref4$min = _ref4.min,
+    min = _ref4$min === void 0 ? null : _ref4$min,
+    _ref4$max = _ref4.max,
+    max = _ref4$max === void 0 ? null : _ref4$max;
+  var numeric = Number(value);
+  if (!Number.isFinite(numeric)) return {
+    value: value,
+    clamped: false,
+    reason: ''
+  };
+  var lower = min === null || min === undefined ? null : Number(min);
+  var upper = max === null || max === undefined ? null : Number(max);
+  var floor = Number.isFinite(lower) ? lower : null;
+  var ceiling = Number.isFinite(upper) ? upper : null;
+  if (floor !== null && numeric < floor) return {
+    value: floor,
+    clamped: true,
+    reason: "Lowest allowed value is ".concat(floor)
+  };
+  if (ceiling !== null && numeric > ceiling) return {
+    value: ceiling,
+    clamped: true,
+    reason: "Highest allowed value is ".concat(ceiling)
+  };
+  return {
+    value: numeric,
+    clamped: false,
+    reason: ''
+  };
+}
+
+// Display text for a stored value: the unit select owns the unit, the input owns the number.
+function formatValue(value) {
+  if (value === null || value === undefined) return '';
+  if (_typeof(value) === 'object') return value.size === null || value.size === undefined ? '' : String(value.size);
+  return String(value);
+}
+
+// Pointer drag on a numeric field changes the value (the Figma "scrub" gesture). The maths lives
+// here so the renderer only owns pointer plumbing.
+function scrubDelta(startValue, startX, currentX) {
+  var _ref5 = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : {},
+    _ref5$step = _ref5.step,
+    step = _ref5$step === void 0 ? 1 : _ref5$step,
+    _ref5$shift = _ref5.shift,
+    shift = _ref5$shift === void 0 ? false : _ref5$shift,
+    _ref5$alt = _ref5.alt,
+    alt = _ref5$alt === void 0 ? false : _ref5$alt,
+    _ref5$min = _ref5.min,
+    min = _ref5$min === void 0 ? null : _ref5$min,
+    _ref5$max = _ref5.max,
+    max = _ref5$max === void 0 ? null : _ref5$max,
+    _ref5$pixelsPerStep = _ref5.pixelsPerStep,
+    pixelsPerStep = _ref5$pixelsPerStep === void 0 ? 2 : _ref5$pixelsPerStep;
+  var base = Number(step) || 1;
+  var multiplier = alt ? 0.1 : shift ? 10 : 1;
+  var steps = (Number(currentX) - Number(startX)) / Math.max(1, pixelsPerStep);
+  var bounded = clampValue(roundValue(Number(startValue) + steps * base * multiplier), {
+    min: min,
+    max: max
+  });
+  return bounded.value;
+}
 
 /***/ }),
 

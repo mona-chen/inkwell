@@ -18,6 +18,9 @@ import {
     MOTION_GROUP_KINDS, MOTION_GROUP_KIND_LABELS, MOTION_GROUP_TRIGGERS, MOTION_GROUP_TRIGGER_LABELS,
     describeMotionGroup, motionGroupItems, normalizeMotionGroup,
 } from '../motionGroups.js';
+import { clampValue, parseValueInput, scrubDelta, stepValue } from '../valueInput.js';
+import { EASING_PRESETS, SPRING_DEFAULTS, bezierPath, easingBox, easingCss, parseEasing, springSettleMs, springToBezier, validateEasing } from '../easing.js';
+import { TRACK_UNITS, parseTracks, serializeTracks, resizeTracks, tracksFromCount, trackText } from '../gridTracks.js';
 
 const labelFor = (option) => typeof option === 'object' ? option.label : String(option).replace(/-/g, ' ');
 const valueFor = (option) => typeof option === 'object' ? option.value : option;
@@ -46,6 +49,470 @@ const switchControl = ({ checked = false, onLabel = 'Yes', offLabel = 'No', aria
 };
 
 /* ------------------------------------------------------------------ *
+ * Shared field primitives: numeric scrubbing, easing curves, grid tracks
+ * ------------------------------------------------------------------ */
+
+// A numeric field with the affordances a design tool is expected to have: drag the control label to
+// scrub, type arithmetic ("12*2", "100% - 20"), step with the arrow keys (Shift = coarse, Alt =
+// fine), and read a reason when a value is clamped instead of watching it silently change.
+//
+// The field never touches the store itself: `onLive` previews inside one undo step, `onCommit`
+// closes that step, and `onSet` writes a discrete change. That keeps the panel's history rules in
+// PanelManager, where they belong.
+export function numericField({ value, units = null, defaultUnit = 'px', min = null, max = null, step = 1, ariaLabel = 'Value', placeholder = '', handle = null, onLive = null, onCommit = null, onSet = null } = {}) {
+    const unitList = Array.isArray(units) && units.length ? [...units] : null;
+    const readSize = (source) => (source && typeof source === 'object' ? source.size : source);
+    const readUnit = (source) => (source && typeof source === 'object' ? source.unit : null);
+    let committed = { size: readSize(value) ?? '', unit: readUnit(value) || defaultUnit };
+    const host = document.createElement('div'); host.className = 'ink-v2-number-field';
+    const input = document.createElement('input'); input.type = 'text'; input.autocomplete = 'off'; input.spellcheck = false;
+    input.inputMode = 'decimal'; input.setAttribute('aria-label', ariaLabel);
+    if (placeholder) input.placeholder = placeholder;
+    input.value = committed.size === '' || committed.size === null || committed.size === undefined ? '' : String(committed.size);
+    const unit = unitList ? document.createElement('select') : null;
+    if (unit) { unit.className = 'ink-v2-unit'; unit.setAttribute('aria-label', `${ariaLabel} unit`); unitList.forEach((name) => unit.add(new Option(name, name))); unit.value = committed.unit; }
+    const note = document.createElement('small'); note.className = 'ink-v2-field-note'; note.hidden = true;
+    host.append(input); if (unit) host.append(unit); host.append(note);
+
+    const numeric = () => { const size = Number(committed.size); return Number.isFinite(size) ? size : 0; };
+    const compose = (size) => (unitList ? { size, unit: unit && unit.value ? unit.value : defaultUnit } : size);
+    const apply = (next, { live = false } = {}) => {
+        if (live && onLive) { onLive(next); return; }
+        if (onSet) { onSet(next); return; }
+        if (onCommit) onCommit(next);
+    };
+    let noteTimer = null;
+    const explain = (message, { autoHide = true } = {}) => {
+        note.textContent = message; note.hidden = !message;
+        if (noteTimer) clearTimeout(noteTimer);
+        if (message && autoHide) noteTimer = setTimeout(() => { note.hidden = true; }, 4000);
+    };
+    const show = (size) => { input.value = size === '' || size === null || size === undefined ? '' : String(size); };
+    const revert = () => { show(committed.size); if (unit) unit.value = committed.unit; input.removeAttribute('aria-invalid'); explain(''); };
+
+    const commit = () => {
+        const text = input.value.trim();
+        if (!text) {
+            committed = { size: '', unit: unit ? unit.value : defaultUnit };
+            input.removeAttribute('aria-invalid'); explain('');
+            if (onSet) onSet(''); else if (onCommit) onCommit('');
+            return;
+        }
+        const parsed = parseValueInput(text, { current: numeric(), units: unitList || [defaultUnit], defaultUnit });
+        if (!parsed || typeof parsed.size === 'string') {
+            input.setAttribute('aria-invalid', 'true');
+            explain('Try a number, a unit like 24px, or arithmetic like 100% - 20.', { autoHide: false });
+            return;
+        }
+        const bounded = clampValue(parsed.size, { min, max });
+        input.removeAttribute('aria-invalid');
+        if (unit && parsed.unit && Array.from(unit.options).some((option) => option.value === parsed.unit)) unit.value = parsed.unit;
+        committed = { size: bounded.value, unit: unit ? unit.value : defaultUnit };
+        show(bounded.value);
+        explain(bounded.clamped ? bounded.reason : '');
+        const next = compose(bounded.value);
+        if (onSet) onSet(next); else if (onCommit) onCommit(next);
+    };
+
+    input.addEventListener('change', commit);
+    input.addEventListener('blur', () => { if (input.hasAttribute('aria-invalid')) revert(); else commit(); });
+    input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); commit(); input.blur(); return; }
+        if (event.key === 'Escape') { event.preventDefault(); revert(); input.blur(); return; }
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        const next = stepValue(numeric(), { step, direction: event.key === 'ArrowUp' ? 1 : -1, shift: event.shiftKey, alt: event.altKey, min, max });
+        committed = { size: next, unit: unit ? unit.value : defaultUnit };
+        show(next);
+        const composed = compose(next);
+        if (onLive) { onLive(composed); if (onCommit) onCommit(composed); } else if (onSet) onSet(composed);
+    });
+    if (unit) unit.addEventListener('change', commit);
+
+    // Scrubbing: dragging the control's own label changes the value, which is the gesture authors
+    // expect from a number in a design tool. A click without movement changes nothing.
+    if (handle) {
+        handle.classList.add('is-scrubbable');
+        handle.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            const startX = event.clientX;
+            const startValue = numeric();
+            let moved = false;
+            const composeFrom = (clientX, modifiers) => scrubDelta(startValue, startX, clientX, { step, shift: modifiers.shift, alt: modifiers.alt, min, max });
+            const move = (moveEvent) => {
+                if (Math.abs(moveEvent.clientX - startX) > 2) moved = true;
+                if (!moved) return;
+                const next = composeFrom(moveEvent.clientX, { shift: moveEvent.shiftKey, alt: moveEvent.altKey });
+                committed = { size: next, unit: unit ? unit.value : defaultUnit };
+                show(next);
+                if (onLive) onLive(compose(next));
+            };
+            const up = (upEvent) => {
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', up);
+                document.body.classList.remove('ink-is-scrubbing');
+                if (!moved) return;
+                const next = composeFrom(upEvent.clientX, { shift: upEvent.shiftKey, alt: upEvent.altKey });
+                committed = { size: next, unit: unit ? unit.value : defaultUnit };
+                show(next);
+                if (onCommit) onCommit(compose(next)); else if (onSet) onSet(compose(next));
+            };
+            document.body.classList.add('ink-is-scrubbing');
+            document.addEventListener('pointermove', move);
+            document.addEventListener('pointerup', up);
+        });
+    }
+    return { element: host, input, unit, note, explain, setValue: (next) => { committed = { size: readSize(next) ?? '', unit: readUnit(next) || defaultUnit }; show(committed.size); if (unit) unit.value = committed.unit; } };
+}
+
+// The easing editor: a preset list, a draggable bezier curve, and a spring tab that converts
+// physical parameters into a legal cubic-bezier while keeping the parameters beside it, so the
+// sliders come back where the author left them and the stylesheet only ever sees valid CSS.
+export function easingEditor({ value, spring = null, onChange, onDuration = null, ariaLabel = 'Easing' } = {}) {
+    const parsed = parseEasing(value);
+    let points = [...parsed.points];
+    let springState = spring && typeof spring === 'object' ? { ...SPRING_DEFAULTS, ...spring } : null;
+
+    const host = document.createElement('div'); host.className = 'ink-v2-easing';
+    const head = document.createElement('div'); head.className = 'ink-v2-easing-head';
+    const preset = document.createElement('select'); preset.setAttribute('aria-label', ariaLabel);
+    EASING_PRESETS.forEach((entry) => preset.add(new Option(entry.label, entry.id)));
+    preset.add(new Option('Custom curve', 'custom'));
+    const matching = () => EASING_PRESETS.find((entry) => entry.points.every((point, index) => Math.abs(point - points[index]) < 0.005));
+    preset.value = matching()?.id || 'custom';
+    const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'ink-v2-easing-toggle'; toggle.textContent = 'Edit curve'; toggle.setAttribute('aria-expanded', 'false');
+    head.append(preset, toggle);
+
+    const body = document.createElement('div'); body.className = 'ink-v2-easing-body'; body.hidden = true;
+    const tabs = document.createElement('div'); tabs.className = 'ink-v2-easing-tabs'; tabs.setAttribute('role', 'tablist');
+    const curveTab = document.createElement('button'); curveTab.type = 'button'; curveTab.textContent = 'Curve'; curveTab.setAttribute('role', 'tab');
+    const springTab = document.createElement('button'); springTab.type = 'button'; springTab.textContent = 'Spring'; springTab.setAttribute('role', 'tab');
+    tabs.append(curveTab, springTab);
+    // Designer words first: the four shapes an author reaches for, plus the drawable curve. They map
+    // onto the same curves as the preset list above, so nothing here is a new vocabulary.
+    const EASING_CHIPS = [['Smooth', 'ease-in-out'], ['Snappy', 'expo-out'], ['Spring', 'back-out'], ['Bounce', 'anticipate']];
+    const chips = document.createElement('div'); chips.className = 'ink-v2-easing-chips';
+    const curveChips = EASING_CHIPS.map(([label, id]) => {
+        const chip = document.createElement('button'); chip.type = 'button'; chip.className = 'ink-v2-easing-chip'; chip.textContent = label;
+        chip.dataset.easing = id; chip.title = EASING_PRESETS.find((entry) => entry.id === id)?.label || label;
+        chip.addEventListener('click', () => {
+            const entry = EASING_PRESETS.find((candidate) => candidate.id === id);
+            if (!entry) return;
+            points = [...entry.points]; springState = null; selectEasingTab('curve'); draw(); emit();
+        });
+        chips.appendChild(chip);
+        return chip;
+    });
+    const customChip = document.createElement('button'); customChip.type = 'button'; customChip.className = 'ink-v2-easing-chip'; customChip.textContent = 'Custom'; customChip.title = 'Drag the handles to shape the curve';
+    customChip.addEventListener('click', () => selectEasingTab('curve'));
+    chips.appendChild(customChip);
+
+    const svgNamespace = 'http://www.w3.org/2000/svg';
+    const box = easingBox({ width: 128, height: 128, padding: 14 });
+    const svg = document.createElementNS(svgNamespace, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`); svg.setAttribute('class', 'ink-v2-easing-curve'); svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Easing curve editor');
+    const grid = document.createElementNS(svgNamespace, 'path');
+    grid.setAttribute('class', 'ink-v2-easing-grid');
+    grid.setAttribute('d', `M${box.x(0)} ${box.y(0)} L${box.x(1)} ${box.y(1)} M${box.x(0)} ${box.y(1)} L${box.x(1)} ${box.y(1)}`);
+    const curve = document.createElementNS(svgNamespace, 'path'); curve.setAttribute('class', 'ink-v2-easing-path');
+    const stemOne = document.createElementNS(svgNamespace, 'line'); stemOne.setAttribute('class', 'ink-v2-easing-stem');
+    const stemTwo = document.createElementNS(svgNamespace, 'line'); stemTwo.setAttribute('class', 'ink-v2-easing-stem');
+    const handleOne = document.createElementNS(svgNamespace, 'circle'); handleOne.setAttribute('class', 'ink-v2-easing-handle'); handleOne.setAttribute('r', '7'); handleOne.dataset.handle = 'first';
+    const handleTwo = document.createElementNS(svgNamespace, 'circle'); handleTwo.setAttribute('class', 'ink-v2-easing-handle'); handleTwo.setAttribute('r', '7'); handleTwo.dataset.handle = 'second';
+    const readout = document.createElementNS(svgNamespace, 'text'); readout.setAttribute('class', 'ink-v2-easing-readout'); readout.setAttribute('x', box.x(0)); readout.setAttribute('y', box.height - 3);
+    svg.append(grid, stemOne, stemTwo, curve, handleOne, handleTwo, readout);
+
+    const draw = () => {
+        const drawn = bezierPath(points, box);
+        curve.setAttribute('d', drawn.path);
+        const [x1, y1, x2, y2] = points;
+        stemOne.setAttribute('x1', box.x(0)); stemOne.setAttribute('y1', box.y(0)); stemOne.setAttribute('x2', box.x(x1)); stemOne.setAttribute('y2', box.y(y1));
+        stemTwo.setAttribute('x1', box.x(1)); stemTwo.setAttribute('y1', box.y(1)); stemTwo.setAttribute('x2', box.x(x2)); stemTwo.setAttribute('y2', box.y(y2));
+        handleOne.setAttribute('cx', box.x(x1)); handleOne.setAttribute('cy', box.y(y1));
+        handleTwo.setAttribute('cx', box.x(x2)); handleTwo.setAttribute('cy', box.y(y2));
+        readout.textContent = easingCss(points);
+        const matched = matching()?.id || 'custom';
+        preset.value = matched;
+        curveChips.forEach((chip) => chip.classList.toggle('is-active', !springState && chip.dataset.easing === matched));
+    };
+
+    const emit = () => onChange({ easing: easingCss(points), spring: springState });
+    const dragHandle = (circle, index) => {
+        circle.addEventListener('pointerdown', (event) => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            circle.setPointerCapture?.(event.pointerId);
+            const rect = svg.getBoundingClientRect();
+            const scaleX = box.width / rect.width; const scaleY = box.height / rect.height;
+            const move = (moveEvent) => {
+                const px = (moveEvent.clientX - rect.left) * scaleX;
+                const py = (moveEvent.clientY - rect.top) * scaleY;
+                points[index] = box.unx(px);
+                points[index + 1] = box.uny(py);
+                draw();
+            };
+            const up = () => {
+                circle.removeEventListener('pointermove', move);
+                circle.removeEventListener('pointerup', up);
+                document.body.classList.remove('ink-is-scrubbing');
+                springState = null;
+                emit();
+            };
+            document.body.classList.add('ink-is-scrubbing');
+            circle.addEventListener('pointermove', move);
+            circle.addEventListener('pointerup', up);
+        });
+    };
+    dragHandle(handleOne, 0); dragHandle(handleTwo, 2);
+
+    const springHost = document.createElement('div'); springHost.className = 'ink-v2-easing-spring'; springHost.hidden = true;
+    // The physics explainer is documentation, not a control: it stays behind a "?" beside the tabs
+    // instead of pushing the sliders down the popover.
+    const springHint = document.createElement('p'); springHint.className = 'ink-v2-control-description'; springHint.hidden = true;
+    springHint.textContent = 'Springs are written as the closest cubic-bezier, so the motion stays native CSS. Use a keyframe timeline when you need a real multi-bounce.';
+    const springHelp = document.createElement('button'); springHelp.type = 'button'; springHelp.className = 'ink-v2-info-toggle'; springHelp.textContent = '?';
+    springHelp.setAttribute('aria-label', 'About springs'); springHelp.setAttribute('aria-expanded', 'false');
+    springHelp.addEventListener('click', () => { springHint.hidden = !springHint.hidden; springHelp.setAttribute('aria-expanded', String(!springHint.hidden)); });
+    tabs.appendChild(springHelp);
+    const springFields = {};
+    const springRanges = [['stiffness', 'Stiffness', 1, 600, 1], ['damping', 'Damping', 1, 120, 1], ['mass', 'Mass', 0.1, 5, 0.1]];
+    const applySpring = ({ commit = false } = {}) => {
+        springState = {
+            stiffness: Number(springFields.stiffness.value) || SPRING_DEFAULTS.stiffness,
+            damping: Number(springFields.damping.value) || SPRING_DEFAULTS.damping,
+            mass: Number(springFields.mass.value) || SPRING_DEFAULTS.mass,
+        };
+        points = springToBezier(springState);
+        draw();
+        if (commit) emit();
+    };
+    springRanges.forEach(([name, label, min, max, step]) => {
+        const row = document.createElement('label'); row.className = 'ink-v2-easing-spring-field';
+        const text = document.createElement('span'); text.textContent = label;
+        const range = document.createElement('input'); range.type = 'range'; range.min = String(min); range.max = String(max); range.step = String(step);
+        range.value = String(springState?.[name] ?? SPRING_DEFAULTS[name]); range.setAttribute('aria-label', label);
+        const value = document.createElement('output'); value.textContent = range.value;
+        range.addEventListener('input', () => { value.textContent = range.value; applySpring(); });
+        range.addEventListener('change', () => applySpring({ commit: true }));
+        springFields[name] = range;
+        row.append(text, range, value);
+        springHost.appendChild(row);
+    });
+    const suggest = document.createElement('button'); suggest.type = 'button'; suggest.className = 'ink-v2-action-button'; suggest.textContent = 'Use recommended';
+    const refreshSuggest = () => { suggest.title = `Sets the duration to about when the spring settles (${springSettleMs(springState || SPRING_DEFAULTS)}ms)`; };
+    suggest.addEventListener('click', () => { if (onDuration) onDuration(springSettleMs(springState || SPRING_DEFAULTS)); });
+    refreshSuggest();
+    springHost.append(springHint, suggest);
+
+    const selectEasingTab = (name) => {
+        const springActive = name === 'spring';
+        springHost.hidden = !springActive; svg.hidden = springActive;
+        curveTab.classList.toggle('is-active', !springActive); springTab.classList.toggle('is-active', springActive);
+        curveTab.setAttribute('aria-selected', String(!springActive)); springTab.setAttribute('aria-selected', String(springActive));
+    };
+    // The editor needs more room than the sidebar gives it, so the popover is positioned against the
+    // button and pinned to the viewport: it stays inside the panel's DOM (and its tests) while
+    // reading as its own surface outside the panel's width.
+    let positioned = null;
+    const positionBody = () => {
+        if (body.hidden) return;
+        const rect = toggle.getBoundingClientRect();
+        const width = Math.min(300, window.innerWidth - 24);
+        const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
+        const height = body.offsetHeight;
+        const below = rect.bottom + 6;
+        body.style.position = 'fixed';
+        body.style.width = `${width}px`;
+        body.style.left = `${left}px`;
+        body.style.top = `${below + height > window.innerHeight - 8 ? Math.max(8, rect.top - height - 6) : below}px`;
+    };
+    const closeBody = () => {
+        body.hidden = true; toggle.setAttribute('aria-expanded', 'false');
+        if (positioned) { positioned.abort(); positioned = null; }
+    };
+    const openBody = () => {
+        body.hidden = false; toggle.setAttribute('aria-expanded', 'true');
+        draw(); refreshSuggest();
+        // Reposition while the popover is open: the panel scrolls under a viewport-pinned box.
+        if (positioned) positioned.abort();
+        positioned = new AbortController();
+        const { signal } = positioned;
+        window.addEventListener('resize', positionBody, { signal });
+        document.addEventListener('scroll', positionBody, { capture: true, signal });
+        positionBody();
+    };
+    curveTab.addEventListener('click', () => selectEasingTab('curve'));
+    springTab.addEventListener('click', () => selectEasingTab('spring'));
+    selectEasingTab(springState ? 'spring' : 'curve');
+    body.append(tabs, chips, svg, springHost);
+
+    preset.addEventListener('change', () => {
+        const entry = EASING_PRESETS.find((candidate) => candidate.id === preset.value);
+        if (!entry) { openBody(); return; }
+        points = [...entry.points]; springState = null; draw(); emit();
+    });
+    toggle.addEventListener('click', () => {
+        if (body.hidden) openBody(); else closeBody();
+    });
+    toggle.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !body.hidden) { closeBody(); toggle.focus(); } });
+
+    draw();
+    host.append(head, body);
+    return { element: host, svg, setValue: () => {} };
+}
+
+// The grid track editor: a count stepper, a proportional preview rail, and one row per track, so a
+// layout can be built by adding columns instead of typing a template string.
+export function tracksEditor({ value, onChange, unitOptions = TRACK_UNITS } = {}) {
+    const host = document.createElement('div'); host.className = 'ink-v2-tracks';
+    const commit = (tracks) => onChange({ tracks, css: serializeTracks(tracks) });
+    const render = (raw) => {
+        const tracks = parseTracks(raw);
+        host.replaceChildren();
+        const rail = document.createElement('div'); rail.className = 'ink-v2-tracks-rail'; rail.setAttribute('aria-hidden', 'true');
+        const weights = tracks.map((track) => {
+            if (track.unit === 'fr') return Math.max(0.4, Number(track.size) || 1);
+            if (['px', 'rem', 'em', 'vw', 'ch'].includes(track.unit)) return Math.max(0.4, (Number(track.size) || 1) / 60);
+            return 1;
+        });
+        tracks.forEach((track, index) => {
+            const segment = document.createElement('span'); segment.className = 'ink-v2-tracks-segment';
+            segment.style.flexGrow = String(weights[index] || 1);
+            segment.textContent = trackText(track);
+            rail.appendChild(segment);
+        });
+        const head = document.createElement('div'); head.className = 'ink-v2-tracks-head';
+        const count = document.createElement('div'); count.className = 'ink-v2-tracks-count';
+        const less = document.createElement('button'); less.type = 'button'; less.textContent = '−'; less.disabled = tracks.length <= 1; less.setAttribute('aria-label', 'Remove the last track');
+        const more = document.createElement('button'); more.type = 'button'; more.textContent = '+'; more.disabled = tracks.length >= 24; more.setAttribute('aria-label', 'Add a track');
+        const countLabel = document.createElement('span'); countLabel.textContent = `${tracks.length} track${tracks.length === 1 ? '' : 's'}`;
+        less.addEventListener('click', () => commit(resizeTracks(raw, tracks.length - 1)));
+        more.addEventListener('click', () => commit(resizeTracks(raw, tracks.length + 1)));
+        count.append(less, countLabel, more);
+        const presets = document.createElement('div'); presets.className = 'ink-v2-tracks-presets';
+        [[2, '2'], [3, '3'], [4, '4']].forEach(([number, label]) => {
+            const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.setAttribute('aria-label', `${number} equal tracks`);
+            button.addEventListener('click', () => commit(tracksFromCount(number)));
+            presets.appendChild(button);
+        });
+        if (!tracks.length) {
+            const auto = document.createElement('button'); auto.type = 'button'; auto.className = 'ink-v2-tracks-auto'; auto.textContent = 'Auto-fit cards';
+            auto.addEventListener('click', () => onChange({ tracks: parseTracks('repeat(auto-fit, minmax(220px, 1fr))'), css: 'repeat(auto-fit, minmax(220px, 1fr))' }));
+            presets.appendChild(auto);
+        }
+        head.append(count, presets);
+        const rows = document.createElement('div'); rows.className = 'ink-v2-tracks-rows';
+        tracks.forEach((track, index) => {
+            const row = document.createElement('div'); row.className = 'ink-v2-tracks-row';
+            const unit = document.createElement('select'); unit.className = 'ink-v2-unit'; unit.setAttribute('aria-label', `Track ${index + 1} unit`);
+            unitOptions.forEach((name) => unit.add(new Option(name, name)));
+            unit.value = track.unit === 'raw' || track.unit === 'minmax' || track.unit === 'fit-content' ? 'auto' : track.unit;
+            const size = document.createElement('input'); size.type = 'text'; size.autocomplete = 'off'; size.setAttribute('aria-label', `Track ${index + 1} size`);
+            size.value = track.unit === 'raw' || track.unit === 'minmax' || track.unit === 'fit-content' ? trackText(track) : (Number.isFinite(Number(track.size)) ? String(track.size) : '');
+            size.readOnly = unit.value === 'auto';
+            const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove track ${index + 1}`); remove.disabled = tracks.length <= 1;
+            unit.addEventListener('change', () => { const next = parseTracks(raw); const value = Number(size.value); next[index] = unit.value === 'auto' ? { unit: 'auto' } : { unit: unit.value, size: Number.isFinite(value) ? value : 1 }; commit(next); });
+            size.addEventListener('change', () => {
+                const parsed = parseValueInput(size.value, { current: 1, units: unitOptions, defaultUnit: unit.value });
+                if (!parsed) { size.value = trackText(track); return; }
+                const next = parseTracks(raw);
+                next[index] = typeof parsed.size === 'number' ? { unit: parsed.unit || unit.value, size: parsed.size } : { unit: parsed.size };
+                commit(next);
+            });
+            remove.addEventListener('click', () => commit(parseTracks(raw).filter((_, cursor) => cursor !== index)));
+            row.append(unit, size, remove);
+            rows.appendChild(row);
+        });
+        host.append(head, rail, rows);
+    };
+    render(value);
+    return { element: host, setValue: (next) => render(next) };
+}
+
+// The keyframe timeline: a row per keyframe with its position, transform and opacity, a raw JSON
+// escape hatch for anything else, and a preview that plays the real animation on the canvas.
+// Property values the author did not touch survive an edit, so a hand-written or imported keyframe
+// is never flattened into a subset.
+export function motionTimeline({ frames, onChange, onPreview = null } = {}) {
+    const list = Array.isArray(frames) ? frames : [];
+    const host = document.createElement('div'); host.className = 'ink-v2-timeline';
+    const rows = document.createElement('div'); rows.className = 'ink-v2-timeline-rows';
+    const position = (frame, index) => {
+        const offset = Number(frame?.offset);
+        return Number.isFinite(offset) ? Math.max(0, Math.min(1, offset)) : index / Math.max(1, list.length - 1);
+    };
+    const edit = (index, patch) => onChange(list.map((frame, cursor) => (cursor === index ? { ...frame, ...patch } : { ...frame })));
+    list.forEach((frame, index) => {
+        const row = document.createElement('div'); row.className = 'ink-v2-timeline-row';
+        const positionLabel = document.createElement('label'); positionLabel.className = 'ink-v2-timeline-position';
+        const offset = numericField({ value: Math.round(position(frame, index) * 100), min: 0, max: 100, step: 5, ariaLabel: `Keyframe ${index + 1} position`, handle: positionLabel, onSet: (next) => edit(index, { offset: Math.round(Number(next) || 0) / 100 }) });
+        positionLabel.append(offset.element, '%');
+        const transform = document.createElement('input'); transform.type = 'text'; transform.className = 'ink-v2-timeline-transform'; transform.spellcheck = false;
+        transform.value = frame.transform ?? ''; transform.placeholder = 'translateY(24px)'; transform.setAttribute('aria-label', `Keyframe ${index + 1} transform`);
+        commitOnFinish(transform, () => edit(index, { transform: transform.value.trim() }));
+        const opacity = document.createElement('input'); opacity.type = 'text'; opacity.className = 'ink-v2-timeline-opacity'; opacity.inputMode = 'decimal';
+        opacity.value = frame.opacity === undefined || frame.opacity === null ? '' : String(frame.opacity); opacity.placeholder = 'opacity'; opacity.setAttribute('aria-label', `Keyframe ${index + 1} opacity`);
+        commitOnFinish(opacity, () => { const next = opacity.value.trim(); edit(index, { opacity: next === '' ? '' : Math.max(0, Math.min(1, Number(next) || 0)) }); });
+        const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '×'; remove.setAttribute('aria-label', `Remove keyframe ${index + 1}`); remove.disabled = list.length <= 2;
+        remove.addEventListener('click', () => onChange(list.filter((_, cursor) => cursor !== index)));
+        row.append(positionLabel, transform, opacity, remove);
+        rows.appendChild(row);
+    });
+    host.appendChild(rows);
+
+    const tools = document.createElement('div'); tools.className = 'ink-v2-timeline-tools';
+    const add = document.createElement('button'); add.type = 'button'; add.className = 'ink-v2-action-button'; add.textContent = 'Add keyframe';
+    add.addEventListener('click', () => {
+        const last = position(list.at(-1), list.length - 1);
+        const previous = list.length > 1 ? position(list.at(-2), list.length - 2) : Math.max(0, last - 0.25);
+        const offset = Math.round(Math.min(1, (last + previous) / 2 + 0.25) * 100) / 100;
+        const template = list.at(-1) || {};
+        onChange([...list.map((frame) => ({ ...frame })), { offset, ...(template.transform ? { transform: template.transform } : {}) }]);
+    });
+    tools.appendChild(add);
+    if (onPreview) {
+        const play = document.createElement('button'); play.type = 'button'; play.className = 'ink-v2-action-button'; play.textContent = 'Play preview';
+        play.addEventListener('click', () => { if (!onPreview()) play.textContent = 'Select the layer first'; });
+        tools.appendChild(play);
+    }
+    host.appendChild(tools);
+
+    const raw = document.createElement('details'); raw.className = 'ink-v2-timeline-raw';
+    const summary = document.createElement('summary'); summary.textContent = 'Raw keyframes';
+    const textarea = document.createElement('textarea'); textarea.className = 'ink-v2-code'; textarea.rows = 6; textarea.spellcheck = false;
+    textarea.value = JSON.stringify(list, null, 2); textarea.setAttribute('aria-label', 'Keyframes as JSON');
+    const status = document.createElement('small'); status.className = 'ink-v2-field-note'; status.hidden = true;
+    commitOnFinish(textarea, () => {
+        try {
+            const parsed = JSON.parse(textarea.value);
+            if (!Array.isArray(parsed) || parsed.length < 2) throw new Error('Use at least two keyframes');
+            status.hidden = true; textarea.removeAttribute('aria-invalid'); onChange(parsed);
+        } catch (error) {
+            status.textContent = error.message; status.hidden = false; textarea.setAttribute('aria-invalid', 'true');
+        }
+    });
+    raw.append(summary, textarea, status);
+    host.appendChild(raw);
+    return { element: host };
+}
+
+// What a selector actually points at, in the author's words: read the canvas, not the CSS.
+export function resolveTargetLabel(panel, selector) {
+    const root = panel?.runtime?.canvas?.root;
+    if (!selector || !root) return '';
+    let element = null;
+    try { element = root.querySelector(selector); } catch (error) { return ''; }
+    if (!element) return '';
+    const id = element.dataset?.inkElementId || element.closest?.('[data-ink-element-id]')?.dataset?.inkElementId;
+    const node = id ? panel.runtime.document.get(id) : null;
+    if (!node) return '';
+    const definition = panel.runtime.elements.get(node.type);
+    return `${node.settings.label || definition.title} (${definition.title})`;
+}
+
+/* ------------------------------------------------------------------ *
  * Switcher / slider / gaps / dimensions (value editors)
  * ------------------------------------------------------------------ */
 
@@ -56,31 +523,200 @@ export function switcher(panel, control, node, value, row) {
     row.appendChild(wrapper); return row;
 }
 
+// A plain number, with optional units, using the shared scrub/arithmetic field.
+export function number(panel, control, node, value, row) {
+    const field = numericField({
+        value, units: control.units || null, defaultUnit: control.defaultUnit || control.units?.[0] || 'px',
+        min: control.min ?? null, max: control.max ?? null, step: control.step ?? 1,
+        ariaLabel: control.label || control.name, placeholder: control.placeholder || '',
+        handle: row.querySelector(':scope > label'),
+        onLive: (next) => panel.scrubValue(control, node, next, false),
+        onCommit: (next) => panel.scrubValue(control, node, next, true),
+        onSet: (next) => panel.setValue(control, node, next),
+    });
+    row.appendChild(field.element);
+    return row;
+}
+
+// A size always carries a unit, so "24" can become 24px, 24rem, or 24% — the author types the unit
+// they mean instead of hunting for the select.
+export function size(panel, control, node, value, row) {
+    const field = numericField({
+        value, units: control.units || ['px'], defaultUnit: control.units?.[0] || 'px',
+        min: control.min ?? null, max: control.max ?? null, step: control.step ?? 1,
+        ariaLabel: control.label || control.name, placeholder: control.placeholder || '',
+        handle: row.querySelector(':scope > label'),
+        onLive: (next) => panel.scrubValue(control, node, next, false),
+        onCommit: (next) => panel.scrubValue(control, node, next, true),
+        onSet: (next) => panel.setValue(control, node, next),
+    });
+    row.appendChild(field.element);
+    return row;
+}
+
+// Grid tracks: columns (or rows) as editable tracks instead of a template string nobody can parse.
+export function gridTracks(panel, control, node, value, row) {
+    const editor = tracksEditor({
+        value: String(value ?? ''),
+        onChange: ({ css }) => panel.setValue(control, node, css),
+    });
+    row.appendChild(editor.element);
+    const hint = document.createElement('small'); hint.className = 'ink-v2-control-description';
+    hint.textContent = 'Written straight to the grid template. A uniform list is saved as repeat(n, …).';
+    row.appendChild(hint);
+    return row;
+}
+
+// Animation presets are the designer-facing half of motion: pick what should happen and the panel
+// writes the keyframes. The timeline stays available for exactly what the presets cannot say.
+const MOTION_PRESETS = [
+    { id: 'fade-in', label: 'Fade in', frames: [{ offset: 0, opacity: 0 }, { offset: 1, opacity: 1 }] },
+    { id: 'fade-up', label: 'Fade + move up', frames: [{ offset: 0, opacity: 0, transform: 'translateY(24px)' }, { offset: 1, opacity: 1, transform: 'translateY(0)' }] },
+    { id: 'scale-in', label: 'Scale in', frames: [{ offset: 0, opacity: 0, transform: 'scale(0.9)' }, { offset: 1, opacity: 1, transform: 'scale(1)' }] },
+    { id: 'slide-in', label: 'Slide in from left', frames: [{ offset: 0, opacity: 0, transform: 'translateX(-32px)' }, { offset: 1, opacity: 1, transform: 'translateX(0)' }] },
+];
+const motionFrameSignature = (list) => (Array.isArray(list) ? list : []).map((frame) => `${Number(frame?.offset)}|${frame?.opacity ?? ''}|${frame?.transform ?? ''}`).join('~');
+const motionPresetFor = (frames, enabled) => (enabled === false ? 'none' : (MOTION_PRESETS.find((preset) => motionFrameSignature(preset.frames) === motionFrameSignature(frames))?.id || 'custom'));
+// Name the effect, not the mechanics: "Fade + Move", not "two keyframes".
+const describeMotionFrames = (frames) => {
+    const list = Array.isArray(frames) ? frames : [];
+    if (!list.length) return 'No animation yet';
+    const transforms = list.map((frame) => String(frame?.transform || '')).join(' ');
+    const parts = [];
+    if (list.some((frame) => frame?.opacity !== undefined && frame?.opacity !== null && frame?.opacity !== '')) parts.push('Fade');
+    if (/scale\(/.test(transforms)) parts.push('Scale');
+    if (/rotate\(/.test(transforms)) parts.push('Rotate');
+    if (/translateY/.test(transforms)) parts.push('Move');
+    if (/translateX/.test(transforms)) parts.push('Slide');
+    return parts.length ? parts.join(' + ') : 'Custom motion';
+};
+
 export function motion(panel, control, node, value, row) {
     const current = value && typeof value === 'object' ? value : {};
     const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-motion-control';
-    const field = (labelText, input) => { const label = document.createElement('label'); label.textContent = labelText; label.appendChild(input); wrapper.appendChild(label); return input; };
-    const enabledControl = switchControl({ checked: !!value && current.enabled !== false, ariaLabel: 'Animation enabled' }); const enabled = enabledControl.checkbox;
+    // Composite controls build their own label rows so the inner number fields can scrub from the
+    // label that names them ("Duration (ms)"), not from the whole control's title.
+    const makeField = (labelText, host = wrapper) => { const label = document.createElement('label'); label.textContent = labelText; host.appendChild(label); return label; };
+    const field = (labelText, input, host = wrapper) => { const label = makeField(labelText, host); label.appendChild(input); return input; };
+    let enabled = current.enabled !== false;
+    let frames = Array.isArray(current.keyframes) && current.keyframes.length ? current.keyframes.map((frame) => ({ ...frame })) : [{ offset: 0, opacity: 0, transform: 'translateY(24px)' }, { offset: 1, opacity: 1, transform: 'translateY(0)' }];
+
+    // The first decision is "what should happen", not "which CSS properties". Choosing a preset
+    // writes the keyframes; the timeline below is the escape hatch, not the entry point.
+    const animation = document.createElement('select'); animation.setAttribute('aria-label', 'Animation');
+    animation.add(new Option('None', 'none'));
+    MOTION_PRESETS.forEach((preset) => animation.add(new Option(preset.label, preset.id)));
+    animation.add(new Option('Custom keyframes', 'custom'));
+    animation.value = motionPresetFor(frames, enabled);
+
     const trigger = document.createElement('select'); Object.entries({ load: 'Page load', hover: 'Hover', enter: 'Section enters view', scroll: 'Section scroll progress' }).forEach(([name, label]) => trigger.add(new Option(label, name))); trigger.value = current.trigger || 'load';
-    const duration = document.createElement('input'); duration.type = 'number'; duration.min = '1'; duration.step = '50'; duration.value = current.duration || 800;
-    const delay = document.createElement('input'); delay.type = 'number'; delay.step = '50'; delay.value = current.delay || 0;
-    const easing = document.createElement('select'); ['linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier(.16,1,.3,1)'].forEach((name) => easing.add(new Option(name, name))); easing.value = current.easing || 'ease';
-    const iterations = document.createElement('input'); iterations.type = 'text'; iterations.value = current.iterations ?? 1; iterations.placeholder = '1 or infinite';
-    const direction = document.createElement('select'); ['normal', 'reverse', 'alternate', 'alternate-reverse'].forEach((name) => direction.add(new Option(name, name))); direction.value = current.direction || 'normal';
-    const keyframes = document.createElement('textarea'); keyframes.className = 'ink-v2-code'; keyframes.rows = 8; keyframes.spellcheck = false; keyframes.value = JSON.stringify(current.keyframes || [{ offset: 0, opacity: 0, transform: 'translateY(24px)' }, { offset: 1, opacity: 1, transform: 'translateY(0)' }], null, 2);
-    field('Enabled', enabledControl.wrapper); field('Trigger', trigger); field('Duration (ms)', duration); field('Delay (ms)', delay); field('Easing', easing); field('Iterations', iterations); field('Direction', direction); field('Keyframes', keyframes);
-    const explain = document.createElement('small'); explain.className = 'ink-v2-control-description'; explain.textContent = 'Scroll motion follows the parent section as it crosses the viewport. It runs once through the keyframes; scroll progress ignores duration, delay, iterations, and direction. Preview to see it.'; wrapper.appendChild(explain);
-    const syncFields = () => { const scroll = trigger.value === 'scroll'; duration.disabled = scroll; delay.disabled = scroll; iterations.disabled = ['scroll', 'enter'].includes(trigger.value); direction.disabled = iterations.disabled; explain.hidden = !iterations.disabled; };
-    trigger.addEventListener('change', syncFields); syncFields();
-    const status = document.createElement('small'); status.className = 'ink-v2-control-description'; wrapper.appendChild(status);
-    const commit = () => {
-        let parsed;
-        try { parsed = JSON.parse(keyframes.value); if (!Array.isArray(parsed) || parsed.length < 2) throw new Error('Use at least two keyframes'); }
-        catch (error) { status.textContent = error.message; keyframes.setAttribute('aria-invalid', 'true'); return; }
-        keyframes.removeAttribute('aria-invalid'); status.textContent = '';
-        panel.setValue(control, node, { enabled: enabled.checked, trigger: trigger.value, duration: Math.max(1, Number(duration.value) || 800), delay: Number(delay.value) || 0, easing: easing.value, iterations: iterations.value === 'infinite' ? 'infinite' : Math.max(1, Number(iterations.value) || 1), direction: direction.value, keyframes: parsed });
+    const iterations = document.createElement('input'); iterations.type = 'text'; iterations.value = current.iterations ?? 1; iterations.placeholder = '1 or infinite'; iterations.setAttribute('aria-label', 'Iterations');
+    const direction = document.createElement('select'); ['normal', 'reverse', 'alternate', 'alternate-reverse'].forEach((name) => direction.add(new Option(name, name))); direction.value = current.direction || 'normal'; direction.setAttribute('aria-label', 'Direction');
+
+    // Authored state lives here, so every commit writes one coherent motion object and the easing
+    // that reaches the page is always a string the stylesheet accepts.
+    let easingState = { easing: validateEasing(current.easing) || easingCss(parseEasing(current.easing).points), spring: current.spring && typeof current.spring === 'object' ? { ...current.spring } : null };
+
+    field('Animation', animation);
+    const summary = document.createElement('div'); summary.className = 'ink-v2-motion-summary';
+    const summaryText = document.createElement('span'); summaryText.className = 'ink-v2-motion-summary-text';
+    const previewButton = document.createElement('button'); previewButton.type = 'button'; previewButton.className = 'ink-v2-action-button'; previewButton.textContent = 'Preview';
+    summary.append(summaryText, previewButton);
+    wrapper.appendChild(summary);
+    field('Trigger', trigger);
+    const durationLabel = makeField('Duration (ms)');
+    const durationField = numericField({ value: current.duration || 800, min: 1, step: 50, ariaLabel: 'Duration in milliseconds', handle: durationLabel, onSet: (next) => write({ duration: Math.max(1, Math.round(Number(next) || 800)) }) });
+    durationLabel.appendChild(durationField.element);
+    const delayLabel = makeField('Delay (ms)');
+    const delayField = numericField({ value: current.delay || 0, step: 50, ariaLabel: 'Delay in milliseconds', handle: delayLabel, onSet: (next) => write({ delay: Math.round(Number(next) || 0) }) });
+    delayLabel.appendChild(delayField.element);
+
+    function write(patch = {}) {
+        if (patch.easing !== undefined || patch.spring !== undefined) easingState = { easing: patch.easing ?? easingState.easing, spring: patch.spring === undefined ? easingState.spring : patch.spring };
+        if (patch.keyframes) frames = patch.keyframes;
+        const payload = {
+            enabled: enabled, trigger: trigger.value,
+            duration: Math.max(1, Math.round(Number(durationField.input.value) || 800)),
+            delay: Math.round(Number(delayField.input.value) || 0),
+            easing: easingState.easing,
+            iterations: iterations.value === 'infinite' ? 'infinite' : Math.max(1, Math.round(Number(iterations.value) || 1)),
+            direction: direction.value,
+            keyframes: frames,
+        };
+        if (easingState.spring) payload.spring = easingState.spring;
+        panel.setValue(control, node, payload);
+    }
+
+    // Preview through the browser's own animation engine, so the author watches the real motion
+    // without the panel mutating the page's stylesheet.
+    const previewMotion = () => {
+        const element = panel.runtime.canvas?.instances?.get(node.id)?.element;
+        if (!element?.animate || !frames.length) return false;
+        const browserFrames = frames.map((frame, index) => {
+            const { offset, ...rest } = frame;
+            const position = Number(offset);
+            return { offset: Number.isFinite(position) ? Math.max(0, Math.min(1, position)) : index / Math.max(1, frames.length - 1), ...rest };
+        });
+        element.getAnimations?.().forEach((running) => running.cancel());
+        element.animate(browserFrames, {
+            duration: Math.max(1, Number(durationField.input.value) || 800),
+            delay: Number(delayField.input.value) || 0,
+            easing: easingState.easing,
+            iterations: iterations.value === 'infinite' ? Infinity : Math.max(1, Number(iterations.value) || 1),
+            direction: direction.value,
+            fill: 'both',
+        });
+        return true;
     };
-    [enabled, trigger, duration, delay, easing, iterations, direction, keyframes].forEach((input) => input.addEventListener('change', commit));
+    previewButton.addEventListener('click', () => previewMotion());
+
+    // Everything a designer rarely touches lives behind one disclosure: iterations, direction, the
+    // easing curve and spring tuning, and the raw keyframe timeline.
+    const advanced = document.createElement('details'); advanced.className = 'ink-v2-motion-advanced';
+    advanced.innerHTML = '<summary><span>Advanced</span><span class="ink-v2-section-chevron" aria-hidden="true">⌄</span></summary>';
+    const advancedBody = document.createElement('div'); advancedBody.className = 'ink-v2-motion-advanced-body';
+    advanced.appendChild(advancedBody);
+    advanced.open = Boolean(current.spring) || (current.easing !== undefined && !['ease', 'linear'].includes(String(current.easing))) || String(current.iterations ?? '1') !== '1' || (current.direction || 'normal') !== 'normal';
+    wrapper.appendChild(advanced);
+
+    const easingHost = easingEditor({
+        value: easingState.easing, spring: easingState.spring,
+        onChange: ({ easing, spring }) => write({ easing, spring }),
+        onDuration: (milliseconds) => { durationField.setValue(milliseconds); write({ duration: milliseconds }); },
+    });
+    const timeline = motionTimeline({ frames, onChange: (next) => write({ keyframes: next }), onPreview: previewMotion });
+    field('Iterations', iterations, advancedBody);
+    field('Direction', direction, advancedBody);
+    const easingLabel = makeField('Easing', advancedBody); easingLabel.appendChild(easingHost.element);
+    const timelineLabel = makeField('Keyframes', advancedBody); timelineLabel.appendChild(timeline.element);
+
+    const hint = document.createElement('small'); hint.className = 'ink-v2-motion-hint';
+    hint.textContent = 'Scroll motion follows this layer through the viewport and runs once.';
+    wrapper.appendChild(hint);
+
+    const refreshSummary = () => {
+        const milliseconds = Math.max(1, Math.round(Number(durationField.input.value) || 800));
+        summaryText.textContent = enabled ? `${describeMotionFrames(frames)} · ${milliseconds}ms` : 'No animation';
+        previewButton.disabled = !enabled || !frames.length;
+    };
+    const syncFields = () => {
+        const scroll = trigger.value === 'scroll';
+        durationField.input.disabled = scroll; delayField.input.disabled = scroll;
+        iterations.disabled = ['scroll', 'enter'].includes(trigger.value);
+        direction.disabled = iterations.disabled;
+        hint.hidden = !iterations.disabled;
+    };
+    animation.addEventListener('change', () => {
+        const preset = MOTION_PRESETS.find((entry) => entry.id === animation.value);
+        if (animation.value === 'none') enabled = false;
+        else { enabled = true; if (preset) frames = preset.frames.map((frame) => ({ ...frame })); }
+        write({ keyframes: frames });
+        refreshSummary(); syncFields();
+    });
+    trigger.addEventListener('change', () => { syncFields(); write(); });
+    [iterations, direction].forEach((input) => input.addEventListener('change', () => write()));
+    [durationField.input, delayField.input].forEach((input) => input.addEventListener('change', () => { refreshSummary(); }));
+    syncFields(); refreshSummary();
     row.appendChild(wrapper); return row;
 }
 
@@ -98,7 +734,16 @@ export function motionGroup(panel, control, node, value, row) {
     const trigger = document.createElement('select'); MOTION_GROUP_TRIGGERS.forEach((name) => trigger.add(new Option(MOTION_GROUP_TRIGGER_LABELS[name] || name, name))); trigger.value = group?.trigger || 'inherit';
     const stagger = document.createElement('input'); stagger.type = 'number'; stagger.min = '0'; stagger.step = '25'; stagger.value = group?.stagger ?? 0;
     const duration = document.createElement('input'); duration.type = 'number'; duration.min = '0'; duration.step = '50'; duration.value = group?.duration ?? 0; duration.placeholder = 'each layer';
-    const easing = document.createElement('select'); ['', 'linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier(.16,1,.3,1)'].forEach((name) => easing.add(new Option(name || 'each layer', name))); easing.value = group?.easing || '';
+    // The group can inherit each layer's own easing (the default) or apply one curve to the whole
+    // timeline; the editor writes the same validated cubic-bezier the single-layer Motion uses.
+    let groupEasing = group?.easing || '';
+    const easingHost = easingEditor({
+        value: groupEasing || 'ease',
+        onChange: ({ easing }) => { groupEasing = easing; syncAndCommit(); },
+    });
+    const easingInherit = document.createElement('button'); easingInherit.type = 'button'; easingInherit.className = 'ink-v2-action-button';
+    const syncInherit = () => { easingInherit.textContent = groupEasing ? 'Use each layer\'s own easing' : 'Every layer keeps its own easing'; easingInherit.disabled = !groupEasing; };
+    easingInherit.addEventListener('click', () => { groupEasing = ''; syncInherit(); syncAndCommit(); });
     const reference = document.createElement('select'); [['group', 'The group section'], ['parent', 'The group\u2019s parent']].forEach(([name, label]) => reference.add(new Option(label, name))); reference.value = group?.scrub?.reference || 'group';
     const pinControl = switchControl({ checked: !!group?.pin?.enabled, ariaLabel: 'Pin the group while it scrubs', onLabel: 'Pinned', offLabel: 'Free' }); const pin = pinControl.checkbox;
     const distance = document.createElement('input'); distance.type = 'number'; distance.min = '0'; distance.max = '400'; distance.step = '25'; distance.value = group?.pin?.distance ?? 100;
@@ -112,7 +757,7 @@ export function motionGroup(panel, control, node, value, row) {
         if (!enabled.checked) { panel.setValue(control, node, null); return; }
         panel.setValue(control, node, normalizeMotionGroup({
             kind: kind.value, trigger: trigger.value, stagger: Number(stagger.value) || 0,
-            duration: Number(duration.value) || 0, easing: easing.value,
+            duration: Number(duration.value) || 0, easing: groupEasing,
             scrub: { reference: reference.value }, pin: { enabled: pin.checked, distance: Number(distance.value) || 0 },
         }));
     };
@@ -121,7 +766,7 @@ export function motionGroup(panel, control, node, value, row) {
         scrollOnly();
         const preview = normalizeMotionGroup({
             kind: kind.value, trigger: trigger.value, stagger: Number(stagger.value) || 0,
-            duration: Number(duration.value) || 0, easing: easing.value,
+            duration: Number(duration.value) || 0, easing: groupEasing,
             scrub: { reference: reference.value }, pin: { enabled: pin.checked, distance: Number(distance.value) || 0 },
         });
         const items = motionGroupItems({ ...node, settings: { ...node.settings, motionGroup: preview } });
@@ -130,9 +775,9 @@ export function motionGroup(panel, control, node, value, row) {
             : 'No child layer has keyframes yet. Add Animation to the children, then they play as one timeline.';
     };
     const syncAndCommit = () => { sync(); commit(); };
-    [enabled, kind, trigger, stagger, duration, easing, reference, pin, distance].forEach((input) => input.addEventListener('change', syncAndCommit));
-    field('Orchestrate', enabledControl.wrapper); field('Kind', kind); field('Trigger', trigger); field('Stagger (ms)', stagger); field('Duration (ms)', duration); field('Easing', easing); field('Scroll reference', reference); field('Pin', pinControl.wrapper); field('Pinned distance (vh)', distance);
-    wrapper.appendChild(status); sync();
+    [enabled, kind, trigger, stagger, duration, reference, pin, distance].forEach((input) => input.addEventListener('change', syncAndCommit));
+    field('Orchestrate', enabledControl.wrapper); field('Kind', kind); field('Trigger', trigger); field('Stagger (ms)', stagger); field('Duration (ms)', duration); field('Easing', easingHost.element); wrapper.appendChild(easingInherit); field('Scroll reference', reference); field('Pin', pinControl.wrapper); field('Pinned distance (vh)', distance);
+    wrapper.appendChild(status); syncInherit(); sync();
     row.appendChild(wrapper); return row;
 }
 
@@ -1208,10 +1853,35 @@ export function interactions(panel, control, node, value, row) {
             detail.appendChild(field('Class', className));
         }
         if (record.target === 'query') {
+            // The target of an interaction is a layer, not a CSS string: pick it on the canvas, and
+            // the panel reports what the selector currently resolves to (or that nothing matches).
+            const picker = document.createElement('div'); picker.className = 'ink-v2-target-picker';
+            const pick = document.createElement('button'); pick.type = 'button'; pick.className = 'ink-v2-action-button'; pick.textContent = 'Pick on canvas';
             const selector = document.createElement('input'); selector.type = 'text'; selector.value = record.selector || '';
-            selector.placeholder = '.pricing-panel-yearly';
+            selector.placeholder = '.ink-el-…  or any CSS selector';
+            selector.setAttribute('aria-label', 'Target selector');
             commitOnFinish(selector, () => update({ selector: selector.value.trim() }));
-            detail.appendChild(field('Selector', selector));
+            const resolved = document.createElement('small'); resolved.className = 'ink-v2-target-status';
+            const describe = () => {
+                const label = resolveTargetLabel(panel, selector.value.trim());
+                if (label) { resolved.textContent = `Targets ${label}`; resolved.dataset.state = 'found'; return; }
+                resolved.textContent = selector.value.trim() ? 'No layer matches this selector' : 'No target picked yet';
+                resolved.dataset.state = 'missing';
+            };
+            describe();
+            selector.addEventListener('input', describe);
+            pick.addEventListener('click', async () => {
+                if (typeof panel.runtime.pickElement !== 'function') return;
+                pick.classList.add('is-armed'); pick.textContent = 'Click a layer…';
+                const picked = await panel.runtime.pickElement();
+                pick.classList.remove('is-armed'); pick.textContent = 'Pick on canvas';
+                if (!picked) { resolved.textContent = 'Pick cancelled'; resolved.dataset.state = 'missing'; return; }
+                const next = `.ink-el-${picked}`;
+                selector.value = next; describe();
+                update({ selector: next, target: 'query' });
+            });
+            picker.append(pick, selector, resolved);
+            detail.appendChild(field('Target layer', picker));
         }
         const delay = document.createElement('input'); delay.type = 'number'; delay.min = '0'; delay.step = '50'; delay.value = record.delay || 0;
         commitOnFinish(delay, () => update({ delay: Number(delay.value) || 0 }));
@@ -1227,7 +1897,7 @@ export function interactions(panel, control, node, value, row) {
     wrapper.appendChild(add);
 
     const hint = document.createElement('small'); hint.className = 'ink-v2-control-description';
-    hint.textContent = 'Runs in Preview and on the published page. Use a selector target to change another layer, such as a panel that should open.';
+    hint.textContent = 'Runs in Preview and on the published page. Pick a target layer on the canvas to change it — a panel that should open, for example.';
     wrapper.appendChild(hint);
 
     row.appendChild(wrapper);

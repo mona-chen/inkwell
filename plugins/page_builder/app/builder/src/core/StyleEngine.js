@@ -1,4 +1,5 @@
 import { isComponentStateKey, stateNameFromKey } from './states.js';
+import { EASING_CSS_PATTERN } from './easing.js';
 import { normalizeMotionGroup, effectiveMotion } from './motionGroups.js';
 
 const STATE_PSEUDOS = { hover: 'hover', focus: 'focus', active: 'active' };
@@ -168,7 +169,7 @@ export default class StyleEngine {
         const duration = Math.max(1, Number(motion.duration) || 800);
         const delay = Number(motion.delay) || 0;
         const iterations = motion.iterations === 'infinite' ? 'infinite' : Math.max(1, Number(motion.iterations) || 1);
-        const easing = /^[a-z-]+$|^cubic-bezier\([\d.,\s-]+\)$|^steps\([\d,\s-]+\)$/i.test(String(motion.easing || '')) ? motion.easing : 'ease';
+        const easing = EASING_CSS_PATTERN.test(String(motion.easing || '').trim()) ? String(motion.easing).trim() : 'ease';
         const direction = ['normal', 'reverse', 'alternate', 'alternate-reverse'].includes(motion.direction) ? motion.direction : 'normal';
         // A group hover plays every child when the *group* is hovered -- this is what makes an
         // unfold card work, and it is the difference between real choreography and a per-layer

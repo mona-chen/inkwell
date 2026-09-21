@@ -122,6 +122,55 @@ Guards: `node --test scripts/*.test.js` (token model, archetype vocabulary, impo
 `npm run build`, and `bin/rails builder:smoke` (inserts every library section through the real
 runtime, drags a section in, and checks the chrome contracts).
 
+## The inspector
+
+The settings panel is an author's tool, so it reads in an author's vocabulary rather than a CSS
+property dump. `PanelManager.SECTION_GROUPS` maps every section an element definition declares onto
+one of a small fixed set of groups:
+
+`Content · Layout · Typography · Appearance · Transform · Responsive · Component · Interaction ·
+Motion · Advanced`
+
+- Element definitions keep declaring `section` names; the panel decides which group they live in, so
+  a new control never has to know the IA. Sections an element type invents for itself fall back to
+  their tab's group (`content`/`style`/`advanced`).
+- Groups are the first level and carry the collapse state; sections are the second. Only the groups
+  an author reaches for constantly start open (`content`, `layout`, `appearance` — see
+  `OPEN_GROUPS`), which is what keeps a 14-bucket drawer from turning into an endless list.
+- Nothing is named "Additional Options" or "Decorations": `overflow` lives in Layout, `tag` in
+  Semantics, `shape-divider` in Shape divider.
+- One **state selector** sits under the layer name and drives every state-aware section, instead of a
+  repeated "Normal" dropdown under each heading. It also previews component states (`state:open`) on
+  the canvas. `restoreFocusState` re-opens the group holding the control being edited, so a live
+  re-render never drops the keyboard behind a collapsed group.
+
+The control vocabulary that sits inside those sections:
+
+- **Scrubbable value fields** (`valueInput.js`) — drag the label, type arithmetic (`12*2`,
+  `100% - 20`, `50%` of the current value), arrow-step with Shift (coarse) / Alt (fine); nonsense is
+  refused with a reason rather than committed as `NaN`.
+- **Mixed values** — a control shared by several selected layers reads *Mixed* until one value is
+  written, which then applies to every layer of that type.
+- **Per-control menu** — copy, paste, reset, and a one-click section reset (right-click or the row
+  trigger).
+- **Panel search** — filters the settings on screen and names the tab that matches when this one
+  does not.
+- **Identity** — every layer carries class and ID controls (`Custom attributes`), which the renderer
+  already applied to every node; they are how custom CSS, anchors and interactions target a layer.
+- **Grid tracks** (`gridTracks.js`) — columns are edited as tracks with a count stepper, a
+  proportional rail and per-track units; unknown syntax (`subgrid`, `auto-fit`, `calc()`) round-trips
+  verbatim.
+- **Motion** — the first view is the effect in words ("Fade + Move · 800ms") with a Preview button;
+  iterations, direction, easing and the raw keyframe timeline stay under one *Advanced* disclosure.
+- **Easing** — preset-first, with designer chips (Smooth · Snappy · Spring · Bounce · Custom) over a
+  drawable bezier, and spring physics behind a `?`. The popover is viewport-pinned
+  (`easingEditor` → `positionBody`) so it can be wider than the sidebar it opens from.
+- **Target picker** — an interaction that targets a selector asks you to click the layer on the
+  canvas and then reports what the selector currently resolves to, in words.
+- **Agent scope** — the Copilot composer names what it will change (`Editing Hero / Content`) and
+  adjusts its placeholder to the selected layer, so the Agent tab is tied to the selection rather
+  than standing beside it.
+
 ## Importer: what it recovers, and what it does not
 
 Recovered from a captured site (evidence-driven, never site-name-driven):

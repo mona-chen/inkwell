@@ -40,6 +40,24 @@ export default class EditorRuntime {
         this.registerControls();
     }
 
+    // Ask the author to click a layer on the canvas on a control's behalf. Resolves with the
+    // element id, or null when the pick is cancelled (Escape, or arming another pick).
+    pickElement() {
+        if (this.selection.pendingPick) this.selection.cancelPick();
+        return new Promise((resolve) => {
+            const finish = (id) => {
+                offPicked(); offCancelled();
+                document.removeEventListener('keydown', onKey, true);
+                resolve(id);
+            };
+            const onKey = (event) => { if (event.key === 'Escape') { event.preventDefault(); this.selection.cancelPick(); } };
+            const offPicked = this.events.on('picker:picked', ({ id }) => finish(id));
+            const offCancelled = this.events.on('picker:cancelled', () => finish(null));
+            document.addEventListener('keydown', onKey, true);
+            this.selection.armPick();
+        });
+    }
+
     // Panel control renderers, composably registered so PanelManager stays thin. Each
     // renderer is an independent module with the uniform contract
     // (panel, control, node, value, row) => row.
@@ -81,6 +99,9 @@ export default class EditorRuntime {
         ['heading', 'divider', 'raw-html', 'notice', 'alert'].forEach((type) => controls.register(type, controlsModule.notice));
         controls.register('button', controlsModule.actionButton);
         controls.register('hidden', controlsModule.hidden);
+        controls.register('number', controlsModule.number);
+        controls.register('size', controlsModule.size);
+        controls.register('grid-tracks', controlsModule.gridTracks);
         controls.register('state-names', controlsModule.stateNames);
         controls.register('interactions', controlsModule.interactions);
     }

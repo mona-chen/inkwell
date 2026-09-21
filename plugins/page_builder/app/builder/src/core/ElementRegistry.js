@@ -10,6 +10,14 @@ const INTERACTION_CONTROLS = [
     { tab: 'advanced', target: 'settings', section: 'Interaction', name: 'interactions', type: 'interactions', label: 'Interactions' },
 ];
 
+// Class and ID are element attributes, not a per-type feature: any layer can carry them, so custom
+// CSS, anchor links, and interactions can target a container exactly as they target a heading. The
+// renderer already applies both to every node; this is the missing way to author them.
+const IDENTITY_CONTROLS = [
+    { tab: 'advanced', target: 'settings', section: 'Custom attributes', name: 'cssId', type: 'text', label: 'CSS ID' },
+    { tab: 'advanced', target: 'settings', section: 'Custom attributes', name: 'cssClasses', type: 'text', label: 'CSS classes', description: 'Space-separated classes. Custom CSS and interactions can target them.' },
+];
+
 export default class ElementRegistry {    constructor() { this.definitions = new Map(); }
 
     register(definition) {
@@ -28,6 +36,10 @@ export default class ElementRegistry {    constructor() { this.definitions = new
         }
         const controls = [...(definition.controls || [])];
         if (definition.interactive !== false && !definition.internal) controls.push(...INTERACTION_CONTROLS);
+        if (!definition.internal) {
+            const declaredNames = new Set(controls.map((control) => control.name));
+            IDENTITY_CONTROLS.forEach((control) => { if (!declaredNames.has(control.name)) controls.push(control); });
+        }
         this.definitions.set(definition.type, Object.freeze({
             title: definition.type,
             icon: 'widgets',

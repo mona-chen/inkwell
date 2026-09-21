@@ -68,6 +68,23 @@
 .ink-inspector-path { display: flex; gap: 3px; overflow: hidden; margin: 5px 0 0; }
 .ink-inspector-path button { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 4px; background: transparent; border: 0; border-radius: 3px; color: var(--ink-editor-faint); font-size: 10px; }
 .ink-inspector-path button:hover { color: var(--ink-editor-text); background: var(--ink-editor-surface); }
+// The inspector's single state selector: pick Default/Hover/Focus (or a component state) once and
+// every state-aware section below it follows, instead of a repeated dropdown under each heading.
+.ink-inspector-states { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.ink-inspector-states-label { color: var(--ink-editor-faint); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.ink-inspector-states select { flex: 1; min-height: 26px; padding: 0 6px; border: 1px solid var(--ink-editor-border); border-radius: 5px; background: var(--ink-editor-surface); color: var(--ink-editor-text); font-size: 11px; }
+// Two levels of grouping: groups are the inspector's top level (uppercase rail), sections live
+// inside them, so an author scans ~7 buckets and opens only the one they need.
+.ink-v2-section-group { display: block; border-top: 1px solid var(--ink-editor-border); }
+.ink-v2-section-group:first-child { border-top: 0; }
+.ink-v2-section-group[hidden] { display: none !important; }
+.ink-v2-section-group > summary { display: flex; min-height: 30px; align-items: center; justify-content: space-between; padding: 0 12px; background: color-mix(in srgb, var(--ink-editor-text) 3%, transparent); color: var(--ink-editor-faint); font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; list-style: none; }
+.ink-v2-section-group > summary:hover { color: var(--ink-editor-text); }
+.ink-v2-section-group > summary::-webkit-details-marker { display: none; }
+.ink-v2-section-group:not([open]) > summary .ink-v2-section-chevron { transform: rotate(-90deg); }
+.ink-v2-section-list { display: block; }
+.ink-v2-section-list .ink-v2-control-section > summary { padding-left: 14px; color: var(--ink-editor-muted); font-weight: 500; }
+.ink-v2-section-list .ink-v2-control-section > summary:hover { color: var(--ink-editor-text); }
 .ink-inspector-layout { padding: 12px; border-bottom: 1px solid var(--ink-editor-border); }
 .ink-inspector-layout > strong { display: block; margin-bottom: 10px; font-size: 11px; }
 .ink-inspector-layout > div { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; padding: 3px; background: var(--ink-editor-surface); border-radius: 6px; }

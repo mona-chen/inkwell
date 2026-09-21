@@ -9,8 +9,9 @@
 //
 // Everything here is data plus one pure function to render CSS from it. No runtime, no framework.
 
+import { EASING_CSS_PATTERN } from './easing.js';
+
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
-const EASING = /^(?:[a-z-]+|cubic-bezier\([\d.,\s-]+\)|steps\([\d,\s-]+\))$/i;
 const FONT_STACK = /^[a-zA-Z0-9 ,"'_-]+$/;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const number = (value, fallback) => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : fallback; };
@@ -91,7 +92,7 @@ export function normalizeTokens(raw) {
         },
         motion: {
             duration: clamp(Math.round(number(motion.duration, DEFAULT_TOKENS.motion.duration)), 0, 4000),
-            easing: EASING.test(String(motion.easing || '')) ? String(motion.easing) : DEFAULT_TOKENS.motion.easing,
+            easing: EASING_CSS_PATTERN.test(String(motion.easing || '').trim()) ? String(motion.easing).trim() : DEFAULT_TOKENS.motion.easing,
             stagger: clamp(Math.round(number(motion.stagger, DEFAULT_TOKENS.motion.stagger)), 0, 800),
         },
     };

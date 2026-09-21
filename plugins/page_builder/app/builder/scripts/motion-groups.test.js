@@ -3,10 +3,14 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-// motionGroups.js is dependency-free ESM, so it can be imported straight from source.
+// motionGroups.js imports the shared easing grammar. A data: URL cannot resolve a relative
+// specifier, so the import is rewritten to the real module as its own data: URL — the test still
+// exercises the source of truth rather than a copy of the pattern.
+const asDataUrl = (file) => 'data:text/javascript;base64,' + Buffer.from(fs.readFileSync(path.join(__dirname, '../src/core/', file), 'utf8')).toString('base64');
 const load = async () => {
-  const source = fs.readFileSync(path.join(__dirname, '../src/core/motionGroups.js'), 'utf8');
-  return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+  const source = fs.readFileSync(path.join(__dirname, '../src/core/motionGroups.js'), 'utf8')
+    .replaceAll("'./easing.js'", JSON.stringify(asDataUrl('easing.js')));
+  return import(asDataUrl('easing.js')).then(() => import('data:text/javascript;base64,' + Buffer.from(source).toString('base64')));
 };
 
 const card = (id, motion) => ({ id, type: 'container', settings: motion ? { motion } : {}, children: [] });

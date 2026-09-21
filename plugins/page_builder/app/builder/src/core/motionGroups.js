@@ -10,6 +10,8 @@
 // This is what lets an imported deck unfold on hover, a grid reveal card by card, or a pinned
 // section scrub a whole timeline, using only data the builder already stores.
 
+import { EASING_CSS_PATTERN } from './easing.js';
+
 export const MOTION_GROUP_TRIGGERS = ['inherit', 'load', 'enter', 'hover', 'scroll'];
 export const MOTION_GROUP_KINDS = ['group', 'stagger', 'unfold', 'orbit3d', 'scrub', 'carousel'];
 
@@ -20,7 +22,6 @@ export const MOTION_GROUP_KIND_LABELS = {
     group: 'Group', stagger: 'Staggered reveal', unfold: 'Hover unfold', orbit3d: '3D orbit', scrub: 'Scroll timeline', carousel: 'Carousel',
 };
 
-const EASING_PATTERN = /^(?:[a-z-]+|cubic-bezier\([\d.,\s-]+\)|steps\([\d,\s-]+\)|linear\([\d.,\s-]*\))$/i;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const number = (value, fallback = 0) => { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : fallback; };
 const pick = (list, value, fallback) => (list.includes(String(value ?? '').toLowerCase()) ? String(value).toLowerCase() : fallback);
@@ -38,7 +39,7 @@ export function normalizeMotionGroup(raw) {
     if (duration) group.duration = duration;
     const delay = clamp(Math.round(number(raw.delay)), 0, 60000);
     if (delay) group.delay = delay;
-    if (EASING_PATTERN.test(String(raw.easing || ''))) group.easing = String(raw.easing);
+    if (EASING_CSS_PATTERN.test(String(raw.easing || '').trim())) group.easing = String(raw.easing);
     if (raw.iterations === 'infinite') group.iterations = 'infinite';
     else { const iterations = clamp(Math.round(number(raw.iterations, 1)), 1, 99); if (iterations !== 1) group.iterations = iterations; }
     if (raw.perspective != null) group.perspective = clamp(Math.round(number(raw.perspective)), 100, 5000);

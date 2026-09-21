@@ -13,6 +13,53 @@ import { THEME_PRESETS, applyDesignTokens, presetTokens, tokenVariables } from '
 const labelFor = (option) => typeof option === 'object' ? option.label : String(option).replace(/-/g, ' ');
 const valueFor = (option) => typeof option === 'object' ? option.value : option;
 
+// The inspector's information architecture. An author thinks in a handful of groups — how big is
+// it, what does it look like, how does it behave — not in CSS property buckets. Every section is
+// assigned to a group here, so element definitions keep declaring sections without deciding where
+// those sections live in the panel.
+const SECTION_GROUPS = [
+    { key: 'content', label: 'Content' },
+    { key: 'layout', label: 'Layout' },
+    { key: 'typography', label: 'Typography' },
+    { key: 'appearance', label: 'Appearance' },
+    { key: 'transform', label: 'Transform' },
+    { key: 'responsive', label: 'Responsive' },
+    { key: 'component', label: 'Component' },
+    { key: 'interaction', label: 'Interaction' },
+    { key: 'motion', label: 'Motion' },
+    { key: 'advanced', label: 'Advanced' },
+];
+const SECTION_GROUP_ORDER = SECTION_GROUPS.map((group) => group.key);
+const SECTION_GROUP_OF = {
+    Layout: 'layout', Container: 'layout', Frame: 'layout', Grid: 'layout', Spacing: 'layout',
+    Positioning: 'layout', Position: 'layout', 'Flex item': 'layout', Sizing: 'layout',
+    Alignment: 'layout', Overflow: 'layout', 'Image sizing': 'layout',
+    Typography: 'typography', Text: 'typography', Heading: 'typography', Title: 'typography',
+    Caption: 'typography', Font: 'typography', 'Text shadow': 'typography',
+    Appearance: 'appearance', Fill: 'appearance', Background: 'appearance', Gradient: 'appearance',
+    Stroke: 'appearance', Border: 'appearance', Effects: 'appearance', Shadow: 'appearance',
+    Overlay: 'appearance', Decorations: 'appearance', 'Shape divider': 'appearance',
+    Filter: 'appearance', Depth: 'appearance', Surface: 'appearance',
+    Transform: 'transform', 'Vector editing': 'transform',
+    Constraints: 'responsive', Responsive: 'responsive', Visibility: 'responsive', Hide: 'responsive',
+    Semantics: 'advanced', Reference: 'advanced', Attributes: 'advanced', Accessibility: 'advanced',
+    'Custom attributes': 'advanced', 'Additional Options': 'advanced', Code: 'advanced', HTML: 'advanced',
+    States: 'component', 'Component states': 'component',
+    Interaction: 'interaction', Link: 'interaction', Anchor: 'interaction', Actions: 'interaction',
+    Motion: 'motion', Animation: 'motion', 'Exit animation': 'motion', Sticky: 'motion',
+};
+// Anything an element type invents for itself (a counter's Numbers, a map's Tiles) stays next to
+// the content it describes instead of being pushed into a generic bucket.
+const GROUP_FOR_TAB = { content: 'content', style: 'appearance', advanced: 'advanced' };
+// Only the groups an author reaches for constantly start expanded; everything else is one row.
+const OPEN_GROUPS = {
+    all: ['content', 'layout', 'appearance'],
+    content: ['content'],
+    style: ['layout', 'appearance'],
+    advanced: ['advanced'],
+};
+const groupForSection = (section, tab) => SECTION_GROUP_OF[section] || GROUP_FOR_TAB[tab] || 'appearance';
+
 // Capture the identity + value of the control input the user is actively editing, so a live
 // document:update re-render can hand the keyboard back to the same control instead of dropping
 // it and scrolling the panel to the top.
@@ -36,6 +83,9 @@ const restoreFocusState = (body, state) => {
         if (sectionEl) sectionEl.open = true;
     }
     if (!row) return;
+    // Reveal the control before focusing it: a re-render rebuilds the panel from the current group
+    // state, and a control inside a collapsed group cannot take focus.
+    for (let node = row.closest('details'); node; node = node.parentElement?.closest('details')) node.open = true;
     const input = row.querySelectorAll('input, select, textarea')[state.index || 0];
     if (!input || (state.value !== null && String(input.value) !== state.value)) return;
     input.focus();
@@ -51,8 +101,8 @@ export default class PanelManager {
         this.route = role === 'settings' ? 'settings' : role === 'navigator' ? 'navigator' : 'elements';
         this.activeTab = 'all';
         this.openSections = new Map();
-        this.activeState = 'base'; // 'base' | 'hover' | 'focus' (Elementor Normal/Hover/Focus)
-        this.sectionStates = new Map();
+        this.activeState = 'base'; // the inspector's one state selector: 'base' | 'hover' | 'focus' | 'state:open'
+        this.openGroups = new Map();
         this.shapeDividerSides = new Map();
         // Opening the library from a container establishes an insertion context. Keep it
         // while the user adds several children; selecting the first inserted child must not
@@ -63,6 +113,10 @@ export default class PanelManager {
         this.expandedNodes = new Set();
         try { const saved = JSON.parse(localStorage.getItem('inkwell_builder_nav_expanded') || '[]'); if (Array.isArray(saved)) this.expandedNodes = new Set(saved); } catch (_) {}
         this.navigatorDragId = null;
+        // Per-control tools: a copied value to paste onto another layer, and the text typed into the
+        // panel's own search field.
+        this.controlClipboard = null;
+        this.controlFilter = '';
         this.unsubscribers = [];
         this.abort = new AbortController();
         this.renderAbort = new AbortController();
@@ -424,6 +478,26 @@ export default class PanelManager {
             button.addEventListener('click', () => this.runtime.selection.select(ancestor.id)); path.append('›', button);
         });
         identity.append(name, path); wrapper.querySelector('.ink-v2-element-title').replaceWith(identity);
+        // One state selector for the whole inspector. A "Normal" dropdown repeated under every
+        // section read as form noise; the author picks the state once and every state-aware section
+        // below follows it.
+        const declaredStates = elementStateNames(definition, node.settings).map((name) => stateKey(name));
+        const stateAware = [...new Set([
+            ...definition.controls.filter((control) => (this.activeTab === 'all' || control.tab === this.activeTab) && control.states).flatMap((control) => Array.isArray(control.states) ? control.states : ['base', 'hover']),
+            ...declaredStates,
+        ])];
+        if (stateAware.length > 1) {
+            if (!stateAware.includes(this.activeState)) this.activeState = stateAware[0];
+            const bar = document.createElement('div'); bar.className = 'ink-inspector-states';
+            const caption = document.createElement('span'); caption.className = 'ink-inspector-states-label'; caption.textContent = 'State';
+            const labels = { base: 'Default', hover: 'Hover', focus: 'Focus', active: 'Active', ...Object.fromEntries(Object.entries(elementStateLabels(definition, node.settings)).map(([name, label]) => [stateKey(name), label])) };
+            const select = document.createElement('select'); select.setAttribute('aria-label', 'Preview state');
+            stateAware.forEach((state) => select.add(new Option(labels[state] || state, state)));
+            select.value = this.activeState;
+            select.addEventListener('change', () => { this.activeState = select.value; this.previewComponentState(node, select.value); this.render(); });
+            bar.append(caption, select);
+            identity.appendChild(bar);
+        }
         if (['div', 'section', 'column'].includes(node.type) && !definition.controls.some((control) => control.type === 'layout-flow')) {
             const layout = document.createElement('section'); layout.className = 'ink-inspector-layout'; layout.innerHTML = '<strong>Layout</strong><div role="group" aria-label="Layout mode"></div>';
             const device = this.runtime.responsive.device;
@@ -439,7 +513,7 @@ export default class PanelManager {
         const availableTabs = ['all', ...['content', 'style', 'advanced'].filter((tab) => definition.controls.some((control) => control.tab === tab))];
         if (!availableTabs.includes(this.activeTab)) this.activeTab = availableTabs[0] || 'content';
         availableTabs.forEach((tab) => {
-            const labels = { all: 'All', content: 'Content', style: 'Style', advanced: 'Advanced', ...(definition.tabLabels || {}) };
+            const labels = { all: 'Design', content: 'Content', style: 'Style', advanced: 'Advanced', ...(definition.tabLabels || {}) };
             const icons = { all: 'sliders-horizontal', content: 'edit', style: 'contrast', advanced: 'settings', ...(definition.tabIcons || {}) };
             const button = document.createElement('button'); button.type = 'button'; button.className = tab === this.activeTab ? 'is-active' : '';
             button.innerHTML = `<span class="material-symbols-rounded" aria-hidden="true">${icons[tab]}</span><span>${labels[tab]}</span>`;
@@ -448,8 +522,53 @@ export default class PanelManager {
         const filter = document.createElement('details'); filter.className = 'ink-inspector-filter';
         const filterLabel = document.createElement('summary'); filterLabel.textContent = this.activeTab === 'all' ? 'All properties' : `${this.activeTab[0].toUpperCase()}${this.activeTab.slice(1)} properties`;
         tabs.replaceWith(filter); filter.append(filterLabel, tabs);
+        // Panel search: filter the settings that are on screen instead of making an author hunt
+        // through sections. It filters the visible tab; the hint names the tab that matches when
+        // this one does not.
+        const search = document.createElement('div'); search.className = 'ink-v2-control-search';
+        const searchIcon = document.createElement('span'); searchIcon.className = 'material-symbols-rounded'; searchIcon.setAttribute('aria-hidden', 'true'); searchIcon.textContent = 'search';
+        const searchInput = document.createElement('input'); searchInput.type = 'search'; searchInput.value = this.controlFilter;
+        searchInput.placeholder = 'Find a setting'; searchInput.setAttribute('aria-label', 'Find a setting');
+        const searchCount = document.createElement('span'); searchCount.className = 'ink-v2-control-search-count';
+        search.append(searchIcon, searchInput, searchCount);
+        const empty = document.createElement('p'); empty.className = 'ink-v2-control-search-empty'; empty.hidden = true;
+        filter.after(search);
+        const rows = [];
+        const groupNodes = [];
+        const matchText = (candidate) => `${candidate.label || ''} ${candidate.name || ''} ${candidate.section || ''} ${candidate.type || ''}`.toLowerCase();
+        const applyFilter = () => {
+            const query = searchInput.value.trim().toLowerCase();
+            this.controlFilter = query;
+            let shown = 0;
+            rows.forEach((entry) => {
+                const match = !query || entry.text.includes(query);
+                entry.row.hidden = !match;
+                if (match) shown += 1;
+            });
+            sections.forEach((section) => {
+                const anyVisible = [...section.querySelectorAll('.ink-v2-control')].some((row) => !row.hidden);
+                section.hidden = !anyVisible;
+                if (query && anyVisible) section.open = true;
+            });
+            groupNodes.forEach((group) => {
+                const anyVisible = [...group.querySelectorAll('.ink-v2-control')].some((row) => !row.hidden);
+                group.hidden = !anyVisible;
+                if (query && anyVisible) group.open = true;
+            });
+            searchCount.textContent = query ? `${shown} of ${rows.length}` : '';
+            const elsewhere = query && !shown
+                ? ['content', 'style', 'advanced'].filter((tab) => tab !== this.activeTab && definition.controls.some((candidate) => candidate.tab === tab && matchText(candidate).includes(query)))
+                : [];
+            empty.hidden = !(query && !shown);
+            empty.textContent = elsewhere.length
+                ? `No settings match "${query}" in this tab. Try the ${elsewhere.map((tab) => tab[0].toUpperCase() + tab.slice(1)).join(' or ')} tab.`
+                : `No settings match "${query}".`;
+        };
+        searchInput.addEventListener('input', applyFilter);
+        searchInput.addEventListener('keydown', (event) => { if (event.key === 'Escape') { searchInput.value = ''; applyFilter(); } });
         const controlsHost = wrapper.querySelector('.ink-v2-controls');
         const sections = new Map();
+        const groups = new Map();
         let tabControls = definition.controls.filter((control) => (this.activeTab === 'all' || control.tab === this.activeTab) && this.controlIsActive(control, node));
         if (['all', 'style'].includes(this.activeTab) && node.type !== 'shader' && !tabControls.some((control) => control.type === 'background')) {
             tabControls = tabControls.filter((control) => !['background-color', 'background-image'].includes(control.name));
@@ -481,44 +600,51 @@ export default class PanelManager {
                 }
                 return { ...control, section };
             });
-            const order = ['Positioning', 'Layout', 'Image', 'Shader', 'Content', 'Text', 'Heading', 'Typography', 'Appearance', 'Fill', 'Background', 'Stroke', 'Border', 'Effects'];
+            const order = ['Positioning', 'Layout', 'Grid', 'Image', 'Shader', 'Content', 'Text', 'Heading', 'Typography', 'Appearance', 'Fill', 'Background', 'Stroke', 'Border', 'Effects'];
             tabControls.sort((a, b) => { const rank = (section) => order.includes(section) ? order.indexOf(section) : 99; return rank(a.section) - rank(b.section); });
         }
         tabControls.forEach((control) => {
             if (!sections.has(control.section)) {
-                const section = document.createElement('details'); section.className = 'ink-v2-control-section'; section.dataset.section = String(control.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'); section.open = control.section !== 'Additional Options'; section.innerHTML = `<summary><span>${control.section === 'Positioning' ? 'Position' : control.section}</span><span class="ink-v2-section-chevron" aria-hidden="true">⌄</span></summary>`;
+                const groupKey = groupForSection(control.section, control.tab);
+                if (!groups.has(groupKey)) {
+                    const group = document.createElement('details');
+                    // "section group" rather than "control group": the control rows already own
+                    // .ink-v2-control-group for grouped inputs inside a single control.
+                    group.className = 'ink-v2-section-group';
+                    group.dataset.group = groupKey;
+                    const groupLabel = SECTION_GROUPS.find((entry) => entry.key === groupKey)?.label || 'Properties';
+                    group.innerHTML = `<summary><span>${groupLabel}</span><span class="ink-v2-section-chevron" aria-hidden="true">⌄</span></summary><div class="ink-v2-section-list"></div>`;
+                    const store = `${node.type}:${this.activeTab}:${groupKey}`;
+                    group.open = this.openGroups.has(store) ? this.openGroups.get(store) : (OPEN_GROUPS[this.activeTab] || OPEN_GROUPS.all).includes(groupKey);
+                    group.addEventListener('toggle', () => { if (group.isConnected) this.openGroups.set(store, group.open); });
+                    groups.set(groupKey, group); groupNodes.push(group); controlsHost.appendChild(group);
+                }
+                const section = document.createElement('details');
+                section.className = 'ink-v2-control-section';
+                section.dataset.section = String(control.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                section.innerHTML = `<summary><span>${control.section === 'Positioning' ? 'Position' : control.section}</span><span class="ink-v2-section-chevron" aria-hidden="true">⌄</span></summary>`;
+                // The group carries the collapse decision, so a section opens with it and only
+                // remembers its own toggle once the author closes it deliberately.
                 const key = `${node.type}:${this.activeTab}:${control.section}`;
-                if (this.openSections.has(key)) section.open = this.openSections.get(key);
-                else if (this.activeTab === 'all') section.open = ['Appearance', 'Layout', 'Positioning', 'Typography', 'Text', 'Content', 'Heading', 'Button', 'Image', 'Shader'].includes(control.section);
+                section.open = this.openSections.has(key) ? this.openSections.get(key) : true;
                 section.addEventListener('toggle', () => { if (section.isConnected) this.openSections.set(key, section.open); });
-                sections.set(control.section, section); controlsHost.appendChild(section);
+                sections.set(control.section, section);
+                groups.get(groupKey).querySelector('.ink-v2-section-list').appendChild(section);
             }
             const section = sections.get(control.section);
-            if (control.states && !section.querySelector('.ink-v2-states')) {
-                // The state switcher covers the CSS pseudo-class buckets plus every component
-                // state the selected element type advertises (for example a dropdown's Open).
-                const definition = this.runtime.elements.get(node.type);
-                const declaredStates = elementStateNames(definition, node.settings);
-                const available = [
-                    ...tabControls.filter((candidate) => candidate.section === control.section && candidate.states).flatMap((candidate) => Array.isArray(candidate.states) ? candidate.states : ['base', 'hover']),
-                    ...declaredStates.map((name) => stateKey(name)),
-                ];
-                const stateOptions = [...new Set(available)];
-                const active = stateOptions.includes(this.sectionStates.get(control.section)) ? this.sectionStates.get(control.section) : stateOptions[0];
-                this.sectionStates.set(control.section, active);
-                const states = document.createElement('div'); states.className = 'ink-v2-states';
-                const labels = { base: 'Normal', hover: 'Hover', focus: 'Focus', active: 'Active', ...Object.fromEntries(Object.entries(elementStateLabels(this.runtime.elements.get(node.type), node.settings)).map(([name, label]) => [stateKey(name), label])) };
-                const select = document.createElement('select'); select.setAttribute('aria-label', `${control.section} state`);
-                stateOptions.forEach((state) => select.add(new Option(labels[state] || state, state)));
-                select.value = active;
-                select.addEventListener('click', (event) => event.stopPropagation());
-                select.addEventListener('change', () => { this.sectionStates.set(control.section, select.value); this.previewComponentState(node, select.value); this.render(); });
-                states.appendChild(select);
-                section.querySelector('summary').insertBefore(states, section.querySelector('.ink-v2-section-chevron'));
-            }
-            const state = control.states ? (this.sectionStates.get(control.section) || 'base') : control.state;
-            section.appendChild(this.renderControl(state ? { ...control, state } : control, node));
+            // State-capable controls follow the inspector's one state selector, as long as the
+            // element actually declares the state being previewed.
+            const stateList = Array.isArray(control.states) ? control.states : ['base', 'hover'];
+            const state = control.states ? ([...stateList, ...declaredStates].includes(this.activeState) ? this.activeState : 'base') : control.state;
+            const controlRow = this.renderControl(state ? { ...control, state } : control, node);
+            rows.push({ row: controlRow, text: matchText(control) });
+            section.appendChild(controlRow);
         });
+        // Groups read in a fixed order — layout before appearance before motion — whichever section
+        // an element definition happens to declare first.
+        groupNodes.sort((a, b) => SECTION_GROUP_ORDER.indexOf(a.dataset.group) - SECTION_GROUP_ORDER.indexOf(b.dataset.group)).forEach((group) => controlsHost.appendChild(group));
+        controlsHost.appendChild(empty);
+        applyFilter();
         return wrapper;
     }
 
@@ -588,6 +714,62 @@ export default class PanelManager {
                 this.runtime.update(target.id, { styles: { [location.device]: { [location.state]: { [control.name]: value } } } }, `Change ${control.label}`);
             }
         });
+    }
+
+    // Do the selected layers agree on this control's value? A disagreement is shown as "Mixed"
+    // instead of pretending one layer's value is shared by all of them.
+    mixedValueFor(control, node) {
+        const ids = [...this.runtime.selection.selectedIds];
+        if (ids.length < 2) return false;
+        const targets = ids.map((id) => this.runtime.document.get(id)).filter((candidate) => candidate && candidate.type === node.type);
+        if (targets.length < 2) return false;
+        const first = JSON.stringify(this.currentValue(control, targets[0]) ?? null);
+        return targets.some((target) => JSON.stringify(this.currentValue(control, target) ?? null) !== first);
+    }
+
+    // Reset every control in a section in one undo step.
+    resetSection(control, node) {
+        const definition = this.runtime.elements.get(node.type);
+        const siblings = definition.controls.filter((candidate) => candidate.section === control.section && (this.activeTab === 'all' || candidate.tab === this.activeTab));
+        this.runtime.history.begin(`Reset ${control.section || 'settings'}`);
+        siblings.forEach((candidate) => this.setValue(candidate, node, candidate.default ?? ''));
+        this.runtime.history.commit();
+        this.render();
+    }
+
+    // Per-control menu: copy a value onto another layer, reset one control, or reset its section.
+    // Right-click opens it; a small trigger appears when the row is hovered or focused, so the
+    // menu is discoverable without a mouse.
+    attachControlMenu(row, control, node) {
+        const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'ink-v2-control-menu-trigger';
+        trigger.setAttribute('aria-haspopup', 'menu'); trigger.setAttribute('aria-expanded', 'false');
+        trigger.setAttribute('aria-label', `${control.label || control.name} options`);
+        trigger.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">more_vert</span>';
+        const menu = document.createElement('div'); menu.className = 'ink-v2-control-menu'; menu.hidden = true; menu.setAttribute('role', 'menu');
+        const close = () => { menu.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
+        const open = () => {
+            menu.replaceChildren();
+            const entry = (label, run, { disabled = false } = {}) => {
+                const button = document.createElement('button'); button.type = 'button'; button.setAttribute('role', 'menuitem'); button.textContent = label; button.disabled = disabled;
+                button.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); close(); run(); });
+                menu.appendChild(button);
+            };
+            const copied = this.controlClipboard && this.controlClipboard.name === control.name ? this.controlClipboard : null;
+            entry('Copy value', () => { this.controlClipboard = { name: control.name, value: structuredClone(this.currentValue(control, node)) }; });
+            entry('Paste value', () => this.setValue(control, node, structuredClone(copied.value)), { disabled: !copied });
+            entry('Reset to default', () => { this.setValue(control, node, control.default ?? ''); this.render(); });
+            entry(`Reset ${control.section || 'section'}`, () => this.resetSection(control, node));
+            menu.hidden = false; trigger.setAttribute('aria-expanded', 'true');
+            const dismiss = (event) => {
+                if (menu.contains(event.target) || trigger.contains(event.target)) return;
+                document.removeEventListener('pointerdown', dismiss, true); close();
+            };
+            setTimeout(() => document.addEventListener('pointerdown', dismiss, true), 0);
+        };
+        trigger.addEventListener('click', (event) => { event.preventDefault(); event.stopPropagation(); if (menu.hidden) open(); else close(); });
+        trigger.addEventListener('keydown', (event) => { if (event.key === 'Escape') { close(); trigger.focus(); } });
+        row.addEventListener('contextmenu', (event) => { event.preventDefault(); event.stopPropagation(); open(); });
+        row.append(trigger, menu);
     }
 
     // A continuous gesture previews live, keeps its DOM/focus, and becomes one undo step.
@@ -668,7 +850,7 @@ export default class PanelManager {
         row.dataset.controlType = control.type;
         row.dataset.inkControl = String(control.name || control.label || '').replace(/[^a-z0-9-]+/gi, '-');
         // Thread the active Normal/Hover/Focus state into state-capable controls.
-        if (control.states && !control.state) control = { ...control, state: this.sectionStates.get(control.section) || 'base' };
+        if (control.states && !control.state) control = { ...control, state: this.activeState || 'base' };
         if (control.type !== 'background' && !control.hideLabel) {
             const label = document.createElement('label'); label.textContent = control.label;
             if (control.responsive) {
@@ -681,7 +863,17 @@ export default class PanelManager {
             const hint = document.createElement('p'); hint.className = 'ink-v2-control-description'; hint.textContent = control.description;
             row.appendChild(hint);
         }
-        const value = this.currentValue(control, node);
+        // A control shared by several selected layers reads "Mixed" until the author writes a value,
+        // which is then applied to every layer of that type (see setValue's batch edit).
+        const mixed = this.mixedValueFor(control, node);
+        if (mixed) row.dataset.mixed = '1';
+        const value = mixed ? '' : this.currentValue(control, node);
+        if (mixed && !control.hideLabel) {
+            const badge = document.createElement('span'); badge.className = 'ink-v2-mixed-badge'; badge.textContent = 'Mixed';
+            badge.title = `Editing ${this.runtime.selection.selectedIds.size} layers`;
+            row.appendChild(badge);
+        }
+        this.attachControlMenu(row, control, node);
         // Composably delegated to the control registry (see EditorRuntime registrations).
         const renderer = this.runtime.controls.has(control.type) ? this.runtime.controls.get(control.type) : null;
         if (renderer) return renderer(this, control, node, value, row);

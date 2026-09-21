@@ -129,8 +129,8 @@ const layoutControls = [
     { tab: 'content', target: 'styles', section: 'Layout', name: 'align-items', type: 'choose', label: 'Align items', options: ['stretch', 'flex-start', 'center', 'flex-end'], responsive: true },
     { tab: 'content', target: 'styles', section: 'Layout', name: 'align-content', type: 'select', label: 'Align content', options: ['normal', 'stretch', 'flex-start', 'center', 'flex-end', 'space-between', 'space-around'], responsive: true },
     { tab: 'content', target: 'styles', section: 'Layout', name: 'gap', type: 'gaps', label: 'Row / column gap', units: ['px', 'rem', '%', 'vw'], responsive: true },
-    { tab: 'content', target: 'styles', section: 'Grid', name: 'grid-template-columns', type: 'text', label: 'Columns', responsive: true, condition: { display: 'grid' } },
-    { tab: 'content', target: 'styles', section: 'Grid', name: 'grid-template-rows', type: 'text', label: 'Rows', responsive: true, condition: { display: 'grid' } },
+    { tab: 'content', target: 'styles', section: 'Grid', name: 'grid-template-columns', type: 'grid-tracks', label: 'Columns', responsive: true, condition: { display: 'grid' } },
+    { tab: 'content', target: 'styles', section: 'Grid', name: 'grid-template-rows', type: 'grid-tracks', label: 'Rows', responsive: true, condition: { display: 'grid' } },
     { tab: 'content', target: 'styles', section: 'Grid', name: 'grid-auto-flow', type: 'select', label: 'Auto flow', options: ['row', 'column', 'dense', 'row dense', 'column dense'], responsive: true, condition: { display: 'grid' } },
 ];
 
@@ -141,12 +141,12 @@ const containerLayoutControls = [
     { tab: 'content', section: 'Container', name: 'layout', type: 'select', label: 'Content Width', options: [{ value: 'boxed', label: 'Boxed' }, { value: 'full', label: 'Full Width' }] },
     { tab: 'content', target: 'styles', section: 'Container', name: 'boxed-width', type: 'slider', label: 'Width', min: 500, max: 1600, default: 1140, units: ['px', '%', 'em', 'rem', 'vw'], responsive: true, condition: { layout: 'boxed' } },
     { tab: 'content', target: 'styles', section: 'Container', name: '__alignment-gap', type: 'alignment-gap', label: 'Alignment and gap', hideLabel: true, responsive: true, units: ['px', '%', 'em', 'rem', 'vw'] },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'grid-template-columns', type: 'text', label: 'Columns', responsive: true, condition: { display: 'grid' } },
-    { tab: 'content', target: 'styles', section: 'Container', name: 'grid-template-rows', type: 'text', label: 'Rows', responsive: true, condition: { display: 'grid' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'grid-template-columns', type: 'grid-tracks', label: 'Columns', responsive: true, condition: { display: 'grid' } },
+    { tab: 'content', target: 'styles', section: 'Container', name: 'grid-template-rows', type: 'grid-tracks', label: 'Rows', responsive: true, condition: { display: 'grid' } },
     { tab: 'content', target: 'styles', section: 'Container', name: 'grid-auto-flow', type: 'select', label: 'Auto Flow', options: ['row', 'column'], responsive: true, condition: { display: 'grid' } },
     { tab: 'content', target: 'styles', section: 'Container', name: 'justify-items', type: 'choose', label: 'Justify Items', options: [{ value: 'start', label: 'Start', icon: 'align_horizontal_left' }, { value: 'center', label: 'Center', icon: 'align_horizontal_center' }, { value: 'end', label: 'End', icon: 'align_horizontal_right' }, { value: 'stretch', label: 'Stretch', icon: 'width' }], responsive: true, condition: { display: 'grid' } },
-    { tab: 'content', target: 'styles', section: 'Additional Options', name: 'overflow', type: 'select', label: 'Overflow', options: [{ value: '', label: 'Default' }, { value: 'hidden', label: 'Hidden' }, { value: 'auto', label: 'Auto' }] },
-    { tab: 'content', section: 'Additional Options', name: 'tag', type: 'select', label: 'HTML Tag', options: ['div', 'header', 'footer', 'main', 'article', 'section', 'aside', 'nav'] },
+    { tab: 'content', target: 'styles', section: 'Layout', name: 'overflow', type: 'select', label: 'Overflow', options: [{ value: '', label: 'Default' }, { value: 'hidden', label: 'Hidden' }, { value: 'auto', label: 'Auto' }] },
+    { tab: 'content', section: 'Semantics', name: 'tag', type: 'select', label: 'HTML Tag', options: ['div', 'header', 'footer', 'main', 'article', 'section', 'aside', 'nav'] },
 ];
 
 const advancedControls = [
@@ -193,7 +193,7 @@ const containerSurfaceControls = [
     { tab: 'style', target: 'settings', section: 'Fill', name: 'importedBackgroundImageId', type: 'imported-background', label: 'Imported image layer', condition: { importedBackgroundImageId: '__not_empty__' }, description: 'Changes the original imported artwork while preserving its mask, blend mode, placement, and responsive layout.' },
     { tab: 'style', target: 'styles', section: 'Overlay', name: 'background-overlay', type: 'background', label: 'Overlay fill', part: 'overlay', states: ['base', 'hover'] },
     ...surfaceControls.slice(1),
-    { tab: 'style', target: 'settings', section: 'Decorations', name: 'shape-divider', type: 'shape-divider', label: 'Shape divider' },
+    { tab: 'style', target: 'settings', section: 'Shape divider', name: 'shape-divider', type: 'shape-divider', label: 'Shape divider' },
 ];
 
 // Single typography popover (Ink) writing to the element's style bucket.
@@ -289,7 +289,7 @@ export default function registerInkFoundationElements(registry) {
         defaults: { settings: { tag: 'div' }, styles: { base: { display: 'block' } }, children: [] },
         controls: [
             ...layoutControls,
-            { tab: 'content', section: 'Additional Options', name: 'tag', type: 'select', label: 'HTML tag', options: ['div', 'section', 'article', 'header', 'footer', 'main', 'nav', 'aside'] },
+            { tab: 'content', section: 'Semantics', name: 'tag', type: 'select', label: 'HTML tag', options: ['div', 'section', 'article', 'header', 'footer', 'main', 'nav', 'aside'] },
             ...surfaceControls,
             ...advancedControls,
         ],
