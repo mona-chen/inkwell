@@ -32,7 +32,7 @@ module Admin
     private
 
     def website_import_params
-      params.expect(website_import: %i[source_url max_depth max_pages ownership_confirmed])
+      params.expect(website_import: %i[source_url additional_origins max_depth max_pages ownership_confirmed])
     end
   end
 end

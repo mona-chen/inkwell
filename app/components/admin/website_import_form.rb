@@ -27,6 +27,8 @@ module Admin
           form_with(model: @website_import, url: admin_website_imports_path, id: FORM_ID, builder: Ink::FormBuilder) do |form|
             form.group do
               form.field(:source_url, as: :url, label: "Website URL", placeholder: "https://example.com", required: true)
+              form.field(:additional_origins, as: :textarea, label: "Additional website origins (optional)", placeholder: "https://your-site.framer.ai")
+              p(class: "text-xs text-muted-foreground") { "Include domains that host this site's linked pages, one per line. The permission confirmation below applies to every domain. Other external links remain outside the import." }
               form.field(:max_pages, as: :number, label: "Maximum pages", min: 1, max: 250, required: true)
               form.field(:max_depth, as: :number, label: "Link depth", min: 0, max: 12, required: true)
               form.field(

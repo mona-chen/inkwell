@@ -32,4 +32,43 @@ RSpec.describe WebsiteImport, type: :model do
   it "accepts the checked-checkbox value" do
     expect(build_import(ownership_confirmed: "1")).to be_valid
   end
+
+  describe "additional website origins" do
+    it "defaults to no extra origins" do
+      expect(build_import).to be_valid
+      expect(build_import.allowed_origins).to eq([])
+    end
+
+    it "normalizes a pasted list into deduplicated origins" do
+      record = build_import(additional_origins: "https://your-site.framer.ai/\nhttps://cdn.example.com, https://your-site.framer.ai")
+
+      expect(record.allowed_origins).to eq([ "https://your-site.framer.ai", "https://cdn.example.com" ])
+      expect(record).to be_valid
+    end
+
+    it "treats a blank entry as no extra origins" do
+      expect(build_import(additional_origins: "  ").allowed_origins).to eq([])
+    end
+
+    it "rejects entries that are not bare HTTP(S) origins" do
+      [
+        "https://site.framer.ai/blog",
+        "https://site.framer.ai?utm=1",
+        "https://user:pass@site.framer.ai",
+        "ftp://site.framer.ai"
+      ].each do |origin|
+        record = build_import(additional_origins: origin)
+
+        expect(record).not_to be_valid, "expected #{origin.inspect} to be rejected"
+        expect(record.errors[:additional_origins]).to be_present
+      end
+    end
+
+    it "rejects more than ten origins" do
+      record = build_import(additional_origins: (1..11).map { |index| "https://site#{index}.example.com" }.join("\n"))
+
+      expect(record).not_to be_valid
+      expect(record.errors[:additional_origins]).to be_present
+    end
+  end
 end

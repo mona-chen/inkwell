@@ -11,11 +11,20 @@ class WebsiteImport < ApplicationRecord
   validates :max_pages, numericality: { only_integer: true, in: 1..250 }
   validate :ownership_must_be_confirmed
   validate :source_must_be_http
+  validate :origins_must_be_http
 
   before_validation :normalize_source_url
   before_validation :assign_capture_id, on: :create
 
   scope :recent, -> { order(created_at: :desc) }
+
+  def additional_origins
+    Array(allowed_origins).join("\n")
+  end
+
+  def additional_origins=(value)
+    self.allowed_origins = value.to_s.split(/[\s,]+/).reject(&:blank?).map { |origin| origin.delete_suffix("/") }.uniq
+  end
 
   def active?
     %w[queued capturing mapping importing].include?(status)
@@ -72,6 +81,19 @@ class WebsiteImport < ApplicationRecord
     errors.add(:source_url, "must be a valid HTTP or HTTPS URL") unless uri.is_a?(URI::HTTP) && uri.host.present?
   rescue URI::InvalidURIError
     errors.add(:source_url, "must be a valid HTTP or HTTPS URL")
+  end
+
+  def origins_must_be_http
+    origins = Array(allowed_origins)
+    errors.add(:additional_origins, "allows at most 10 origins") if origins.size > 10
+    origins.each do |origin|
+      uri = URI.parse(origin.to_s)
+      unless uri.is_a?(URI::HTTP) && uri.host.present? && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil? && [ "", "/" ].include?(uri.path)
+        errors.add(:additional_origins, "must contain origins such as https://your-site.framer.ai, without paths")
+      end
+    rescue URI::InvalidURIError
+      errors.add(:additional_origins, "contains an invalid URL")
+    end
   end
 
   def ownership_must_be_confirmed

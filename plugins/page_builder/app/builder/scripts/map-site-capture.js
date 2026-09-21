@@ -8,6 +8,7 @@
 const fs = require("fs");
 const path = require("path");
 const parse5 = require("parse5");
+const { importQuality, skippedRoutes } = require("./import-quality");
 
 const args = process.argv.slice(2);
 const captureDir = path.resolve(args[0] || "");
@@ -178,6 +179,7 @@ if (manifest.format === "ink-site-capture-v2") {
       : tag === "image" && element.namespaceURI === "http://www.w3.org/2000/svg" ? "svg-image"
       : "imported-element";
     const nativeSettings = {
+      label: attributes["data-framer-name"] || attributes["aria-label"] || ({ nav: "Navigation", header: "Header", footer: "Footer", main: "Main content", article: "Article", section: "Section" })[tag] || undefined,
       importedDom: true,
       importedTag: tag,
       importedNamespace: element.namespaceURI || "http://www.w3.org/1999/xhtml",
@@ -445,12 +447,12 @@ if (manifest.format === "ink-site-capture-v2") {
       .replace(/(^|})\s*body\s*>/g, "$1 .ink-canvas-root >");
     if (capturedNewSitePart && !capturedSitePartCss) capturedSitePartCss = importedCss;
     const nativePayload = {
-      settings: { title, sourceUrl: page.url, importMode: "native-lossless", importedBodyAttributes: bodyAttributes, importedHtmlAttributes: htmlAttributes, scriptDependencies: scriptEntries },
+      settings: { title, sourceUrl: page.url, importMode: "native-dom", importedBodyAttributes: bodyAttributes, importedHtmlAttributes: htmlAttributes, scriptDependencies: scriptEntries },
       children: deduplicatedNativeChildren,
       customCss: importedCss,
       customJs: nativeRuntime(scriptEntries, page.url),
       initialHtml,
-      importReport: { ...payload.importReport, mode: "native-lossless", nativeNodes: (() => { let count = 0; const visit = (item) => { count += 1; (item.children || []).forEach(visit); }; deduplicatedNativeChildren.forEach(visit); return count; })() },
+      importReport: { ...payload.importReport, mode: "native-dom", ...importQuality(deduplicatedNativeChildren, JSON.parse(fs.readFileSync(path.join(pageDirectory, 'manifest.json'), 'utf8')).viewports) },
     };
     return { source: page.url, title, slug: routes[routeKey(page.url)], depth: page.depth, parentSource: page.parent, payload: nativePayload };
   });
@@ -469,7 +471,13 @@ if (manifest.format === "ink-site-capture-v2") {
     siteParts: capturedSiteParts,
     siteCss: capturedSitePartCss,
     failures: manifest.failures || [],
-    importReport: { capturedPages: manifest.pages.length, mappedPages: pages.length, failedPages: (manifest.failures || []).length, routes },
+    importReport: {
+      capturedPages: manifest.pages.length, mappedPages: pages.length, failedPages: (manifest.failures || []).length, routes,
+      behaviorVerified: false,
+      notices: ["Structure and styles were reconstructed. Menus, switches, hover effects, and script-driven motion still require behavior review.", "Container nesting preserves source CSS relationships; it has not been converted into reusable semantic components."],
+      pages: pages.map((page) => ({ source: page.source, ...page.payload.importReport })),
+      skippedRoutes: skippedRoutes(manifest, manifest.pages.map((page) => JSON.parse(fs.readFileSync(path.join(captureDir, page.manifest), 'utf8')))),
+    },
   };
   fs.writeFileSync(siteOutput, JSON.stringify(sitePayload, null, 2));
   console.log(JSON.stringify({ ok: true, output: siteOutput, source: manifest.source, mappedPages: pages.length, failedPages: sitePayload.failures.length }, null, 2));

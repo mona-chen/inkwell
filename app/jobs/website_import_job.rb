@@ -15,6 +15,7 @@ class WebsiteImportJob < ApplicationJob
   def perform(website_import_id)
     website_import = WebsiteImport.find(website_import_id)
     assert_public_destination!(website_import.source_url)
+    website_import.allowed_origins.each { |origin| assert_public_destination!(origin) }
     FileUtils.mkdir_p(website_import.capture_directory.parent)
 
     website_import.begin_capture!
@@ -22,7 +23,8 @@ class WebsiteImportJob < ApplicationJob
       "npm", "run", "capture-site", "--", website_import.source_url,
       "--confirm-ownership", "--depth", website_import.max_depth.to_s,
       "--max-pages", website_import.max_pages.to_s,
-      "--output", website_import.capture_directory.to_s
+      "--output", website_import.capture_directory.to_s,
+      *website_import.allowed_origins.flat_map { |origin| [ "--include-origin", origin ] }
     )
 
     website_import.begin_mapping!

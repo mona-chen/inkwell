@@ -54,13 +54,40 @@ module Admin
         if @website_import.ready?
           div(class: "mt-6 rounded-xl border border-success/30 bg-success/5 p-5") do
             h2(class: "text-sm font-semibold text-foreground") { "Ready to create native pages" }
-            p(class: "mt-1 text-sm text-muted-foreground") { "Review complete. Importing creates separate editable draft pages, preserves internal links, and installs shared header and footer parts. Existing pages are not overwritten." }
+            p(class: "mt-1 text-sm text-muted-foreground") { "Capture complete. Importing creates editable draft pages and installs shared header and footer parts. Review interactions in Preview before publishing; a captured appearance does not guarantee recovered behavior." }
           end
         end
+        import_review
       end
     end
 
     private
+
+    def import_review
+      report = @website_import.report || {}
+      return if report["notices"].blank? && report["skippedRoutes"].blank?
+
+      section(class: "mt-6 rounded-xl border border-border bg-background p-5") do
+        h2(class: "text-sm font-semibold text-foreground") { "Import review" }
+        Array(report["notices"]).each do |notice|
+          p(class: "mt-2 text-sm text-muted-foreground") { notice }
+        end
+        skipped = Array(report["skippedRoutes"])
+        if skipped.any?
+          details(class: "mt-4") do
+            summary(class: "cursor-pointer text-sm font-medium") { "#{skipped.size} linked URLs were not captured" }
+            ul(class: "mt-3 space-y-3") do
+              skipped.each do |entry|
+                li(class: "break-words text-xs") do
+                  span(class: "font-medium text-foreground") { entry["url"] }
+                  p(class: "mt-1 text-muted-foreground") { entry["reason"] }
+                end
+              end
+            end
+          end
+        end
+      end
+    end
 
     def refresh_data
       @website_import.active? ? { controller: "refresh", refresh_interval_value: 2500 } : {}

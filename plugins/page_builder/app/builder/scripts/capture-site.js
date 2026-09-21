@@ -24,6 +24,13 @@ if (!source) throw new Error("Usage: npm run capture-site -- https://example.com
 if (!ownershipConfirmed) throw new Error("Capture requires --confirm-ownership. Import only a site you own or are authorized to reproduce.");
 const sourceUrl = new URL(source);
 if (!/^https?:$/.test(sourceUrl.protocol)) throw new Error("Only http(s) sites can be captured.");
+const allowedOrigins = new Set([sourceUrl.origin]);
+args.forEach((arg, index) => {
+  if (arg !== "--include-origin") return;
+  const url = new URL(args[index + 1]);
+  if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== "/") throw new Error("--include-origin requires an HTTP(S) origin without a path");
+  allowedOrigins.add(url.origin);
+});
 
 const viewports = [
   { name: "desktop", width: 1440, height: 1000, deviceScaleFactor: 1 },
@@ -142,7 +149,7 @@ async function inspect(page) {
   const normalizePageUrl = (value) => {
     try {
       const url = new URL(value, sourceUrl);
-      if (url.origin !== sourceUrl.origin || !/^https?:$/.test(url.protocol)) return null;
+      if (!allowedOrigins.has(url.origin) || !/^https?:$/.test(url.protocol)) return null;
       url.hash = "";
       [...url.searchParams.keys()].forEach((key) => { if (/^(utm_|fbclid|gclid|ref$)/i.test(key)) url.searchParams.delete(key); });
       if (/\/index\.html$/i.test(url.pathname)) url.pathname = url.pathname.replace(/index\.html$/i, "");
@@ -168,7 +175,7 @@ async function inspect(page) {
       page.on("response", async (response) => {
         const url = response.url();
         const contentType = response.headers()["content-type"] || "";
-        if (new URL(url).origin !== sourceUrl.origin || !/(css|javascript|image|font|svg|json)/i.test(contentType) || capturedAssets.has(url)) return;
+        if (!allowedOrigins.has(new URL(url).origin) || !/(css|javascript|image|font|svg|json)/i.test(contentType) || capturedAssets.has(url)) return;
         try {
           const buffer = await response.buffer();
           if (!buffer.length || buffer.length > 15_000_000) return;
@@ -233,7 +240,7 @@ async function inspect(page) {
     source: sourceUrl.href,
     capturedAt: new Date().toISOString(),
     ownershipConfirmed: true,
-    crawl: { maxDepth, maxPages, capturedPages: sitePages.length, failedPages: failures.length },
+    crawl: { maxDepth, maxPages, origins: [...allowedOrigins], capturedPages: sitePages.length, failedPages: failures.length },
     executionPolicy: "Captured JavaScript is evidence only and must not execute in the editor without explicit review.",
     pages: sitePages,
     failures,
