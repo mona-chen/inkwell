@@ -52,6 +52,7 @@ module PageBuilder
     }.freeze
 
     LOOP_SOURCES = {
+      "author_posts" => { "label" => "Current author's posts (profile template)", "var" => "post", "scope" => "@posts" },
       "posts" => { "label" => "Posts", "var" => "post", "scope" => "Current.site.posts.published" },
       "pages" => { "label" => "Pages", "var" => "page", "scope" => "Current.site.pages.published" }
     }.freeze
@@ -79,8 +80,10 @@ module PageBuilder
 
       post = site.posts.published.recent.first || site.posts.first
       page = site.pages.first
+      author = post&.author || site.users.first
 
       base = {
+        "author" => author ? { "name" => author.name, "bio" => author.bio.to_s } : {},
         "site" => {
           "name" => site.name,
           "tagline" => site.setting("tagline").to_s,

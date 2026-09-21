@@ -6,7 +6,13 @@ class AuthorsController < ApplicationController
     raise ActiveRecord::RecordNotFound unless @author
 
     @posts = @author.posts.published.order(published_at: :desc).page(params[:page]).per(9)
-    render template: "authors/show"
+    if (template = Page.template_for(Current.site, "single_author"))
+      @page = template
+      @template_body = PageBuilder::TemplateRenderer.render(template, view_context: view_context, locals: { author: @author })
+      render template: "authors/template"
+    else
+      render template: "authors/show"
+    end
   end
 
   private

@@ -37,6 +37,7 @@ class Page < ApplicationRecord
   # template page is created. Precedence mirrors WordPress: a user-created template page
   # (storage) always wins over the plugin/core default (registry).
   DEFAULT_TEMPLATE_ROLES = [
+    { role: "single_author", label: "Author profile", description: "An author's profile and published posts.", icon: "user" },
     { role: "single_post", label: "Single post", description: "How one blog post renders.", icon: "file_text" },
     { role: "archive", label: "Post archive", description: "The list of blog posts (category, tag, and search).", icon: "list" },
     { role: "index", label: "Blog index", description: "The main blog page at /posts.", icon: "layout_dashboard" }

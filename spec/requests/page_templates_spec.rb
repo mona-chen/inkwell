@@ -54,4 +54,18 @@ RSpec.describe "Builder content-type templates", type: :request do
     page = site.pages.new(title: "X", template: "default", author: user, template_for: "nonsense")
     expect(page).not_to be_valid
   end
+
+  it "renders an author profile with bound fields and only that author's published posts" do
+    another = site.users.create!(name: "Other Author", email: "other-tpl@example.com", password: "password123", role: role)
+    site.posts.create!(title: "Someone else's post", slug: "other-post", status: "published", published_at: 1.minute.ago, author: another)
+    site.posts.create!(title: "Private draft", slug: "private-draft", status: "draft", author: user)
+    builder_page(title: "Author Template", slug: "author-template", role_name: "single_author",
+      raw_html: "<article data-tpl='author'><h1>{{ author.name }}</h1>{{ loop author_posts:9 }}<h2>{{ post.title }}</h2>{{ /loop }}</article>")
+
+    get "/authors/#{user.to_param}"
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("data-tpl='author'", "Ada", "Hello Template")
+    expect(response.body).not_to include("Someone else's post", "Private draft")
+  end
 end
