@@ -13,6 +13,8 @@
 
 const MIME_TYPE = 'application/x-ink-element-type';
 const MIME_ID = 'application/x-ink-element-id';
+const MIME_ARCHETYPE = 'application/x-ink-archetype';
+const MIME_VARIANT = 'application/x-ink-archetype-variant';
 const SHARED_SLOT = '__inkDragPayload';
 
 const DEVICES = ['desktop', 'tablet', 'mobile'];
@@ -67,6 +69,11 @@ export default class DragDropManager {
 
         // ---- Library (parent document): start of a new-element drag ----
         this.library?.addEventListener('dragstart', (event) => {
+            const section = event.target.closest('[data-ink-archetype]');
+            if (section) {
+                this.beginDrag({ archetype: section.dataset.inkArchetype, variant: section.dataset.inkArchetypeVariant || undefined }, event, parent);
+                return;
+            }
             const item = event.target.closest('[data-ink-element-type]');
             if (!item) return;
             this.beginDrag({ type: item.dataset.inkElementType }, event, parent);
@@ -854,9 +861,11 @@ export default class DragDropManager {
             try {
                 transfer.setData(MIME_TYPE, payload.type || '');
                 transfer.setData(MIME_ID, payload.id || '');
+                transfer.setData(MIME_ARCHETYPE, payload.archetype || '');
+                transfer.setData(MIME_VARIANT, payload.variant || '');
                 const label = payload.id
                     ? this.runtime.elements.get(this.runtime.document.get(payload.id)?.type || '').title
-                    : this.runtime.elements.get(payload.type)?.title || '';
+                    : (payload.archetype ? this.archetypeLabel(payload.archetype) : this.runtime.elements.get(payload.type)?.title || '');
                 transfer.setData('text/plain', label || '');
             } catch (_) { /* dataTransfer may be read-only during synthetic drags */ }
         }
@@ -867,9 +876,14 @@ export default class DragDropManager {
         this.ghost.className = 'ink-drag-ghost';
         this.ghost.textContent = payload.id
             ? this.runtime.elements.get(this.runtime.document.get(payload.id)?.type || '').title
-            : (this.runtime.elements.get(payload.type)?.title || payload.type);
+            : (payload.archetype ? this.archetypeLabel(payload.archetype) : (this.runtime.elements.get(payload.type)?.title || payload.type));
         host.body.appendChild(this.ghost);
         if (transfer) { try { transfer.setDragImage(this.ghost, 20, 20); } catch (_) {} }
+    }
+
+    archetypeLabel(name) {
+        const item = (this.library?.querySelector(`[data-ink-archetype="${CSS.escape(String(name))}"]`) || {}).textContent;
+        return (item || String(name)).trim();
     }
 
     removeGhost() {
@@ -877,8 +891,8 @@ export default class DragDropManager {
     }
 
     isActiveDrag() {
-        if (this.drag?.type || this.drag?.id) return true;
-        try { const shared = window[SHARED_SLOT]; if (shared?.type || shared?.id) return true; } catch (_) {}
+        if (this.drag?.type || this.drag?.id || this.drag?.archetype) return true;
+        try { const shared = window[SHARED_SLOT]; if (shared?.type || shared?.id || shared?.archetype) return true; } catch (_) {}
         return false;
     }
 
@@ -888,11 +902,14 @@ export default class DragDropManager {
             try {
                 const type = transfer.getData(MIME_TYPE);
                 const id = transfer.getData(MIME_ID);
+                const archetype = transfer.getData(MIME_ARCHETYPE);
+                const variant = transfer.getData(MIME_VARIANT);
+                if (archetype) return { type: null, id: null, archetype, variant: variant || undefined };
                 if (type || id) return { type: type || null, id: id || null };
             } catch (_) {}
         }
-        if (this.drag?.type || this.drag?.id) return this.drag;
-        try { const shared = window[SHARED_SLOT]; if (shared?.type || shared?.id) return shared; } catch (_) {}
+        if (this.drag?.type || this.drag?.id || this.drag?.archetype) return this.drag;
+        try { const shared = window[SHARED_SLOT]; if (shared?.type || shared?.id || shared?.archetype) return shared; } catch (_) {}
         return null;
     }
 
@@ -998,7 +1015,17 @@ export default class DragDropManager {
         this.endDrag();
         if (!payload || !intent) return;
         try {
-            if (payload.type) {
+            if (payload.archetype) {
+                // A section is a whole tree, and it carries design-system CSS with it, so the insert
+                // is handed to the builder (the `archetype:insert` event), not done inline here.
+                // `intent.parentId` is already the container to insert into (a before/after position
+                // is expressed as the sibling index inside its parent), so the section lands exactly
+                // where the drop line is drawn.
+                this.runtime.events.emit('archetype:insert', {
+                    name: payload.archetype, variant: payload.variant,
+                    parentId: intent.parentId, index: intent.index,
+                });
+            } else if (payload.type) {
                 const overrides = {};
                 if (payload.type === 'columns') overrides = { settings: { structure: '50,50' }, children: [this.runtime.create('column'), this.runtime.create('column')] };
                 const node = this.runtime.create(payload.type, overrides);

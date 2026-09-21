@@ -11,6 +11,13 @@ const parse5 = require("parse5");
 const { importQuality, skippedRoutes } = require("./import-quality");
 const { inferPatterns } = require("./site-patterns");
 
+// The design system is shared with the builder: the same token vocabulary the AI composes with is
+// read back out of a captured site, so an imported page keeps its own design language (and any
+// archetype section added later inherits it) instead of falling back to the default palette.
+const { normalizeTokens, themeSettings, tokenCssBlock, tokensFromEvidence } = require("./design-tokens");
+
+const normalizedTokensFromCapture = (viewports) => normalizeTokens(tokensFromEvidence(viewports));
+
 const args = process.argv.slice(2);
 const captureDir = path.resolve(args[0] || "");
 const outputFlag = args.indexOf("--output");
@@ -312,6 +319,7 @@ if (manifest.format === "ink-site-capture-v2") {
     // styles, captured animations, stylesheet hover rules and pointer probes.
     const pageManifest = JSON.parse(fs.readFileSync(path.join(pageDirectory, "manifest.json"), "utf8"));
     const patterns = inferPatterns(nativeChildren, { viewports: pageManifest.viewports });
+    const tokens = normalizedTokensFromCapture(pageManifest.viewports);
     let capturedNewSitePart = false;
     const extractSiteParts = (node) => {
       if (node.type === "site-part" && node.settings?.partKey) {
@@ -388,9 +396,13 @@ if (manifest.format === "ink-site-capture-v2") {
       .replace(/(^|})\s*body\s*>/g, "$1 .ink-canvas-root >");
     if (capturedNewSitePart && !capturedSitePartCss) capturedSitePartCss = importedCss;
     const nativePayload = {
-      settings: { title, sourceUrl: page.url, importMode: "native-dom", importedBodyAttributes: bodyAttributes, importedHtmlAttributes: htmlAttributes, scriptDependencies: scriptEntries },
+      settings: {
+        title, sourceUrl: page.url, importMode: "native-dom",
+        importedBodyAttributes: bodyAttributes, importedHtmlAttributes: htmlAttributes, scriptDependencies: scriptEntries,
+        theme: themeSettings(tokens), backgroundColor: tokens.colors.background,
+      },
       children: deduplicatedNativeChildren,
-      customCss: importedCss,
+      customCss: `${tokenCssBlock(tokens)}\n${importedCss}`,
       customJs: nativeRuntime(scriptEntries, page.url),
       initialHtml,
       importReport: { ...payload.importReport, mode: "native-dom", inferred: { components: patterns.report.components, roles: patterns.report.roles, sections: patterns.report.sections, notices: patterns.report.notices, counts: patterns.report.counts }, ...importQuality(deduplicatedNativeChildren, pageManifest.viewports, Object.values(capturedSiteParts)) },

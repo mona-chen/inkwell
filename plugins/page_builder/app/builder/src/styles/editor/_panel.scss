@@ -105,6 +105,54 @@
 }
 .ink-v2-library-item:active { cursor: grabbing; }
 
+// Sections sit above the element groups: a page is composed of sections, then elements inside them.
+// The accent rail keeps them visually distinct from plain elements without shouting.
+.ink-v2-library-sections > summary strong { color: var(--ink-editor-text); }
+.ink-v2-library-item--section {
+  flex-direction: row;
+  min-height: 40px;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  text-align: left;
+  border-color: var(--ink-editor-faint);
+  background: var(--ink-editor-surface);
+  color: var(--ink-editor-text);
+}
+.ink-v2-library-item--section .material-symbols-rounded { font-size: 18px; color: var(--ink-editor-accent); }
+
+// Design-language presets (Site Settings).
+.ink-v2-control-note { margin: 0 0 10px; color: var(--ink-editor-muted); font-size: 11px; line-height: 1.5; }
+.ink-v2-design-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.ink-v2-design-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--ink-editor-border);
+  border-radius: 5px;
+  background: var(--ink-editor-panel);
+  color: var(--ink-editor-text);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.ink-v2-design-preset:hover, .ink-v2-design-preset:focus-visible { border-color: var(--ink-editor-accent); background: var(--ink-editor-surface); outline: 0; }
+.ink-v2-design-swatch {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 // Selected-element screen header + tabs.
 .ink-v2-element-title {
   display: flex;

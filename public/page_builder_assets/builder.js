@@ -274,10 +274,13 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _NavigatorManager_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./NavigatorManager.js */ "./src/core/NavigatorManager.js");
 /* harmony import */ var _FinderManager_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./FinderManager.js */ "./src/core/FinderManager.js");
 /* harmony import */ var _CopilotTools_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./CopilotTools.js */ "./src/core/CopilotTools.js");
-/* harmony import */ var _editorIcons_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./editorIcons.js */ "./src/core/editorIcons.js");
-/* harmony import */ var _styles_canvas_scss_asString__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../styles/canvas.scss?asString */ "./src/styles/canvas.scss?asString");
-/* harmony import */ var _styles_canvas_editor_scss_asString__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ../styles/canvas-editor.scss?asString */ "./src/styles/canvas-editor.scss?asString");
-/* harmony import */ var _styles_canvas_magic_scss_asString__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ../styles/canvas-magic.scss?asString */ "./src/styles/canvas-magic.scss?asString");
+/* harmony import */ var _designTokens_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./designTokens.js */ "./src/core/designTokens.js");
+/* harmony import */ var _sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./sectionArchetypes.js */ "./src/core/sectionArchetypes.js");
+/* harmony import */ var _elementSpec_js__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./elementSpec.js */ "./src/core/elementSpec.js");
+/* harmony import */ var _editorIcons_js__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ./editorIcons.js */ "./src/core/editorIcons.js");
+/* harmony import */ var _styles_canvas_scss_asString__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ../styles/canvas.scss?asString */ "./src/styles/canvas.scss?asString");
+/* harmony import */ var _styles_canvas_editor_scss_asString__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! ../styles/canvas-editor.scss?asString */ "./src/styles/canvas-editor.scss?asString");
+/* harmony import */ var _styles_canvas_magic_scss_asString__WEBPACK_IMPORTED_MODULE_14__ = __webpack_require__(/*! ../styles/canvas-magic.scss?asString */ "./src/styles/canvas-magic.scss?asString");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -301,6 +304,9 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+
+
+
 
 
 
@@ -340,6 +346,7 @@ var BuilderV2 = /*#__PURE__*/function () {
     key: "load",
     value: function () {
       var _load = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
+        var _this = this;
         var data,
           _themeUrl,
           callback,
@@ -385,6 +392,32 @@ var BuilderV2 = /*#__PURE__*/function () {
               this.studio = new _StudioManager_js__WEBPACK_IMPORTED_MODULE_3__["default"](this).mount();
               if (this.options.collaboration) this.collaboration = new _CollaborationManager_js__WEBPACK_IMPORTED_MODULE_4__["default"](this, this.options.collaboration).mount();
               this.copilotTools = (0,_CopilotTools_js__WEBPACK_IMPORTED_MODULE_7__.createCopilotTools)(this.runtime, this);
+              // One entry point for both the Elements library and section drag & drop, so a dropped
+              // section and a clicked one are the same operation.
+              this.runtime.events.on('archetype:insert', function () {
+                var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+                  name = _ref.name,
+                  variant = _ref.variant,
+                  _ref$parentId = _ref.parentId,
+                  parentId = _ref$parentId === void 0 ? null : _ref$parentId,
+                  _ref$index = _ref.index,
+                  index = _ref$index === void 0 ? null : _ref$index,
+                  content = _ref.content,
+                  media = _ref.media,
+                  sticky = _ref.sticky;
+                try {
+                  _this.insertArchetype(name, {
+                    variant: variant,
+                    parentId: parentId,
+                    index: index,
+                    content: content,
+                    media: media,
+                    sticky: sticky
+                  });
+                } catch (error) {
+                  if (typeof console !== 'undefined') console.error('[BuilderV2] section insert failed:', error);
+                }
+              });
               this.customCode.injectEffectStyles(document);
               this.customCode.inject();
               this.save = typeof window.saveToInkwell === 'function' ? window.saveToInkwell.bind(window) : null;
@@ -392,7 +425,7 @@ var BuilderV2 = /*#__PURE__*/function () {
               this.setDevice(this.pendingDevice);
               document.addEventListener('keydown', this.onKeyDown);
               callback === null || callback === void 0 || callback();
-            case 29:
+            case 30:
             case "end":
               return _context.stop();
           }
@@ -406,7 +439,7 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "initIframe",
     value: function initIframe() {
-      var _this = this;
+      var _this2 = this;
       this.mainContainer.replaceChildren();
       this.iframe = document.createElement('iframe');
       this.iframe.title = 'Ink Builder canvas';
@@ -414,9 +447,9 @@ var BuilderV2 = /*#__PURE__*/function () {
       this.mainContainer.appendChild(this.iframe);
       this.iframeDoc = this.iframe.contentDocument;
       this.iframeDoc.open();
-      this.iframeDoc.write("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded\"><style id=\"ink-canvas-base\">".concat(CANVAS_BASE_CSS, "</style><style id=\"ink-canvas-styles\">").concat(_styles_canvas_scss_asString__WEBPACK_IMPORTED_MODULE_9__, "</style><style id=\"ink-magic-canvas-styles\">").concat(_styles_canvas_magic_scss_asString__WEBPACK_IMPORTED_MODULE_11__, "</style><style id=\"ink-editor-canvas-styles\">").concat(EDITOR_CANVAS_CSS).concat(_styles_canvas_editor_scss_asString__WEBPACK_IMPORTED_MODULE_10__, "</style></head><body><main class=\"ink-canvas-root\" data-ink-canvas-root></main></body></html>"));
+      this.iframeDoc.write("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><link rel=\"stylesheet\" href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded\"><style id=\"ink-canvas-base\">".concat(CANVAS_BASE_CSS, "</style><style id=\"ink-canvas-styles\">").concat(_styles_canvas_scss_asString__WEBPACK_IMPORTED_MODULE_12__, "</style><style id=\"ink-magic-canvas-styles\">").concat(_styles_canvas_magic_scss_asString__WEBPACK_IMPORTED_MODULE_14__, "</style><style id=\"ink-editor-canvas-styles\">").concat(EDITOR_CANVAS_CSS).concat(_styles_canvas_editor_scss_asString__WEBPACK_IMPORTED_MODULE_13__, "</style></head><body><main class=\"ink-canvas-root\" data-ink-canvas-root></main></body></html>"));
       this.iframeDoc.close();
-      this.canvasIconObserver = (0,_editorIcons_js__WEBPACK_IMPORTED_MODULE_8__.installLucideIcons)(this.iframeDoc, {
+      this.canvasIconObserver = (0,_editorIcons_js__WEBPACK_IMPORTED_MODULE_11__.installLucideIcons)(this.iframeDoc, {
         filter: function filter(icon) {
           return Boolean(icon.closest('.ink-editor-toolbar, .ink-editor-context-menu, .ink-editor-empty, .ink-empty-action, .ink-empty-back, .ink-lightbox'));
         }
@@ -424,8 +457,8 @@ var BuilderV2 = /*#__PURE__*/function () {
       this.viewport = new _ViewportManager_js__WEBPACK_IMPORTED_MODULE_2__["default"](this).mount(this.mainContainer);
       this.canvasRoot = this.iframeDoc.querySelector('[data-ink-canvas-root]');
       this.canvasRoot.addEventListener('click', function (event) {
-        var _this$runtime;
-        if (event.target === _this.canvasRoot) (_this$runtime = _this.runtime) === null || _this$runtime === void 0 || _this$runtime.selection.clear();
+        var _this2$runtime;
+        if (event.target === _this2.canvasRoot) (_this2$runtime = _this2.runtime) === null || _this2$runtime === void 0 || _this2$runtime.selection.clear();
       });
       // Canvas focus lives inside the iframe; mirror the document hotkeys here so Group /
       // Ungroup works while users are actively arranging layers on the canvas.
@@ -434,48 +467,48 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "bindEditorState",
     value: function bindEditorState() {
-      var _this2 = this;
-      this.runtime.events.on('selection:change', function (_ref) {
-        var id = _ref.id,
-          _ref$ids = _ref.ids,
-          ids = _ref$ids === void 0 ? id ? [id] : [] : _ref$ids;
-        _this2.canvasRoot.querySelectorAll('.ink-is-selected').forEach(function (element) {
+      var _this3 = this;
+      this.runtime.events.on('selection:change', function (_ref2) {
+        var id = _ref2.id,
+          _ref2$ids = _ref2.ids,
+          ids = _ref2$ids === void 0 ? id ? [id] : [] : _ref2$ids;
+        _this3.canvasRoot.querySelectorAll('.ink-is-selected').forEach(function (element) {
           return element.classList.remove('ink-is-selected');
         });
         ids.forEach(function (selectedId) {
-          var _this2$canvasRoot$que;
-          return (_this2$canvasRoot$que = _this2.canvasRoot.querySelector("[data-ink-element-id=\"".concat(CSS.escape(selectedId), "\"]"))) === null || _this2$canvasRoot$que === void 0 ? void 0 : _this2$canvasRoot$que.classList.add('ink-is-selected');
+          var _this3$canvasRoot$que;
+          return (_this3$canvasRoot$que = _this3.canvasRoot.querySelector("[data-ink-element-id=\"".concat(CSS.escape(selectedId), "\"]"))) === null || _this3$canvasRoot$que === void 0 ? void 0 : _this3$canvasRoot$que.classList.add('ink-is-selected');
         });
         if (id && window.sidebarTabManager) window.sidebarTabManager.openTab(document.querySelector('[data-tab="controls"]'));
       });
-      this.runtime.events.on('responsive:change', function (_ref2) {
-        var device = _ref2.device;
-        return _this2.applyDeviceWidth(device);
+      this.runtime.events.on('responsive:change', function (_ref3) {
+        var device = _ref3.device;
+        return _this3.applyDeviceWidth(device);
       });
-      this.runtime.events.on('document:settings', function (_ref3) {
-        var settings = _ref3.settings;
+      this.runtime.events.on('document:settings', function (_ref4) {
+        var settings = _ref4.settings;
         var title = document.querySelector('.ink-appbar-document-name');
         if (title) title.textContent = (settings === null || settings === void 0 ? void 0 : settings.title) || 'Untitled';
       });
       this.runtime.events.on('library:open', function () {
-        var _ref4 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
-          parentId = _ref4.parentId;
-        return _this2.openPanelScreen('elements', {
+        var _ref5 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+          parentId = _ref5.parentId;
+        return _this3.openPanelScreen('elements', {
           preserveSelection: Boolean(parentId)
         });
       });
-      this.runtime.events.on('history:change', function (_ref5) {
-        var canUndo = _ref5.canUndo,
-          canRedo = _ref5.canRedo;
+      this.runtime.events.on('history:change', function (_ref6) {
+        var canUndo = _ref6.canUndo,
+          canRedo = _ref6.canRedo;
         var undo = document.querySelector('.ink-appbar button[title="Undo"]');
         if (undo) undo.disabled = !canUndo;
         var redo = document.querySelector('.ink-appbar button[title="Redo"]');
         if (redo) redo.disabled = !canRedo;
       });
       this.runtime.events.on('canvas:render', function () {
-        _this2.runtime.selection.selectedIds.forEach(function (id) {
-          var _this2$canvasRoot$que2;
-          return (_this2$canvasRoot$que2 = _this2.canvasRoot.querySelector("[data-ink-element-id=\"".concat(CSS.escape(id), "\"]"))) === null || _this2$canvasRoot$que2 === void 0 ? void 0 : _this2$canvasRoot$que2.classList.add('ink-is-selected');
+        _this3.runtime.selection.selectedIds.forEach(function (id) {
+          var _this3$canvasRoot$que2;
+          return (_this3$canvasRoot$que2 = _this3.canvasRoot.querySelector("[data-ink-element-id=\"".concat(CSS.escape(id), "\"]"))) === null || _this3$canvasRoot$que2 === void 0 ? void 0 : _this3$canvasRoot$que2.classList.add('ink-is-selected');
         });
       });
     }
@@ -484,11 +517,11 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "openPanelScreen",
     value: function openPanelScreen(screen) {
-      var _this$runtime2;
-      var _ref6 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
-        _ref6$preserveSelecti = _ref6.preserveSelection,
-        preserveSelection = _ref6$preserveSelecti === void 0 ? false : _ref6$preserveSelecti;
-      var panel = (_this$runtime2 = this.runtime) === null || _this$runtime2 === void 0 ? void 0 : _this$runtime2.panel;
+      var _this$runtime;
+      var _ref7 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+        _ref7$preserveSelecti = _ref7.preserveSelection,
+        preserveSelection = _ref7$preserveSelecti === void 0 ? false : _ref7$preserveSelecti;
+      var panel = (_this$runtime = this.runtime) === null || _this$runtime === void 0 ? void 0 : _this$runtime.panel;
       if (panel && ['elements', 'site', 'history'].includes(screen)) {
         if (screen === 'elements' && !preserveSelection) panel.insertionParentId = null;
         panel.route = screen;
@@ -611,22 +644,22 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "initHotkeys",
     value: function initHotkeys() {
-      var _this3 = this;
+      var _this4 = this;
       this.hotkeys = document.createElement('div');
       this.hotkeys.className = 'ink-hotkeys';
       this.hotkeys.hidden = true;
       var shortcuts = [['⌘/Ctrl + K', 'Open the finder'], ['?', 'Show keyboard shortcuts'], ['⌘/Ctrl + Z', 'Undo'], ['⌘/Ctrl + Shift + Z / Ctrl + Y', 'Redo'], ['⌘/Ctrl + G', 'Group selected sibling layers'], ['⌘/Ctrl + Shift + G', 'Ungroup selected group'], ['⌥ + ⌘/Ctrl + G', 'Frame selected sibling layers'], ['⌘/Ctrl + D', 'Duplicate selection'], ['⌘/Ctrl + C', 'Copy element'], ['⌘/Ctrl + V', 'Paste element'], ['⌘/Ctrl + Shift + C', 'Copy styles'], ['⌘/Ctrl + Shift + V', 'Paste styles'], ['⌘/Ctrl + S', 'Save draft'], ['V / H', 'Select / pan'], ['Space + drag', 'Pan canvas temporarily'], ['Arrow / Shift + Arrow', 'Nudge positioned layers 1 / 10 px'], ['F / T / I', 'Frame / text / insert'], ['Shift + 1 / Shift + 2', 'Fit canvas / zoom to selection'], ['+ / − / 0', 'Zoom in / out / actual size'], ['Delete / Backspace', 'Delete selection'], ['Shift / ⌘ + click', 'Multi-select'], ['Double-click text', 'Inline edit'], ['Escape', 'Deselect / close']];
-      this.hotkeys.innerHTML = "<div class=\"ink-hotkeys-surface\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Keyboard shortcuts\"><header><strong>Keyboard shortcuts</strong><button type=\"button\" data-close aria-label=\"Close\">\xD7</button></header><dl>".concat(shortcuts.map(function (_ref7) {
-        var _ref8 = _slicedToArray(_ref7, 2),
-          keys = _ref8[0],
-          action = _ref8[1];
+      this.hotkeys.innerHTML = "<div class=\"ink-hotkeys-surface\" role=\"dialog\" aria-modal=\"true\" aria-label=\"Keyboard shortcuts\"><header><strong>Keyboard shortcuts</strong><button type=\"button\" data-close aria-label=\"Close\">\xD7</button></header><dl>".concat(shortcuts.map(function (_ref8) {
+        var _ref9 = _slicedToArray(_ref8, 2),
+          keys = _ref9[0],
+          action = _ref9[1];
         return "<div><dt><kbd>".concat(keys, "</kbd></dt><dd>").concat(action, "</dd></div>");
       }).join(''), "</dl><p>History is available from the toolbar and <kbd>\u2318/Ctrl + Z</kbd>.</p></div>");
       this.hotkeys.addEventListener('pointerdown', function (event) {
-        if (event.target === _this3.hotkeys) _this3.hotkeys.hidden = true;
+        if (event.target === _this4.hotkeys) _this4.hotkeys.hidden = true;
       });
       this.hotkeys.querySelector('[data-close]').addEventListener('click', function () {
-        _this3.hotkeys.hidden = true;
+        _this4.hotkeys.hidden = true;
       });
       document.body.appendChild(this.hotkeys);
     }
@@ -643,7 +676,7 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "clear",
     value: function clear() {
-      var _this4 = this;
+      var _this5 = this;
       var before = this.runtime.serialize();
       var empty = {
         version: 2,
@@ -654,10 +687,10 @@ var BuilderV2 = /*#__PURE__*/function () {
       this.runtime.history.execute({
         label: 'Clear page',
         "do": function _do() {
-          return _this4.runtime.document.replace(empty);
+          return _this5.runtime.document.replace(empty);
         },
         undo: function undo() {
-          return _this4.runtime.document.replace(before);
+          return _this5.runtime.document.replace(before);
         }
       });
       this.runtime.selection.clear();
@@ -704,7 +737,7 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "setMode",
     value: function setMode(mode) {
-      var _this$runtime3, _this$customCode, _this$runtime4;
+      var _this$runtime2, _this$customCode, _this$runtime3;
       var previous = this.mode;
       this.mode = mode === 'design' ? 'design' : 'preview';
       if (previous === 'design' && this.mode === 'preview') this.designCamera = {
@@ -718,12 +751,12 @@ var BuilderV2 = /*#__PURE__*/function () {
       // Custom/imported runtime code is a preview/publish capability. Framework hydration in
       // Design mode can replace builder-owned nodes and silently remove IDs/listeners. Repaint
       // from the store when returning from Preview, then keep only CSS active while editing.
-      if (this.mode === 'design' && previous === 'preview') (_this$runtime3 = this.runtime) === null || _this$runtime3 === void 0 || (_this$runtime3 = _this$runtime3.canvas) === null || _this$runtime3 === void 0 || _this$runtime3.render();
+      if (this.mode === 'design' && previous === 'preview') (_this$runtime2 = this.runtime) === null || _this$runtime2 === void 0 || (_this$runtime2 = _this$runtime2.canvas) === null || _this$runtime2 === void 0 || _this$runtime2.render();
       (_this$customCode = this.customCode) === null || _this$customCode === void 0 || _this$customCode.inject(this.iframeDoc, {
         executeJs: this.mode === 'preview'
       });
       document.body.classList.toggle('ink-studio-preview', this.mode === 'preview');
-      (_this$runtime4 = this.runtime) === null || _this$runtime4 === void 0 || _this$runtime4.events.emit('editor:mode', {
+      (_this$runtime3 = this.runtime) === null || _this$runtime3 === void 0 || _this$runtime3.events.emit('editor:mode', {
         mode: this.mode
       });
       if (previous === 'preview' && this.mode === 'design' && this.designCamera) {
@@ -746,6 +779,79 @@ var BuilderV2 = /*#__PURE__*/function () {
     value: function applyCustomCode() {
       this.customCode.inject();
     }
+
+    // ------------------------------------------------------------------ sections
+
+    // Insert a named archetype section. The Copilot composes pages with the same vocabulary; this is
+    // the human entry point (Elements > Sections, and section drops). The design system stylesheet is
+    // installed in the SAME undoable step, so a section dropped into an empty page cannot render as
+    // an unstyled box, and undo removes both.
+  }, {
+    key: "insertArchetype",
+    value: function insertArchetype(name) {
+      var _parent,
+        _parent$children,
+        _this6 = this;
+      var _ref10 = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
+        variant = _ref10.variant,
+        _ref10$parentId = _ref10.parentId,
+        parentId = _ref10$parentId === void 0 ? null : _ref10$parentId,
+        _ref10$index = _ref10.index,
+        index = _ref10$index === void 0 ? null : _ref10$index,
+        content = _ref10.content,
+        media = _ref10.media,
+        sticky = _ref10.sticky;
+      var definition = (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_9__.archetype)(name);
+      if (!definition) throw new TypeError("Unknown section \"".concat(name, "\"."));
+      var runtime = this.runtime;
+      var tokens = (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_8__.tokensFromPageSettings)(runtime.document.data.settings);
+      var built = (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_9__.buildSection)(name, {
+        variant: variant,
+        content: content || {},
+        media: media,
+        sticky: sticky,
+        tokens: tokens,
+        uid: "ink-arch-".concat(Date.now().toString(36)).concat(Math.floor(Math.random() * 1e4).toString(36))
+      });
+      var parent = parentId ? runtime.document.get(parentId) : null;
+      if (parentId && !parent) throw new TypeError('Target not found.');
+      // A drop can land on an element that cannot hold a section (a leaf, or a column the section
+      // would overflow). Walk up to the nearest ancestor that accepts it, the same way an element
+      // drop re-targets, so a drop never silently disappears.
+      var probe = runtime.create('section', {});
+      while (parent && !runtime.elements.accepts(parent, probe)) parent = runtime.document.parentOf(parent.id);
+      var node = (0,_elementSpec_js__WEBPACK_IMPORTED_MODULE_10__.materializeSpec)(runtime, built.spec, parent);
+      var insertion = {
+        parentId: ((_parent = parent) === null || _parent === void 0 ? void 0 : _parent.id) || null,
+        index: index == null ? parent ? ((_parent$children = parent.children) === null || _parent$children === void 0 ? void 0 : _parent$children.length) || 0 : runtime.document.data.children.length : index
+      };
+      var cssBefore = this.customCode.getCss();
+      var js = this.customCode.getJs();
+      var cssAfter = (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_8__.ensureDesignCss)(cssBefore, tokens);
+      runtime.history.execute({
+        label: "Add ".concat(definition.label, " section"),
+        "do": function _do() {
+          runtime.document.insert(node, insertion);
+          if (cssAfter !== cssBefore) _this6.customCode.update(cssAfter, js);
+        },
+        undo: function undo() {
+          runtime.document.remove(node.id);
+          if (cssAfter !== cssBefore) _this6.customCode.update(cssBefore, js);
+        }
+      });
+      this.customCode.inject(this.iframeDoc, {
+        executeJs: this.mode === 'preview'
+      });
+      runtime.selection.select(node.id);
+      return {
+        id: node.id,
+        archetype: name,
+        variant: built.variant,
+        role: built.role,
+        nodes: (0,_elementSpec_js__WEBPACK_IMPORTED_MODULE_10__.specNodeCount)(built.spec),
+        sectionClass: (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_9__.sectionClass)(name)
+      };
+    }
   }, {
     key: "cloneData",
     value: function cloneData(value) {
@@ -754,14 +860,14 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "cloneSitePartInstance",
     value: function cloneSitePartInstance(part) {
-      var _this5 = this,
+      var _this7 = this,
         _reference$settings,
         _part$settings;
       var reference = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       var instanceId = reference.id || crypto.randomUUID();
       var _cloneNode = function cloneNode(source) {
         var root = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
-        var node = _this5.cloneData(source);
+        var node = _this7.cloneData(source);
         var sourceId = source._sitePartSourceId || source.id || crypto.randomUUID();
         node.id = root ? instanceId : crypto.randomUUID();
         node._sitePartSourceId = sourceId;
@@ -781,9 +887,9 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "canonicalSitePart",
     value: function canonicalSitePart(instance) {
-      var _this6 = this;
+      var _this8 = this;
       var _canonicalize = function canonicalize(source) {
-        var node = _this6.cloneData(source);
+        var node = _this8.cloneData(source);
         node.id = source._sitePartSourceId || source.id || crypto.randomUUID();
         delete node._sitePartSourceId;
         delete node._sitePartInstanceId;
@@ -795,15 +901,15 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "hydrateSiteParts",
     value: function hydrateSiteParts(store) {
-      var _this7 = this;
+      var _this9 = this;
       var result = this.cloneData(store);
       var _hydrate = function hydrate(source) {
         var node = source;
         if ((source === null || source === void 0 ? void 0 : source.type) === 'site-part') {
-          var _source$settings, _this7$siteParts;
+          var _source$settings, _this9$siteParts;
           var key = (_source$settings = source.settings) === null || _source$settings === void 0 ? void 0 : _source$settings.partKey;
-          var part = key && ((_this7$siteParts = _this7.siteParts) === null || _this7$siteParts === void 0 ? void 0 : _this7$siteParts[key]);
-          if (part) return _this7.cloneSitePartInstance(part, source);
+          var part = key && ((_this9$siteParts = _this9.siteParts) === null || _this9$siteParts === void 0 ? void 0 : _this9$siteParts[key]);
+          if (part) return _this9.cloneSitePartInstance(part, source);
         }
         node.children = (node.children || []).map(_hydrate);
         return node;
@@ -814,17 +920,17 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "bindSitePartSync",
     value: function bindSitePartSync() {
-      var _this8 = this;
+      var _this10 = this;
       this.pendingSitePartSync = new Map();
       var contextFor = function contextFor() {
         var _root$settings, _instanceRoot, _candidate$settings;
-        var _ref9 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
-          id = _ref9.id,
-          node = _ref9.node,
-          parentId = _ref9.parentId;
-        var candidate = id && _this8.runtime.document.get(id) || parentId && _this8.runtime.document.get(parentId) || node;
+        var _ref11 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+          id = _ref11.id,
+          node = _ref11.node,
+          parentId = _ref11.parentId;
+        var candidate = id && _this10.runtime.document.get(id) || parentId && _this10.runtime.document.get(parentId) || node;
         if (!candidate) return null;
-        var path = candidate.id && _this8.runtime.document.get(candidate.id) ? _this8.runtime.document.pathTo(candidate.id) : [];
+        var path = candidate.id && _this10.runtime.document.get(candidate.id) ? _this10.runtime.document.pathTo(candidate.id) : [];
         var root = _toConsumableArray(path).reverse().find(function (item) {
           return item.type === 'site-part';
         });
@@ -848,7 +954,7 @@ var BuilderV2 = /*#__PURE__*/function () {
             }
             return null;
           };
-          instanceRoot = _find(_this8.runtime.document.data.children || []);
+          instanceRoot = _find(_this10.runtime.document.data.children || []);
         }
         var key = (root === null || root === void 0 || (_root$settings = root.settings) === null || _root$settings === void 0 ? void 0 : _root$settings.partKey) || ((_instanceRoot = instanceRoot) === null || _instanceRoot === void 0 || (_instanceRoot = _instanceRoot.settings) === null || _instanceRoot === void 0 ? void 0 : _instanceRoot.partKey) || ((_candidate$settings = candidate.settings) === null || _candidate$settings === void 0 ? void 0 : _candidate$settings.partKey);
         return key && instanceId ? {
@@ -859,29 +965,29 @@ var BuilderV2 = /*#__PURE__*/function () {
       var queue = function queue(payload) {
         var context = contextFor(payload);
         if (!context) return;
-        _this8.pendingSitePartSync.set(context.key, context.instanceId);
-        if (_this8.sitePartSyncQueued) return;
-        _this8.sitePartSyncQueued = true;
+        _this10.pendingSitePartSync.set(context.key, context.instanceId);
+        if (_this10.sitePartSyncQueued) return;
+        _this10.sitePartSyncQueued = true;
         queueMicrotask(function () {
-          _this8.sitePartSyncQueued = false;
-          var pending = _toConsumableArray(_this8.pendingSitePartSync.entries());
-          _this8.pendingSitePartSync.clear();
-          pending.forEach(function (_ref10) {
-            var _ref11 = _slicedToArray(_ref10, 2),
-              key = _ref11[0],
-              instanceId = _ref11[1];
-            return _this8.syncSitePartInstances(key, instanceId);
+          _this10.sitePartSyncQueued = false;
+          var pending = _toConsumableArray(_this10.pendingSitePartSync.entries());
+          _this10.pendingSitePartSync.clear();
+          pending.forEach(function (_ref12) {
+            var _ref13 = _slicedToArray(_ref12, 2),
+              key = _ref13[0],
+              instanceId = _ref13[1];
+            return _this10.syncSitePartInstances(key, instanceId);
           });
         });
       };
       ['document:update', 'document:insert', 'document:remove', 'document:move'].forEach(function (event) {
-        return _this8.runtime.events.on(event, queue);
+        return _this10.runtime.events.on(event, queue);
       });
     }
   }, {
     key: "syncSitePartInstances",
     value: function syncSitePartInstances(key, sourceInstanceId) {
-      var _this9 = this;
+      var _this11 = this;
       var roots = [];
       var _collect = function collect(nodes) {
         return nodes.forEach(function (node) {
@@ -910,7 +1016,7 @@ var BuilderV2 = /*#__PURE__*/function () {
         return nodes.forEach(function (node, index) {
           var _node$settings2;
           if (node.type === 'site-part' && ((_node$settings2 = node.settings) === null || _node$settings2 === void 0 ? void 0 : _node$settings2.partKey) === key && node.id !== source.id) {
-            nodes[index] = _this9.cloneSitePartInstance(canonical, {
+            nodes[index] = _this11.cloneSitePartInstance(canonical, {
               id: node.id,
               settings: node.settings
             });
@@ -926,17 +1032,17 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "getSiteParts",
     value: function getSiteParts() {
-      var _this10 = this,
-        _this$runtime5;
+      var _this12 = this,
+        _this$runtime4;
       var parts = {};
       var _visit = function visit(node) {
         var _node$settings3;
         if (node.type === 'site-part' && (_node$settings3 = node.settings) !== null && _node$settings3 !== void 0 && _node$settings3.partKey && !parts[node.settings.partKey]) {
-          parts[node.settings.partKey] = _this10.cloneData(_this10.siteParts[node.settings.partKey] || _this10.canonicalSitePart(node));
+          parts[node.settings.partKey] = _this12.cloneData(_this12.siteParts[node.settings.partKey] || _this12.canonicalSitePart(node));
         }
         (node.children || []).forEach(_visit);
       };
-      (((_this$runtime5 = this.runtime) === null || _this$runtime5 === void 0 || (_this$runtime5 = _this$runtime5.serialize()) === null || _this$runtime5 === void 0 ? void 0 : _this$runtime5.children) || []).forEach(_visit);
+      (((_this$runtime4 = this.runtime) === null || _this$runtime4 === void 0 || (_this$runtime4 = _this$runtime4.serialize()) === null || _this$runtime4 === void 0 ? void 0 : _this$runtime4.children) || []).forEach(_visit);
       return parts;
     }
   }, {
@@ -964,7 +1070,7 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "exportClone",
     value: function exportClone() {
-      var _this11 = this,
+      var _this13 = this,
         _clone$querySelector,
         _clone$querySelector2,
         _clone$querySelector3;
@@ -976,7 +1082,7 @@ var BuilderV2 = /*#__PURE__*/function () {
       // Dynamic content elements serialize as their server token (e.g. {{ blocks }}) so the
       // published page renders live data. The canvas keeps the labelled placeholder.
       clone.querySelectorAll('[data-ink-dynamic]').forEach(function (element) {
-        element.replaceWith(_this11.iframeDoc.createTextNode(element.getAttribute('data-ink-dynamic') || ''));
+        element.replaceWith(_this13.iframeDoc.createTextNode(element.getAttribute('data-ink-dynamic') || ''));
       });
       this.customCode.injectIntoClone(clone);
       (_clone$querySelector = clone.querySelector('#ink-editor-canvas-styles')) === null || _clone$querySelector === void 0 || _clone$querySelector.remove();
@@ -1043,7 +1149,7 @@ var BuilderV2 = /*#__PURE__*/function () {
   }, {
     key: "destroy",
     value: function destroy() {
-      var _this$collaboration, _this$breakpoints, _this$studio3, _this$viewport2, _this$iframeDoc, _this$canvasIconObser, _this$finder, _this$navigator, _this$runtime6, _this$runtime7, _this$runtime8, _this$runtime9;
+      var _this$collaboration, _this$breakpoints, _this$studio3, _this$viewport2, _this$iframeDoc, _this$canvasIconObser, _this$finder, _this$navigator, _this$runtime5, _this$runtime6, _this$runtime7, _this$runtime8;
       (_this$collaboration = this.collaboration) === null || _this$collaboration === void 0 || _this$collaboration.destroy();
       (_this$breakpoints = this.breakpoints) === null || _this$breakpoints === void 0 || _this$breakpoints.destroy();
       (_this$studio3 = this.studio) === null || _this$studio3 === void 0 || _this$studio3.destroy();
@@ -1053,10 +1159,10 @@ var BuilderV2 = /*#__PURE__*/function () {
       (_this$canvasIconObser = this.canvasIconObserver) === null || _this$canvasIconObser === void 0 || _this$canvasIconObser.disconnect();
       (_this$finder = this.finder) === null || _this$finder === void 0 || _this$finder.destroy();
       (_this$navigator = this.navigator) === null || _this$navigator === void 0 || _this$navigator.destroy();
-      (_this$runtime6 = this.runtime) === null || _this$runtime6 === void 0 || (_this$runtime6 = _this$runtime6.contextMenu) === null || _this$runtime6 === void 0 || _this$runtime6.destroy();
-      (_this$runtime7 = this.runtime) === null || _this$runtime7 === void 0 || _this$runtime7.canvas.destroy();
-      (_this$runtime8 = this.runtime) === null || _this$runtime8 === void 0 || (_this$runtime8 = _this$runtime8.panel) === null || _this$runtime8 === void 0 || _this$runtime8.destroy();
-      (_this$runtime9 = this.runtime) === null || _this$runtime9 === void 0 || (_this$runtime9 = _this$runtime9.settingsPanel) === null || _this$runtime9 === void 0 || _this$runtime9.destroy();
+      (_this$runtime5 = this.runtime) === null || _this$runtime5 === void 0 || (_this$runtime5 = _this$runtime5.contextMenu) === null || _this$runtime5 === void 0 || _this$runtime5.destroy();
+      (_this$runtime6 = this.runtime) === null || _this$runtime6 === void 0 || _this$runtime6.canvas.destroy();
+      (_this$runtime7 = this.runtime) === null || _this$runtime7 === void 0 || (_this$runtime7 = _this$runtime7.panel) === null || _this$runtime7 === void 0 || _this$runtime7.destroy();
+      (_this$runtime8 = this.runtime) === null || _this$runtime8 === void 0 || (_this$runtime8 = _this$runtime8.settingsPanel) === null || _this$runtime8 === void 0 || _this$runtime8.destroy();
       this.mainContainer.replaceChildren();
     }
   }]);
@@ -3913,6 +4019,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./shaderPresets.js */ "./src/core/shaderPresets.js");
 /* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
 /* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./motionGroups.js */ "./src/core/motionGroups.js");
+/* harmony import */ var _designTokens_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./designTokens.js */ "./src/core/designTokens.js");
+/* harmony import */ var _sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./sectionArchetypes.js */ "./src/core/sectionArchetypes.js");
+/* harmony import */ var _elementSpec_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./elementSpec.js */ "./src/core/elementSpec.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -3930,6 +4039,9 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+
+
+
 
 
 
@@ -4134,6 +4246,15 @@ function createCopilotTools(runtime, builder) {
         },
         guidance: 'A motion group orchestrates the children of one layer into a single timeline with set_motion_group: the children keep their own keyframes, the group shares a trigger (hover the group, scroll progress, enter, load) and adds a per-child stagger. For a hover unfold set trigger hover; for a scroll-scrubbed or pinned section set trigger scroll, pin.enabled true, and put the animated stage inside it with set_sticky.'
       },
+      designSystem: {
+        setting: 'theme',
+        tokenGroups: Object.keys(_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_TOKENS),
+        tokenNames: Object.keys((0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.tokenVariables)(_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_TOKENS)),
+        presets: (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.presetNames)(),
+        archetypes: (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_4__.listArchetypes)(),
+        current: (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.describeTokens)(liveTokens()),
+        guidance: 'The design system is tokens plus named section archetypes. Set the palette once with set_design_tokens (or pass preset), then compose with compose_page/compose_section using archetype names and variants. Archetypes emit real editable elements styled only from tokens, so a human can reproduce any composition from the Elements library and the Theme controls.'
+      },
       elements: groups,
       styleShape: {
         desktop: {
@@ -4188,28 +4309,13 @@ function createCopilotTools(runtime, builder) {
       }
     };
   };
-  var _countSpec = function countSpec(spec) {
-    return 1 + (Array.isArray(spec === null || spec === void 0 ? void 0 : spec.children) ? spec.children.reduce(function (sum, child) {
-      return sum + _countSpec(child);
-    }, 0) : 0);
-  };
-  var _materialize = function materialize(spec) {
-    var _spec$children;
+
+  // Trees are materialized by the shared element-spec helper, so the Copilot, the Sections library
+  // and drag & drop all accept exactly the same shapes.
+  var countSpec = _elementSpec_js__WEBPACK_IMPORTED_MODULE_5__.specNodeCount;
+  var materialize = function materialize(spec) {
     var parent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
-    if (!spec || _typeof(spec) !== 'object' || !spec.type) throw new TypeError('Every tree node requires a type.');
-    if (!runtime.elements.has(spec.type)) throw new TypeError("Unknown element type: ".concat(spec.type));
-    if (runtime.elements.get(spec.type).internal) throw new TypeError("".concat(spec.type, " is an editor-only organizational layer; compose visual layouts with Frames instead."));
-    var definition = runtime.elements.get(spec.type);
-    if ((_spec$children = spec.children) !== null && _spec$children !== void 0 && _spec$children.length && !definition.acceptsChildren) throw new TypeError("".concat(spec.type, " cannot contain children."));
-    var node = runtime.create(spec.type, {
-      settings: spec.settings || {},
-      styles: spec.styles || {}
-    });
-    if (parent && !runtime.elements.accepts(parent, node)) throw new TypeError("".concat(parent.type, " cannot contain ").concat(node.type, "."));
-    if (definition.acceptsChildren) node.children = (spec.children || []).map(function (child) {
-      return _materialize(child, node);
-    });
-    return node;
+    return (0,_elementSpec_js__WEBPACK_IMPORTED_MODULE_5__.materializeSpec)(runtime, spec, parent);
   };
   var validateCustomCode = function validateCustomCode(value, label) {
     var text = String(value || '');
@@ -4240,11 +4346,11 @@ function createCopilotTools(runtime, builder) {
     if (!Array.isArray(args.children) || !args.children.length) throw new TypeError('replace_page requires a non-empty children array; the existing page was preserved.');
     var specs = args.children;
     var nodeCount = specs.reduce(function (sum, spec) {
-      return sum + _countSpec(spec);
+      return sum + countSpec(spec);
     }, 0);
     if (nodeCount > MAX_TREE_NODES) throw new RangeError("Page has ".concat(nodeCount, " nodes; maximum is ").concat(MAX_TREE_NODES, "."));
     var children = specs.map(function (spec) {
-      return _materialize(spec);
+      return materialize(spec);
     });
     var before = {
       store: runtime.serialize(),
@@ -4283,13 +4389,13 @@ function createCopilotTools(runtime, builder) {
   };
   var appendTree = function appendTree(args) {
     var _parent$children;
-    var total = _countSpec(args.tree);
+    var total = countSpec(args.tree);
     if (total > MAX_TREE_NODES) throw new RangeError("Tree has ".concat(total, " nodes; maximum is ").concat(MAX_TREE_NODES, "."));
     var target = resolve(args.path || args.id);
     if ((args.path || args.id) && !target) throw new TypeError('Target not found; read_design for current IDs. No elements were inserted.');
     var parent = (target === null || target === void 0 ? void 0 : target.node) || null;
     if (parent && !runtime.elements.get(parent.type).acceptsChildren) throw new TypeError('Target cannot contain children.');
-    var node = _materialize(args.tree, parent);
+    var node = materialize(args.tree, parent);
     var insertion = {
       parentId: (parent === null || parent === void 0 ? void 0 : parent.id) || null,
       index: parent ? ((_parent$children = parent.children) === null || _parent$children === void 0 ? void 0 : _parent$children.length) || 0 : runtime.document.data.children.length
@@ -4310,161 +4416,191 @@ function createCopilotTools(runtime, builder) {
       id: node.id
     };
   };
-  var composeLandingPage = function composeLandingPage(args) {
-    var _args$palette, _args$palette2, _args$palette3, _args$palette4, _args$palette5, _args$faq, _args$footer, _args$footer2;
-    var clean = function clean(value) {
-      var fallback = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
-      return String(value == null ? fallback : value).trim();
-    };
-    var color = function color(value, fallback) {
-      return /^#[0-9a-f]{3,8}$/i.test(clean(value)) ? clean(value) : fallback;
-    };
-    var itemList = function itemList(value) {
-      var fallback = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
-      return Array.isArray(value) && value.length ? value : fallback;
-    };
-    var node = function node(type) {
-      var settings = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-      var children = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : [];
-      return _objectSpread({
-        type: type,
-        settings: settings
-      }, children.length ? {
-        children: children
-      } : {});
-    };
-    var container = function container(className, children) {
-      var tag = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'div';
-      return node('container', {
-        tag: tag,
-        layout: 'full',
-        cssClasses: className
-      }, children);
-    };
-    var heading = function heading(text, tag, className) {
-      return node('heading', {
-        text: clean(text),
-        tag: tag,
-        cssClasses: className
-      });
-    };
-    var paragraph = function paragraph(text, className) {
-      return node('paragraph', {
-        text: clean(text),
-        cssClasses: className
-      });
-    };
-    var button = function button(cta, className) {
-      return node('button', {
-        text: clean(cta === null || cta === void 0 ? void 0 : cta.label, 'Learn more'),
-        url: clean(cta === null || cta === void 0 ? void 0 : cta.url, '#contact'),
-        cssClasses: className
-      });
-    };
-    var section = function section(className, children) {
-      return container("cp-section ".concat(className), [container('cp-shell', children)], 'section');
-    };
-    var palette = {
-      background: color((_args$palette = args.palette) === null || _args$palette === void 0 ? void 0 : _args$palette.background, '#f4efe6'),
-      surface: color((_args$palette2 = args.palette) === null || _args$palette2 === void 0 ? void 0 : _args$palette2.surface, '#fffaf2'),
-      text: color((_args$palette3 = args.palette) === null || _args$palette3 === void 0 ? void 0 : _args$palette3.text, '#171512'),
-      muted: color((_args$palette4 = args.palette) === null || _args$palette4 === void 0 ? void 0 : _args$palette4.muted, '#6f685e'),
-      accent: color((_args$palette5 = args.palette) === null || _args$palette5 === void 0 ? void 0 : _args$palette5.accent, '#f04e3e')
-    };
+
+  // Composing a page is choosing archetypes and filling them in. There is no bespoke aesthetic
+  // here any more: the same named, token-driven sections a human picks in the panel are what the
+  // model composes, so its ceiling is the builder's ceiling, not one hardcoded layout.
+  var liveTokens = function liveTokens() {
+    return (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.tokensFromPageSettings)(runtime.document.data.settings);
+  };
+  var tokensFromArgs = function tokensFromArgs(args) {
+    var _args$tokens;
+    return (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.normalizeTokens)(_objectSpread(_objectSpread(_objectSpread({}, args.preset ? (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.presetTokens)(args.preset) || {} : {}), args.tokens || {}), {}, {
+      colors: _objectSpread(_objectSpread({}, ((_args$tokens = args.tokens) === null || _args$tokens === void 0 ? void 0 : _args$tokens.colors) || {}), Object.fromEntries(Object.entries(args.palette || {}).filter(function (_ref3) {
+        var _ref4 = _slicedToArray(_ref3, 2),
+          value = _ref4[1];
+        return value != null;
+      })))
+    }));
+  };
+
+  // Legacy composer arguments (hero/projects/proof/process/faq/footer) map onto archetype content so
+  // existing prompts keep working; anything in `content` overrides the mapping.
+  var mergeContent = function mergeContent(args) {
+    var _args$proof, _args$proof2, _args$faq, _args$faq2, _args$footer, _args$footer2;
     var hero = args.hero || {};
-    var projects = itemList(args.projects, [{
-      eyebrow: 'Selected work · 01',
-      title: 'A calmer way through complex work',
-      summary: 'A focused product system that turns a fragmented workflow into one confident path.',
-      outcome: 'Clearer decisions, fewer handoffs',
-      tags: ['Strategy', 'Product design']
-    }, {
-      eyebrow: 'Selected work · 02',
-      title: 'Trust designed into every detail',
-      summary: 'A service experience rebuilt around legibility, momentum, and human reassurance.',
-      outcome: 'A launch teams could stand behind',
-      tags: ['Research', 'Design systems']
-    }]).slice(0, 4);
-    var proof = args.proof || {};
-    var stats = itemList(proof.stats, [{
-      value: 'End to end',
-      label: 'from the first question through the shipped system'
-    }, {
-      value: 'Direct',
-      label: 'senior design attention throughout the engagement'
-    }, {
-      value: 'Built to ship',
-      label: 'decisions documented so the team can carry them forward'
-    }]).slice(0, 4);
-    var process = args.process || {};
-    var steps = itemList(process.steps, [{
-      title: 'Find the signal',
-      body: 'Research the real constraint, align the room, and name the opportunity clearly.'
-    }, {
-      title: 'Make it tangible',
-      body: 'Prototype the critical experience early enough for evidence to change the work.'
-    }, {
-      title: 'Ship the system',
-      body: 'Resolve the details, document the logic, and help the team carry it forward.'
-    }]).slice(0, 5);
-    var closing = args.closing || {};
-    var faqItems = itemList((_args$faq = args.faq) === null || _args$faq === void 0 ? void 0 : _args$faq.items).slice(0, 6);
-    var nav = container('cp-nav', [paragraph(clean(args.siteName, 'Mara Vale'), 'cp-wordmark'), container('cp-nav-actions', [button({
-      label: clean(args.navLabel, 'Selected work'),
-      url: '#work'
-    }, 'cp-link-button'), button({
-      label: clean(args.contactLabel, 'Start a project'),
-      url: '#contact'
-    }, 'cp-link-button cp-link-button-accent')])], 'nav');
-    var heroSection = section('cp-hero', [nav, container('cp-hero-grid', [container('cp-hero-copy', [paragraph(clean(hero.eyebrow, 'Independent product designer · Available for select collaborations'), 'cp-kicker'), heading(clean(hero.headline, 'Designing products people can feel their way through.'), 'h1', 'cp-display'), paragraph(clean(hero.body, 'I help ambitious teams turn complex ideas into clear, characterful products—from first principle to shipped system.'), 'cp-lede'), container('cp-actions', [button(hero.primaryCta || {
-      label: 'Discuss a project',
-      url: '#contact'
-    }, 'cp-primary'), button(hero.secondaryCta || {
-      label: 'View selected work',
-      url: '#work'
-    }, 'cp-secondary')])]), container('cp-hero-aside', [paragraph(clean(hero.asideLabel, 'CURRENTLY'), 'cp-micro'), heading(clean(hero.asideTitle, 'Making ambitious software feel inevitable.'), 'h2', 'cp-aside-title'), paragraph(clean(hero.asideBody, 'Strategy, product design, prototyping, and systems for teams at an inflection point.'), 'cp-muted')])])]);
-    var workSection = section('cp-work', [node('anchor', {
-      id: 'work',
-      offset: 72
-    }), container('cp-section-head', [paragraph(clean(args.workEyebrow, 'Selected work'), 'cp-kicker'), heading(clean(args.workHeading, 'Proof, not decoration.'), 'h2', 'cp-section-title'), paragraph(clean(args.workBody, 'A few recent engagements where product clarity became a competitive advantage.'), 'cp-section-intro')]), container('cp-project-grid', projects.map(function (project, index) {
-      return container("cp-project cp-project-".concat(index + 1), [container('cp-project-visual', [paragraph(String(index + 1).padStart(2, '0'), 'cp-project-number'), paragraph(clean(project.outcome, 'Designed for meaningful momentum'), 'cp-project-outcome')]), container('cp-project-copy', [paragraph(clean(project.eyebrow, "Case study \xB7 0".concat(index + 1)), 'cp-micro'), heading(clean(project.title, 'A product story with a clear point of view'), 'h3', 'cp-project-title'), paragraph(clean(project.summary, 'A specific product challenge translated into a coherent experience and durable system.'), 'cp-muted'), paragraph(itemList(project.tags, ['Product design']).map(clean).join(' · '), 'cp-tags')])], 'article');
-    }))]);
-    var proofSection = section('cp-proof', [container('cp-proof-copy', [paragraph(clean(proof.eyebrow, 'Why teams call again'), 'cp-kicker'), heading(clean(proof.heading, 'Senior thinking, close to the work.'), 'h2', 'cp-section-title'), paragraph(clean(proof.body, 'I work directly with founders and product teams, bringing research, interaction, visual systems, and prototyping into one continuous design practice.'), 'cp-lede'), node('testimonial', {
-      quote: clean(proof.quote, 'Mara gave the product a point of view without losing sight of what customers actually needed.'),
-      name: clean(proof.quoteName, 'Product lead'),
-      role: clean(proof.quoteRole, 'Series A technology company'),
-      cssClasses: 'cp-testimonial'
-    })]), container('cp-stats', stats.map(function (stat) {
-      return container('cp-stat', [heading(clean(stat.value, '—'), 'h3', 'cp-stat-value'), paragraph(clean(stat.label, 'A useful measure of the practice'), 'cp-stat-label')]);
-    }))]);
-    var processSection = section('cp-process', [container('cp-section-head', [paragraph(clean(process.eyebrow, 'How the work moves'), 'cp-kicker'), heading(clean(process.heading, 'Clarity is a process.'), 'h2', 'cp-section-title'), paragraph(clean(process.body, 'Enough structure to move with confidence; enough openness to discover the better answer.'), 'cp-section-intro')]), container('cp-steps', steps.map(function (step, index) {
-      return container('cp-step', [paragraph(String(index + 1).padStart(2, '0'), 'cp-step-number'), heading(clean(step.title, 'A focused step'), 'h3', 'cp-step-title'), paragraph(clean(step.body, 'A concise explanation of what happens and why it matters.'), 'cp-muted')]);
-    }))]);
-    var optionalFaq = faqItems.length ? [section('cp-faq', [container('cp-section-head', [paragraph(clean(args.faq.eyebrow, 'Good to know'), 'cp-kicker'), heading(clean(args.faq.heading, 'Before we begin.'), 'h2', 'cp-section-title')]), node('accordion', {
-      items: faqItems.map(function (item) {
+    var legacy = _objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread(_objectSpread({}, hero.eyebrow != null ? {
+      eyebrow: hero.eyebrow
+    } : {}), hero.headline != null ? {
+      title: hero.headline
+    } : {}), hero.body != null ? {
+      lede: hero.body
+    } : {}), hero.primaryCta != null ? {
+      cta: hero.primaryCta
+    } : {}), hero.secondaryCta != null ? {
+      secondary: hero.secondaryCta
+    } : {}), Array.isArray(args.projects) && args.projects.length ? {
+      features: args.projects.map(function (project) {
         return {
-          title: clean(item.title),
-          content: clean(item.content)
+          title: project.title,
+          body: project.summary
         };
-      }),
-      cssClasses: 'cp-accordion'
-    })])] : [];
-    var closingSection = section('cp-closing', [node('anchor', {
-      id: 'contact',
-      offset: 72
-    }), paragraph(clean(closing.eyebrow, 'Have a meaningful problem?'), 'cp-kicker'), heading(clean(closing.headline, 'Let’s make the next version impossible to ignore.'), 'h2', 'cp-closing-title'), paragraph(clean(closing.body, 'Share what you are building, where it feels stuck, and what a strong outcome would change.'), 'cp-closing-body'), container('cp-actions', [button(closing.cta || {
-      label: 'Start a conversation',
-      url: 'mailto:hello@example.com'
-    }, 'cp-primary cp-primary-light')]), container('cp-footer', [paragraph(clean((_args$footer = args.footer) === null || _args$footer === void 0 ? void 0 : _args$footer.copyright, "\xA9 ".concat(new Date().getFullYear(), " ").concat(clean(args.siteName, 'Mara Vale'))), 'cp-footer-copy'), paragraph(itemList((_args$footer2 = args.footer) === null || _args$footer2 === void 0 ? void 0 : _args$footer2.links, ['LinkedIn', 'Are.na', 'Email']).map(clean).join('  ·  '), 'cp-footer-links')], 'footer')]);
-    var customCss = "\n.ink-canvas-root { --cp-bg:".concat(palette.background, "; --cp-surface:").concat(palette.surface, "; --cp-ink:").concat(palette.text, "; --cp-muted:").concat(palette.muted, "; --cp-accent:").concat(palette.accent, "; background:var(--cp-bg); color:var(--cp-ink); }\n.ink-canvas-root .ink-el-container[class*=\"cp-\"] { min-width:0; max-width:100%; }\n.ink-canvas-root .ink-el-container[class*=\"cp-\"] > .ink-el-container-inner { min-width:0; width:100%; }\n.ink-canvas-root [class*=\"cp-\"] :where(h1,h2,h3,h4,h5,h6,p) { overflow-wrap:normal; word-break:normal; }\n.ink-canvas-root .cp-section { position:relative; width:100%; background:var(--cp-bg); color:var(--cp-ink); overflow:hidden; }\n.ink-canvas-root .cp-shell { width:min(100% - 48px, 1180px); margin-inline:auto; padding:clamp(72px,9vw,144px) 0; }\n.ink-canvas-root .cp-hero .cp-shell { min-height:min(900px,100svh); padding-top:24px; display:flex; flex-direction:column; }\n.ink-canvas-root .cp-nav { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:0 0 clamp(72px,10vw,150px); }\n.ink-canvas-root .cp-wordmark { margin:0; font:700 17px/1.1 Inter,system-ui,sans-serif; letter-spacing:-.03em; }\n.ink-canvas-root .cp-nav-actions,.ink-canvas-root .cp-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }\n.ink-canvas-root .cp-link-button,.ink-canvas-root .cp-primary,.ink-canvas-root .cp-secondary { min-height:46px; border-radius:999px; padding:13px 20px; border:1px solid color-mix(in srgb,var(--cp-ink) 18%,transparent); font:650 14px/1 Inter,system-ui,sans-serif; letter-spacing:-.01em; transition:transform .25s ease,background .25s ease,color .25s ease; }\n.ink-canvas-root .cp-link-button { min-height:38px; padding:10px 15px; background:transparent; color:var(--cp-ink); border-color:transparent; }\n.ink-canvas-root .cp-link-button-accent,.ink-canvas-root .cp-primary { background:var(--cp-accent); color:#fff; border-color:var(--cp-accent); }\n.ink-canvas-root .cp-secondary { background:transparent; color:var(--cp-ink); }\n.ink-canvas-root .cp-link-button:hover,.ink-canvas-root .cp-primary:hover,.ink-canvas-root .cp-secondary:hover { transform:translateY(-2px); }\n.ink-canvas-root .cp-hero-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(260px,.55fr); gap:clamp(48px,9vw,130px); align-items:end; flex:1; padding-bottom:clamp(28px,5vw,72px); }\n.ink-canvas-root .cp-hero-copy { display:flex; flex-direction:column; align-items:flex-start; }\n.ink-canvas-root .cp-kicker,.ink-canvas-root .cp-micro { margin:0 0 22px; color:var(--cp-muted); font:700 12px/1.3 Inter,system-ui,sans-serif; letter-spacing:.12em; text-transform:uppercase; }\n.ink-canvas-root .cp-display { max-width:980px; margin:0; font:500 clamp(58px,8.6vw,132px)/.88 Georgia,'Times New Roman',serif; letter-spacing:-.065em; text-wrap:balance; }\n.ink-canvas-root .cp-display em { color:var(--cp-accent); }\n.ink-canvas-root .cp-lede { max-width:680px; margin:34px 0 32px; font:400 clamp(18px,2vw,24px)/1.45 Inter,system-ui,sans-serif; letter-spacing:-.025em; }\n.ink-canvas-root .cp-hero-aside { border-top:1px solid color-mix(in srgb,var(--cp-ink) 22%,transparent); padding-top:22px; }\n.ink-canvas-root .cp-aside-title { margin:0 0 16px; font:500 clamp(25px,3vw,38px)/1.05 Georgia,serif; letter-spacing:-.04em; }\n.ink-canvas-root .cp-muted,.ink-canvas-root .cp-section-intro,.ink-canvas-root .cp-stat-label { color:var(--cp-muted); font:400 17px/1.6 Inter,system-ui,sans-serif; }\n.ink-canvas-root .cp-section-head { display:grid; grid-template-columns:1fr 1.4fr; column-gap:7vw; align-items:start; margin-bottom:clamp(42px,7vw,84px); }\n.ink-canvas-root .cp-section-head .cp-kicker { grid-row:1 / span 2; }\n.ink-canvas-root .cp-section-title { margin:0; font:500 clamp(44px,6.5vw,88px)/.96 Georgia,serif; letter-spacing:-.055em; text-wrap:balance; }\n.ink-canvas-root .cp-section-intro { max-width:620px; margin:24px 0 0; }\n.ink-canvas-root .cp-work { background:var(--cp-surface); }\n.ink-canvas-root .cp-project-grid { display:grid; grid-template-columns:1.15fr .85fr; gap:18px; }\n.ink-canvas-root .cp-project { min-height:560px; display:flex; flex-direction:column; border:1px solid color-mix(in srgb,var(--cp-ink) 14%,transparent); border-radius:28px; overflow:hidden; background:var(--cp-bg); }\n.ink-canvas-root .cp-project:nth-child(3n) { grid-column:1 / -1; display:grid; grid-template-columns:1.1fr .9fr; min-height:420px; }\n.ink-canvas-root .cp-project-visual { min-height:300px; padding:28px; display:flex; justify-content:space-between; align-items:flex-end; color:#fff; background:radial-gradient(circle at 72% 20%,color-mix(in srgb,var(--cp-accent) 88%,white),transparent 28%),var(--cp-ink); }\n.ink-canvas-root .cp-project:nth-child(2n) .cp-project-visual { background:var(--cp-accent); }\n.ink-canvas-root .cp-project-number { margin:0; font:500 clamp(64px,9vw,130px)/.8 Georgia,serif; letter-spacing:-.07em; opacity:.95; }\n.ink-canvas-root .cp-project-outcome { max-width:200px; margin:0; font:600 14px/1.35 Inter,sans-serif; text-align:right; }\n.ink-canvas-root .cp-project-copy { padding:30px; }\n.ink-canvas-root .cp-project-title { margin:0 0 16px; font:500 clamp(30px,4vw,52px)/1 Georgia,serif; letter-spacing:-.045em; }\n.ink-canvas-root .cp-tags { margin:24px 0 0; color:var(--cp-ink); font:650 12px/1.4 Inter,sans-serif; letter-spacing:.08em; text-transform:uppercase; }\n.ink-canvas-root .cp-proof .cp-shell { display:grid; grid-template-columns:1.15fr .85fr; gap:clamp(50px,9vw,130px); align-items:start; }\n.ink-canvas-root .cp-proof-copy { display:flex; flex-direction:column; align-items:flex-start; }\n.ink-canvas-root .cp-testimonial { margin-top:42px; border-left:3px solid var(--cp-accent); padding-left:24px; }\n.ink-canvas-root .cp-stats { display:grid; border-top:1px solid color-mix(in srgb,var(--cp-ink) 18%,transparent); }\n.ink-canvas-root .cp-stat { display:grid; grid-template-columns:.65fr 1fr; gap:24px; align-items:baseline; padding:28px 0; border-bottom:1px solid color-mix(in srgb,var(--cp-ink) 18%,transparent); }\n.ink-canvas-root .cp-stat-value { margin:0; color:var(--cp-accent); font:500 clamp(42px,5vw,72px)/.9 Georgia,serif; letter-spacing:-.05em; }\n.ink-canvas-root .cp-process { background:var(--cp-ink); color:var(--cp-bg); }\n.ink-canvas-root .cp-process .cp-muted,.ink-canvas-root .cp-process .cp-section-intro,.ink-canvas-root .cp-process .cp-kicker { color:color-mix(in srgb,var(--cp-bg) 70%,transparent); }\n.ink-canvas-root .cp-steps { display:grid; grid-template-columns:repeat(3,1fr); border-top:1px solid color-mix(in srgb,var(--cp-bg) 20%,transparent); }\n.ink-canvas-root .cp-step { padding:30px 30px 30px 0; border-right:1px solid color-mix(in srgb,var(--cp-bg) 20%,transparent); }\n.ink-canvas-root .cp-step + .cp-step { padding-left:30px; }\n.ink-canvas-root .cp-step:last-child { border-right:0; }\n.ink-canvas-root .cp-step-number { color:var(--cp-accent); font:700 12px/1 Inter,sans-serif; }\n.ink-canvas-root .cp-step-title { margin:60px 0 18px; font:500 clamp(28px,3.5vw,44px)/1 Georgia,serif; letter-spacing:-.04em; }\n.ink-canvas-root .cp-accordion { max-width:820px; margin-left:auto; }\n.ink-canvas-root .cp-closing { background:var(--cp-accent); color:#fff; }\n.ink-canvas-root .cp-closing .cp-shell { min-height:720px; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; }\n.ink-canvas-root .cp-closing .cp-kicker { color:color-mix(in srgb,#fff 78%,transparent); }\n.ink-canvas-root .cp-closing-title { max-width:1020px; margin:0; font:500 clamp(54px,8vw,112px)/.9 Georgia,serif; letter-spacing:-.065em; text-wrap:balance; }\n.ink-canvas-root .cp-closing-body { max-width:620px; margin:30px 0; font:400 20px/1.5 Inter,sans-serif; }\n.ink-canvas-root .cp-primary-light { background:#fff; color:var(--cp-ink); border-color:#fff; }\n.ink-canvas-root .cp-footer { width:100%; display:flex; justify-content:space-between; gap:24px; margin-top:auto; padding-top:80px; font:600 13px/1.4 Inter,sans-serif; }\n/* Container roots own surfaces; their immediate inner wrappers own child flow. */\n.ink-canvas-root .cp-section .ink-el-container-inner { max-width:none; width:100%; padding:0; gap:0; }\n.ink-canvas-root .cp-shell > .ink-el-container-inner { min-height:inherit; }\n.ink-canvas-root .cp-nav > .ink-el-container-inner { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:24px; }\n.ink-canvas-root .cp-nav-actions > .ink-el-container-inner,.ink-canvas-root .cp-actions > .ink-el-container-inner { display:flex; flex-direction:row; align-items:center; gap:10px; flex-wrap:wrap; }\n.ink-canvas-root .cp-hero .cp-shell > .ink-el-container-inner { min-height:inherit; display:flex; flex-direction:column; }\n.ink-canvas-root .cp-hero-grid > .ink-el-container-inner { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(260px,.55fr); gap:clamp(48px,9vw,130px); align-items:end; flex:1; }\n.ink-canvas-root .cp-hero-copy > .ink-el-container-inner,.ink-canvas-root .cp-proof-copy > .ink-el-container-inner { display:flex; flex-direction:column; align-items:flex-start; }\n.ink-canvas-root .cp-section-head > .ink-el-container-inner { display:grid; grid-template-columns:1fr 1.4fr; column-gap:7vw; align-items:start; }\n.ink-canvas-root .cp-project-grid > .ink-el-container-inner { display:grid; grid-template-columns:1.15fr .85fr; gap:18px; }\n.ink-canvas-root .cp-project > .ink-el-container-inner { min-height:inherit; display:flex; flex-direction:column; }\n.ink-canvas-root .cp-project:nth-child(3n) > .ink-el-container-inner { display:grid; grid-template-columns:1.1fr .9fr; }\n.ink-canvas-root .cp-project-visual > .ink-el-container-inner { min-height:inherit; display:flex; flex-direction:row; justify-content:space-between; align-items:flex-end; }\n.ink-canvas-root .cp-proof > .cp-shell > .ink-el-container-inner { display:grid; grid-template-columns:1.15fr .85fr; gap:clamp(50px,9vw,130px); align-items:start; }\n.ink-canvas-root .cp-stats > .ink-el-container-inner { display:grid; }\n.ink-canvas-root .cp-stat > .ink-el-container-inner { display:grid; grid-template-columns:.65fr 1fr; gap:24px; align-items:baseline; }\n.ink-canvas-root .cp-steps > .ink-el-container-inner { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); }\n.ink-canvas-root .cp-closing .cp-shell > .ink-el-container-inner { min-height:inherit; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; }\n.ink-canvas-root .cp-footer > .ink-el-container-inner { display:flex; flex-direction:row; justify-content:space-between; gap:24px; }\n@media (max-width:800px) { .ink-canvas-root .cp-shell{width:min(100% - 32px,1180px);padding:72px 0}.ink-canvas-root .cp-nav{padding-bottom:72px}.ink-canvas-root .cp-nav-actions .cp-link-button:first-child{display:none}.ink-canvas-root .cp-hero-grid > .ink-el-container-inner,.ink-canvas-root .cp-proof > .cp-shell > .ink-el-container-inner,.ink-canvas-root .cp-section-head > .ink-el-container-inner{grid-template-columns:1fr}.ink-canvas-root .cp-hero-grid > .ink-el-container-inner{align-items:start}.ink-canvas-root .cp-hero-aside{margin-top:28px}.ink-canvas-root .cp-section-head .cp-kicker{grid-row:auto}.ink-canvas-root .cp-project-grid > .ink-el-container-inner{grid-template-columns:1fr}.ink-canvas-root .cp-project:nth-child(3n) > .ink-el-container-inner{grid-column:auto;display:flex;flex-direction:column}.ink-canvas-root .cp-project{min-height:0}.ink-canvas-root .cp-project-visual{min-height:260px}.ink-canvas-root .cp-steps > .ink-el-container-inner{grid-template-columns:1fr}.ink-canvas-root .cp-step,.ink-canvas-root .cp-step + .cp-step{padding:28px 0;border-right:0;border-bottom:1px solid color-mix(in srgb,var(--cp-bg) 20%,transparent)}.ink-canvas-root .cp-step-title{margin:24px 0 12px}.ink-canvas-root .cp-footer > .ink-el-container-inner{flex-direction:column}.ink-canvas-root .cp-display{font-size:clamp(50px,15vw,78px)} }\n@media (prefers-reduced-motion:no-preference) { .ink-canvas-root .cp-project { transition:transform .45s cubic-bezier(.2,.8,.2,1),box-shadow .45s ease; }.ink-canvas-root .cp-project:hover { transform:translateY(-6px); box-shadow:0 24px 70px color-mix(in srgb,var(--cp-ink) 14%,transparent); }.ink-canvas-root [data-ink-reveal=\"pending\"]{opacity:0;transform:translateY(22px)}.ink-canvas-root [data-ink-reveal=\"visible\"]{opacity:1;transform:none;transition:opacity .7s cubic-bezier(.2,.8,.2,1) var(--ink-reveal-delay,0ms),transform .7s cubic-bezier(.2,.8,.2,1) var(--ink-reveal-delay,0ms)} }\n").trim();
-    var customJs = "\n(() => {\n  const previous = window.__inkCustomCodeCleanup;\n  if (typeof previous === 'function') previous();\n  const items = [...document.querySelectorAll('.cp-section .cp-kicker, .cp-project, .cp-stat, .cp-step, .cp-testimonial')];\n  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {\n    items.forEach((item) => item.dataset.inkReveal = 'visible');\n    window.__inkCustomCodeCleanup = () => {};\n    return;\n  }\n  items.forEach((item, index) => {\n    item.dataset.inkReveal = 'pending';\n    item.style.setProperty('--ink-reveal-delay', String((index % 4) * 65) + 'ms');\n  });\n  const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {\n    if (!entry.isIntersecting) return;\n    entry.target.dataset.inkReveal = 'visible';\n    observer.unobserve(entry.target);\n  }), { rootMargin: '0px 0px -8% 0px', threshold: .12 });\n  items.forEach((item) => observer.observe(item));\n  window.__inkCustomCodeCleanup = () => observer.disconnect();\n})();";
+      })
+    } : {}), args.workHeading != null ? {
+      featureTitle: args.workHeading
+    } : {}), args.workBody != null ? {
+      featureLede: args.workBody
+    } : {}), ((_args$proof = args.proof) === null || _args$proof === void 0 ? void 0 : _args$proof.heading) != null ? {
+      testimonialTitle: args.proof.heading
+    } : {}), Array.isArray((_args$proof2 = args.proof) === null || _args$proof2 === void 0 ? void 0 : _args$proof2.stats) ? {
+      stats: args.proof.stats
+    } : {}), ((_args$faq = args.faq) === null || _args$faq === void 0 ? void 0 : _args$faq.heading) != null ? {
+      faqTitle: args.faq.heading
+    } : {}), Array.isArray((_args$faq2 = args.faq) === null || _args$faq2 === void 0 ? void 0 : _args$faq2.items) ? {
+      faq: args.faq.items.map(function (item) {
+        return {
+          question: item.question || item.title,
+          answer: item.answer || item.body
+        };
+      })
+    } : {}), ((_args$footer = args.footer) === null || _args$footer === void 0 ? void 0 : _args$footer.copyright) != null ? {
+      legal: args.footer.copyright
+    } : {}), Array.isArray((_args$footer2 = args.footer) === null || _args$footer2 === void 0 ? void 0 : _args$footer2.links) ? {
+      links: [{
+        title: 'Elsewhere',
+        items: args.footer.links.map(function (label) {
+          return {
+            text: String(label),
+            url: '#'
+          };
+        })
+      }]
+    } : {});
+    var merged = _objectSpread(_objectSpread({}, legacy), args.content || {});
+    if (args.siteName) merged.nav = _objectSpread(_objectSpread({}, merged.nav || {}), {}, {
+      brand: args.siteName
+    });
+    return merged;
+  };
+
+  // The design system (token variables, archetype vocabulary, section rhythm, component states)
+  // lives in the page's custom CSS. Install it on demand so a section composed into a hand-built
+  // page still renders, and never duplicate it.
+  var ensureArchetypeCss = function ensureArchetypeCss(tokens) {
+    return (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.ensureDesignCss)(builder.customCode.getCss(), tokens);
+  };
+  var composeLandingPage = function composeLandingPage(args) {
+    var tokens = tokensFromArgs(args);
+    var composed = (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_4__.composePage)(args.sections, {
+      tokens: tokens,
+      content: mergeContent(args),
+      media: args.media
+    });
     return replacePage({
       settings: {
-        backgroundColor: palette.background
+        backgroundColor: tokens.colors.background
       },
-      children: [heroSection, workSection, proofSection, processSection].concat(optionalFaq, [closingSection]),
-      customCss: customCss,
-      customJs: customJs
+      children: composed.children,
+      customCss: composed.css,
+      customJs: ''
+    });
+  };
+  var composeArchetypePage = function composeArchetypePage(args) {
+    var tokens = tokensFromArgs(args);
+    var composed = (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_4__.composePage)(args.sections, {
+      tokens: tokens,
+      content: args.content || {},
+      media: args.media
+    });
+    var result = replacePage({
+      settings: {
+        backgroundColor: tokens.colors.background
+      },
+      children: composed.children,
+      customCss: composed.css,
+      customJs: args.customJs == null ? builder.customCode.getJs() : args.customJs
+    });
+    return _objectSpread(_objectSpread({}, result), {}, {
+      sections: composed.children.map(function (child) {
+        return child.settings.role || child.type;
+      }),
+      tokens: (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.describeTokens)(tokens)
+    });
+  };
+  var composeSection = function composeSection(args) {
+    var _parent$children2;
+    var name = args.archetype || args.name;
+    if (!(0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_4__.archetype)(name)) throw new TypeError("Unknown archetype \"".concat(name, "\". Call list_archetypes first."));
+    var tokens = args.tokens ? (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.normalizeTokens)(args.tokens) : liveTokens();
+    var built = (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_4__.buildSection)(name, {
+      variant: args.variant,
+      content: args.content || {},
+      tokens: tokens,
+      media: args.media,
+      uid: "ink-arch-".concat(Date.now().toString(36)),
+      sticky: args.sticky
+    });
+    var target = resolve(args.path || args.id);
+    if ((args.path || args.id) && !target) throw new TypeError('Target not found; read_design for current IDs. No elements were inserted.');
+    var parent = (target === null || target === void 0 ? void 0 : target.node) || null;
+    if (parent && !runtime.elements.get(parent.type).acceptsChildren) throw new TypeError('Target cannot contain children.');
+    var node = materialize(built.spec, parent);
+    var insertion = {
+      parentId: (parent === null || parent === void 0 ? void 0 : parent.id) || null,
+      index: parent ? ((_parent$children2 = parent.children) === null || _parent$children2 === void 0 ? void 0 : _parent$children2.length) || 0 : runtime.document.data.children.length
+    };
+    var cssBefore = builder.customCode.getCss();
+    var cssAfter = ensureArchetypeCss(tokens);
+    runtime.history.execute({
+      label: "AI add ".concat(name, " section"),
+      "do": function _do() {
+        runtime.document.insert(node, insertion);
+        builder.customCode.update(cssAfter, builder.customCode.getJs());
+      },
+      undo: function undo() {
+        runtime.document.remove(node.id);
+        builder.customCode.update(cssBefore, builder.customCode.getJs());
+      }
+    });
+    runtime.selection.select(node.id);
+    return asJson({
+      ok: true,
+      archetype: name,
+      variant: built.variant,
+      id: node.id,
+      nodes: countSpec(built.spec)
+    });
+  };
+  var setDesignTokens = function setDesignTokens(args) {
+    var _args$tokens2, _args$tokens3, _args$tokens4, _args$tokens5, _args$tokens6;
+    var current = liveTokens();
+    var tokens = (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.applyDesignTokens)({
+      runtime: runtime,
+      customCode: builder.customCode
+    }, (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.normalizeTokens)(_objectSpread(_objectSpread(_objectSpread({}, current), args.tokens || {}), {}, {
+      colors: _objectSpread(_objectSpread({}, current.colors), ((_args$tokens2 = args.tokens) === null || _args$tokens2 === void 0 ? void 0 : _args$tokens2.colors) || {}),
+      typography: _objectSpread(_objectSpread({}, current.typography), ((_args$tokens3 = args.tokens) === null || _args$tokens3 === void 0 ? void 0 : _args$tokens3.typography) || {}),
+      shape: _objectSpread(_objectSpread({}, current.shape), ((_args$tokens4 = args.tokens) === null || _args$tokens4 === void 0 ? void 0 : _args$tokens4.shape) || {}),
+      spacing: _objectSpread(_objectSpread({}, current.spacing), ((_args$tokens5 = args.tokens) === null || _args$tokens5 === void 0 ? void 0 : _args$tokens5.spacing) || {}),
+      motion: _objectSpread(_objectSpread({}, current.motion), ((_args$tokens6 = args.tokens) === null || _args$tokens6 === void 0 ? void 0 : _args$tokens6.motion) || {})
+    })), {
+      label: 'AI set design tokens',
+      commit: updateCustomCode
+    });
+    return asJson({
+      ok: true,
+      tokens: tokens,
+      summary: (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.describeTokens)(tokens)
     });
   };
   var cssEdit = function cssEdit(selector, property, value) {
@@ -4639,9 +4775,9 @@ function createCopilotTools(runtime, builder) {
             var definition = runtime.elements.get(args.type);
             return asJson(_objectSpread(_objectSpread({}, compactDefinition(definition)), {}, {
               controls: definition.controls.map(function (control) {
-                return Object.fromEntries(Object.entries(control).filter(function (_ref3) {
-                  var _ref4 = _slicedToArray(_ref3, 1),
-                    key = _ref4[0];
+                return Object.fromEntries(Object.entries(control).filter(function (_ref5) {
+                  var _ref6 = _slicedToArray(_ref5, 1),
+                    key = _ref6[0];
                   return ['name', 'type', 'target', 'part', 'options', 'default', 'units', 'min', 'max', 'step', 'responsive', 'condition'].includes(key);
                 }));
               })
@@ -4653,9 +4789,9 @@ function createCopilotTools(runtime, builder) {
             type: target.node.type,
             settings: target.node.settings,
             styles: target.node.styles,
-            children: (target.node.children || []).map(function (_ref5) {
-              var id = _ref5.id,
-                type = _ref5.type;
+            children: (target.node.children || []).map(function (_ref7) {
+              var id = _ref7.id,
+                type = _ref7.type;
               return {
                 id: id,
                 type: type
@@ -4674,6 +4810,20 @@ function createCopilotTools(runtime, builder) {
           return asJson(auditDesign());
         case 'compose_landing_page':
           return asJson(composeLandingPage(args));
+        case 'compose_page':
+          return asJson(composeArchetypePage(args));
+        case 'compose_section':
+          return composeSection(args);
+        case 'set_design_tokens':
+          return setDesignTokens(args);
+        case 'list_archetypes':
+          return asJson({
+            archetypes: (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_4__.listArchetypes)(),
+            presets: (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.presetNames)(),
+            currentTokens: (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.describeTokens)(liveTokens()),
+            tokenNames: Object.keys((0,_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.tokenVariables)(_designTokens_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_TOKENS)),
+            guidance: 'Pass sections as [{ name, variant, content }] to compose_page, or one { archetype, variant, content } to compose_section. Set the palette once with set_design_tokens and every archetype section follows it.'
+          });
         case 'set_shader_fill':
           {
             var _args$fill;
@@ -5185,6 +5335,87 @@ function createCopilotTools(runtime, builder) {
       required: ['siteName', 'hero', 'projects', 'proof', 'process', 'closing']
     }
   }, {
+    name: 'compose_page',
+    description: 'Compose a whole page from named section archetypes as one undoable change. sections is an array of { name, variant, content } (a bare name string is also accepted); content fills the section (title, lede, cta, items, plans, faq, ...). tokens overrides the design tokens for this page, or preset names one of the built-in themes. Call list_archetypes first for names, variants and token names.',
+    parameters: {
+      type: 'object',
+      properties: {
+        sections: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: true
+          }
+        },
+        content: {
+          type: 'object',
+          additionalProperties: true
+        },
+        tokens: {
+          type: 'object',
+          additionalProperties: true
+        },
+        preset: {
+          type: 'string'
+        },
+        customJs: {
+          type: 'string'
+        }
+      }
+    }
+  }, {
+    name: 'compose_section',
+    description: 'Append one named archetype section to the page (or inside a path/id). archetype is a name from list_archetypes; variant selects the layout; content fills it; tokens override the palette. The section is real, editable elements and the archetype CSS is installed if missing.',
+    parameters: {
+      type: 'object',
+      properties: {
+        archetype: {
+          type: 'string'
+        },
+        variant: {
+          type: 'string'
+        },
+        content: {
+          type: 'object',
+          additionalProperties: true
+        },
+        tokens: {
+          type: 'object',
+          additionalProperties: true
+        },
+        path: {
+          type: 'string'
+        },
+        id: {
+          type: 'string'
+        },
+        sticky: {
+          type: 'boolean'
+        }
+      },
+      required: ['archetype']
+    }
+  }, {
+    name: 'set_design_tokens',
+    description: 'Set the page design tokens (the design system). tokens is { colors: { background, surface, text, muted, accent, accentContrast, border }, typography: { fontFamily, headingFamily, baseSize, scale, lineHeight, headingWeight, headingTracking, textWidth }, shape: { radius, radiusSmall, borderWidth }, spacing: { contentWidth, pageGutter, sectionGap, blockGap, sectionPadding }, motion: { duration, easing, stagger } }. Writes the page theme and the CSS custom properties, so every archetype section and every token-aware rule follows.',
+    parameters: {
+      type: 'object',
+      properties: {
+        tokens: {
+          type: 'object',
+          additionalProperties: true
+        }
+      },
+      required: ['tokens']
+    }
+  }, {
+    name: 'list_archetypes',
+    description: 'List the named section archetypes and their variants, the built-in theme presets, and the current design tokens. Call before composing.',
+    parameters: {
+      type: 'object',
+      properties: {}
+    }
+  }, {
     name: 'replace_page',
     description: 'Compose an original page or app interface as a complete recursive native element tree in one undo step. Use responsive node styles for editable layout, typography, fills, and effects; optional custom CSS/JS enhances the native elements. Preserve existing content unless the request calls for replacement.',
     parameters: {
@@ -5458,7 +5689,7 @@ function createCopilotTools(runtime, builder) {
       properties: {}
     }
   }];
-  var MUTATING_TOOLS = new Set(['set_shader_fill', 'set_interactions', 'set_motion_group', 'set_sticky', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
+  var MUTATING_TOOLS = new Set(['set_shader_fill', 'set_interactions', 'set_motion_group', 'set_sticky', 'compose_landing_page', 'compose_page', 'compose_section', 'set_design_tokens', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
   var context = function context() {
     var _builder$iframe, _builder$iframe2;
     return {
@@ -5554,6 +5785,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 
 var MIME_TYPE = 'application/x-ink-element-type';
 var MIME_ID = 'application/x-ink-element-id';
+var MIME_ARCHETYPE = 'application/x-ink-archetype';
+var MIME_VARIANT = 'application/x-ink-archetype-variant';
 var SHARED_SLOT = '__inkDragPayload';
 var DEVICES = ['desktop', 'tablet', 'mobile'];
 var isSet = function isSet(value) {
@@ -5630,6 +5863,14 @@ var DragDropManager = /*#__PURE__*/function () {
 
       // ---- Library (parent document): start of a new-element drag ----
       (_this$library = this.library) === null || _this$library === void 0 || _this$library.addEventListener('dragstart', function (event) {
+        var section = event.target.closest('[data-ink-archetype]');
+        if (section) {
+          _this.beginDrag({
+            archetype: section.dataset.inkArchetype,
+            variant: section.dataset.inkArchetypeVariant || undefined
+          }, event, parent);
+          return;
+        }
         var item = event.target.closest('[data-ink-element-type]');
         if (!item) return;
         _this.beginDrag({
@@ -7006,7 +7247,9 @@ var DragDropManager = /*#__PURE__*/function () {
           var _this$runtime$documen, _this$runtime$element3;
           transfer.setData(MIME_TYPE, payload.type || '');
           transfer.setData(MIME_ID, payload.id || '');
-          var label = payload.id ? this.runtime.elements.get(((_this$runtime$documen = this.runtime.document.get(payload.id)) === null || _this$runtime$documen === void 0 ? void 0 : _this$runtime$documen.type) || '').title : ((_this$runtime$element3 = this.runtime.elements.get(payload.type)) === null || _this$runtime$element3 === void 0 ? void 0 : _this$runtime$element3.title) || '';
+          transfer.setData(MIME_ARCHETYPE, payload.archetype || '');
+          transfer.setData(MIME_VARIANT, payload.variant || '');
+          var label = payload.id ? this.runtime.elements.get(((_this$runtime$documen = this.runtime.document.get(payload.id)) === null || _this$runtime$documen === void 0 ? void 0 : _this$runtime$documen.type) || '').title : payload.archetype ? this.archetypeLabel(payload.archetype) : ((_this$runtime$element3 = this.runtime.elements.get(payload.type)) === null || _this$runtime$element3 === void 0 ? void 0 : _this$runtime$element3.title) || '';
           transfer.setData('text/plain', label || '');
         } catch (_) {/* dataTransfer may be read-only during synthetic drags */}
       }
@@ -7015,13 +7258,20 @@ var DragDropManager = /*#__PURE__*/function () {
       this.removeGhost();
       this.ghost = host.createElement('div');
       this.ghost.className = 'ink-drag-ghost';
-      this.ghost.textContent = payload.id ? this.runtime.elements.get(((_this$runtime$documen2 = this.runtime.document.get(payload.id)) === null || _this$runtime$documen2 === void 0 ? void 0 : _this$runtime$documen2.type) || '').title : ((_this$runtime$element4 = this.runtime.elements.get(payload.type)) === null || _this$runtime$element4 === void 0 ? void 0 : _this$runtime$element4.title) || payload.type;
+      this.ghost.textContent = payload.id ? this.runtime.elements.get(((_this$runtime$documen2 = this.runtime.document.get(payload.id)) === null || _this$runtime$documen2 === void 0 ? void 0 : _this$runtime$documen2.type) || '').title : payload.archetype ? this.archetypeLabel(payload.archetype) : ((_this$runtime$element4 = this.runtime.elements.get(payload.type)) === null || _this$runtime$element4 === void 0 ? void 0 : _this$runtime$element4.title) || payload.type;
       host.body.appendChild(this.ghost);
       if (transfer) {
         try {
           transfer.setDragImage(this.ghost, 20, 20);
         } catch (_) {}
       }
+    }
+  }, {
+    key: "archetypeLabel",
+    value: function archetypeLabel(name) {
+      var _this$library2;
+      var item = (((_this$library2 = this.library) === null || _this$library2 === void 0 ? void 0 : _this$library2.querySelector("[data-ink-archetype=\"".concat(CSS.escape(String(name)), "\"]"))) || {}).textContent;
+      return (item || String(name)).trim();
     }
   }, {
     key: "removeGhost",
@@ -7034,33 +7284,41 @@ var DragDropManager = /*#__PURE__*/function () {
   }, {
     key: "isActiveDrag",
     value: function isActiveDrag() {
-      var _this$drag, _this$drag2;
-      if ((_this$drag = this.drag) !== null && _this$drag !== void 0 && _this$drag.type || (_this$drag2 = this.drag) !== null && _this$drag2 !== void 0 && _this$drag2.id) return true;
+      var _this$drag, _this$drag2, _this$drag3;
+      if ((_this$drag = this.drag) !== null && _this$drag !== void 0 && _this$drag.type || (_this$drag2 = this.drag) !== null && _this$drag2 !== void 0 && _this$drag2.id || (_this$drag3 = this.drag) !== null && _this$drag3 !== void 0 && _this$drag3.archetype) return true;
       try {
         var shared = window[SHARED_SLOT];
-        if (shared !== null && shared !== void 0 && shared.type || shared !== null && shared !== void 0 && shared.id) return true;
+        if (shared !== null && shared !== void 0 && shared.type || shared !== null && shared !== void 0 && shared.id || shared !== null && shared !== void 0 && shared.archetype) return true;
       } catch (_) {}
       return false;
     }
   }, {
     key: "resolvePayload",
     value: function resolvePayload(event) {
-      var _this$drag3, _this$drag4;
+      var _this$drag4, _this$drag5, _this$drag6;
       var transfer = event === null || event === void 0 ? void 0 : event.dataTransfer;
       if (transfer) {
         try {
           var type = transfer.getData(MIME_TYPE);
           var id = transfer.getData(MIME_ID);
+          var archetype = transfer.getData(MIME_ARCHETYPE);
+          var variant = transfer.getData(MIME_VARIANT);
+          if (archetype) return {
+            type: null,
+            id: null,
+            archetype: archetype,
+            variant: variant || undefined
+          };
           if (type || id) return {
             type: type || null,
             id: id || null
           };
         } catch (_) {}
       }
-      if ((_this$drag3 = this.drag) !== null && _this$drag3 !== void 0 && _this$drag3.type || (_this$drag4 = this.drag) !== null && _this$drag4 !== void 0 && _this$drag4.id) return this.drag;
+      if ((_this$drag4 = this.drag) !== null && _this$drag4 !== void 0 && _this$drag4.type || (_this$drag5 = this.drag) !== null && _this$drag5 !== void 0 && _this$drag5.id || (_this$drag6 = this.drag) !== null && _this$drag6 !== void 0 && _this$drag6.archetype) return this.drag;
       try {
         var shared = window[SHARED_SLOT];
-        if (shared !== null && shared !== void 0 && shared.type || shared !== null && shared !== void 0 && shared.id) return shared;
+        if (shared !== null && shared !== void 0 && shared.type || shared !== null && shared !== void 0 && shared.id || shared !== null && shared !== void 0 && shared.archetype) return shared;
       } catch (_) {}
       return null;
     }
@@ -7241,7 +7499,19 @@ var DragDropManager = /*#__PURE__*/function () {
       this.endDrag();
       if (!payload || !intent) return;
       try {
-        if (payload.type) {
+        if (payload.archetype) {
+          // A section is a whole tree, and it carries design-system CSS with it, so the insert
+          // is handed to the builder (the `archetype:insert` event), not done inline here.
+          // `intent.parentId` is already the container to insert into (a before/after position
+          // is expressed as the sibling index inside its parent), so the section lands exactly
+          // where the drop line is drawn.
+          this.runtime.events.emit('archetype:insert', {
+            name: payload.archetype,
+            variant: payload.variant,
+            parentId: intent.parentId,
+            index: intent.index
+          });
+        } else if (payload.type) {
           var overrides = {};
           if (payload.type === 'columns') ({
             settings: {
@@ -9392,6 +9662,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
 /* harmony import */ var _editorIcons_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./editorIcons.js */ "./src/core/editorIcons.js");
 /* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
+/* harmony import */ var _sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./sectionArchetypes.js */ "./src/core/sectionArchetypes.js");
+/* harmony import */ var _designTokens_js__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./designTokens.js */ "./src/core/designTokens.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -9411,6 +9683,9 @@ function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Sym
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+
+
+
 
 
 
@@ -9749,12 +10024,39 @@ var PanelManager = /*#__PURE__*/function () {
         });
         siteParts.appendChild(button);
       });
-      var colors = section('Global colors');
-      Object.entries(_themeDefaults_js__WEBPACK_IMPORTED_MODULE_7__.DEFAULT_THEME_COLORS).forEach(function (_ref9) {
-        var _theme$colors;
+      // Design language: the token layer every archetype section reads from. A preset is a starting
+      // point, not a lock — the colour/type/shape controls below keep editing the same tokens.
+      var design = section('Design language');
+      var designNote = document.createElement('p');
+      designNote.className = 'ink-v2-control-note';
+      designNote.textContent = 'Tokens drive every section — colour, type, shape, spacing and motion. Pick a starting point, then fine-tune below.';
+      design.appendChild(designNote);
+      var presets = document.createElement('div');
+      presets.className = 'ink-v2-design-presets';
+      Object.entries(_designTokens_js__WEBPACK_IMPORTED_MODULE_9__.THEME_PRESETS).forEach(function (_ref9) {
         var _ref10 = _slicedToArray(_ref9, 2),
           name = _ref10[0],
-          fallback = _ref10[1];
+          preset = _ref10[1];
+        var tokens = (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_9__.presetTokens)(name);
+        var preview = (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_9__.tokenVariables)(tokens);
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'ink-v2-design-preset';
+        button.dataset.inkPreset = name;
+        button.title = "Apply the ".concat(preset.label, " design language");
+        button.innerHTML = "<span class=\"ink-v2-design-swatch\" style=\"background:".concat(preview['--ink-t-bg'], ";border-color:").concat(preview['--ink-t-accent'], ";color:").concat(preview['--ink-t-text'], "\">Aa</span><span>").concat(preset.label, "</span>");
+        button.addEventListener('click', function () {
+          return _this3.applyDesignPreset(name);
+        });
+        presets.appendChild(button);
+      });
+      design.appendChild(presets);
+      var colors = section('Global colors');
+      Object.entries(_themeDefaults_js__WEBPACK_IMPORTED_MODULE_7__.DEFAULT_THEME_COLORS).forEach(function (_ref11) {
+        var _theme$colors;
+        var _ref12 = _slicedToArray(_ref11, 2),
+          name = _ref12[0],
+          fallback = _ref12[1];
         return field(colors, name[0].toUpperCase() + name.slice(1), ((_theme$colors = theme.colors) === null || _theme$colors === void 0 ? void 0 : _theme$colors[name]) || fallback, 'color', function (value) {
           return _this3.updateTheme('colors', name, value);
         });
@@ -9863,6 +10165,23 @@ var PanelManager = /*#__PURE__*/function () {
       });
       return wrapper;
     }
+
+    // Applying a preset writes the token root block AND the page theme, as one undoable change.
+  }, {
+    key: "applyDesignPreset",
+    value: function applyDesignPreset(name) {
+      var _THEME_PRESETS$name;
+      var builder = window.builder;
+      var customCode = builder === null || builder === void 0 ? void 0 : builder.customCode;
+      if (!customCode) return;
+      (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_9__.applyDesignTokens)({
+        runtime: this.runtime,
+        customCode: customCode
+      }, (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_9__.presetTokens)(name), {
+        label: "Apply ".concat(((_THEME_PRESETS$name = _designTokens_js__WEBPACK_IMPORTED_MODULE_9__.THEME_PRESETS[name]) === null || _THEME_PRESETS$name === void 0 ? void 0 : _THEME_PRESETS$name.label) || name, " theme")
+      });
+      this.render();
+    }
   }, {
     key: "updateTheme",
     value: function updateTheme(group, name, value) {
@@ -9953,11 +10272,12 @@ var PanelManager = /*#__PURE__*/function () {
       var search = document.createElement('input');
       search.type = 'search';
       search.className = 'ink-v2-search';
-      search.placeholder = 'Search elements';
+      search.placeholder = 'Search elements and sections';
       var groups = document.createElement('div');
       var draw = function draw() {
         var query = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
         groups.replaceChildren();
+        _this4.renderSectionLibrary(groups, query);
         var definitions = _this4.runtime.elements.list().filter(function (definition) {
           return !definition.internal && !definition.legacy && "".concat(definition.title, " ").concat(definition.keywords.join(' ')).toLowerCase().includes(query.toLowerCase());
         });
@@ -9999,6 +10319,50 @@ var PanelManager = /*#__PURE__*/function () {
       draw();
       wrapper.append(search, groups);
       return wrapper;
+    }
+
+    // Named, editable sections — the same archetype vocabulary the Copilot composes with. Placed
+    // first because a page is built from sections, then from elements inside them; a click or a
+    // drop both go through the runtime's `archetype:insert` event.
+  }, {
+    key: "renderSectionLibrary",
+    value: function renderSectionLibrary(host) {
+      var _this5 = this;
+      var query = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+      var search = String(query || '').toLowerCase();
+      var entries = (0,_sectionArchetypes_js__WEBPACK_IMPORTED_MODULE_8__.listArchetypes)().filter(function (entry) {
+        return !search || "".concat(entry.label, " ").concat(entry.name, " ").concat(entry.category, " ").concat(entry.description, " ").concat(entry.variants.join(' ')).toLowerCase().includes(search) || 'sections'.includes(search) || 'block'.includes(search);
+      });
+      if (!entries.length) return;
+      var section = document.createElement('details');
+      section.className = 'ink-v2-library-section ink-v2-library-sections';
+      section.open = true;
+      section.innerHTML = "<summary><strong>Sections</strong><span class=\"material-symbols-rounded\">expand_more</span></summary><div class=\"ink-v2-library-grid\"></div>";
+      var grid = section.querySelector('.ink-v2-library-grid');
+      entries.forEach(function (entry) {
+        var item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'ink-v2-library-item ink-v2-library-item--section';
+        item.draggable = true;
+        item.dataset.inkArchetype = entry.name;
+        item.dataset.inkArchetypeVariant = entry.variants[0];
+        item.title = "".concat(entry.label, " \u2014 ").concat(entry.description);
+        item.innerHTML = "<span class=\"material-symbols-rounded\">".concat(_editorIcons_js__WEBPACK_IMPORTED_MODULE_6__.SECTION_ICONS[entry.category] || 'view_quilt', "</span><span>").concat(entry.label, "</span>");
+        item.addEventListener('click', function () {
+          return _this5.insertArchetype(entry.name, entry.variants[0]);
+        });
+        grid.appendChild(item);
+      });
+      host.appendChild(section);
+    }
+  }, {
+    key: "insertArchetype",
+    value: function insertArchetype(name, variant) {
+      this.runtime.events.emit('archetype:insert', {
+        name: name,
+        variant: variant,
+        parentId: this.insertionParentId || null
+      });
     }
   }, {
     key: "insertDefinition",
@@ -10049,7 +10413,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renderSettings",
     value: function renderSettings() {
-      var _this5 = this,
+      var _this6 = this,
         _node$settings$import;
       var node = this.runtime.document.get(this.runtime.selection.selectedId);
       if (!node) {
@@ -10058,7 +10422,7 @@ var PanelManager = /*#__PURE__*/function () {
         empty.innerHTML = '<span class="material-symbols-rounded">touch_app</span><h2>Make it yours</h2><p>Select a layer to adjust its layout, appearance, and behavior. Double-click text to write directly on the canvas.</p><button type="button" data-start="frame">Draw a frame <kbd>F</kbd></button><button type="button" data-start="heading">Add text <kbd>T</kbd></button><button type="button" data-start="elements">Explore elements <kbd>I</kbd></button>';
         empty.querySelectorAll('[data-start]').forEach(function (button) {
           return button.addEventListener('click', function () {
-            if (button.dataset.start === 'elements') _this5.runtime.events.emit('library:open', {});else _this5.runtime.panel.insertDefinition(button.dataset.start);
+            if (button.dataset.start === 'elements') _this6.runtime.events.emit('library:open', {});else _this6.runtime.panel.insertDefinition(button.dataset.start);
           });
         });
         return empty;
@@ -10069,9 +10433,9 @@ var PanelManager = /*#__PURE__*/function () {
       var wrapper = document.createElement('div');
       wrapper.innerHTML = "<div class=\"ink-v2-element-title\"><button type=\"button\" data-back aria-label=\"Back to elements\"><span class=\"material-symbols-rounded\">arrow_back</span></button><span class=\"ink-v2-edit-label\">Edit</span><strong>".concat(definition.title).concat(titleSuffix, "</strong></div><div class=\"ink-v2-control-tabs\"></div><div class=\"ink-v2-controls\"></div>");
       wrapper.querySelector('[data-back]').addEventListener('click', function () {
-        _this5.runtime.selection.clear();
+        _this6.runtime.selection.clear();
         if (window.sidebarTabManager) window.sidebarTabManager.openTab(document.querySelector('[data-tab="widgets"]'));
-        var main = _this5.runtime.panel;
+        var main = _this6.runtime.panel;
         if (main) {
           main.route = 'elements';
           main.render();
@@ -10084,7 +10448,7 @@ var PanelManager = /*#__PURE__*/function () {
       name.value = node.settings.label || ((_node$settings$import = node.settings.importedAttributes) === null || _node$settings$import === void 0 ? void 0 : _node$settings$import['data-framer-name']) || definition.title;
       name.setAttribute('aria-label', 'Layer name');
       name.addEventListener('change', function () {
-        return _this5.runtime.update(node.id, {
+        return _this6.runtime.update(node.id, {
           settings: {
             label: name.value.trim() || definition.title
           }
@@ -10098,16 +10462,16 @@ var PanelManager = /*#__PURE__*/function () {
       page.type = 'button';
       page.textContent = 'Page';
       page.addEventListener('click', function () {
-        return _this5.runtime.selection.clear();
+        return _this6.runtime.selection.clear();
       });
       path.appendChild(page);
       ancestors.forEach(function (ancestor) {
         var _ancestor$settings$im;
         var button = document.createElement('button');
         button.type = 'button';
-        button.textContent = ancestor.settings.label || ((_ancestor$settings$im = ancestor.settings.importedAttributes) === null || _ancestor$settings$im === void 0 ? void 0 : _ancestor$settings$im['data-framer-name']) || _this5.runtime.elements.get(ancestor.type).title;
+        button.textContent = ancestor.settings.label || ((_ancestor$settings$im = ancestor.settings.importedAttributes) === null || _ancestor$settings$im === void 0 ? void 0 : _ancestor$settings$im['data-framer-name']) || _this6.runtime.elements.get(ancestor.type).title;
         button.addEventListener('click', function () {
-          return _this5.runtime.selection.select(ancestor.id);
+          return _this6.runtime.selection.select(ancestor.id);
         });
         path.append('›', button);
       });
@@ -10134,16 +10498,16 @@ var PanelManager = /*#__PURE__*/function () {
         }], ['Grid', {
           display: 'grid',
           'grid-template-columns': 'repeat(2, minmax(0, 1fr))'
-        }]].forEach(function (_ref11) {
-          var _ref12 = _slicedToArray(_ref11, 2),
-            label = _ref12[0],
-            patch = _ref12[1];
+        }]].forEach(function (_ref13) {
+          var _ref14 = _slicedToArray(_ref13, 2),
+            label = _ref14[0],
+            patch = _ref14[1];
           var button = document.createElement('button');
           button.type = 'button';
           button.textContent = label;
           button.setAttribute('aria-pressed', String(active === label));
           button.addEventListener('click', function () {
-            return _this5.runtime.update(node.id, {
+            return _this6.runtime.update(node.id, {
               styles: _defineProperty({}, device, {
                 base: patch
               })
@@ -10175,11 +10539,11 @@ var PanelManager = /*#__PURE__*/function () {
         }, definition.tabIcons || {});
         var button = document.createElement('button');
         button.type = 'button';
-        button.className = tab === _this5.activeTab ? 'is-active' : '';
+        button.className = tab === _this6.activeTab ? 'is-active' : '';
         button.innerHTML = "<span class=\"material-symbols-rounded\" aria-hidden=\"true\">".concat(icons[tab], "</span><span>").concat(labels[tab], "</span>");
         button.addEventListener('click', function () {
-          _this5.activeTab = tab;
-          _this5.render();
+          _this6.activeTab = tab;
+          _this6.render();
         });
         tabs.appendChild(button);
       });
@@ -10192,7 +10556,7 @@ var PanelManager = /*#__PURE__*/function () {
       var controlsHost = wrapper.querySelector('.ink-v2-controls');
       var sections = new Map();
       var tabControls = definition.controls.filter(function (control) {
-        return (_this5.activeTab === 'all' || control.tab === _this5.activeTab) && _this5.controlIsActive(control, node);
+        return (_this6.activeTab === 'all' || control.tab === _this6.activeTab) && _this6.controlIsActive(control, node);
       });
       if (['all', 'style'].includes(this.activeTab) && node.type !== 'shader' && !tabControls.some(function (control) {
         return control.type === 'background';
@@ -10260,10 +10624,10 @@ var PanelManager = /*#__PURE__*/function () {
           _section.dataset.section = String(control.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
           _section.open = control.section !== 'Additional Options';
           _section.innerHTML = "<summary><span>".concat(control.section === 'Positioning' ? 'Position' : control.section, "</span><span class=\"ink-v2-section-chevron\" aria-hidden=\"true\">\u2304</span></summary>");
-          var key = "".concat(node.type, ":").concat(_this5.activeTab, ":").concat(control.section);
-          if (_this5.openSections.has(key)) _section.open = _this5.openSections.get(key);else if (_this5.activeTab === 'all') _section.open = ['Appearance', 'Layout', 'Positioning', 'Typography', 'Text', 'Content', 'Heading', 'Button', 'Image', 'Shader'].includes(control.section);
+          var key = "".concat(node.type, ":").concat(_this6.activeTab, ":").concat(control.section);
+          if (_this6.openSections.has(key)) _section.open = _this6.openSections.get(key);else if (_this6.activeTab === 'all') _section.open = ['Appearance', 'Layout', 'Positioning', 'Typography', 'Text', 'Content', 'Heading', 'Button', 'Image', 'Shader'].includes(control.section);
           _section.addEventListener('toggle', function () {
-            if (_section.isConnected) _this5.openSections.set(key, _section.open);
+            if (_section.isConnected) _this6.openSections.set(key, _section.open);
           });
           sections.set(control.section, _section);
           controlsHost.appendChild(_section);
@@ -10272,7 +10636,7 @@ var PanelManager = /*#__PURE__*/function () {
         if (control.states && !section.querySelector('.ink-v2-states')) {
           // The state switcher covers the CSS pseudo-class buckets plus every component
           // state the selected element type advertises (for example a dropdown's Open).
-          var _definition = _this5.runtime.elements.get(node.type);
+          var _definition = _this6.runtime.elements.get(node.type);
           var declaredStates = (0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateNames)(_definition, node.settings);
           var available = [].concat(_toConsumableArray(tabControls.filter(function (candidate) {
             return candidate.section === control.section && candidate.states;
@@ -10282,8 +10646,8 @@ var PanelManager = /*#__PURE__*/function () {
             return (0,_states_js__WEBPACK_IMPORTED_MODULE_2__.stateKey)(name);
           })));
           var stateOptions = _toConsumableArray(new Set(available));
-          var _active = stateOptions.includes(_this5.sectionStates.get(control.section)) ? _this5.sectionStates.get(control.section) : stateOptions[0];
-          _this5.sectionStates.set(control.section, _active);
+          var _active = stateOptions.includes(_this6.sectionStates.get(control.section)) ? _this6.sectionStates.get(control.section) : stateOptions[0];
+          _this6.sectionStates.set(control.section, _active);
           var states = document.createElement('div');
           states.className = 'ink-v2-states';
           var labels = _objectSpread({
@@ -10291,10 +10655,10 @@ var PanelManager = /*#__PURE__*/function () {
             hover: 'Hover',
             focus: 'Focus',
             active: 'Active'
-          }, Object.fromEntries(Object.entries((0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateLabels)(_this5.runtime.elements.get(node.type), node.settings)).map(function (_ref13) {
-            var _ref14 = _slicedToArray(_ref13, 2),
-              name = _ref14[0],
-              label = _ref14[1];
+          }, Object.fromEntries(Object.entries((0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateLabels)(_this6.runtime.elements.get(node.type), node.settings)).map(function (_ref15) {
+            var _ref16 = _slicedToArray(_ref15, 2),
+              name = _ref16[0],
+              label = _ref16[1];
             return [(0,_states_js__WEBPACK_IMPORTED_MODULE_2__.stateKey)(name), label];
           })));
           var select = document.createElement('select');
@@ -10307,15 +10671,15 @@ var PanelManager = /*#__PURE__*/function () {
             return event.stopPropagation();
           });
           select.addEventListener('change', function () {
-            _this5.sectionStates.set(control.section, select.value);
-            _this5.previewComponentState(node, select.value);
-            _this5.render();
+            _this6.sectionStates.set(control.section, select.value);
+            _this6.previewComponentState(node, select.value);
+            _this6.render();
           });
           states.appendChild(select);
           section.querySelector('summary').insertBefore(states, section.querySelector('.ink-v2-section-chevron'));
         }
-        var state = control.states ? _this5.sectionStates.get(control.section) || 'base' : control.state;
-        section.appendChild(_this5.renderControl(state ? _objectSpread(_objectSpread({}, control), {}, {
+        var state = control.states ? _this6.sectionStates.get(control.section) || 'base' : control.state;
+        section.appendChild(_this6.renderControl(state ? _objectSpread(_objectSpread({}, control), {}, {
           state: state
         }) : control, node));
       });
@@ -10324,15 +10688,15 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "controlIsActive",
     value: function controlIsActive(control, node) {
-      var _this6 = this;
+      var _this7 = this;
       if (!control.condition) return true;
       var test = function test(conditions) {
-        return Object.entries(conditions).every(function (_ref15) {
+        return Object.entries(conditions).every(function (_ref17) {
           var _node$styles$desktop2, _node$styles$tablet2, _node$styles$mobile2, _styles$name;
-          var _ref16 = _slicedToArray(_ref15, 2),
-            name = _ref16[0],
-            expected = _ref16[1];
-          var device = _this6.runtime.responsive.device;
+          var _ref18 = _slicedToArray(_ref17, 2),
+            name = _ref18[0],
+            expected = _ref18[1];
+          var device = _this7.runtime.responsive.device;
           var styles = _objectSpread(_objectSpread(_objectSpread(_objectSpread({}, node.styles.base), (_node$styles$desktop2 = node.styles.desktop) === null || _node$styles$desktop2 === void 0 ? void 0 : _node$styles$desktop2.base), device !== 'desktop' ? (_node$styles$tablet2 = node.styles.tablet) === null || _node$styles$tablet2 === void 0 ? void 0 : _node$styles$tablet2.base : {}), device === 'mobile' ? (_node$styles$mobile2 = node.styles.mobile) === null || _node$styles$mobile2 === void 0 ? void 0 : _node$styles$mobile2.base : {});
           // `children` is a structural predicate, not a style value: controls can show or hide
           // based on whether the element holds child elements (e.g. Tabs switches from its text
@@ -10389,7 +10753,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "setValue",
     value: function setValue(control, node, value) {
-      var _this7 = this;
+      var _this8 = this;
       var live = this.runtime.document.get(node.id);
       if (!live) return;
       // Batch edit: when multiple elements are selected, apply to all that share
@@ -10397,19 +10761,19 @@ var PanelManager = /*#__PURE__*/function () {
       // to a heading).
       var ids = _toConsumableArray(this.runtime.selection.selectedIds);
       var targets = ids.length > 1 ? ids.map(function (id) {
-        return _this7.runtime.document.get(id);
+        return _this8.runtime.document.get(id);
       }).filter(function (n) {
         return n && n.type === node.type;
       }) : [node];
       targets.forEach(function (target) {
         if (control.target === 'settings' || control.target !== 'styles' && control.tab === 'content') {
-          _this7.runtime.update(target.id, {
+          _this8.runtime.update(target.id, {
             settings: _defineProperty({}, control.name, value)
           }, "Change ".concat(control.label));
         } else {
-          var device = _this7.runtime.responsive.device;
+          var device = _this8.runtime.responsive.device;
           var location = (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_1__.resolveLocation)(control, device);
-          _this7.runtime.update(target.id, {
+          _this8.runtime.update(target.id, {
             styles: _defineProperty({}, location.device, _defineProperty({}, location.state, _defineProperty({}, control.name, value)))
           }, "Change ".concat(control.label));
         }
@@ -10444,7 +10808,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renderResponsiveSwitcher",
     value: function renderResponsiveSwitcher(control, node) {
-      var _this8 = this;
+      var _this9 = this;
       var device = this.runtime.responsive.device;
       var icons = {
         desktop: 'desktop_windows',
@@ -10469,9 +10833,9 @@ var PanelManager = /*#__PURE__*/function () {
         button.setAttribute('role', 'menuitem');
         button.innerHTML = "<span class=\"material-symbols-rounded\">".concat(icons[name], "</span><span>").concat(name[0].toUpperCase() + name.slice(1), "</span>");
         button.addEventListener('click', function () {
-          _this8.setDevice(name);
+          _this9.setDevice(name);
           holder.classList.remove('is-open');
-          _this8.render();
+          _this9.render();
         });
         popover.appendChild(button);
       });
@@ -10580,7 +10944,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renderControl",
     value: function renderControl(control, node) {
-      var _this9 = this;
+      var _this10 = this;
       var row = document.createElement('div');
       row.className = 'ink-v2-control';
       // Stable identifier so render() can restore focus to the same control after a live edit.
@@ -10640,7 +11004,7 @@ var PanelManager = /*#__PURE__*/function () {
           button.setAttribute('role', 'radio');
           button.setAttribute('aria-checked', value === valueFor(option) ? 'true' : 'false');
           button.addEventListener('click', function () {
-            return _this9.setValue(control, node, valueFor(option));
+            return _this10.setValue(control, node, valueFor(option));
           });
           input.appendChild(button);
         });
@@ -10664,7 +11028,7 @@ var PanelManager = /*#__PURE__*/function () {
         unit.value = (value === null || value === void 0 ? void 0 : value.unit) || ((_control$units = control.units) === null || _control$units === void 0 ? void 0 : _control$units[0]) || 'px';
         input.append(number, unit);
         var _commit = function _commit() {
-          return _this9.setValue(control, node, number.value === '' ? '' : {
+          return _this10.setValue(control, node, number.value === '' ? '' : {
             size: Number(number.value),
             unit: unit.value
           });
@@ -10687,7 +11051,7 @@ var PanelManager = /*#__PURE__*/function () {
       }
       var commit = function commit() {
         var next = input.value;
-        _this9.setValue(control, node, next);
+        _this10.setValue(control, node, next);
       };
       input.addEventListener('change', commit);
       input.addEventListener('blur', commit);
@@ -10705,7 +11069,7 @@ var PanelManager = /*#__PURE__*/function () {
         reset.title = 'Inherit from wider device';
         reset.innerHTML = '<span class="material-symbols-rounded">restart_alt</span>';
         reset.addEventListener('click', function () {
-          return _this9.setValue(control, node, '');
+          return _this10.setValue(control, node, '');
         });
         row.appendChild(reset);
       }
@@ -10714,7 +11078,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "renderNavigator",
     value: function renderNavigator() {
-      var _this10 = this;
+      var _this11 = this;
       var wrapper = document.createElement('div');
       wrapper.className = 'ink-v2-navigator';
       var list = document.createElement('ul');
@@ -10725,18 +11089,18 @@ var PanelManager = /*#__PURE__*/function () {
         var row = document.createElement('div');
         row.className = 'ink-v2-navigator-row';
         row.setAttribute('role', 'treeitem');
-        if ((_node$children = node.children) !== null && _node$children !== void 0 && _node$children.length) row.setAttribute('aria-expanded', _this10.expandedNodes.has(node.id) ? 'true' : 'false');
-        var definition = _this10.runtime.elements.get(node.type);
+        if ((_node$children = node.children) !== null && _node$children !== void 0 && _node$children.length) row.setAttribute('aria-expanded', _this11.expandedNodes.has(node.id) ? 'true' : 'false');
+        var definition = _this11.runtime.elements.get(node.type);
         var toggle = document.createElement('button');
         toggle.type = 'button';
         toggle.className = 'ink-v2-navigator-toggle';
-        toggle.textContent = (_node$children2 = node.children) !== null && _node$children2 !== void 0 && _node$children2.length ? _this10.expandedNodes.has(node.id) ? '⌄' : '›' : '';
+        toggle.textContent = (_node$children2 = node.children) !== null && _node$children2 !== void 0 && _node$children2.length ? _this11.expandedNodes.has(node.id) ? '⌄' : '›' : '';
         toggle.disabled = !((_node$children3 = node.children) !== null && _node$children3 !== void 0 && _node$children3.length);
         toggle.setAttribute('aria-label', (_node$children4 = node.children) !== null && _node$children4 !== void 0 && _node$children4.length ? 'Toggle children' : '');
         toggle.addEventListener('click', function (event) {
           event.preventDefault();
           event.stopPropagation();
-          _this10.toggleNavigatorCollapse(node.id);
+          _this11.toggleNavigatorCollapse(node.id);
         });
         row.appendChild(toggle);
         var button = document.createElement('button');
@@ -10751,30 +11115,30 @@ var PanelManager = /*#__PURE__*/function () {
         elementLabel.title = elementLabel.textContent;
         button.title = elementLabel.textContent;
         button.append(elementIcon, elementLabel);
-        if (node.id === _this10.runtime.selection.selectedId) button.classList.add('is-active');
+        if (node.id === _this11.runtime.selection.selectedId) button.classList.add('is-active');
         if (node.settings.hidden) button.classList.add('is-hidden');
         if (node.settings.locked) button.classList.add('is-locked');
         button.addEventListener('click', function (event) {
-          _this10.runtime.selection.select(node.id, {
+          _this11.runtime.selection.select(node.id, {
             additive: event.shiftKey || event.metaKey || event.ctrlKey
           });
-          _this10.route = 'navigator';
-          _this10.render();
-          _this10.scrollCanvasTo(node.id);
+          _this11.route = 'navigator';
+          _this11.render();
+          _this11.scrollCanvasTo(node.id);
         });
         button.addEventListener('pointerenter', function () {
-          return _this10.runtime.selection.hover(node.id);
+          return _this11.runtime.selection.hover(node.id);
         });
         button.addEventListener('pointerleave', function () {
-          return _this10.runtime.selection.hover(null);
+          return _this11.runtime.selection.hover(null);
         });
         button.addEventListener('dblclick', function (event) {
           event.preventDefault();
           event.stopPropagation();
-          _this10.renameNavigatorNode(node, button);
+          _this11.renameNavigatorNode(node, button);
         });
         button.addEventListener('dragstart', function () {
-          _this10.navigatorDragId = node.id;
+          _this11.navigatorDragId = node.id;
         });
         row.appendChild(button);
         var tools = document.createElement('span');
@@ -10788,7 +11152,7 @@ var PanelManager = /*#__PURE__*/function () {
         visibility.addEventListener('click', function (event) {
           event.preventDefault();
           event.stopPropagation();
-          _this10.runtime.update(node.id, {
+          _this11.runtime.update(node.id, {
             settings: {
               hidden: !node.settings.hidden
             }
@@ -10804,7 +11168,7 @@ var PanelManager = /*#__PURE__*/function () {
         lock.addEventListener('click', function (event) {
           event.preventDefault();
           event.stopPropagation();
-          _this10.runtime.update(node.id, {
+          _this11.runtime.update(node.id, {
             settings: {
               locked: !node.settings.locked
             }
@@ -10813,25 +11177,25 @@ var PanelManager = /*#__PURE__*/function () {
         tools.appendChild(lock);
         row.appendChild(tools);
         row.addEventListener('dragover', function (event) {
-          return _this10.navigatorDragOver(event, row, node);
+          return _this11.navigatorDragOver(event, row, node);
         });
         row.addEventListener('dragleave', function () {
           row.classList.remove('is-drop-target');
           delete row.dataset.inkNavDrop;
         });
         row.addEventListener('drop', function (event) {
-          return _this10.navigatorDrop(event, row, node);
+          return _this11.navigatorDrop(event, row, node);
         });
         row.addEventListener('contextmenu', function (event) {
           event.preventDefault();
           event.stopPropagation();
           // Preserve an existing multi-selection when opening its context menu so the
           // user can group those layers just like in a design tool.
-          if (!_this10.runtime.selection.selectedIds.has(node.id)) _this10.runtime.selection.select(node.id);
-          _this10.openNavigatorMenu(event, node, button);
+          if (!_this11.runtime.selection.selectedIds.has(node.id)) _this11.runtime.selection.select(node.id);
+          _this11.openNavigatorMenu(event, node, button);
         });
         item.appendChild(row);
-        if ((_node$children5 = node.children) !== null && _node$children5 !== void 0 && _node$children5.length && _this10.expandedNodes.has(node.id)) {
+        if ((_node$children5 = node.children) !== null && _node$children5 !== void 0 && _node$children5.length && _this11.expandedNodes.has(node.id)) {
           var children = document.createElement('ul');
           node.children.forEach(function (child) {
             return children.appendChild(_renderNode(child));
@@ -10846,7 +11210,7 @@ var PanelManager = /*#__PURE__*/function () {
       wrapper.appendChild(list);
       wrapper.setAttribute('role', 'tree');
       wrapper.addEventListener('keydown', function (event) {
-        return _this10.navigatorKeydown(event, wrapper);
+        return _this11.navigatorKeydown(event, wrapper);
       });
       return wrapper;
     }
@@ -10860,12 +11224,12 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "revealNavigatorSelection",
     value: function revealNavigatorSelection() {
-      var _this11 = this;
+      var _this12 = this;
       var selectedId = this.runtime.selection.selectedId;
       if (!selectedId) return;
       var path = this.runtime.document.pathTo(selectedId) || [];
       path.slice(0, -1).forEach(function (ancestor) {
-        return _this11.expandedNodes.add(ancestor.id);
+        return _this12.expandedNodes.add(ancestor.id);
       });
       this.persistNavigatorExpansion();
     }
@@ -10894,7 +11258,7 @@ var PanelManager = /*#__PURE__*/function () {
     key: "renameNavigatorNode",
     value: function renameNavigatorNode(node, button) {
       var _node$settings$import3,
-        _this12 = this;
+        _this13 = this;
       var label = button.querySelector('[data-ink-navigator-label]');
       var definition = this.runtime.elements.get(node.type);
       var input = document.createElement('input');
@@ -10904,7 +11268,7 @@ var PanelManager = /*#__PURE__*/function () {
       input.focus();
       input.select();
       var commit = function commit() {
-        return _this12.runtime.update(node.id, {
+        return _this13.runtime.update(node.id, {
           settings: {
             label: input.value.trim()
           }
@@ -10915,7 +11279,7 @@ var PanelManager = /*#__PURE__*/function () {
       });
       input.addEventListener('keydown', function (key) {
         if (key.key === 'Enter') input.blur();
-        if (key.key === 'Escape') _this12.render();
+        if (key.key === 'Escape') _this13.render();
       });
     }
   }, {
@@ -10968,7 +11332,7 @@ var PanelManager = /*#__PURE__*/function () {
   }, {
     key: "openNavigatorMenu",
     value: function openNavigatorMenu(event, node, button) {
-      var _this13 = this,
+      var _this14 = this,
         _node$settings2,
         _node$settings3;
       this.closeNavigatorMenu();
@@ -10978,32 +11342,32 @@ var PanelManager = /*#__PURE__*/function () {
       var selectedIds = _toConsumableArray(this.runtime.selection.selectedIds);
       var canGroup = this.runtime.canGroupSelection(selectedIds);
       var actions = [['edit', 'edit', 'Edit', function () {
-        return _this13.runtime.selection.select(node.id);
+        return _this14.runtime.selection.select(node.id);
       }]].concat(_toConsumableArray(canGroup ? [['frame', 'crop', 'Frame selected layers', function () {
-        return _this13.runtime.frameSelection(selectedIds);
+        return _this14.runtime.frameSelection(selectedIds);
       }]] : []), _toConsumableArray(node.type === 'frame' && (_node$settings2 = node.settings) !== null && _node$settings2 !== void 0 && _node$settings2.frameSelection ? [['unframe', 'ungroup', 'Unframe', function () {
-        return _this13.runtime.unframe(node.id);
+        return _this14.runtime.unframe(node.id);
       }]] : []), _toConsumableArray(canGroup ? [['group', 'group', 'Group selected layers', function () {
-        return _this13.runtime.groupSelection(selectedIds);
+        return _this14.runtime.groupSelection(selectedIds);
       }]] : []), _toConsumableArray(node.type === 'group' && (_node$settings3 = node.settings) !== null && _node$settings3 !== void 0 && _node$settings3.grouping ? [['ungroup', 'ungroup', 'Ungroup', function () {
-        return _this13.runtime.ungroup(node.id);
+        return _this14.runtime.ungroup(node.id);
       }]] : []), [['duplicate', 'content_copy', 'Duplicate', function () {
-        return _this13.runtime.duplicate(node.id);
+        return _this14.runtime.duplicate(node.id);
       }], ['copy', 'content_copy', 'Copy', function () {
-        return _this13.runtime.copy(node.id);
+        return _this14.runtime.copy(node.id);
       }], ['paste', 'content_paste', 'Paste', function () {
-        return _this13.runtime.paste(node.id);
+        return _this14.runtime.paste(node.id);
       }], ['rename', 'edit_note', 'Rename', function () {
-        return _this13.renameNavigatorNode(node, button);
+        return _this14.renameNavigatorNode(node, button);
       }], ['delete', 'delete', 'Delete', function () {
-        return _this13.runtime.remove(node.id);
+        return _this14.runtime.remove(node.id);
       }]]);
-      actions.forEach(function (_ref17) {
-        var _ref18 = _slicedToArray(_ref17, 4),
-          action = _ref18[0],
-          icon = _ref18[1],
-          label = _ref18[2],
-          run = _ref18[3];
+      actions.forEach(function (_ref19) {
+        var _ref20 = _slicedToArray(_ref19, 4),
+          action = _ref20[0],
+          icon = _ref20[1],
+          label = _ref20[2],
+          run = _ref20[3];
         var item = document.createElement('button');
         item.type = 'button';
         item.dataset.action = action;
@@ -11013,7 +11377,7 @@ var PanelManager = /*#__PURE__*/function () {
         item.append(actionIcon, actionLabel);
         item.addEventListener('click', function () {
           run();
-          _this13.closeNavigatorMenu();
+          _this14.closeNavigatorMenu();
         });
         menu.appendChild(item);
       });
@@ -16472,6 +16836,893 @@ function interactions(panel, control, node, value, row) {
 
 /***/ }),
 
+/***/ "./src/core/designTokens.js":
+/*!**********************************!*\
+  !*** ./src/core/designTokens.js ***!
+  \**********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   ARCHETYPE_CSS: () => (/* binding */ ARCHETYPE_CSS),
+/* harmony export */   COMPONENT_CSS: () => (/* binding */ COMPONENT_CSS),
+/* harmony export */   DEFAULT_TOKENS: () => (/* binding */ DEFAULT_TOKENS),
+/* harmony export */   SECTION_CSS: () => (/* binding */ SECTION_CSS),
+/* harmony export */   THEME_PRESETS: () => (/* binding */ THEME_PRESETS),
+/* harmony export */   applyDesignTokens: () => (/* binding */ applyDesignTokens),
+/* harmony export */   describeTokens: () => (/* binding */ describeTokens),
+/* harmony export */   designCss: () => (/* binding */ designCss),
+/* harmony export */   ensureDesignCss: () => (/* binding */ ensureDesignCss),
+/* harmony export */   normalizeTokens: () => (/* binding */ normalizeTokens),
+/* harmony export */   presetNames: () => (/* binding */ presetNames),
+/* harmony export */   presetTokens: () => (/* binding */ presetTokens),
+/* harmony export */   themeSettings: () => (/* binding */ themeSettings),
+/* harmony export */   tokenCssBlock: () => (/* binding */ tokenCssBlock),
+/* harmony export */   tokenVariables: () => (/* binding */ tokenVariables),
+/* harmony export */   tokensFromEvidence: () => (/* binding */ tokensFromEvidence),
+/* harmony export */   tokensFromPageSettings: () => (/* binding */ tokensFromPageSettings)
+/* harmony export */ });
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+// The Ink design system: the vocabulary every page is built from.
+//
+// A page's design language is a small set of TOKENS -- palette, type scale, shape, spacing, motion
+// -- not a stylesheet. Tokens are stored on the page (`settings.theme`, which the style engine
+// already compiles into `--ink-color-*` and friends), mirrored into CSS custom properties, and
+// consumed by the section archetypes. That is what makes a design reproducible: a human changes a
+// token in the panel and every archetype section restyles; the Copilot sets the same tokens; the
+// importer reads them back out of a captured site.
+//
+// Everything here is data plus one pure function to render CSS from it. No runtime, no framework.
+
+var HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+var EASING = /^(?:[a-z-]+|cubic-bezier\([\d.,\s-]+\)|steps\([\d,\s-]+\))$/i;
+var FONT_STACK = /^[a-zA-Z0-9 ,"'_-]+$/;
+var clamp = function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+};
+var number = function number(value, fallback) {
+  var parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+var safeColor = function safeColor(value, fallback) {
+  return HEX.test(String(value !== null && value !== void 0 ? value : '').trim()) ? String(value).trim() : fallback;
+};
+var safeFont = function safeFont(value, fallback) {
+  return FONT_STACK.test(String(value !== null && value !== void 0 ? value : '').trim()) ? String(value).trim().slice(0, 160) : fallback;
+};
+var DEFAULT_TOKENS = Object.freeze({
+  colors: Object.freeze({
+    background: '#ffffff',
+    surface: '#f6f7f9',
+    text: '#14161a',
+    muted: '#6b7280',
+    accent: '#6750ff',
+    accentContrast: '#ffffff',
+    border: '#e5e7eb'
+  }),
+  typography: Object.freeze({
+    fontFamily: 'Inter,ui-sans-serif,system-ui,sans-serif',
+    headingFamily: '',
+    baseSize: 16,
+    scale: 1.25,
+    lineHeight: 1.6,
+    headingWeight: 600,
+    headingTracking: -0.02,
+    textWidth: 68
+  }),
+  shape: Object.freeze({
+    radius: 14,
+    radiusSmall: 8,
+    borderWidth: 1
+  }),
+  spacing: Object.freeze({
+    contentWidth: 1140,
+    pageGutter: 24,
+    sectionGap: 0,
+    blockGap: 24,
+    sectionPadding: 96
+  }),
+  motion: Object.freeze({
+    duration: 600,
+    easing: 'cubic-bezier(.16,1,.3,1)',
+    stagger: 80
+  })
+});
+
+// Named starting points. They are ordinary token sets, so an author can pick one and then edit any
+// single token -- the preset is a shortcut, never a lock.
+var THEME_PRESETS = Object.freeze({
+  editorial: {
+    label: 'Editorial',
+    tokens: {
+      colors: {
+        background: '#f4efe6',
+        surface: '#fffaf2',
+        text: '#171512',
+        muted: '#6f685e',
+        accent: '#f04e3e',
+        accentContrast: '#ffffff',
+        border: '#e2d9cb'
+      },
+      typography: {
+        fontFamily: 'Inter,ui-sans-serif,system-ui,sans-serif',
+        headingFamily: "Georgia,'Times New Roman',serif",
+        baseSize: 17,
+        scale: 1.33,
+        lineHeight: 1.6,
+        headingWeight: 500,
+        headingTracking: -0.045,
+        textWidth: 62
+      },
+      shape: {
+        radius: 6,
+        radiusSmall: 4,
+        borderWidth: 1
+      },
+      spacing: {
+        contentWidth: 1180,
+        pageGutter: 32,
+        sectionGap: 0,
+        blockGap: 28,
+        sectionPadding: 112
+      },
+      motion: {
+        duration: 700,
+        easing: 'cubic-bezier(.16,1,.3,1)',
+        stagger: 90
+      }
+    }
+  },
+  product: {
+    label: 'Product',
+    tokens: {
+      colors: {
+        background: '#ffffff',
+        surface: '#f5f7ff',
+        text: '#0f172a',
+        muted: '#64748b',
+        accent: '#4f46e5',
+        accentContrast: '#ffffff',
+        border: '#e2e8f0'
+      },
+      typography: {
+        fontFamily: 'Inter,ui-sans-serif,system-ui,sans-serif',
+        headingFamily: '',
+        baseSize: 16,
+        scale: 1.2,
+        lineHeight: 1.55,
+        headingWeight: 700,
+        headingTracking: -0.025,
+        textWidth: 66
+      },
+      shape: {
+        radius: 16,
+        radiusSmall: 10,
+        borderWidth: 1
+      },
+      spacing: {
+        contentWidth: 1200,
+        pageGutter: 24,
+        sectionGap: 0,
+        blockGap: 24,
+        sectionPadding: 92
+      },
+      motion: {
+        duration: 520,
+        easing: 'cubic-bezier(.16,1,.3,1)',
+        stagger: 70
+      }
+    }
+  },
+  aurora: {
+    label: 'Aurora',
+    tokens: {
+      colors: {
+        background: '#070b18',
+        surface: '#111a33',
+        text: '#f8fafc',
+        muted: '#9aa8c7',
+        accent: '#7dd3fc',
+        accentContrast: '#06121f',
+        border: '#22304f'
+      },
+      typography: {
+        fontFamily: 'Inter,ui-sans-serif,system-ui,sans-serif',
+        headingFamily: '',
+        baseSize: 16,
+        scale: 1.28,
+        lineHeight: 1.6,
+        headingWeight: 600,
+        headingTracking: -0.03,
+        textWidth: 64
+      },
+      shape: {
+        radius: 20,
+        radiusSmall: 12,
+        borderWidth: 1
+      },
+      spacing: {
+        contentWidth: 1180,
+        pageGutter: 24,
+        sectionGap: 0,
+        blockGap: 26,
+        sectionPadding: 104
+      },
+      motion: {
+        duration: 720,
+        easing: 'cubic-bezier(.16,1,.3,1)',
+        stagger: 90
+      }
+    }
+  },
+  mono: {
+    label: 'Mono',
+    tokens: {
+      colors: {
+        background: '#ffffff',
+        surface: '#fafafa',
+        text: '#0a0a0a',
+        muted: '#737373',
+        accent: '#0a0a0a',
+        accentContrast: '#ffffff',
+        border: '#e5e5e5'
+      },
+      typography: {
+        fontFamily: "'IBM Plex Mono',ui-monospace,SFMono-Regular,monospace",
+        headingFamily: '',
+        baseSize: 15,
+        scale: 1.18,
+        lineHeight: 1.6,
+        headingWeight: 600,
+        headingTracking: -0.01,
+        textWidth: 74
+      },
+      shape: {
+        radius: 2,
+        radiusSmall: 2,
+        borderWidth: 1
+      },
+      spacing: {
+        contentWidth: 1080,
+        pageGutter: 24,
+        sectionGap: 0,
+        blockGap: 20,
+        sectionPadding: 80
+      },
+      motion: {
+        duration: 420,
+        easing: 'cubic-bezier(.22,1,.36,1)',
+        stagger: 60
+      }
+    }
+  },
+  warm: {
+    label: 'Warm',
+    tokens: {
+      colors: {
+        background: '#fff7f0',
+        surface: '#ffffff',
+        text: '#2b1d16',
+        muted: '#8a7466',
+        accent: '#d97757',
+        accentContrast: '#ffffff',
+        border: '#f0ded2'
+      },
+      typography: {
+        fontFamily: 'Inter,ui-sans-serif,system-ui,sans-serif',
+        headingFamily: "Georgia,'Times New Roman',serif",
+        baseSize: 17,
+        scale: 1.24,
+        lineHeight: 1.65,
+        headingWeight: 600,
+        headingTracking: -0.02,
+        textWidth: 66
+      },
+      shape: {
+        radius: 18,
+        radiusSmall: 10,
+        borderWidth: 1
+      },
+      spacing: {
+        contentWidth: 1160,
+        pageGutter: 28,
+        sectionGap: 0,
+        blockGap: 26,
+        sectionPadding: 100
+      },
+      motion: {
+        duration: 620,
+        easing: 'cubic-bezier(.16,1,.3,1)',
+        stagger: 84
+      }
+    }
+  }
+});
+function presetNames() {
+  return Object.keys(THEME_PRESETS);
+}
+function presetTokens(name) {
+  var preset = THEME_PRESETS[String(name || '').toLowerCase()];
+  return preset ? normalizeTokens(preset.tokens) : null;
+}
+
+// One canonical token object. Every value is validated here so a model (or an imported stylesheet)
+// can never inject a stylesheet break out of the token vocabulary.
+function normalizeTokens(raw) {
+  var source = raw && _typeof(raw) === 'object' ? raw : {};
+  var colors = source.colors && _typeof(source.colors) === 'object' ? source.colors : {};
+  var typography = source.typography && _typeof(source.typography) === 'object' ? source.typography : {};
+  var shape = source.shape && _typeof(source.shape) === 'object' ? source.shape : {};
+  var spacing = source.spacing && _typeof(source.spacing) === 'object' ? source.spacing : {};
+  var motion = source.motion && _typeof(source.motion) === 'object' ? source.motion : {};
+  var baseSize = clamp(number(typography.baseSize, DEFAULT_TOKENS.typography.baseSize), 10, 32);
+  return {
+    colors: {
+      background: safeColor(colors.background, DEFAULT_TOKENS.colors.background),
+      surface: safeColor(colors.surface, DEFAULT_TOKENS.colors.surface),
+      text: safeColor(colors.text, DEFAULT_TOKENS.colors.text),
+      muted: safeColor(colors.muted, DEFAULT_TOKENS.colors.muted),
+      accent: safeColor(colors.accent, DEFAULT_TOKENS.colors.accent),
+      accentContrast: safeColor(colors.accentContrast, DEFAULT_TOKENS.colors.accentContrast),
+      border: safeColor(colors.border, DEFAULT_TOKENS.colors.border)
+    },
+    typography: {
+      fontFamily: safeFont(typography.fontFamily, DEFAULT_TOKENS.typography.fontFamily),
+      headingFamily: safeFont(typography.headingFamily, '') || safeFont(typography.fontFamily, DEFAULT_TOKENS.typography.fontFamily),
+      baseSize: baseSize,
+      scale: clamp(number(typography.scale, DEFAULT_TOKENS.typography.scale), 1.05, 1.6),
+      lineHeight: clamp(number(typography.lineHeight, DEFAULT_TOKENS.typography.lineHeight), 1, 2.2),
+      headingWeight: clamp(Math.round(number(typography.headingWeight, DEFAULT_TOKENS.typography.headingWeight)), 100, 900),
+      headingTracking: clamp(number(typography.headingTracking, DEFAULT_TOKENS.typography.headingTracking), -0.1, 0.1),
+      textWidth: clamp(number(typography.textWidth, DEFAULT_TOKENS.typography.textWidth), 30, 100)
+    },
+    shape: {
+      radius: clamp(number(shape.radius, DEFAULT_TOKENS.shape.radius), 0, 80),
+      radiusSmall: clamp(number(shape.radiusSmall, DEFAULT_TOKENS.shape.radiusSmall), 0, 80),
+      borderWidth: clamp(number(shape.borderWidth, DEFAULT_TOKENS.shape.borderWidth), 0, 8)
+    },
+    spacing: {
+      contentWidth: clamp(number(spacing.contentWidth, DEFAULT_TOKENS.spacing.contentWidth), 640, 1920),
+      pageGutter: clamp(number(spacing.pageGutter, DEFAULT_TOKENS.spacing.pageGutter), 0, 120),
+      sectionGap: clamp(number(spacing.sectionGap, DEFAULT_TOKENS.spacing.sectionGap), 0, 200),
+      blockGap: clamp(number(spacing.blockGap, DEFAULT_TOKENS.spacing.blockGap), 0, 120),
+      sectionPadding: clamp(number(spacing.sectionPadding, DEFAULT_TOKENS.spacing.sectionPadding), 0, 300)
+    },
+    motion: {
+      duration: clamp(Math.round(number(motion.duration, DEFAULT_TOKENS.motion.duration)), 0, 4000),
+      easing: EASING.test(String(motion.easing || '')) ? String(motion.easing) : DEFAULT_TOKENS.motion.easing,
+      stagger: clamp(Math.round(number(motion.stagger, DEFAULT_TOKENS.motion.stagger)), 0, 800)
+    }
+  };
+}
+
+// The page settings shape the style engine already compiles (`--ink-color-*`, `--ink-content-width`).
+// Keeping this projection means a token change flows into real, editable page settings instead of a
+// parallel stylesheet, so the Theme panel and the Copilot stay in agreement.
+function themeSettings(tokens) {
+  var t = normalizeTokens(tokens);
+  return {
+    colors: {
+      primary: t.colors.accent,
+      secondary: t.colors.muted,
+      text: t.colors.text,
+      accent: t.colors.accent
+    },
+    typography: {
+      fontFamily: t.typography.fontFamily,
+      baseSize: t.typography.baseSize,
+      lineHeight: t.typography.lineHeight
+    },
+    spacing: {
+      contentWidth: t.spacing.contentWidth,
+      pageGutter: t.spacing.pageGutter,
+      sectionGap: t.spacing.sectionGap
+    }
+  };
+}
+
+// Read tokens back off a page's settings so the Copilot and the importer can start from whatever the
+// page already is instead of resetting it.
+function tokensFromPageSettings(settings) {
+  var theme = (settings === null || settings === void 0 ? void 0 : settings.theme) || {};
+  var colors = theme.colors || {};
+  var typography = theme.typography || {};
+  var spacing = theme.spacing || {};
+  return normalizeTokens({
+    colors: {
+      accent: colors.accent,
+      text: colors.text,
+      muted: colors.secondary
+    },
+    typography: {
+      fontFamily: typography.fontFamily,
+      baseSize: typography.baseSize,
+      lineHeight: typography.lineHeight
+    },
+    spacing: {
+      contentWidth: spacing.contentWidth,
+      pageGutter: spacing.pageGutter,
+      sectionGap: spacing.sectionGap
+    }
+  });
+}
+
+// --- Reading a design language out of a captured site ------------------------------------------
+
+// Capture evidence stores computed CSS, so colors arrive as `rgb()`/`rgba()` (and occasionally
+// `hsl()`). Parse once, flatten alpha against the page background, and emit hex -- which is also
+// what `normalizeTokens` accepts, so an inferred token can never be an injection vector.
+var FIRST_COLOR = /(?:rgba?|hsla?)\([^)]*\)|#[0-9a-f]{3,8}/i;
+// Computed shorthands arrive as `rgb(11, 12, 13) none repeat scroll ...`; the color is one token in
+// a longer value, so extract it before parsing.
+function firstColor(value) {
+  var match = String(value || '').match(FIRST_COLOR);
+  return match ? parseColor(match[0]) : null;
+}
+function parseColor(value) {
+  var text = String(value || '').trim();
+  var hex = text.match(/^#([0-9a-f]{3,8})$/i);
+  if (hex) {
+    var raw = hex[1];
+    var expand = function expand(part) {
+      return Number.parseInt(part.length === 1 ? part + part : part, 16);
+    };
+    if (raw.length === 3 || raw.length === 4) return {
+      r: expand(raw[0]),
+      g: expand(raw[1]),
+      b: expand(raw[2]),
+      a: raw.length === 4 ? expand(raw[3]) / 255 : 1
+    };
+    if (raw.length === 6 || raw.length === 8) return {
+      r: expand(raw.slice(0, 2)),
+      g: expand(raw.slice(2, 4)),
+      b: expand(raw.slice(4, 6)),
+      a: raw.length === 8 ? expand(raw.slice(6, 8)) / 255 : 1
+    };
+    return null;
+  }
+  var fn = text.match(/^(rgba?|hsla?)\(([^)]+)\)$/i);
+  if (!fn) return null;
+  var parts = fn[2].split(/[,\/\s]+/).filter(Boolean).map(function (part) {
+    return part.trim();
+  });
+  if (parts.length < 3) return null;
+  var alpha = parts.length > 3 ? Number.parseFloat(parts[3]) : 1;
+  var a = Number.isFinite(alpha) ? clamp(alpha, 0, 1) : 1;
+  if (/^hsl/i.test(fn[1])) {
+    var h = (Number.parseFloat(parts[0]) % 360 + 360) % 360;
+    var sat = clamp(Number.parseFloat(parts[1]) || 0, 0, 100) / 100;
+    var light = clamp(Number.parseFloat(parts[2]) || 0, 0, 100) / 100;
+    var _chroma = (1 - Math.abs(2 * light - 1)) * sat;
+    var secondary = _chroma * (1 - Math.abs(h / 60 % 2 - 1));
+    var match = Math.floor(h / 60) % 6;
+    var rgb = [[_chroma, secondary, 0], [secondary, _chroma, 0], [0, _chroma, secondary], [0, secondary, _chroma], [secondary, 0, _chroma], [_chroma, 0, secondary]][match];
+    var offset = light - _chroma / 2;
+    return {
+      r: Math.round((rgb[0] + offset) * 255),
+      g: Math.round((rgb[1] + offset) * 255),
+      b: Math.round((rgb[2] + offset) * 255),
+      a: a
+    };
+  }
+  var channels = parts.slice(0, 3).map(function (part) {
+    var percent = part.endsWith('%');
+    var parsed = Number.parseFloat(part);
+    return Number.isFinite(parsed) ? clamp(percent ? parsed / 100 * 255 : parsed, 0, 255) : 0;
+  });
+  return {
+    r: Math.round(channels[0]),
+    g: Math.round(channels[1]),
+    b: Math.round(channels[2]),
+    a: a
+  };
+}
+var toHex = function toHex(_ref) {
+  var r = _ref.r,
+    g = _ref.g,
+    b = _ref.b;
+  return "#".concat([r, g, b].map(function (channel) {
+    return clamp(Math.round(channel), 0, 255).toString(16).padStart(2, '0');
+  }).join(''));
+};
+var over = function over(color, background) {
+  return color.a >= 1 ? color : {
+    r: color.r * color.a + background.r * (1 - color.a),
+    g: color.g * color.a + background.g * (1 - color.a),
+    b: color.b * color.a + background.b * (1 - color.a),
+    a: 1
+  };
+};
+var luminance = function luminance(_ref2) {
+  var r = _ref2.r,
+    g = _ref2.g,
+    b = _ref2.b;
+  var channel = function channel(value) {
+    var c = value / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+};
+var contrast = function contrast(left, right) {
+  var a = luminance(left);
+  var b = luminance(right);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+};
+var chroma = function chroma(color) {
+  return Math.max(color.r, color.g, color.b) - Math.min(color.r, color.g, color.b);
+};
+var isOpaque = function isOpaque(color) {
+  return Boolean(color) && color.a > 0.6;
+};
+// Framer ships `<Family>, "<Family> Placeholder", sans-serif`; the placeholder is a layout shim, not
+// a font anyone wants in a token.
+var GENERIC_FAMILY = /^(sans-serif|serif|monospace|system-ui|ui-sans-serif|ui-serif|ui-monospace|emoji|math|fangsong)$/i;
+var cleanFont = function cleanFont(value, fallbackGeneric) {
+  var families = String(value || '').split(',').map(function (part) {
+    return part.trim().replace(/^["']|["']$/g, '');
+  }).filter(Boolean).filter(function (part) {
+    return !/placeholder$/i.test(part);
+  });
+  var generic = families.find(function (part) {
+    return GENERIC_FAMILY.test(part);
+  }) || fallbackGeneric || '';
+  var named = families.filter(function (part) {
+    return !GENERIC_FAMILY.test(part);
+  });
+  if (!named.length) return '';
+  return [].concat(_toConsumableArray(named.slice(0, 2)), [generic || 'sans-serif']).join(',');
+};
+// The browser paints unvisited links `#0000ee` and the computed style reports it, so an unstyled
+// anchor looks like a brand color unless it is filtered out.
+var UA_COLORS = new Set(['#0000ee', '#0000ff', '#551a8b', '#0000cc']);
+var mode = function mode(entries) {
+  var tally = new Map();
+  entries.filter(Boolean).forEach(function (entry) {
+    return tally.set(entry, (tally.get(entry) || 0) + 1);
+  });
+  return _toConsumableArray(tally.entries()).sort(function (left, right) {
+    return right[1] - left[1];
+  }).map(function (_ref3) {
+    var _ref4 = _slicedToArray(_ref3, 1),
+      value = _ref4[0];
+    return value;
+  });
+};
+
+// The site's own design language, read off the page it actually rendered: background and surface,
+// text and muted, one accent, the type scale, and the shape radius. Nothing is guessed from a name
+// and nothing here is site-specific -- only values the capture observed.
+function tokensFromEvidence(viewports) {
+  var _desktop$viewport, _desktop$bodyStyle, _desktop$bodyStyle2, _desktop$bodyStyle3, _desktop$bodyStyle4, _desktop$bodyStyle5, _desktop$bodyStyle6, _display$find;
+  var desktop = (viewports || []).find(function (viewport) {
+    var _viewport$viewport;
+    return (((_viewport$viewport = viewport.viewport) === null || _viewport$viewport === void 0 ? void 0 : _viewport$viewport.width) || 0) >= 1000;
+  }) || (viewports || [])[0];
+  if (!desktop) return normalizeTokens(null);
+  var viewportWidth = ((_desktop$viewport = desktop.viewport) === null || _desktop$viewport === void 0 ? void 0 : _desktop$viewport.width) || 1440;
+  var nodes = (desktop.nodes || []).filter(function (node) {
+    return (node === null || node === void 0 ? void 0 : node.rect) && node.rect.width > 0 && node.rect.height > 0;
+  });
+  var styleOf = function styleOf(node) {
+    return node.style || {};
+  };
+  var colorOf = function colorOf(node, property) {
+    return firstColor(styleOf(node)[property] || (property === 'background' ? styleOf(node).backgroundColor : ''));
+  };
+
+  // Background: the body wins when it paints one; otherwise the largest painted area is the page.
+  var bodyBackground = firstColor((_desktop$bodyStyle = desktop.bodyStyle) === null || _desktop$bodyStyle === void 0 ? void 0 : _desktop$bodyStyle.background) || firstColor((_desktop$bodyStyle2 = desktop.bodyStyle) === null || _desktop$bodyStyle2 === void 0 ? void 0 : _desktop$bodyStyle2.backgroundColor);
+  var painted = nodes.map(function (node) {
+    return {
+      node: node,
+      color: colorOf(node, 'background')
+    };
+  }).filter(function (entry) {
+    return isOpaque(entry.color);
+  });
+  var largest = _toConsumableArray(painted).sort(function (left, right) {
+    return right.node.rect.width * right.node.rect.height - left.node.rect.width * left.node.rect.height;
+  })[0];
+  var background = isOpaque(bodyBackground) ? bodyBackground : (largest === null || largest === void 0 ? void 0 : largest.color) || {
+    r: 255,
+    g: 255,
+    b: 255,
+    a: 1
+  };
+
+  // Text: the most common readable color on the page. A body color that vanishes into the
+  // background (very common on dark marketing sites) is ignored in favour of what text nodes use.
+  var readable = mode(nodes.filter(function (node) {
+    return String(node.text || '').trim().length > 1;
+  }).map(function (node) {
+    return colorOf(node, 'color');
+  }).filter(function (color) {
+    return isOpaque(color) && contrast(color, background) >= 2;
+  }).map(toHex).filter(function (hex) {
+    return !UA_COLORS.has(hex);
+  }));
+  var bodyColor = firstColor((_desktop$bodyStyle3 = desktop.bodyStyle) === null || _desktop$bodyStyle3 === void 0 ? void 0 : _desktop$bodyStyle3.color);
+  var textHex = readable[0] || (isOpaque(bodyColor) && contrast(bodyColor, background) >= 2 ? toHex(bodyColor) : null) || (luminance(background) < 0.4 ? '#ffffff' : '#14161a');
+  var text = parseColor(textHex);
+
+  // Muted: a translucent white/black over the background, or the next most common readable color.
+  var translucent = mode(nodes.map(function (node) {
+    return colorOf(node, 'color');
+  }).filter(function (color) {
+    return color && color.a > 0.3 && color.a < 0.95;
+  }).map(function (color) {
+    return toHex(over(color, background));
+  }))[0];
+  var mutedHex = translucent || readable[1] || toHex(_objectSpread(_objectSpread({}, text), {}, {
+    a: 1
+  }));
+  // Keep muted visually quieter than the body text even when the site only ships one color.
+  var muted = toHex(contrast(parseColor(mutedHex), background) > contrast(text, background) ? text : parseColor(mutedHex));
+  var surfaceHex = mode(painted.map(function (entry) {
+    return toHex(entry.color);
+  }).filter(function (hex) {
+    return hex !== toHex(background);
+  }))[0] || toHex(over(_objectSpread(_objectSpread({}, background), {}, {
+    a: 0.4
+  }), background));
+  // A hairline derived from the text color is what almost every modern site ships; reading it from
+  // the computed `border` shorthand mostly yields `none`/`0px`, which carries no color intent.
+  var border = toHex(over(_objectSpread(_objectSpread({}, text), {}, {
+    a: 0.14
+  }), background));
+
+  // Accent: the most common saturated color that is not the background or the text.
+  // A brand accent is a fill, not a text color -- and the browser's own unvisited-link blue is not
+  // a brand. Rank painted fills first, then text colors, and drop the UA defaults outright.
+  var accentCandidates = [].concat(_toConsumableArray(nodes.map(function (node) {
+    return colorOf(node, 'background');
+  })), _toConsumableArray(nodes.map(function (node) {
+    return colorOf(node, 'color');
+  }))).filter(function (color) {
+    return isOpaque(color) && chroma(color) > 28;
+  }).map(function (color) {
+    return toHex(color);
+  }).filter(function (hex) {
+    return hex !== toHex(background) && hex !== textHex && hex !== mutedHex && hex !== surfaceHex && !UA_COLORS.has(hex);
+  });
+  var fills = mode(nodes.map(function (node) {
+    return colorOf(node, 'background');
+  }).filter(function (color) {
+    return isOpaque(color) && chroma(color) > 28;
+  }).map(toHex));
+  var accent = fills.find(function (hex) {
+    return !UA_COLORS.has(hex) && hex !== toHex(background) && hex !== textHex;
+  }) || accentCandidates[0] || DEFAULT_TOKENS.colors.accent;
+
+  // Type: the body size the site actually uses for text, and the headings' own family.
+  var textSizes = nodes.filter(function (node) {
+    return String(node.text || '').trim().length > 1;
+  }).map(function (node) {
+    return Number.parseFloat(styleOf(node).fontSize);
+  }).filter(function (size) {
+    return Number.isFinite(size) && size >= 13;
+  });
+  var baseSize = Number.parseFloat((_desktop$bodyStyle4 = desktop.bodyStyle) === null || _desktop$bodyStyle4 === void 0 ? void 0 : _desktop$bodyStyle4.fontSize) >= 13 ? Number.parseFloat(desktop.bodyStyle.fontSize) : mode(textSizes.map(String))[0] ? Number.parseFloat(mode(textSizes.map(String))[0]) : DEFAULT_TOKENS.typography.baseSize;
+  var headings = nodes.filter(function (node) {
+    return ['h1', 'h2'].includes(node.tag);
+  });
+  var fontFamily = cleanFont(mode(nodes.filter(function (node) {
+    return Number.parseFloat(styleOf(node).fontSize) >= 14;
+  }).map(function (node) {
+    return styleOf(node).fontFamily;
+  }))[0] || ((_desktop$bodyStyle5 = desktop.bodyStyle) === null || _desktop$bodyStyle5 === void 0 ? void 0 : _desktop$bodyStyle5.fontFamily), 'sans-serif');
+  var headingFamily = cleanFont(mode(headings.map(function (node) {
+    return styleOf(node).fontFamily;
+  }))[0], '') || fontFamily;
+  var display = headings.map(function (node) {
+    return {
+      size: Number.parseFloat(styleOf(node).fontSize),
+      weight: Number.parseInt(styleOf(node).fontWeight, 10),
+      spacing: Number.parseFloat(styleOf(node).letterSpacing)
+    };
+  }).filter(function (entry) {
+    return Number.isFinite(entry.size) && entry.size >= 28;
+  });
+  var scale = display.length && baseSize ? clamp(Math.pow(display[0].size / baseSize, 1 / 4), 1.05, 1.6) : DEFAULT_TOKENS.typography.scale;
+  var tracking = display.find(function (entry) {
+    return Number.isFinite(entry.spacing);
+  }) ? display.find(function (entry) {
+    return Number.isFinite(entry.spacing);
+  }).spacing / display.find(function (entry) {
+    return Number.isFinite(entry.spacing);
+  }).size : DEFAULT_TOKENS.typography.headingTracking;
+  var radii = nodes.map(function (node) {
+    return Number.parseFloat(styleOf(node).borderRadius);
+  }).filter(function (value) {
+    return Number.isFinite(value) && value > 0 && value <= 48;
+  });
+  var radius = radii.length ? Number(mode(radii.map(function (value) {
+    return String(Math.round(value));
+  }))[0]) : DEFAULT_TOKENS.shape.radius;
+  var widths = nodes.map(function (node) {
+    return node.rect.width;
+  }).filter(function (width) {
+    return width > 560 && width < viewportWidth - 8;
+  });
+  return normalizeTokens({
+    colors: {
+      background: toHex(background),
+      surface: surfaceHex,
+      text: textHex,
+      muted: muted,
+      accent: accent,
+      accentContrast: toHex(luminance(parseColor(accent)) > 0.45 ? {
+        r: 12,
+        g: 14,
+        b: 18,
+        a: 1
+      } : {
+        r: 255,
+        g: 255,
+        b: 255,
+        a: 1
+      }),
+      border: border
+    },
+    typography: {
+      fontFamily: fontFamily,
+      headingFamily: headingFamily,
+      baseSize: baseSize,
+      scale: scale,
+      lineHeight: Number.parseFloat((_desktop$bodyStyle6 = desktop.bodyStyle) === null || _desktop$bodyStyle6 === void 0 ? void 0 : _desktop$bodyStyle6.lineHeight) || DEFAULT_TOKENS.typography.lineHeight,
+      headingWeight: (_display$find = display.find(function (entry) {
+        return Number.isFinite(entry.weight);
+      })) === null || _display$find === void 0 ? void 0 : _display$find.weight,
+      headingTracking: Number.isFinite(tracking) ? tracking : undefined
+    },
+    shape: {
+      radius: radius
+    },
+    spacing: {
+      contentWidth: widths.length ? Math.max.apply(Math, _toConsumableArray(widths)) : undefined
+    }
+  });
+}
+
+// --- CSS -----------------------------------------------------------------------------------------
+
+// Token custom properties. Namespaced `--ink-t-*` so they never collide with page CSS, plus the
+// `--ink-color-*` aliases the canvas vocabulary already uses.
+function tokenVariables(raw) {
+  var t = normalizeTokens(raw);
+  var type = function type(step) {
+    return "".concat(Math.round(t.typography.baseSize * Math.pow(t.typography.scale, step) * 100) / 100, "px");
+  };
+  return {
+    '--ink-t-bg': t.colors.background,
+    '--ink-t-surface': t.colors.surface,
+    '--ink-t-text': t.colors.text,
+    '--ink-t-muted': t.colors.muted,
+    '--ink-t-accent': t.colors.accent,
+    '--ink-t-accent-contrast': t.colors.accentContrast,
+    '--ink-t-border': t.colors.border,
+    '--ink-t-font': t.typography.fontFamily,
+    '--ink-t-heading-font': t.typography.headingFamily,
+    '--ink-t-base': "".concat(t.typography.baseSize, "px"),
+    '--ink-t-line': String(t.typography.lineHeight),
+    '--ink-t-h1': type(4),
+    '--ink-t-h2': type(3),
+    '--ink-t-h3': type(2),
+    '--ink-t-h4': type(1),
+    '--ink-t-h5': type(0.5),
+    '--ink-t-small': type(-0.5),
+    '--ink-t-micro': type(-1),
+    '--ink-t-heading-weight': String(t.typography.headingWeight),
+    '--ink-t-heading-tracking': "".concat(t.typography.headingTracking, "em"),
+    '--ink-t-text-width': "".concat(t.typography.textWidth, "ch"),
+    '--ink-t-radius': "".concat(t.shape.radius, "px"),
+    '--ink-t-radius-sm': "".concat(t.shape.radiusSmall, "px"),
+    '--ink-t-border-width': "".concat(t.shape.borderWidth, "px"),
+    '--ink-t-content': "".concat(t.spacing.contentWidth, "px"),
+    '--ink-t-gutter': "".concat(t.spacing.pageGutter, "px"),
+    '--ink-t-gap': "".concat(t.spacing.blockGap, "px"),
+    '--ink-t-section-pad': "".concat(t.spacing.sectionPadding, "px"),
+    '--ink-t-duration': "".concat(t.motion.duration, "ms"),
+    '--ink-t-ease': t.motion.easing,
+    '--ink-t-stagger': "".concat(t.motion.stagger, "ms"),
+    '--ink-color-primary': t.colors.accent,
+    '--ink-color-text': t.colors.text,
+    '--ink-color-accent': t.colors.accent,
+    '--ink-content-width': "".concat(t.spacing.contentWidth, "px"),
+    '--ink-page-gutter': "".concat(t.spacing.pageGutter, "px"),
+    '--ink-section-gap': "".concat(t.spacing.sectionGap, "px")
+  };
+}
+
+// The archetype component vocabulary. Every class an archetype emits is defined here, once, from
+// tokens -- so a section and the design system can never drift apart, and a human restyling the
+// page edits a token rather than a one-off rule.
+var ARCHETYPE_CSS = "/* Ink design system \u2014 archetype vocabulary (token driven) */\n.ink-canvas-root .ink-arch-section{position:relative;padding-block:var(--ink-t-section-pad);padding-inline:var(--ink-t-gutter)}\n.ink-canvas-root .ink-arch-shell{width:100%;max-width:var(--ink-t-content);margin-inline:auto;display:flex;flex-direction:column;gap:var(--ink-t-gap)}\n.ink-canvas-root .ink-arch-stack{display:flex;flex-direction:column;gap:calc(var(--ink-t-gap) * .66)}\n.ink-canvas-root .ink-arch-row{display:flex;flex-wrap:wrap;gap:calc(var(--ink-t-gap) * .66);align-items:center}\n.ink-canvas-root .ink-arch-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(var(--ink-t-gap) * .9)}\n.ink-canvas-root .ink-arch-grid--2{grid-template-columns:repeat(2,minmax(0,1fr))}\n.ink-canvas-root .ink-arch-grid--4{grid-template-columns:repeat(4,minmax(0,1fr))}\n.ink-canvas-root .ink-arch-split{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:clamp(32px,5vw,72px);align-items:center}\n.ink-canvas-root .ink-arch-eyebrow{margin:0;color:var(--ink-t-muted);font:700 var(--ink-t-micro)/1.4 var(--ink-t-font);letter-spacing:.14em;text-transform:uppercase}\n.ink-canvas-root .ink-arch-display{margin:0;max-width:18ch;color:var(--ink-t-text);font-family:var(--ink-t-heading-font);font-size:var(--ink-t-h1);font-weight:var(--ink-t-heading-weight);line-height:1.02;letter-spacing:var(--ink-t-heading-tracking);text-wrap:balance}\n.ink-canvas-root .ink-arch-title{margin:0;color:var(--ink-t-text);font-family:var(--ink-t-heading-font);font-size:var(--ink-t-h3);font-weight:var(--ink-t-heading-weight);line-height:1.12;letter-spacing:var(--ink-t-heading-tracking)}\n.ink-canvas-root .ink-arch-subtitle{margin:0;color:var(--ink-t-text);font-family:var(--ink-t-heading-font);font-size:var(--ink-t-h5);font-weight:var(--ink-t-heading-weight);line-height:1.25}\n.ink-canvas-root .ink-arch-lede{margin:0;max-width:var(--ink-t-text-width);color:var(--ink-t-text);font-size:var(--ink-t-h5);line-height:1.55}\n.ink-canvas-root .ink-arch-body{margin:0;color:var(--ink-t-muted);font-size:var(--ink-t-base);line-height:var(--ink-t-line)}\n.ink-canvas-root .ink-arch-card{padding:calc(var(--ink-t-gap) * 1.1);border:var(--ink-t-border-width) solid var(--ink-t-border);border-radius:var(--ink-t-radius);background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-card--plain{border-color:transparent;background:transparent;padding:0}\n.ink-canvas-root .ink-arch-media{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--ink-t-radius-sm);background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-media--wide{aspect-ratio:16/9}\n.ink-canvas-root .ink-arch-media--portrait{aspect-ratio:3/4}\n.ink-canvas-root .ink-arch-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:12px calc(var(--ink-t-gap) * .85);border:var(--ink-t-border-width) solid transparent;border-radius:var(--ink-t-radius-sm);background:var(--ink-t-accent);color:var(--ink-t-accent-contrast);font:600 var(--ink-t-base)/1 var(--ink-t-font);text-decoration:none}\n.ink-canvas-root .ink-arch-button--ghost{background:transparent;color:var(--ink-t-text);border-color:var(--ink-t-border)}\n.ink-canvas-root .ink-arch-price{margin:0;color:var(--ink-t-text);font-family:var(--ink-t-heading-font);font-size:var(--ink-t-h2);font-weight:var(--ink-t-heading-weight);line-height:1}\n.ink-canvas-root .ink-arch-stat{margin:0;color:var(--ink-t-text);font-family:var(--ink-t-heading-font);font-size:var(--ink-t-h3);font-weight:var(--ink-t-heading-weight);line-height:1}\n.ink-canvas-root .ink-arch-quote{margin:0;color:var(--ink-t-text);font-family:var(--ink-t-heading-font);font-size:var(--ink-t-h5);line-height:1.4}\n.ink-canvas-root .ink-arch-nav-links{display:flex;flex-wrap:wrap;gap:calc(var(--ink-t-gap) * .75);align-items:center}\n.ink-canvas-root .ink-arch-nav-link{color:var(--ink-t-text);font:500 var(--ink-t-small)/1 var(--ink-t-font);text-decoration:none}\n.ink-canvas-root .ink-arch-badge{display:inline-flex;align-items:center;padding:5px 11px;border-radius:999px;border:var(--ink-t-border-width) solid var(--ink-t-border);color:var(--ink-t-muted);font:600 var(--ink-t-micro)/1 var(--ink-t-font);letter-spacing:.06em;text-transform:uppercase}\n.ink-canvas-root .ink-arch-faq-item{padding-block:calc(var(--ink-t-gap) * .7);border-bottom:var(--ink-t-border-width) solid var(--ink-t-border)}\n.ink-canvas-root .ink-arch-divider{margin:0;border:0;border-top:var(--ink-t-border-width) solid var(--ink-t-border)}\n@media(max-width:991px){.ink-canvas-root .ink-arch-grid,.ink-canvas-root .ink-arch-grid--4{grid-template-columns:repeat(2,minmax(0,1fr))}.ink-canvas-root .ink-arch-split{grid-template-columns:minmax(0,1fr)}}\n@media(max-width:640px){.ink-canvas-root .ink-arch-grid,.ink-canvas-root .ink-arch-grid--2,.ink-canvas-root .ink-arch-grid--4{grid-template-columns:minmax(0,1fr)}.ink-canvas-root .ink-arch-display{font-size:var(--ink-t-h2)}}";
+
+// Section modifiers: one hook per archetype, so a composed page reads as a rhythm (background,
+// density, padding) rather than a uniform stack of boxes. Every section class an archetype emits
+// is defined here -- the vocabulary test proves there is no class without CSS behind it.
+var SECTION_CSS = "/* Ink design system \u2014 section rhythm (token driven) */\n.ink-canvas-root .ink-arch-nav{position:relative;z-index:5;padding-block:calc(var(--ink-t-gap) * .6);padding-inline:var(--ink-t-gutter);border-bottom:var(--ink-t-border-width) solid var(--ink-t-border);background:var(--ink-t-bg)}\n.ink-canvas-root .ink-arch-hero{padding-block:calc(var(--ink-t-section-pad) * 1.4)}\n.ink-canvas-root .ink-arch-logos{padding-block:calc(var(--ink-t-section-pad) * .55);background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-features{background:var(--ink-t-bg)}\n.ink-canvas-root .ink-arch-stats{padding-block:calc(var(--ink-t-section-pad) * .6)}\n.ink-canvas-root .ink-arch-gallery{background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-testimonials{background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-pricing{background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-faq{padding-block:calc(var(--ink-t-section-pad) * .75)}\n.ink-canvas-root .ink-arch-team{background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-blog-list{background:var(--ink-t-bg)}\n.ink-canvas-root .ink-arch-blog-post{padding-block:calc(var(--ink-t-section-pad) * .8);background:var(--ink-t-bg)}\n.ink-canvas-root .ink-arch-profile{padding-block:calc(var(--ink-t-section-pad) * .8)}\n.ink-canvas-root .ink-arch-cta{padding-block:calc(var(--ink-t-section-pad) * 1.2);background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-contact{background:var(--ink-t-surface)}\n.ink-canvas-root .ink-arch-footer{padding-block:calc(var(--ink-t-section-pad) * .5);padding-inline:var(--ink-t-gutter);border-top:var(--ink-t-border-width) solid var(--ink-t-border);background:var(--ink-t-surface)}";
+
+// Component states: behaviour that is pure CSS, so it survives Design, Preview and published
+// output with no script -- the monthly/yearly price switch reads a `data-ink-state` on its own
+// container, and the orbit deck turns its children into 3D space for the motion group.
+var COMPONENT_CSS = ".ink-canvas-root .ink-arch-price-yearly{display:none}\n.ink-canvas-root [data-ink-state=\"yearly\"] .ink-arch-price-monthly{display:none!important}\n.ink-canvas-root [data-ink-state=\"yearly\"] .ink-arch-price-yearly{display:block!important}\n.ink-canvas-root .ink-arch-orbit-deck{transform-style:preserve-3d;perspective:1200px}\n.ink-canvas-root .ink-arch-orbit-deck > *{transform-style:preserve-3d}";
+
+// One stylesheet per page: the variables an author's own CSS can lean on, plus the archetype
+// vocabulary, the section rhythm and the component states. Emitted into the page's custom CSS,
+// ahead of any authored rules.
+function designCss(raw) {
+  return "".concat(tokenCssBlock(raw), "\n").concat(ARCHETYPE_CSS, "\n").concat(SECTION_CSS, "\n").concat(COMPONENT_CSS);
+}
+
+// Just the custom properties, for callers that already carry the rest of the sheet (the importer
+// writes this ahead of an imported site's own CSS).
+function tokenCssBlock(raw) {
+  var variables = Object.entries(tokenVariables(raw)).map(function (_ref5) {
+    var _ref6 = _slicedToArray(_ref5, 2),
+      name = _ref6[0],
+      value = _ref6[1];
+    return "".concat(name, ":").concat(value);
+  }).join(';');
+  return ":root{".concat(variables, "}");
+}
+
+// Install the design system into a page's custom CSS exactly once. Both the Copilot and the human
+// Sections library go through here, so a hand-built page and an AI-composed page share one sheet.
+function ensureDesignCss(css, raw) {
+  var text = String(css || '');
+  if (/\.ink-arch-section\b/.test(text)) return text;
+  var installed = designCss(raw);
+  return text ? "".concat(installed, "\n").concat(text) : installed;
+}
+
+// Apply a design language to the live document: theme settings + the token variables in custom CSS.
+// History-aware (both calls are undoable), and shared by `set_design_tokens` and Site Settings.
+function applyDesignTokens(_ref7, raw) {
+  var runtime = _ref7.runtime,
+    customCode = _ref7.customCode;
+  var _ref8 = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {},
+    _ref8$label = _ref8.label,
+    label = _ref8$label === void 0 ? 'Apply design tokens' : _ref8$label,
+    commit = _ref8.commit;
+  var tokens = normalizeTokens(raw);
+  runtime.updateDocumentSettings({
+    theme: themeSettings(tokens),
+    backgroundColor: tokens.colors.background
+  }, label);
+  var existing = customCode.getCss();
+  var block = tokenCssBlock(tokens);
+  // `g`: an imported page can carry a token block from the capture AND the one the design system
+  // installed, and a token edit has to win in both places.
+  var nextCss = /:root\{--ink-t-bg:/.test(existing) ? existing.replace(/:root\{--ink-t-bg:[^}]*\}/g, block) : "".concat(block, "\n").concat(existing);
+  // The Copilot passes a history-recording commit; the panel writes straight through.
+  if (typeof commit === 'function') commit(nextCss, customCode.getJs(), label);else customCode.update(nextCss, customCode.getJs());
+  return tokens;
+}
+function describeTokens(raw) {
+  var t = normalizeTokens(raw);
+  return "".concat(t.colors.accent, " on ").concat(t.colors.background, " \xB7 ").concat(t.typography.fontFamily.split(',')[0], " ").concat(t.typography.baseSize, "px/").concat(t.typography.scale, " \xB7 radius ").concat(t.shape.radius, "px \xB7 ").concat(t.spacing.contentWidth, "px");
+}
+
+/***/ }),
+
 /***/ "./src/core/editorIcons.js":
 /*!*********************************!*\
   !*** ./src/core/editorIcons.js ***!
@@ -16481,6 +17732,7 @@ function interactions(panel, control, node, value, row) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   SECTION_ICONS: () => (/* binding */ SECTION_ICONS),
 /* harmony export */   hydrateLucideIcon: () => (/* binding */ hydrateLucideIcon),
 /* harmony export */   installLucideIcons: () => (/* binding */ installLucideIcons),
 /* harmony export */   lucideName: () => (/* binding */ lucideName)
@@ -16610,6 +17862,24 @@ var aliases = {
   widgets: 'blocks',
   width: 'move-horizontal'
 };
+
+// Category glyphs for the Sections library, so a block group reads at a glance like the elements do.
+// Names must resolve to a real Lucide SVG (aliases or a vendored icon file), or the glyph slot
+// renders empty -- the chrome smoke test asserts every slot hydrates.
+var SECTION_ICONS = {
+  Chrome: 'panel-top',
+  Opening: 'party-popper',
+  'Social proof': 'users',
+  Value: 'star',
+  Media: 'image',
+  Commercial: 'credit-card',
+  Support: 'circle-help',
+  People: 'user-round',
+  Content: 'newspaper',
+  Template: 'file-text',
+  Closing: 'megaphone',
+  Form: 'text-cursor-input'
+};
 function lucideName(name) {
   var key = String(name || '').trim();
   return aliases[key] || key.replace(/_/g, '-').replace(/^material:/, '') || 'square';
@@ -16652,6 +17922,51 @@ function installLucideIcons() {
     subtree: true
   });
   return observer;
+}
+
+/***/ }),
+
+/***/ "./src/core/elementSpec.js":
+/*!*********************************!*\
+  !*** ./src/core/elementSpec.js ***!
+  \*********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   materializeSpec: () => (/* binding */ materializeSpec),
+/* harmony export */   specNodeCount: () => (/* binding */ _specNodeCount)
+/* harmony export */ });
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+// Turning a plain spec (`{ type, settings, styles, children }`) into live store nodes is shared by
+// every producer of trees: the Copilot (`append_tree`, `compose_*`), the panel's Sections library,
+// and drag & drop. One implementation means one set of acceptance rules, and a tree the AI composes
+// is byte-for-byte the tree a human drops in.
+
+var _specNodeCount = function specNodeCount(spec) {
+  return 1 + (Array.isArray(spec === null || spec === void 0 ? void 0 : spec.children) ? spec.children.reduce(function (sum, child) {
+    return sum + _specNodeCount(child);
+  }, 0) : 0);
+};
+
+function materializeSpec(runtime, spec) {
+  var _spec$children;
+  var parent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
+  if (!spec || _typeof(spec) !== 'object' || !spec.type) throw new TypeError('Every tree node requires a type.');
+  if (!runtime.elements.has(spec.type)) throw new TypeError("Unknown element type: ".concat(spec.type));
+  if (runtime.elements.get(spec.type).internal) throw new TypeError("".concat(spec.type, " is an editor-only organizational layer; compose visual layouts with Frames instead."));
+  var definition = runtime.elements.get(spec.type);
+  if ((_spec$children = spec.children) !== null && _spec$children !== void 0 && _spec$children.length && !definition.acceptsChildren) throw new TypeError("".concat(spec.type, " cannot contain children."));
+  var node = runtime.create(spec.type, {
+    settings: spec.settings || {},
+    styles: spec.styles || {}
+  });
+  if (parent && !runtime.elements.accepts(parent, node)) throw new TypeError("".concat(parent.type, " cannot contain ").concat(node.type, "."));
+  if (definition.acceptsChildren) node.children = (spec.children || []).map(function (child) {
+    return materializeSpec(runtime, child, node);
+  });
+  return node;
 }
 
 /***/ }),
@@ -23595,6 +24910,799 @@ function _taggedTemplateLiteral(e, t) { return t || (t = e.slice(0)), Object.fre
 // `scrub.reference = "parent"`. Group members never measure their own transform, which is what
 // keeps a scrubbed transform from feeding back into the scroll position.
 var SCROLL_MOTION_RUNTIME = String.raw(_templateObject || (_templateObject = _taggedTemplateLiteral(["(function () {\n    if (window.__inkScrollMotion) return;\n    window.__inkScrollMotion = true;\n    const records = new Map();\n    const reduced = matchMedia('(prefers-reduced-motion: reduce)');\n    let scheduled = false;\n    const inactive = () => reduced.matches || document.body.classList.contains('ink-builder-design');\n    const allowed = new Set(['offset', 'transform', 'opacity', 'filter', 'clip-path', 'background-color', 'color']);\n    const clamp01 = (value) => Math.max(0, Math.min(1, value));\n    function groupOf(element) {\n        const owner = element.closest('[data-ink-motion-group]');\n        if (!owner) return null;\n        try {\n            const group = JSON.parse(owner.getAttribute('data-ink-motion-group') || 'null');\n            return group && group.trigger === 'scroll' ? { owner, group } : null;\n        } catch (error) { return null; }\n    }\n    function referenceOf(element) {\n        const scoped = groupOf(element);\n        if (!scoped) return element.parentElement;\n        return scoped.group.scrub && scoped.group.scrub.reference === 'parent' ? (scoped.owner.parentElement || scoped.owner) : scoped.owner;\n    }\n    function progressFor(rect, motion) {\n        let progress = clamp01((innerHeight - rect.top) / (innerHeight + rect.height));\n        const scrub = motion.scrub || (motion.scrubWindow);\n        if (scrub && typeof scrub === 'object') {\n            const start = Number(scrub.start) || 0;\n            const end = Number.isFinite(Number(scrub.end)) ? Number(scrub.end) : 1;\n            progress = clamp01((progress - start) / Math.max(0.0001, end - start));\n        }\n        return progress;\n    }\n    function update() {\n        scheduled = false;\n        const frameRects = new Map();\n        for (const [element, record] of records) {\n            if (!element.isConnected || inactive()) {\n                record.animation.cancel(); records.delete(element); continue;\n            }\n            if (record.trigger === 'scroll') {\n                const reference = record.reference || element.parentElement;\n                let rect = frameRects.get(reference);\n                // The reference is the stable scroll section: animating the target's transform must\n                // never alter its own scroll measurement (which causes feedback and jitter). One\n                // measurement per reference per frame is shared by every member of a group.\n                if (!rect) { rect = reference.getBoundingClientRect(); frameRects.set(reference, rect); }\n                record.animation.currentTime = progressFor(rect, record.motion) * record.duration;\n            } else {\n                const rect = element.parentElement.getBoundingClientRect();\n                if (!record.started && rect.top < innerHeight && rect.bottom > 0) {\n                    record.started = true; record.animation.play();\n                }\n            }\n        }\n    }\n    function schedule() {\n        if (!scheduled) { scheduled = true; requestAnimationFrame(update); }\n    }\n    function scan() {\n        if (!inactive()) document.querySelectorAll('[data-ink-scroll-motion]').forEach((element) => {\n            if (records.has(element)) return;\n            try {\n                const motion = JSON.parse(element.getAttribute('data-ink-scroll-motion'));\n                if (!['scroll', 'enter'].includes(motion.trigger) || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return;\n                const frames = motion.keyframes.map((frame) => Object.fromEntries(Object.entries(frame).filter(([key]) => allowed.has(key))));\n                const duration = Math.max(1, Number(motion.duration) || 800);\n                const animation = element.animate(frames, {\n                    duration, fill: 'both', iterations: 1,\n                    easing: motion.easing || 'linear',\n                    delay: motion.trigger === 'enter' ? Number(motion.delay) || 0 : 0,\n                });\n                animation.pause();\n                records.set(element, {\n                    animation, duration, motion, trigger: motion.trigger,\n                    reference: motion.trigger === 'scroll' ? referenceOf(element) : null,\n                    started: false,\n                });\n            } catch (error) { console.warn('Ink motion could not start', error.message); }\n        });\n        schedule();\n    }\n    addEventListener('scroll', schedule, { passive: true, capture: true });\n    addEventListener('resize', schedule, { passive: true });\n    reduced.addEventListener('change', scan);\n    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });\n    new MutationObserver(scan).observe(document.body, { attributes: true, attributeFilter: ['class'] });\n    scan();\n})();"])));
+
+/***/ }),
+
+/***/ "./src/core/sectionArchetypes.js":
+/*!***************************************!*\
+  !*** ./src/core/sectionArchetypes.js ***!
+  \***************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   ARCHETYPE_NAMES: () => (/* binding */ ARCHETYPE_NAMES),
+/* harmony export */   DEFAULT_CONTENT: () => (/* binding */ DEFAULT_CONTENT),
+/* harmony export */   PRICING_CSS: () => (/* binding */ PRICING_CSS),
+/* harmony export */   archetype: () => (/* binding */ archetype),
+/* harmony export */   archetypeName: () => (/* binding */ archetypeName),
+/* harmony export */   buildSection: () => (/* binding */ buildSection),
+/* harmony export */   composePage: () => (/* binding */ composePage),
+/* harmony export */   listArchetypes: () => (/* binding */ listArchetypes),
+/* harmony export */   sectionClass: () => (/* binding */ sectionClass)
+/* harmony export */ });
+/* harmony import */ var _designTokens_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./designTokens.js */ "./src/core/designTokens.js");
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+// Named section archetypes: the AI's ceiling made explicit.
+//
+// Before this, the Copilot could compose exactly one page -- a single hardcoded aesthetic with its
+// own `cp-*` stylesheet. That is a ceiling the model cannot exceed, because the *builder* had only
+// one look. An archetype fixes that at the source: it is a named, parameterized section built from
+// real element types, styled only through design tokens. A human picks the same archetype in the
+// panel; the Copilot just fills it in.
+//
+// Every archetype is a pure function `build(variant, options) -> element spec`. Nothing here is
+// model-only: the specs it returns are ordinary elements with real settings, so the composed page
+// is 100% editable with the raw builder.
+
+
+var node = function node(type) {
+  var settings = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+  var children = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : [];
+  return _objectSpread({
+    type: type,
+    settings: settings
+  }, children.length ? {
+    children: children
+  } : {});
+};
+var heading = function heading(text) {
+  var tag = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'h2';
+  var className = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'ink-arch-title';
+  return node('heading', {
+    text: text || '',
+    tag: tag,
+    cssClasses: className
+  });
+};
+var paragraph = function paragraph(text) {
+  var className = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'ink-arch-body';
+  return node('paragraph', {
+    text: text || '',
+    cssClasses: className
+  });
+};
+var eyebrow = function eyebrow(text) {
+  return node('paragraph', {
+    text: text || '',
+    cssClasses: 'ink-arch-eyebrow'
+  });
+};
+var button = function button(label, url) {
+  var className = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'ink-arch-button';
+  return node('button', {
+    text: label || 'Learn more',
+    url: url || '#',
+    cssClasses: className
+  });
+};
+var image = function image(src, alt) {
+  var className = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'ink-arch-media';
+  return node('image', {
+    src: src || '',
+    alt: alt || '',
+    cssClasses: className
+  });
+};
+var container = function container(className, children) {
+  var tag = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'div';
+  return node('container', {
+    tag: tag,
+    layout: 'full',
+    cssClasses: className
+  }, children);
+};
+var card = function card(children) {
+  var extra = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  return container("ink-arch-card".concat(extra ? " ".concat(extra) : ''), children);
+};
+var list = function list(value, fallback) {
+  return Array.isArray(value) && value.length ? value : fallback;
+};
+var text = function text(value) {
+  var fallback = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  return value == null ? fallback : String(value);
+};
+var DEFAULT_CONTENT = {
+  eyebrow: 'Product',
+  title: 'A calmer way through complex work',
+  lede: 'Turn a fragmented workflow into one confident path — legible, fast, and built to scale with the team.',
+  cta: {
+    label: 'Start free',
+    url: '#start'
+  },
+  secondary: {
+    label: 'Book a walkthrough',
+    url: '#demo'
+  },
+  nav: {
+    brand: 'Inkwell',
+    links: [{
+      text: 'Product',
+      url: '#product'
+    }, {
+      text: 'Pricing',
+      url: '#pricing'
+    }, {
+      text: 'Blog',
+      url: '/posts'
+    }],
+    cta: {
+      label: 'Get started',
+      url: '#start'
+    }
+  },
+  features: [{
+    title: 'One source of truth',
+    body: 'Every change lands where the team already looks, so nobody re-checks a stale copy.'
+  }, {
+    title: 'Built for handover',
+    body: 'Work moves between people without losing the reasoning behind it.'
+  }, {
+    title: 'Legible by default',
+    body: 'Dense information stays readable at the speed decisions actually happen.'
+  }],
+  stats: [{
+    number: '4.2',
+    suffix: 'x',
+    title: 'Faster handover'
+  }, {
+    number: '98',
+    suffix: '%',
+    title: 'On-time delivery'
+  }, {
+    number: '12',
+    suffix: 'k',
+    title: 'Teams onboarded'
+  }],
+  plans: [{
+    name: 'Starter',
+    monthly: '$0',
+    yearly: '$0',
+    note: 'For trying the workflow end to end.',
+    features: ['3 projects', 'Community support', 'Core templates'],
+    cta: {
+      label: 'Start free',
+      url: '#start'
+    }
+  }, {
+    name: 'Team',
+    monthly: '$29',
+    yearly: '$23',
+    note: 'For teams who ship together.',
+    features: ['Unlimited projects', 'Priority support', 'Shared libraries', 'Review flows'],
+    cta: {
+      label: 'Choose Team',
+      url: '#start'
+    },
+    featured: true
+  }, {
+    name: 'Scale',
+    monthly: '$89',
+    yearly: '$71',
+    note: 'For organisations with governance needs.',
+    features: ['SSO and audit log', 'Dedicated success', 'Custom roles'],
+    cta: {
+      label: 'Talk to sales',
+      url: '#contact'
+    }
+  }],
+  faq: [{
+    question: 'How long does setup take?',
+    answer: 'Most teams are running their first project the same afternoon. Bring one real workflow and we will wire it with you.'
+  }, {
+    question: 'Can we keep our existing content?',
+    answer: 'Yes. Import an existing site or paste content in, and everything arrives as editable structure rather than a frozen page.'
+  }, {
+    question: 'What happens at the end of the trial?',
+    answer: 'Nothing breaks. Your drafts stay editable and you choose a plan when you are ready to publish.'
+  }],
+  testimonials: [{
+    quote: 'We replaced three tools and a standing meeting with one board everyone actually reads.',
+    name: 'Alex Morgan',
+    role: 'Head of Operations'
+  }, {
+    quote: 'The first week paid for the year. Handover stopped being a project of its own.',
+    name: 'Priya Raman',
+    role: 'Delivery Lead'
+  }],
+  team: [{
+    name: 'Ada Lovelace',
+    role: 'Founder',
+    src: ''
+  }, {
+    name: 'Grace Hopper',
+    role: 'Engineering',
+    src: ''
+  }, {
+    name: 'Katherine Johnson',
+    role: 'Research',
+    src: ''
+  }, {
+    name: 'Margaret Hamilton',
+    role: 'Platform',
+    src: ''
+  }],
+  gallery: [{
+    src: '',
+    alt: 'Product overview'
+  }, {
+    src: '',
+    alt: 'Workspace detail'
+  }, {
+    src: '',
+    alt: 'Team planning'
+  }],
+  links: [{
+    title: 'Product',
+    items: [{
+      text: 'Overview',
+      url: '#product'
+    }, {
+      text: 'Pricing',
+      url: '#pricing'
+    }, {
+      text: 'Changelog',
+      url: '/changelog'
+    }]
+  }, {
+    title: 'Company',
+    items: [{
+      text: 'About',
+      url: '/about'
+    }, {
+      text: 'Blog',
+      url: '/posts'
+    }, {
+      text: 'Contact',
+      url: '/contact'
+    }]
+  }]
+};
+function withDefaults() {
+  var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  var content = _objectSpread(_objectSpread({}, DEFAULT_CONTENT), options.content || {});
+  return _objectSpread(_objectSpread({}, options), {}, {
+    uid: String(options.uid || 'ink-arch-1').replace(/[^a-zA-Z0-9_-]/g, '') || 'ink-arch-1',
+    tokens: (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_0__.normalizeTokens)(options.tokens),
+    content: content
+  });
+}
+
+// camelCase archetype names become kebab-case class hooks (`blogList` -> `ink-arch-blog-list`) so
+// every emitted class is a CSS selector a human can target, and `ink-arch-<uid>` stays the
+// per-instance handle interactions point at.
+var sectionClass = function sectionClass(name) {
+  return "ink-arch-".concat(String(name).replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase());
+};
+function sectionShell(name, children, options) {
+  var extraClass = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : '';
+  return node('section', {
+    tag: 'section',
+    layout: 'full',
+    role: options.role || name,
+    cssClasses: "ink-arch-section ".concat(sectionClass(name), " ").concat(options.uid).concat(extraClass ? " ".concat(extraClass) : '')
+  }, [container('ink-arch-shell', children)]);
+}
+
+// --- archetypes -----------------------------------------------------------------------------------
+
+var ARCHETYPES = {
+  nav: {
+    label: 'Navigation',
+    category: 'Chrome',
+    role: 'nav',
+    description: 'Brand, primary links and one action, in a sticky-capable bar.',
+    variants: ['inline'],
+    build: function build(options) {
+      var _nav$cta, _nav$cta2;
+      var nav = options.content.nav;
+      var links = list(nav.links, DEFAULT_CONTENT.nav.links).map(function (entry) {
+        return node('link', {
+          text: text(entry.text),
+          url: text(entry.url, '#'),
+          cssClasses: 'ink-arch-nav-link'
+        });
+      });
+      return node('container', _objectSpread({
+        tag: 'nav',
+        layout: 'full',
+        role: 'nav',
+        label: 'Global nav',
+        cssClasses: "ink-arch-nav ".concat(options.uid)
+      }, options.sticky ? {
+        sticky: {
+          enabled: true,
+          top: 0,
+          zIndex: 50
+        }
+      } : {}), [container('ink-arch-shell ink-arch-row', [heading(text(nav.brand, 'Inkwell'), 'div', 'ink-arch-subtitle'), container('ink-arch-nav-links', links), button((_nav$cta = nav.cta) === null || _nav$cta === void 0 ? void 0 : _nav$cta.label, (_nav$cta2 = nav.cta) === null || _nav$cta2 === void 0 ? void 0 : _nav$cta2.url)])]);
+    }
+  },
+  hero: {
+    label: 'Hero',
+    category: 'Opening',
+    role: 'hero',
+    description: 'The first screen: positioning line, supporting copy and actions.',
+    variants: ['split', 'centered', 'display'],
+    build: function build(options) {
+      var _content$cta, _content$cta2, _content$secondary, _content$secondary2, _options$media, _options$media2, _options$media3, _options$media4;
+      var content = options.content;
+      var copy = [eyebrow(content.eyebrow), heading(content.title, 'h1', 'ink-arch-display'), paragraph(content.lede, 'ink-arch-lede'), container('ink-arch-row', [button((_content$cta = content.cta) === null || _content$cta === void 0 ? void 0 : _content$cta.label, (_content$cta2 = content.cta) === null || _content$cta2 === void 0 ? void 0 : _content$cta2.url), button((_content$secondary = content.secondary) === null || _content$secondary === void 0 ? void 0 : _content$secondary.label, (_content$secondary2 = content.secondary) === null || _content$secondary2 === void 0 ? void 0 : _content$secondary2.url, 'ink-arch-button ink-arch-button--ghost')])];
+      if (options.variant === 'centered') return sectionShell('hero', [container('ink-arch-stack', copy)], _objectSpread(_objectSpread({}, options), {}, {
+        role: 'hero'
+      }));
+      if (options.variant === 'display') return sectionShell('hero', [].concat(copy, [image((_options$media = options.media) === null || _options$media === void 0 ? void 0 : _options$media.src, (_options$media2 = options.media) === null || _options$media2 === void 0 ? void 0 : _options$media2.alt, 'ink-arch-media ink-arch-media--wide')]), _objectSpread(_objectSpread({}, options), {}, {
+        role: 'hero'
+      }));
+      return sectionShell('hero', [container('ink-arch-split', [container('ink-arch-stack', copy), image((_options$media3 = options.media) === null || _options$media3 === void 0 ? void 0 : _options$media3.src, (_options$media4 = options.media) === null || _options$media4 === void 0 ? void 0 : _options$media4.alt, 'ink-arch-media ink-arch-media--portrait')])], _objectSpread(_objectSpread({}, options), {}, {
+        role: 'hero'
+      }));
+    }
+  },
+  logos: {
+    label: 'Logo row',
+    category: 'Social proof',
+    role: 'content',
+    description: 'A quiet row of customer or integration names.',
+    variants: ['marquee', 'row'],
+    build: function build(options) {
+      var names = list(options.content.logos, ['Northwind', 'Contoso', 'Fabrikam', 'Globex', 'Initech']).map(function (name) {
+        return text(name);
+      });
+      if (options.variant === 'marquee') {
+        return sectionShell('logos', [node('marquee', {
+          items: names.map(function (name) {
+            return {
+              name: name,
+              body: ''
+            };
+          }),
+          duration: 32,
+          pauseOnHover: true
+        })], options);
+      }
+      return sectionShell('logos', [container('ink-arch-row', names.map(function (name) {
+        return heading(name, 'div', 'ink-arch-eyebrow');
+      }))], options);
+    }
+  },
+  features: {
+    label: 'Features',
+    category: 'Value',
+    role: 'features',
+    description: 'Three to four proof points as cards, a tight grid, or a bento layout.',
+    variants: ['cards', 'grid', 'bento'],
+    build: function build(options) {
+      var items = list(options.content.features, DEFAULT_CONTENT.features);
+      var body = [eyebrow(options.content.eyebrow), heading(options.content.featureTitle || 'Built for the work you actually do'), paragraph(options.content.featureLede || options.content.lede, 'ink-arch-lede')];
+      if (options.variant === 'bento') {
+        return sectionShell('features', [].concat(body, [node('bento-grid', {
+          features: items.map(function (item, index) {
+            return {
+              name: text(item.title),
+              description: text(item.body),
+              icon: text(item.icon, 'auto_awesome'),
+              visual: 'files',
+              span: index % 3 === 1 ? 'is-wide' : 'is-narrow',
+              cta: ''
+            };
+          })
+        })]), options);
+      }
+      var grid = container(options.variant === 'grid' ? 'ink-arch-grid ink-arch-grid--4' : 'ink-arch-grid', items.map(function (item) {
+        return card([heading(text(item.title), 'h3', 'ink-arch-subtitle'), paragraph(text(item.body))]);
+      }));
+      return sectionShell('features', [].concat(body, [grid]), options);
+    }
+  },
+  stats: {
+    label: 'Stats',
+    category: 'Value',
+    role: 'content',
+    description: 'A row of numbers that proves the claim.',
+    variants: ['row'],
+    build: function build(options) {
+      return sectionShell('stats', [container('ink-arch-grid ink-arch-grid--4', list(options.content.stats, DEFAULT_CONTENT.stats).map(function (stat) {
+        return card([node('counter', {
+          number: text(stat.number),
+          suffix: text(stat.suffix),
+          title: '',
+          cssClasses: 'ink-arch-stat'
+        }), paragraph(text(stat.title), 'ink-arch-body')], 'ink-arch-card--plain');
+      }))], options);
+    }
+  },
+  gallery: {
+    label: 'Gallery',
+    category: 'Media',
+    role: 'content',
+    description: 'A grid of images with consistent aspect ratios.',
+    variants: ['grid', 'wide'],
+    build: function build(options) {
+      return sectionShell('gallery', [container('ink-arch-grid', list(options.content.gallery, DEFAULT_CONTENT.gallery).map(function (item) {
+        return image(item.src, item.alt, "ink-arch-media".concat(options.variant === 'wide' ? ' ink-arch-media--wide' : ''));
+      }))], options);
+    }
+  },
+  testimonials: {
+    label: 'Testimonials',
+    category: 'Social proof',
+    role: 'testimonials',
+    description: 'Customer quotes from the people who signed off.',
+    variants: ['cards'],
+    build: function build(options) {
+      return sectionShell('testimonials', [eyebrow('Customers'), heading(options.content.testimonialTitle || 'Teams stop chasing status'), container('ink-arch-grid ink-arch-grid--2', list(options.content.testimonials, DEFAULT_CONTENT.testimonials).map(function (entry) {
+        return node('testimonial', {
+          quote: text(entry.quote),
+          name: text(entry.name),
+          role: text(entry.role),
+          avatar: text(entry.avatar),
+          cssClasses: 'ink-arch-card'
+        });
+      }))], options);
+    }
+  },
+  pricing: {
+    label: 'Pricing',
+    category: 'Commercial',
+    role: 'pricing',
+    description: 'Tiers with a working monthly/yearly switch — real component states and a toggle interaction, not a styled box.',
+    variants: ['switch', 'tiers'],
+    build: function build(options) {
+      var plans = list(options.content.plans, DEFAULT_CONTENT.plans);
+      var switchable = options.variant !== 'tiers';
+      var selector = ".ink-arch-pricing-".concat(options.uid);
+      var columns = plans.map(function (plan) {
+        var _plan$cta, _plan$cta2;
+        return card([heading(text(plan.name), 'h3', 'ink-arch-subtitle'), node('paragraph', {
+          text: text(plan.monthly),
+          cssClasses: 'ink-arch-price ink-arch-price-monthly'
+        })].concat(_toConsumableArray(switchable ? [node('paragraph', {
+          text: text(plan.yearly),
+          cssClasses: 'ink-arch-price ink-arch-price-yearly'
+        })] : []), [paragraph(text(plan.note), 'ink-arch-body'), node('icon-list', {
+          items: list(plan.features, []).map(function (feature) {
+            return {
+              icon: 'check',
+              text: text(feature),
+              url: ''
+            };
+          })
+        }), button((_plan$cta = plan.cta) === null || _plan$cta === void 0 ? void 0 : _plan$cta.label, (_plan$cta2 = plan.cta) === null || _plan$cta2 === void 0 ? void 0 : _plan$cta2.url, plan.featured ? 'ink-arch-button' : 'ink-arch-button ink-arch-button--ghost')]));
+      });
+      var heading1 = [eyebrow('Pricing'), heading(options.content.pricingTitle || 'Simple, honest pricing')];
+      if (!switchable) return sectionShell('pricing', [].concat(heading1, [container('ink-arch-grid', columns)]), options);
+      // Each option sets the container's state; the archetype CSS swaps which price line shows,
+      // so the switch works in Design, Preview and published output with no script.
+      var optionsRow = container('ink-arch-row', ['monthly', 'yearly'].map(function (state) {
+        return node('button', {
+          text: state === 'monthly' ? 'Monthly' : 'Yearly',
+          url: '#',
+          cssClasses: 'ink-arch-button ink-arch-button--ghost',
+          interactions: [{
+            on: 'click',
+            action: 'setState',
+            target: 'query',
+            selector: selector,
+            state: state
+          }]
+        });
+      }));
+      var pricingRoot = container("ink-arch-stack ink-arch-pricing-".concat(options.uid), [container('ink-arch-grid', columns)], 'div');
+      pricingRoot.settings.stateNames = ['monthly', 'yearly'];
+      pricingRoot.settings.state = 'monthly';
+      pricingRoot.settings.stateGroup = options.uid;
+      return sectionShell('pricing', [].concat(heading1, [optionsRow, pricingRoot]), options);
+    }
+  },
+  faq: {
+    label: 'FAQ',
+    category: 'Support',
+    role: 'faq',
+    description: 'Questions that open in place, as a native accordion.',
+    variants: ['accordion'],
+    build: function build(options) {
+      return sectionShell('faq', [eyebrow('Answers'), heading(options.content.faqTitle || 'Questions we get asked'), node('timeline-accordion', {
+        behavior: 'single',
+        cssClasses: 'ink-arch-faq'
+      }, list(options.content.faq, DEFAULT_CONTENT.faq).map(function (entry) {
+        return node('container', {
+          tag: 'div',
+          layout: 'full',
+          cssClasses: 'ink-arch-faq-item'
+        }, [heading(text(entry.question), 'h3', 'ink-arch-subtitle'), paragraph(text(entry.answer))]);
+      }))], options);
+    }
+  },
+  team: {
+    label: 'Team',
+    category: 'People',
+    role: 'content',
+    description: 'Portraits that can orbit in 3D — a motion group driving every card off one timeline.',
+    variants: ['grid', 'orbit'],
+    build: function build(options) {
+      var people = list(options.content.team, DEFAULT_CONTENT.team);
+      var cards = people.map(function (person) {
+        return card([image(person.src, "".concat(text(person.name), " portrait"), 'ink-arch-media ink-arch-media--portrait'), heading(text(person.name), 'h3', 'ink-arch-subtitle'), paragraph(text(person.role), 'ink-arch-body')], 'ink-arch-card--plain');
+      });
+      if (options.variant !== 'orbit') return sectionShell('team', [eyebrow('Team'), heading(options.content.teamTitle || 'The people behind it'), container("ink-arch-grid ink-arch-grid--4 ink-arch-orbit-".concat(options.uid), cards)], options);
+      // A 3D orbit is a motion group: the container owns the timeline, each card carries the
+      // pose cycle. Same data the importer reconstructs from a captured site.
+      var poses = [{
+        rotateY: 0,
+        translateZ: 0
+      }, {
+        rotateY: 60,
+        translateZ: -220
+      }, {
+        rotateY: 120,
+        translateZ: -360
+      }, {
+        rotateY: 180,
+        translateZ: -220
+      }, {
+        rotateY: 240,
+        translateZ: -360
+      }, {
+        rotateY: 300,
+        translateZ: -220
+      }];
+      var deck = cards.map(function (cardSpec, index) {
+        var keyframes = poses.map(function (pose, step) {
+          return {
+            offset: Math.round(step / poses.length * 10000) / 10000,
+            transform: "translateZ(".concat(pose.translateZ, "px) rotateY(").concat((pose.rotateY + index * 0) % 360, "deg)")
+          };
+        });
+        var closing = {
+          offset: 1,
+          transform: "translateZ(".concat(poses[0].translateZ, "px) rotateY(").concat(poses[0].rotateY, "deg)")
+        };
+        cardSpec.settings.motion = {
+          enabled: true,
+          trigger: 'load',
+          duration: 9000,
+          delay: index * 120,
+          easing: 'linear',
+          iterations: 'infinite',
+          direction: 'normal',
+          keyframes: [].concat(_toConsumableArray(keyframes), [closing])
+        };
+        cardSpec.settings.label = cardSpec.settings.label || "Orbit card ".concat(index + 1);
+        return cardSpec;
+      });
+      var orbit = container('ink-arch-grid ink-arch-grid--4 ink-arch-orbit-deck', deck);
+      orbit.settings.motionGroup = {
+        kind: 'orbit3d',
+        label: '3D orbit',
+        perspective: 1200,
+        count: poses.length
+      };
+      return sectionShell('team', [eyebrow('Team'), heading(options.content.teamTitle || 'The people behind it'), orbit], options);
+    }
+  },
+  blogList: {
+    label: 'Blog list',
+    category: 'Content',
+    role: 'blog',
+    description: 'A live list bound to published posts — a query loop with an editable card template.',
+    variants: ['grid', 'list'],
+    build: function build(options) {
+      return sectionShell('blogList', [eyebrow('Writing'), heading(options.content.blogTitle || 'Notes from the team'), node('query-loop', {
+        source: 'posts',
+        limit: Number(options.content.blogLimit) || 6,
+        cssClasses: "ink-arch-".concat(options.variant === 'list' ? 'stack' : 'grid')
+      }, [card([image('', '{{ post.featured_image }}', 'ink-arch-media ink-arch-media--wide'), heading('{{ post.title }}', 'h3', 'ink-arch-subtitle'), paragraph('{{ post.excerpt }}'), node('link', {
+        text: 'Read more',
+        url: '/posts/{{ post.slug }}',
+        cssClasses: 'ink-arch-nav-link'
+      })])])], options);
+    }
+  },
+  blogPost: {
+    label: 'Blog post',
+    category: 'Template',
+    role: 'content',
+    description: 'The single-post template: title, meta, then the authored blocks.',
+    variants: ['article'],
+    build: function build(options) {
+      return sectionShell('blogPost', [eyebrow('{{ post.published_at }}'), heading('{{ post.title }}', 'h1', 'ink-arch-display'), paragraph('{{ post.excerpt }}', 'ink-arch-lede'), node('post-content', {
+        cssClasses: 'ink-arch-body'
+      })], options);
+    }
+  },
+  profile: {
+    label: 'Author profile',
+    category: 'Template',
+    role: 'content',
+    description: 'An author card followed by their published posts.',
+    variants: ['author'],
+    build: function build(options) {
+      return sectionShell('profile', [container('ink-arch-split', [image('{{ author.avatar }}', '{{ author.name }}', 'ink-arch-media ink-arch-media--portrait'), container('ink-arch-stack', [eyebrow('Author'), heading('{{ author.name }}', 'h1', 'ink-arch-display'), paragraph('{{ author.bio }}', 'ink-arch-lede')])]), node('query-loop', {
+        source: 'posts',
+        limit: 6,
+        cssClasses: 'ink-arch-grid'
+      }, [card([heading('{{ post.title }}', 'h3', 'ink-arch-subtitle'), paragraph('{{ post.excerpt }}')])])], options);
+    }
+  },
+  cta: {
+    label: 'Call to action',
+    category: 'Closing',
+    role: 'cta',
+    description: 'The closing ask, on one confident line.',
+    variants: ['banner'],
+    build: function build(options) {
+      var _options$content$cta, _options$content$cta2, _options$content$seco, _options$content$seco2;
+      return sectionShell('cta', [container('ink-arch-stack', [heading(options.content.ctaTitle || 'Bring your next project here', 'h2', 'ink-arch-display'), paragraph(options.content.ctaLede || options.content.lede, 'ink-arch-lede'), container('ink-arch-row', [button((_options$content$cta = options.content.cta) === null || _options$content$cta === void 0 ? void 0 : _options$content$cta.label, (_options$content$cta2 = options.content.cta) === null || _options$content$cta2 === void 0 ? void 0 : _options$content$cta2.url), button((_options$content$seco = options.content.secondary) === null || _options$content$seco === void 0 ? void 0 : _options$content$seco.label, (_options$content$seco2 = options.content.secondary) === null || _options$content$seco2 === void 0 ? void 0 : _options$content$seco2.url, 'ink-arch-button ink-arch-button--ghost')])])], options);
+    }
+  },
+  contact: {
+    label: 'Contact',
+    category: 'Support',
+    role: 'form',
+    description: 'A short form that already works as a form, not a picture of one.',
+    variants: ['form'],
+    build: function build(options) {
+      var _options$content$cta3, _options$content$cta4;
+      return sectionShell('contact', [eyebrow('Contact'), heading(options.content.contactTitle || 'Tell us what you are building'), container('ink-arch-stack', [node('input', {
+        inputType: 'text',
+        name: 'name',
+        placeholder: 'Your name'
+      }), node('input', {
+        inputType: 'email',
+        name: 'email',
+        placeholder: 'you@company.com'
+      }), node('textarea', {
+        name: 'message',
+        placeholder: 'A sentence about the project'
+      }), button(((_options$content$cta3 = options.content.cta) === null || _options$content$cta3 === void 0 ? void 0 : _options$content$cta3.label) || 'Send', ((_options$content$cta4 = options.content.cta) === null || _options$content$cta4 === void 0 ? void 0 : _options$content$cta4.url) || '#contact')])], options);
+    }
+  },
+  footer: {
+    label: 'Footer',
+    category: 'Chrome',
+    role: 'footer',
+    description: 'Link columns and a legal line.',
+    variants: ['columns'],
+    build: function build(options) {
+      return node('container', {
+        tag: 'footer',
+        layout: 'full',
+        role: 'footer',
+        label: 'Global footer',
+        cssClasses: "ink-arch-footer ".concat(options.uid)
+      }, [container('ink-arch-shell', [container('ink-arch-grid', list(options.content.links, DEFAULT_CONTENT.links).map(function (column) {
+        return container('ink-arch-stack', [heading(text(column.title), 'h3', 'ink-arch-eyebrow')].concat(_toConsumableArray(list(column.items, []).map(function (entry) {
+          return node('link', {
+            text: text(entry.text),
+            url: text(entry.url, '#'),
+            cssClasses: 'ink-arch-nav-link'
+          });
+        }))));
+      })), node('divider', {
+        cssClasses: 'ink-arch-divider'
+      }), paragraph(options.content.legal || "\xA9 ".concat(new Date().getFullYear(), " Inkwell. All rights reserved."), 'ink-arch-body')])]);
+    }
+  }
+};
+
+// Pricing needs state-driven visibility, which is CSS on the state attribute -- the same shape the
+// importer emits for a captured pricing switch.
+// Component behaviour (the price switch, the orbit deck) lives in the design system sheet itself.
+var PRICING_CSS = _designTokens_js__WEBPACK_IMPORTED_MODULE_0__.COMPONENT_CSS;
+var ARCHETYPE_NAMES = Object.keys(ARCHETYPES);
+function listArchetypes() {
+  return ARCHETYPE_NAMES.map(function (name) {
+    return {
+      name: name,
+      label: ARCHETYPES[name].label,
+      category: ARCHETYPES[name].category,
+      description: ARCHETYPES[name].description,
+      variants: ARCHETYPES[name].variants,
+      role: ARCHETYPES[name].role,
+      sectionClass: sectionClass(name)
+    };
+  });
+}
+
+// Names are camelCase (`blogList`), so lookup is a lowercase index: a model writing "bloglist" or
+// "BlogList" still resolves, and the canonical name is what gets reported back.
+var ARCHETYPE_INDEX = new Map(Object.entries(ARCHETYPES).map(function (_ref) {
+  var _ref2 = _slicedToArray(_ref, 2),
+    key = _ref2[0],
+    definition = _ref2[1];
+  return [key.toLowerCase(), {
+    name: key,
+    definition: definition
+  }];
+}));
+function archetype(name) {
+  var _ARCHETYPE_INDEX$get;
+  return ((_ARCHETYPE_INDEX$get = ARCHETYPE_INDEX.get(String(name || '').toLowerCase())) === null || _ARCHETYPE_INDEX$get === void 0 ? void 0 : _ARCHETYPE_INDEX$get.definition) || null;
+}
+function archetypeName(name) {
+  var _ARCHETYPE_INDEX$get2;
+  return ((_ARCHETYPE_INDEX$get2 = ARCHETYPE_INDEX.get(String(name || '').toLowerCase())) === null || _ARCHETYPE_INDEX$get2 === void 0 ? void 0 : _ARCHETYPE_INDEX$get2.name) || null;
+}
+function buildSection(name) {
+  var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+  var definition = archetype(name);
+  if (!definition) throw new TypeError("Unknown archetype \"".concat(name, "\". Available: ").concat(ARCHETYPE_NAMES.join(', '), "."));
+  var prepared = withDefaults(options);
+  var variant = definition.variants.includes(prepared.variant) ? prepared.variant : definition.variants[0];
+  var role = prepared.role || definition.role || prepared.uid;
+  return {
+    name: archetypeName(name),
+    variant: variant,
+    role: role,
+    spec: definition.build(_objectSpread(_objectSpread({}, prepared), {}, {
+      role: role,
+      variant: variant
+    }))
+  };
+}
+
+// Compose a whole page from archetype names. Deterministic ids keep interactions (a pricing switch
+// targeting its own container) valid without any global counter.
+function composePage(names) {
+  var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+  var requested = Array.isArray(names) && names.length ? names : ['nav', 'hero', 'features', 'cta', 'footer'];
+  var tokens = (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_0__.normalizeTokens)(options.tokens || _designTokens_js__WEBPACK_IMPORTED_MODULE_0__.DEFAULT_TOKENS);
+  var content = options.content || {};
+  var children = requested.map(function (entry, index) {
+    var spec = typeof entry === 'string' ? {
+      name: entry
+    } : entry || {};
+    var built = buildSection(spec.name, _objectSpread(_objectSpread({}, options), {}, {
+      tokens: tokens,
+      content: _objectSpread(_objectSpread({}, content), spec.content || {}),
+      variant: spec.variant,
+      media: spec.media,
+      sticky: spec.sticky,
+      uid: "ink-arch-".concat(index + 1)
+    }));
+    var root = built.spec;
+    // A composed page names each root by its archetype role, so Structure, the navigator and
+    // the importer's quality report all agree on what a section is.
+    root.settings = _objectSpread(_objectSpread({}, root.settings || {}), {}, {
+      role: spec.role || built.role,
+      label: spec.label || archetype(spec.name).label
+    });
+    return root;
+  });
+  return {
+    children: children,
+    css: (0,_designTokens_js__WEBPACK_IMPORTED_MODULE_0__.designCss)(tokens)
+  };
+}
+
 
 /***/ }),
 

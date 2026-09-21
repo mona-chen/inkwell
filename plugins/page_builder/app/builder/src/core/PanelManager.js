@@ -6,6 +6,9 @@ import { availableFonts } from './fonts.js';
 import { renderIcon } from './icons.js';
 import { lucideName } from './editorIcons.js';
 import { DEFAULT_THEME_COLORS, DEFAULT_THEME_TYPOGRAPHY } from './themeDefaults.js';
+import { listArchetypes } from './sectionArchetypes.js';
+import { SECTION_ICONS } from './editorIcons.js';
+import { THEME_PRESETS, applyDesignTokens, presetTokens, tokenVariables } from './designTokens.js';
 
 const labelFor = (option) => typeof option === 'object' ? option.label : String(option).replace(/-/g, ' ');
 const valueFor = (option) => typeof option === 'object' ? option.value : option;
@@ -186,6 +189,26 @@ export default class PanelManager {
             });
             siteParts.appendChild(button);
         });
+        // Design language: the token layer every archetype section reads from. A preset is a starting
+        // point, not a lock — the colour/type/shape controls below keep editing the same tokens.
+        const design = section('Design language');
+        const designNote = document.createElement('p');
+        designNote.className = 'ink-v2-control-note';
+        designNote.textContent = 'Tokens drive every section — colour, type, shape, spacing and motion. Pick a starting point, then fine-tune below.';
+        design.appendChild(designNote);
+        const presets = document.createElement('div');
+        presets.className = 'ink-v2-design-presets';
+        Object.entries(THEME_PRESETS).forEach(([name, preset]) => {
+            const tokens = presetTokens(name);
+            const preview = tokenVariables(tokens);
+            const button = document.createElement('button');
+            button.type = 'button'; button.className = 'ink-v2-design-preset'; button.dataset.inkPreset = name;
+            button.title = `Apply the ${preset.label} design language`;
+            button.innerHTML = `<span class="ink-v2-design-swatch" style="background:${preview['--ink-t-bg']};border-color:${preview['--ink-t-accent']};color:${preview['--ink-t-text']}">Aa</span><span>${preset.label}</span>`;
+            button.addEventListener('click', () => this.applyDesignPreset(name));
+            presets.appendChild(button);
+        });
+        design.appendChild(presets);
         const colors = section('Global colors');
         Object.entries(DEFAULT_THEME_COLORS).forEach(([name, fallback]) => field(colors, name[0].toUpperCase() + name.slice(1), theme.colors?.[name] || fallback, 'color', (value) => this.updateTheme('colors', name, value)));
         const typography = section('Global typography');
@@ -225,6 +248,15 @@ export default class PanelManager {
         field(breakpoints, 'Tablet', settings.breakpoints?.tablet || 1024, 'number', (value) => this.runtime.updateDocumentSettings({ breakpoints: { ...settings.breakpoints, tablet: value } }, 'Change tablet breakpoint'));
         field(breakpoints, 'Mobile', settings.breakpoints?.mobile || 767, 'number', (value) => this.runtime.updateDocumentSettings({ breakpoints: { ...settings.breakpoints, mobile: value } }, 'Change mobile breakpoint'));
         return wrapper;
+    }
+
+    // Applying a preset writes the token root block AND the page theme, as one undoable change.
+    applyDesignPreset(name) {
+        const builder = window.builder;
+        const customCode = builder?.customCode;
+        if (!customCode) return;
+        applyDesignTokens({ runtime: this.runtime, customCode }, presetTokens(name), { label: `Apply ${THEME_PRESETS[name]?.label || name} theme` });
+        this.render();
     }
 
     updateTheme(group, name, value) {
@@ -272,10 +304,11 @@ export default class PanelManager {
         const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-library';
         wrapper.appendChild(this.screenTitle('Elements', 'widgets'));
         const search = document.createElement('input');
-        search.type = 'search'; search.className = 'ink-v2-search'; search.placeholder = 'Search elements';
+        search.type = 'search'; search.className = 'ink-v2-search'; search.placeholder = 'Search elements and sections';
         const groups = document.createElement('div');
         const draw = (query = '') => {
             groups.replaceChildren();
+            this.renderSectionLibrary(groups, query);
             const definitions = this.runtime.elements.list().filter((definition) => !definition.internal && !definition.legacy && `${definition.title} ${definition.keywords.join(' ')}`.toLowerCase().includes(query.toLowerCase()));
             const categorized = Map.groupBy ? Map.groupBy(definitions, (definition) => definition.category) : definitions.reduce((map, definition) => map.set(definition.category, [...(map.get(definition.category) || []), definition]), new Map());
             categorized.forEach((items, category) => {
@@ -299,6 +332,39 @@ export default class PanelManager {
         search.addEventListener('input', () => draw(search.value));
         draw();
         wrapper.append(search, groups); return wrapper;
+    }
+
+    // Named, editable sections — the same archetype vocabulary the Copilot composes with. Placed
+    // first because a page is built from sections, then from elements inside them; a click or a
+    // drop both go through the runtime's `archetype:insert` event.
+    renderSectionLibrary(host, query = '') {
+        const search = String(query || '').toLowerCase();
+        const entries = listArchetypes().filter((entry) => !search
+            || `${entry.label} ${entry.name} ${entry.category} ${entry.description} ${entry.variants.join(' ')}`.toLowerCase().includes(search)
+            || 'sections'.includes(search) || 'block'.includes(search));
+        if (!entries.length) return;
+        const section = document.createElement('details');
+        section.className = 'ink-v2-library-section ink-v2-library-sections';
+        section.open = true;
+        section.innerHTML = `<summary><strong>Sections</strong><span class="material-symbols-rounded">expand_more</span></summary><div class="ink-v2-library-grid"></div>`;
+        const grid = section.querySelector('.ink-v2-library-grid');
+        entries.forEach((entry) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'ink-v2-library-item ink-v2-library-item--section';
+            item.draggable = true;
+            item.dataset.inkArchetype = entry.name;
+            item.dataset.inkArchetypeVariant = entry.variants[0];
+            item.title = `${entry.label} — ${entry.description}`;
+            item.innerHTML = `<span class="material-symbols-rounded">${SECTION_ICONS[entry.category] || 'view_quilt'}</span><span>${entry.label}</span>`;
+            item.addEventListener('click', () => this.insertArchetype(entry.name, entry.variants[0]));
+            grid.appendChild(item);
+        });
+        host.appendChild(section);
+    }
+
+    insertArchetype(name, variant) {
+        this.runtime.events.emit('archetype:insert', { name, variant, parentId: this.insertionParentId || null });
     }
 
     insertDefinition(type) {

@@ -6,6 +6,9 @@ import CollaborationManager from './CollaborationManager.js';
 import NavigatorManager from './NavigatorManager.js';
 import FinderManager from './FinderManager.js';
 import { createCopilotTools } from './CopilotTools.js';
+import { ensureDesignCss, tokensFromPageSettings } from './designTokens.js';
+import { archetype, buildSection, sectionClass } from './sectionArchetypes.js';
+import { materializeSpec, specNodeCount } from './elementSpec.js';
 import { installLucideIcons } from './editorIcons.js';
 import inkCanvasCss from '../styles/canvas.scss?asString';
 import inkCanvasEditorCss from '../styles/canvas-editor.scss?asString';
@@ -210,6 +213,12 @@ export default class BuilderV2 {
         this.studio = new StudioManager(this).mount();
         if (this.options.collaboration) this.collaboration = new CollaborationManager(this, this.options.collaboration).mount();
         this.copilotTools = createCopilotTools(this.runtime, this);
+        // One entry point for both the Elements library and section drag & drop, so a dropped
+        // section and a clicked one are the same operation.
+        this.runtime.events.on('archetype:insert', ({ name, variant, parentId = null, index = null, content, media, sticky } = {}) => {
+            try { this.insertArchetype(name, { variant, parentId, index, content, media, sticky }); }
+            catch (error) { if (typeof console !== 'undefined') console.error('[BuilderV2] section insert failed:', error); }
+        });
         this.customCode.injectEffectStyles(document);
         this.customCode.inject();
         this.save = typeof window.saveToInkwell === 'function' ? window.saveToInkwell.bind(window) : null;
@@ -414,6 +423,49 @@ export default class BuilderV2 {
     getMode() { return this.mode; }
     applyMode() { this.setMode(this.mode); }
     applyCustomCode() { this.customCode.inject(); }
+
+    // ------------------------------------------------------------------ sections
+
+    // Insert a named archetype section. The Copilot composes pages with the same vocabulary; this is
+    // the human entry point (Elements > Sections, and section drops). The design system stylesheet is
+    // installed in the SAME undoable step, so a section dropped into an empty page cannot render as
+    // an unstyled box, and undo removes both.
+    insertArchetype(name, { variant, parentId = null, index = null, content, media, sticky } = {}) {
+        const definition = archetype(name);
+        if (!definition) throw new TypeError(`Unknown section "${name}".`);
+        const runtime = this.runtime;
+        const tokens = tokensFromPageSettings(runtime.document.data.settings);
+        const built = buildSection(name, {
+            variant, content: content || {}, media, sticky, tokens,
+            uid: `ink-arch-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
+        });
+        let parent = parentId ? runtime.document.get(parentId) : null;
+        if (parentId && !parent) throw new TypeError('Target not found.');
+        // A drop can land on an element that cannot hold a section (a leaf, or a column the section
+        // would overflow). Walk up to the nearest ancestor that accepts it, the same way an element
+        // drop re-targets, so a drop never silently disappears.
+        const probe = runtime.create('section', {});
+        while (parent && !runtime.elements.accepts(parent, probe)) parent = runtime.document.parentOf(parent.id);
+        const node = materializeSpec(runtime, built.spec, parent);
+        const insertion = { parentId: parent?.id || null, index: index == null ? (parent ? (parent.children?.length || 0) : runtime.document.data.children.length) : index };
+        const cssBefore = this.customCode.getCss();
+        const js = this.customCode.getJs();
+        const cssAfter = ensureDesignCss(cssBefore, tokens);
+        runtime.history.execute({
+            label: `Add ${definition.label} section`,
+            do: () => {
+                runtime.document.insert(node, insertion);
+                if (cssAfter !== cssBefore) this.customCode.update(cssAfter, js);
+            },
+            undo: () => {
+                runtime.document.remove(node.id);
+                if (cssAfter !== cssBefore) this.customCode.update(cssBefore, js);
+            },
+        });
+        this.customCode.inject(this.iframeDoc, { executeJs: this.mode === 'preview' });
+        runtime.selection.select(node.id);
+        return { id: node.id, archetype: name, variant: built.variant, role: built.role, nodes: specNodeCount(built.spec), sectionClass: sectionClass(name) };
+    }
 
     cloneData(value) { return typeof structuredClone === 'function' ? structuredClone(value) : JSON.parse(JSON.stringify(value)); }
 

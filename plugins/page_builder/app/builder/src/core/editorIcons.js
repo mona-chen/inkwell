@@ -23,6 +23,15 @@ const aliases = {
     view_carousel: 'gallery-horizontal', view_column: 'columns-3', view_week: 'columns-3', visibility: 'eye', visibility_off: 'eye-off', web_asset: 'panel-top', widgets: 'blocks', width: 'move-horizontal'
 };
 
+// Category glyphs for the Sections library, so a block group reads at a glance like the elements do.
+// Names must resolve to a real Lucide SVG (aliases or a vendored icon file), or the glyph slot
+// renders empty -- the chrome smoke test asserts every slot hydrates.
+export const SECTION_ICONS = {
+    Chrome: 'panel-top', Opening: 'party-popper', 'Social proof': 'users', Value: 'star',
+    Media: 'image', Commercial: 'credit-card', Support: 'circle-help', People: 'user-round',
+    Content: 'newspaper', Template: 'file-text', Closing: 'megaphone', Form: 'text-cursor-input',
+};
+
 export function lucideName(name) {
     const key = String(name || '').trim();
     return aliases[key] || key.replace(/_/g, '-').replace(/^material:/, '') || 'square';

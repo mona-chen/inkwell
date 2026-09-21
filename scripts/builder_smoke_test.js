@@ -304,10 +304,41 @@ async function main() {
       var r=builder.runtime;
       var section=r.elements.get('section'), columns=r.elements.get('columns'), container=r.elements.get('container');
       var flagged=section.legacy===true && columns.legacy===true && container.legacy!==true;
-      var containerFirst=document.querySelectorAll('.ink-v2-library-section')[0].textContent.includes('Container');
-      return {flagged:flagged,containerFirst:containerFirst};
+      var groups=Array.from(document.querySelectorAll('.ink-v2-library-section'));
+      var containerFirst=groups.some(function(group){return group.textContent.includes('Container')});
+      var sectionsFirst=(groups[0]||{textContent:''}).textContent.includes('Sections');
+      var sections=Array.from(document.querySelectorAll('[data-ink-archetype]')).map(function(el){return el.dataset.inkArchetype});
+      return {flagged:flagged,containerFirst:containerFirst,sectionsFirst:sectionsFirst,sections:sections};
     })()`);
     check("modern Container is primary; legacy Section/Columns are flagged", state.flagged && state.containerFirst, JSON.stringify(state));
+    check("the Elements library leads with named Sections a human can insert", state.sectionsFirst && state.sections.length >= 16, JSON.stringify(state.sections));
+
+    // Every section in the library is inserted through the real runtime, in one undoable step, and
+    // must land in the canvas as editable nodes with the design system installed beside them.
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime;
+      var names=Array.from(document.querySelectorAll('[data-ink-archetype]')).map(function(el){return el.dataset.inkArchetype});
+      var before=r.document.data.children.length;
+      var beforeCss=builder.customCode.getCss();
+      var failed=[];
+      names.forEach(function(name){
+        try { builder.insertArchetype(name); } catch(error){ failed.push(name+': '+(error&&error.message)); }
+      });
+      var roots=r.document.data.children.slice(before);
+      var css=builder.customCode.getCss();
+      var state={
+        names:names.length, inserted:roots.length, failed:failed,
+        tokens:css.indexOf('.ink-arch-section')>=0&&css.indexOf('--ink-t-bg:')>=0,
+        roles:roots.map(function(node){return node.settings.role}).join(','),
+        editable:roots.every(function(node){return node.id&&(node.children||[]).length>0}),
+        rendered:roots.every(function(node){return !!builder.canvasRoot.querySelector('[data-ink-element-id="'+node.id+'"]')})
+      };
+      // Undo every insert: the canvas and the custom CSS must both return to where they started.
+      for (var i=0;i<names.length;i++) r.history.undo();
+      state.reverted=r.document.data.children.length===before&&builder.customCode.getCss()===beforeCss;
+      return state;
+    })()`);
+    check("every library section inserts as editable canvas nodes with the design system, and undoes cleanly", state.inserted===state.names&&!state.failed.length&&state.tokens&&state.editable&&state.rendered&&state.reverted, JSON.stringify(state));
     state = await client.evaluate(`(function(){var button=document.querySelector('.ink-v2-panel-collapse');var resizer=document.querySelector('.ink-v2-panel-resizer');button.click();var collapsed=document.body.classList.contains('ink-panel-collapsed');button.click();return {button:!!button,resizer:!!resizer,collapsed:collapsed,restored:!document.body.classList.contains('ink-panel-collapsed')}})()`);
     check("Ink panel can resize and collapse", state.button && state.resizer && state.collapsed && state.restored, JSON.stringify(state));
     state = await client.evaluate(`(function(){var n=builder.navigator;n.toggle();var visible=!n.window.hidden;n.setDocked(true);var docked=n.window.classList.contains('is-docked')&&document.body.classList.contains('ink-structure-docked');n.hide();return {visible:visible,docked:docked,hidden:n.window.hidden&&!document.body.classList.contains('ink-structure-docked')}})()`);
@@ -648,9 +679,11 @@ async function main() {
         proof:{heading:'Close to the work.',body:'Senior thinking from discovery to ship.'},process:{heading:'Clarity is a process.',body:'Evidence guides every move.'},closing:{headline:'Make the next version matter.',body:'Bring the hard problem.'}
       }));
       var landingAudit=JSON.parse(tools.apply('audit_design'));
-      var stepsInner=b.iframeDoc.querySelector('.cp-steps > .ink-el-container-inner');
-      var projectGridInner=b.iframeDoc.querySelector('.cp-project-grid > .ink-el-container-inner');
-      var landingHooks=!!b.iframeDoc.querySelector('.cp-hero .cp-display') && b.customCode.getCss().includes('.cp-project-grid') && document.getElementById('customCss').value===b.customCode.getCss() && b.iframeDoc.defaultView.getComputedStyle(stepsInner).display==='grid' && b.iframeDoc.defaultView.getComputedStyle(projectGridInner).display==='grid';
+      // A composed page must be the *builder's* vocabulary: real archetype hooks, the design system
+      // in the page's custom CSS, the Code tab in sync, and the grid actually laying out as a grid.
+      var landingGrid=b.iframeDoc.querySelector('.ink-arch-grid');
+      var landingCss=b.customCode.getCss();
+      var landingHooks=!!b.iframeDoc.querySelector('.ink-arch-hero .ink-arch-display') && landingCss.includes('.ink-arch-section') && landingCss.includes('--ink-t-bg:') && document.getElementById('customCss').value===landingCss && !!landingGrid && b.iframeDoc.defaultView.getComputedStyle(landingGrid).display==='grid' && b.iframeDoc.querySelectorAll('.ink-arch-section').length>=3;
       tools.apply('undo');
       var landingUndo=JSON.stringify(r.serialize())===JSON.stringify(beforeStore) && b.customCode.getCss()===beforeCss;
       var clean=r.serialize().children.length===beforeStore.children.length;
@@ -994,15 +1027,7 @@ async function main() {
     }
 
     // A) Library -> canvas root insert
-    await client.evaluate(`builder.openPanelScreen('elements'); true`);
-    await client.evaluate(`(function(){
-      var t=Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(x){return x.dataset.inkElementType==='heading'});
-      if(!t) return false;
-      var body=document.querySelector('#WidgetsContainer .ink-v2-panel-body');
-      body.scrollTop=Math.max(0, t.getBoundingClientRect().top - body.getBoundingClientRect().top - body.clientHeight/2 + 20);
-      return true;
-    })()`);
-    await wait(250);
+    await scrollTile('heading');
     let drag = await client.evaluate(`(function(){
       var tile=Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(t){return t.dataset.inkElementType==='heading'});
       var tr=tile.getBoundingClientRect();
@@ -1035,15 +1060,7 @@ async function main() {
     check("drag insertion is undoable and redoable", state.undone && state.redone, JSON.stringify(state));
 
     // B) Library -> nested container drop
-    await client.evaluate(`builder.openPanelScreen('elements'); true`);
-    await client.evaluate(`(function(){
-      var t=Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(x){return x.dataset.inkElementType==='paragraph'});
-      if(!t) return false;
-      var body=document.querySelector('#WidgetsContainer .ink-v2-panel-body');
-      body.scrollTop=Math.max(0, t.getBoundingClientRect().top - body.getBoundingClientRect().top - body.clientHeight/2 + 20);
-      return true;
-    })()`);
-    await wait(250);
+    await scrollTile('paragraph');
     drag = await client.evaluate(`(function(){
       var r=builder.runtime, container=r.document.data.children.find(function(n){return n.type==='container'});
       var el=builder.iframeDoc.querySelector('[data-ink-element-id="'+container.id+'"]');
@@ -1807,22 +1824,47 @@ async function main() {
     // before/after an existing widget, reorder between containers, and
     // drag cancellation (no mutation, no leftover indicators).
     // ------------------------------------------------------------------
-    async function scrollTile(type) {
+    // Bring a library tile to the middle of the panel and hand back a hit-testable point. The manual
+    // scroll maths was fragile once the library grew a Sections group (a preserved panel scroll made
+    // the offset relative to the wrong origin), so this resets the scroll, asks the browser to center
+    // the tile, and then verifies the point really lands on the tile before a drag starts.
+    async function scrollToTile(finder, label, { attempts = 4 } = {}) {
       await client.evaluate(`builder.openPanelScreen('elements'); true`);
-      await client.evaluate(`(function(){
-        var t=Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(x){return x.dataset.inkElementType===${JSON.stringify(type)}});
+      const found = await client.evaluate(`(function(){
+        var t=${finder};
         if(!t) return false;
-        var b=document.querySelector('#WidgetsContainer .ink-v2-panel-body');
-        b.scrollTop=Math.max(0, t.getBoundingClientRect().top - b.getBoundingClientRect().top - b.clientHeight/2 + 20);
+        var body=t.closest('.ink-v2-panel-body');
+        if(body) body.scrollTop=0;
+        t.scrollIntoView({block:'center'});
         return true;
       })()`);
-      await wait(250);
-      return await client.evaluate(`(function(){
-        var t=Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(x){return x.dataset.inkElementType===${JSON.stringify(type)}});
-        var tr=t.getBoundingClientRect();
-        return { sx:Math.round(tr.x+tr.width/2), sy:Math.round(tr.y+tr.height/2) };
-      })()`);
+      if (!found) return { sx: 0, sy: 0, visible: false };
+      let point = { sx: 0, sy: 0, visible: false };
+      for (let attempt = 0; attempt < attempts; attempt += 1) {
+        await wait(250);
+        point = await client.evaluate(`(function(){
+          var t=${finder};
+          var tr=t.getBoundingClientRect();
+          var sx=Math.round(tr.x+tr.width/2), sy=Math.round(tr.y+tr.height/2);
+          var hit=document.elementFromPoint(sx,sy);
+          var visible=!!hit && (hit===t || t.contains(hit));
+          if(!visible){
+            var body=t.closest('.ink-v2-panel-body');
+            var delta=tr.top-(body?body.getBoundingClientRect().top+body.clientHeight/2:innerHeight/2);
+            if(body) body.scrollTop=body.scrollTop+delta; else window.scrollBy(0,delta);
+          }
+          return { sx:sx, sy:sy, visible:visible, top:Math.round(tr.top), scrollTop:Math.round((t.closest('.ink-v2-panel-body')||{}).scrollTop||0) };
+        })()`);
+        if (point.visible) break;
+      }
+      if (process.env.SMOKE_DRAG_DEBUG) console.log(`Tile ${label}`, JSON.stringify(point));
+      return point;
     }
+
+    // Function declarations (not const arrows) so the earlier drag steps can call them: blocks A-I
+    // all share this one scroll-and-verify path.
+    async function scrollTile(type) { return scrollToTile(`Array.from(document.querySelectorAll('#WidgetsContainer [data-ink-element-type]')).find(function(x){return x.dataset.inkElementType===${JSON.stringify(type)}})`, type); }
+    async function scrollSectionTile(name) { return scrollToTile(`document.querySelector('#WidgetsContainer [data-ink-archetype=${JSON.stringify(name)}]')`, 'section:' + name); }
 
     // D) Library -> completely blank root
     await client.evaluate(`(function(){ var r=builder.runtime; r.document.replace({version:2,type:'page',settings:{title:'Blank'},children:[]}); r.history.undoStack.length=0; r.history.redoStack.length=0; return true; })()`);
@@ -1884,6 +1926,52 @@ async function main() {
       return { count: builder.runtime.document.data.children.length, leftover: builder.iframeDoc.querySelectorAll('[data-ink-drop-position]').length, ghost: !!document.querySelector('.ink-drag-ghost') };
     })()`);
     check("drag cancellation mutates nothing and leaves no indicators", state.count === beforeCancel && state.leftover === 0 && !state.ghost, JSON.stringify(state));
+
+    // I) A Section is a whole tree plus the design system that styles it. Dragging one from the
+    // library must land an editable pricing section whose monthly/yearly switch is real component
+    // state -- and one undo must remove the tree AND the stylesheet it installed.
+    await client.evaluate(`(function(){
+      var r=builder.runtime;
+      r.document.replace({version:2,type:'page',settings:{title:'Sections'},children:[]});
+      r.history.undoStack.length=0; r.history.redoStack.length=0;
+      builder.customCode.update('',''); builder.customCode.inject();
+      return true;
+    })()`);
+    await wait(300);
+    const sectionTile = await scrollSectionTile('pricing');
+    const sectionPoint = await client.evaluate(`(function(){
+      var el=builder.iframeDoc.querySelector('.ink-editor-root-empty');
+      var r=el.getBoundingClientRect(); var ifr=builder.iframe.getBoundingClientRect();
+      return { dx:Math.round(ifr.x+(r.x+r.width/2)*builder.viewport.scale), dy:Math.round(ifr.y+(r.y+r.height*0.35)*builder.viewport.scale) };
+    })()`);
+    await realDrag(sectionTile.sx, sectionTile.sy, sectionPoint.dx, sectionPoint.dy);
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime, d=builder.iframeDoc;
+      var roots=r.document.data.children;
+      var root=roots[0];
+      var find=function(predicate){ var found=null; (function walk(n){ if(!found&&predicate(n))found=n; (n.children||[]).forEach(walk); })(root); return found; };
+      var switcher=find(function(n){return n.settings&&Array.isArray(n.settings.stateNames)&&n.settings.stateNames.length;});
+      var switches=0;
+      (function countActions(n){ if(n.settings&&Array.isArray(n.settings.interactions)) switches+=n.settings.interactions.length; (n.children||[]).forEach(countActions); })(root);
+      var css=builder.customCode.getCss();
+      var result={
+        tile:!!document.querySelector('#WidgetsContainer [data-ink-archetype="pricing"]'),
+        roots:roots.length, type:root&&root.type, role:root&&root.settings.role,
+        sections:roots.filter(function(n){return n.type==='section'}).length,
+        states:switcher?switcher.settings.stateNames.join(','):null,
+        switches:switches,
+        priceCss:css.indexOf('.ink-arch-price-yearly')>=0&&css.indexOf('[data-ink-state="yearly"]')>=0,
+        design:css.indexOf('.ink-arch-section')>=0&&css.indexOf('--ink-t-bg:')>=0,
+        editable:!!root&&!!d.querySelector('[data-ink-element-id="'+root.id+'"]')&&!!d.querySelector('.ink-arch-price-monthly')
+      };
+      r.history.undo();
+      result.undone=r.document.data.children.length===0&&builder.customCode.getCss()==='';
+      // Leave the section on the page: the steps that follow expect a non-empty document.
+      r.history.redo();
+      result.kept=r.document.data.children.length===1&&builder.customCode.getCss().indexOf('.ink-arch-section')>=0;
+      return result;
+    })()`);
+    check("dragging a Section drops an editable, token-styled tree in one undoable step", state.tile && state.roots === 1 && state.type === 'section' && state.role === 'pricing' && state.sections === 1 && state.states === 'monthly,yearly' && state.switches === 2 && state.priceCss && state.design && state.editable && state.undone && state.kept, JSON.stringify(state));
     state = await client.evaluate(`(function(){
       var before=builder.getData().children.length;
       clearPage(); var empty=builder.getData().children.length===0;
