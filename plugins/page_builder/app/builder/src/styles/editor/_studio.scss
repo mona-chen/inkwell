@@ -306,3 +306,18 @@ body:has([data-tab="copilot"].active) #copilotButton { color: var(--ink-editor-a
 .ink-editor-avatars { display: flex; align-items: center; padding-left: 4px; }
 .ink-appbar .ink-editor-avatar { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 28px; margin-left: -4px; border: 2px solid var(--ink-editor-panel); border-radius: 9px; background: hsl(var(--avatar-hue, 205) 65% 43%); color: #fff; font: 600 10px/1 var(--ink-editor-font); cursor: pointer; }
 .ink-appbar .ink-editor-avatar:hover, .ink-appbar .ink-editor-avatar:focus-visible { z-index: 1; outline: 2px solid var(--ink-editor-accent); outline-offset: 1px; }
+
+// Inspector refinement pass: calmer crumbs, no duplicated section titles, lighter dividers.
+// The identity block, the group headers, and the section headers are the panel's three structural
+// levels; they read as one rhythm instead of three competing ones.
+.ink-inspector-path { gap: 2px; align-items: center; color: var(--ink-editor-faint); }
+.ink-inspector-path button { max-width: 96px; }
+.ink-inspector-path button:last-child { color: var(--ink-editor-muted); }
+.ink-inspector-path-more { padding: 2px 4px; letter-spacing: .05em; }
+.ink-inspector-states-label { font-weight: 500; letter-spacing: .08em; }
+// A section named after its own group ("Content" under CONTENT) keeps its place in the DOM but
+// drops the second title, so its controls continue the group instead of restating it.
+.ink-v2-control-section[data-redundant="1"] > summary { display: none; }
+.ink-v2-section-group { border-top-color: color-mix(in srgb, var(--ink-editor-border) 55%, transparent); }
+.ink-v2-section-group > summary { background: color-mix(in srgb, var(--ink-editor-text) 2%, transparent); }
+.ink-inspector-identity, .ink-inspector-filter { border-bottom-color: color-mix(in srgb, var(--ink-editor-border) 60%, transparent); }

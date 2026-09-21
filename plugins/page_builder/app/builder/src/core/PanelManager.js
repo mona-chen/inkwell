@@ -45,7 +45,9 @@ const SECTION_GROUP_OF = {
     Semantics: 'advanced', Reference: 'advanced', Attributes: 'advanced', Accessibility: 'advanced',
     'Custom attributes': 'advanced', 'Additional Options': 'advanced', Code: 'advanced', HTML: 'advanced',
     States: 'component', 'Component states': 'component',
-    Interaction: 'interaction', Link: 'interaction', Anchor: 'interaction', Actions: 'interaction',
+    // `Link` is deliberately absent: the destination is content and the styling is style, so the
+    // section follows its tab instead of pushing a link's colour into the behaviour group.
+    Interaction: 'interaction', Anchor: 'interaction', Actions: 'interaction',
     Motion: 'motion', Animation: 'motion', 'Exit animation': 'motion', Sticky: 'motion',
 };
 // Anything an element type invents for itself (a counter's Numbers, a map's Tiles) stays next to
@@ -117,6 +119,8 @@ export default class PanelManager {
         // panel's own search field.
         this.controlClipboard = null;
         this.controlFilter = '';
+        // Which layer the author expanded the full ancestor trail for; a new selection folds it back.
+        this.pathExpandedFor = null;
         this.unsubscribers = [];
         this.abort = new AbortController();
         this.renderAbort = new AbortController();
@@ -472,11 +476,29 @@ export default class PanelManager {
         name.addEventListener('change', () => this.runtime.update(node.id, { settings: { label: name.value.trim() || definition.title } }, 'Rename layer'));
         const path = document.createElement('nav'); path.className = 'ink-inspector-path'; path.setAttribute('aria-label', 'Selection ancestors');
         const ancestors = this.runtime.document.pathTo(node.id).slice(0, -1);
-        const page = document.createElement('button'); page.type = 'button'; page.textContent = 'Page'; page.addEventListener('click', () => this.runtime.selection.clear()); path.appendChild(page);
-        ancestors.forEach((ancestor) => {
-            const button = document.createElement('button'); button.type = 'button'; button.textContent = ancestor.settings.label || ancestor.settings.importedAttributes?.['data-framer-name'] || this.runtime.elements.get(ancestor.type).title;
-            button.addEventListener('click', () => this.runtime.selection.select(ancestor.id)); path.append('›', button);
-        });
+        const labelOf = (ancestor) => ancestor.settings.label || ancestor.settings.importedAttributes?.['data-framer-name'] || this.runtime.elements.get(ancestor.type).title;
+        const crumb = (label, onClick) => {
+            const button = document.createElement('button'); button.type = 'button'; button.textContent = label; button.title = label;
+            button.addEventListener('click', onClick); return button;
+        };
+        path.appendChild(crumb('Page', () => this.runtime.selection.clear()));
+        // A deep tree rendered a row of equally-truncated crumbs that read as noise. Keep the root and
+        // the branch the selection actually lives in, and fold the middle behind an ellipsis the
+        // author can open when they want every level.
+        const unfolded = this.pathExpandedFor === node.id;
+        const folded = !unfolded && ancestors.length > 3;
+        if (folded) {
+            path.append('›', crumb(labelOf(ancestors[0]), () => this.runtime.selection.select(ancestors[0].id)));
+            const hiddenCount = ancestors.length - 3;
+            const more = crumb('…', () => { this.pathExpandedFor = node.id; this.render(); });
+            more.classList.add('ink-inspector-path-more');
+            more.title = `Show ${hiddenCount} hidden level${hiddenCount === 1 ? '' : 's'}`;
+            more.setAttribute('aria-label', more.title);
+            path.append('›', more);
+            ancestors.slice(-2).forEach((ancestor) => path.append('›', crumb(labelOf(ancestor), () => this.runtime.selection.select(ancestor.id))));
+        } else {
+            ancestors.forEach((ancestor) => path.append('›', crumb(labelOf(ancestor), () => this.runtime.selection.select(ancestor.id))));
+        }
         identity.append(name, path); wrapper.querySelector('.ink-v2-element-title').replaceWith(identity);
         // One state selector for the whole inspector. A "Normal" dropdown repeated under every
         // section read as form noise; the author picks the state once and every state-aware section
@@ -520,7 +542,7 @@ export default class PanelManager {
             button.addEventListener('click', () => { this.activeTab = tab; this.render(); }); tabs.appendChild(button);
         });
         const filter = document.createElement('details'); filter.className = 'ink-inspector-filter';
-        const filterLabel = document.createElement('summary'); filterLabel.textContent = this.activeTab === 'all' ? 'All properties' : `${this.activeTab[0].toUpperCase()}${this.activeTab.slice(1)} properties`;
+        const filterLabel = document.createElement('summary'); filterLabel.textContent = this.activeTab === 'all' ? 'Showing all properties' : `Showing ${this.activeTab} properties`;
         tabs.replaceWith(filter); filter.append(filterLabel, tabs);
         // Panel search: filter the settings that are on screen instead of making an author hunt
         // through sections. It filters the visible tab; the hint names the tab that matches when
@@ -528,7 +550,7 @@ export default class PanelManager {
         const search = document.createElement('div'); search.className = 'ink-v2-control-search';
         const searchIcon = document.createElement('span'); searchIcon.className = 'material-symbols-rounded'; searchIcon.setAttribute('aria-hidden', 'true'); searchIcon.textContent = 'search';
         const searchInput = document.createElement('input'); searchInput.type = 'search'; searchInput.value = this.controlFilter;
-        searchInput.placeholder = 'Find a setting'; searchInput.setAttribute('aria-label', 'Find a setting');
+        searchInput.placeholder = 'Search properties'; searchInput.setAttribute('aria-label', 'Search properties');
         const searchCount = document.createElement('span'); searchCount.className = 'ink-v2-control-search-count';
         search.append(searchIcon, searchInput, searchCount);
         const empty = document.createElement('p'); empty.className = 'ink-v2-control-search-empty'; empty.hidden = true;
@@ -604,7 +626,11 @@ export default class PanelManager {
             tabControls.sort((a, b) => { const rank = (section) => order.includes(section) ? order.indexOf(section) : 99; return rank(a.section) - rank(b.section); });
         }
         tabControls.forEach((control) => {
-            if (!sections.has(control.section)) {
+            // A section belongs to the group its *tab* implies. "Link" is content where it holds a
+            // destination and style where it holds a colour, so the two never collapse into whichever
+            // control happened to come first.
+            const sectionKey = `${control.tab}:${control.section}`;
+            if (!sections.has(sectionKey)) {
                 const groupKey = groupForSection(control.section, control.tab);
                 if (!groups.has(groupKey)) {
                     const group = document.createElement('details');
@@ -619,19 +645,26 @@ export default class PanelManager {
                     group.addEventListener('toggle', () => { if (group.isConnected) this.openGroups.set(store, group.open); });
                     groups.set(groupKey, group); groupNodes.push(group); controlsHost.appendChild(group);
                 }
+                const groupLabel = SECTION_GROUPS.find((entry) => entry.key === groupKey)?.label || '';
                 const section = document.createElement('details');
                 section.className = 'ink-v2-control-section';
+                section.dataset.tab = control.tab;
                 section.dataset.section = String(control.section || '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
                 section.innerHTML = `<summary><span>${control.section === 'Positioning' ? 'Position' : control.section}</span><span class="ink-v2-section-chevron" aria-hidden="true">⌄</span></summary>`;
+                // When a section is named after its own group the header repeats the group label
+                // ("Content" under CONTENT). The section stays in the DOM as the grouping anchor, but
+                // its controls read as a direct continuation of the group instead of a second title.
+                const redundant = String(control.section || '').toLowerCase() === groupLabel.toLowerCase();
+                if (redundant) section.dataset.redundant = '1';
                 // The group carries the collapse decision, so a section opens with it and only
                 // remembers its own toggle once the author closes it deliberately.
-                const key = `${node.type}:${this.activeTab}:${control.section}`;
-                section.open = this.openSections.has(key) ? this.openSections.get(key) : true;
+                const key = `${node.type}:${this.activeTab}:${sectionKey}`;
+                section.open = redundant ? true : (this.openSections.has(key) ? this.openSections.get(key) : true);
                 section.addEventListener('toggle', () => { if (section.isConnected) this.openSections.set(key, section.open); });
-                sections.set(control.section, section);
+                sections.set(sectionKey, section);
                 groups.get(groupKey).querySelector('.ink-v2-section-list').appendChild(section);
             }
-            const section = sections.get(control.section);
+            const section = sections.get(sectionKey);
             // State-capable controls follow the inspector's one state selector, as long as the
             // element actually declares the state being previewed.
             const stateList = Array.isArray(control.states) ? control.states : ['base', 'hover'];
@@ -744,6 +777,7 @@ export default class PanelManager {
         const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'ink-v2-control-menu-trigger';
         trigger.setAttribute('aria-haspopup', 'menu'); trigger.setAttribute('aria-expanded', 'false');
         trigger.setAttribute('aria-label', `${control.label || control.name} options`);
+        trigger.title = trigger.getAttribute('aria-label');
         trigger.innerHTML = '<span class="material-symbols-rounded" aria-hidden="true">more_vert</span>';
         const menu = document.createElement('div'); menu.className = 'ink-v2-control-menu'; menu.hidden = true; menu.setAttribute('role', 'menu');
         const close = () => { menu.hidden = true; trigger.setAttribute('aria-expanded', 'false'); };
@@ -796,7 +830,15 @@ export default class PanelManager {
         const device = this.runtime.responsive.device;
         const icons = { desktop: 'desktop_windows', tablet: 'tablet', mobile: 'smartphone' };
         const holder = document.createElement('div'); holder.className = 'ink-v2-responsive-switcher';
-        const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'ink-v2-responsive-trigger'; trigger.title = 'Responsive mode'; trigger.setAttribute('aria-label', 'Responsive mode'); trigger.innerHTML = `<span class="material-symbols-rounded">${icons[device]}</span>`;
+        // The switcher repeats on every responsive row, so it stays quiet until it has something to
+        // say: a value this breakpoint actually stores. An inherited value is not an override.
+        const state = control.state || this.activeState || 'base';
+        const stored = control.target === 'settings' ? undefined : node.styles?.[device]?.[state]?.[control.name];
+        const overridden = device !== 'desktop' && stored !== undefined && stored !== null && stored !== '';
+        holder.classList.toggle('is-overridden', overridden);
+        const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'ink-v2-responsive-trigger';
+        trigger.title = overridden ? `Overridden on ${device}` : `Responsive — editing ${device}`;
+        trigger.setAttribute('aria-label', trigger.title); trigger.innerHTML = `<span class="material-symbols-rounded">${icons[device]}</span>`;
         const popover = document.createElement('div'); popover.className = 'ink-v2-responsive-menu'; popover.setAttribute('role', 'menu');
         ['desktop', 'tablet', 'mobile'].forEach((name) => {
             const button = document.createElement('button'); button.type = 'button'; button.className = name === device ? 'is-active' : ''; button.setAttribute('role', 'menuitem');
@@ -849,6 +891,9 @@ export default class PanelManager {
         // Stable identifier so render() can restore focus to the same control after a live edit.
         row.dataset.controlType = control.type;
         row.dataset.inkControl = String(control.name || control.label || '').replace(/[^a-z0-9-]+/gi, '-');
+        // The layer's own words are the field an author edits most, so it carries a little more
+        // presence than the settings arranged around it.
+        if (control.tab === 'content' && ['text', 'textarea', 'wysiwyg'].includes(control.type)) row.classList.add('ink-v2-primary-field');
         // Thread the active Normal/Hover/Focus state into state-capable controls.
         if (control.states && !control.state) control = { ...control, state: this.activeState || 'base' };
         if (control.type !== 'background' && !control.hideLabel) {

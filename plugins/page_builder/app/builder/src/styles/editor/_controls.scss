@@ -104,7 +104,10 @@
   align-self: start;
 }
 .ink-v2-link-values .material-symbols-rounded { font-size: 15px; }
-.ink-v2-link-values.is-active { background: var(--ink-editor-accent) !important; color: #fff !important; }
+// A linked spacing row keeps the accent tint instead of the solid primary blue, which was reading
+// as loudly as the primary actions around it.
+.ink-v2-link-values.is-active { background: var(--ink-editor-accent-soft) !important; color: var(--ink-editor-accent-bright) !important; }
+.ink-v2-dimensions .ink-v2-unit { justify-self: end; width: 36px; }
 
 // Row/column gaps.
 .ink-v2-gaps { display: grid; grid-template-columns: 1fr 1fr 44px 24px; }
@@ -535,7 +538,10 @@
 .ink-v2-motion-group-control > label:first-child,.ink-v2-sticky-control > label:first-child { grid-column:1/-1; flex-direction:row; align-items:center; justify-content:space-between; }
 .ink-v2-motion-group-control > small,.ink-v2-sticky-control > small { grid-column:1/-1; }
 .ink-v2-motion-group-control input,.ink-v2-motion-group-control select,.ink-v2-sticky-control input { width:100%; min-width:0; }
-.ink-v2-motion-group-control input:disabled,.ink-v2-motion-group-control select:disabled,.ink-v2-sticky-control input:disabled { opacity:.45; }
+.ink-v2-motion-group-control input:disabled,.ink-v2-motion-group-control select:disabled,.ink-v2-sticky-control input:disabled { opacity:1; color:var(--ink-editor-muted); }
+// With orchestration off the group writes nothing, so the fields below read as unavailable rather
+// than editable-but-inert. The Orchestrate toggle itself stays at full strength.
+.ink-v2-motion-group-control.is-off > label:not(:first-of-type) { opacity:.55; }
 
 /* Component states + interactions. Each interaction is one event → effect row; the detail line
    only shows the fields that action needs, so the list stays scannable. */
@@ -543,8 +549,11 @@
 .ink-v2-state-names input { width: 100%; }
 .ink-v2-interactions { display: flex; flex-direction: column; gap: 10px; }
 .ink-v2-interaction { display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--ink-editor-border); border-radius: 6px; background: var(--ink-editor-surface, transparent); }
-.ink-v2-interaction-head { display: flex; align-items: flex-end; gap: 6px; }
-.ink-v2-interaction-head > label { display: flex; min-width: 0; flex: 1 1 0; flex-direction: column; gap: 5px; color: var(--ink-editor-faint); font-size: 10px; }
+.ink-v2-interaction-head { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 8px; }
+.ink-v2-interaction-head > label { display: flex; min-width: 0; flex-direction: column; gap: 5px; color: var(--ink-editor-faint); font-size: 10px; }
+// Four controls never fit across a 280px panel: When | Do, then Target | Remove.
+.ink-v2-interaction-head > label:nth-of-type(3) { grid-column: 1 / 2; }
+.ink-v2-interaction-head .ink-v2-interaction-remove { grid-column: 2 / 3; justify-self: end; align-self: end; }
 .ink-v2-interaction-head select { width: 100%; min-width: 0; }
 .ink-v2-interaction-remove { flex: none; }
 .ink-v2-interaction-detail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -646,3 +655,42 @@ body.ink-is-scrubbing { cursor: ew-resize; user-select: none; }
 .ink-v2-target-status { grid-column: 1 / -1; color: var(--ink-editor-faint); font-size: 10px; line-height: 1.4; }
 .ink-v2-target-status[data-state="found"] { color: var(--ink-editor-muted); }
 .ink-v2-target-status[data-state="missing"] { color: #e8918c; }
+
+// The responsive switcher repeats on every responsive row. Keep it quiet until it matters: it
+// brightens on hover/focus, and takes the accent only when this breakpoint stores an override.
+.ink-v2-responsive-trigger { border-color: transparent; background: transparent; color: var(--ink-editor-faint); opacity: .5; }
+.ink-v2-responsive-trigger .material-symbols-rounded { font-size: 13px; }
+.ink-v2-control:hover .ink-v2-responsive-trigger,
+.ink-v2-responsive-trigger:hover,
+.ink-v2-responsive-trigger:focus-visible { opacity: 1; color: var(--ink-editor-muted); border-color: var(--ink-editor-border); background: var(--ink-editor-surface); }
+.ink-v2-responsive-switcher.is-overridden .ink-v2-responsive-trigger { opacity: 1; color: var(--ink-editor-accent-bright); }
+
+// Slider value field: an optional unit suffix ("%") reads as part of the field, not a third column.
+.ink-v2-slider-value { position: relative; display: flex; min-width: 0; align-items: center; }
+.ink-v2-slider-value input { padding-right: 16px; }
+.ink-v2-slider-value > span { position: absolute; right: 7px; color: var(--ink-editor-faint); font-size: 10px; pointer-events: none; }
+
+// Motion group easing: informational while each layer keeps its own curve, a quiet action once the
+// group owns one. The inherited copy used to carry the same emphasis as a primary button.
+.ink-v2-easing-inherit { grid-column: 1 / -1; justify-self: start; min-height: 24px; }
+.ink-v2-easing-inherit.is-note { padding: 0; border: 0; background: transparent; color: var(--ink-editor-faint); cursor: default; }
+
+// Disabled fields state their value instead of fading it out of legibility.
+.ink-v2-control select:disabled, .ink-v2-control input:disabled { opacity: 1; color: var(--ink-editor-muted); }
+
+// Interactions: the add action is still the section's primary action, but a tint reads as "add"
+// without shouting louder than the rules it adds.
+.ink-v2-interaction-add { width: 100%; min-height: 26px; background: var(--ink-editor-accent-soft); color: var(--ink-editor-accent-bright); }
+.ink-v2-interaction-add:hover { background: color-mix(in srgb, var(--ink-editor-accent-bright) 24%, transparent); }
+
+// A runtime note that explains when a feature runs, set apart from the fields it describes.
+.ink-v2-note { display: block; padding: 7px 9px; border-radius: 6px; background: color-mix(in srgb, var(--ink-editor-text) 4%, transparent); margin: 2px 0 0; }
+
+// Data binding: name the two selects ("Source", "Field") so the pair is not a mystery.
+.ink-v2-data-binding-field { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.ink-v2-data-binding-field > span { color: var(--ink-editor-faint); font-size: 10px; }
+
+// The layer's own words (a heading's text, a button's label) are the field an author edits most,
+// so the row carries a little more presence than the settings arranged around it.
+.ink-v2-primary-field > label { font-weight: 500; }
+.ink-v2-primary-field input, .ink-v2-primary-field textarea { min-height: 28px; font-size: 12px; }

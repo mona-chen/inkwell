@@ -603,7 +603,7 @@ export function motion(panel, control, node, value, row) {
 
     // The first decision is "what should happen", not "which CSS properties". Choosing a preset
     // writes the keyframes; the timeline below is the escape hatch, not the entry point.
-    const animation = document.createElement('select'); animation.setAttribute('aria-label', 'Animation');
+    const animation = document.createElement('select'); animation.setAttribute('aria-label', 'Animation effect');
     animation.add(new Option('None', 'none'));
     MOTION_PRESETS.forEach((preset) => animation.add(new Option(preset.label, preset.id)));
     animation.add(new Option('Custom keyframes', 'custom'));
@@ -617,7 +617,7 @@ export function motion(panel, control, node, value, row) {
     // that reaches the page is always a string the stylesheet accepts.
     let easingState = { easing: validateEasing(current.easing) || easingCss(parseEasing(current.easing).points), spring: current.spring && typeof current.spring === 'object' ? { ...current.spring } : null };
 
-    field('Animation', animation);
+    field('Effect', animation);
     const summary = document.createElement('div'); summary.className = 'ink-v2-motion-summary';
     const summaryText = document.createElement('span'); summaryText.className = 'ink-v2-motion-summary-text';
     const previewButton = document.createElement('button'); previewButton.type = 'button'; previewButton.className = 'ink-v2-action-button'; previewButton.textContent = 'Preview';
@@ -741,17 +741,29 @@ export function motionGroup(panel, control, node, value, row) {
         value: groupEasing || 'ease',
         onChange: ({ easing }) => { groupEasing = easing; syncAndCommit(); },
     });
-    const easingInherit = document.createElement('button'); easingInherit.type = 'button'; easingInherit.className = 'ink-v2-action-button';
-    const syncInherit = () => { easingInherit.textContent = groupEasing ? 'Use each layer\'s own easing' : 'Every layer keeps its own easing'; easingInherit.disabled = !groupEasing; };
+    // Informational while each layer keeps its own curve; a quiet secondary action only once there
+    // is a group curve to drop. A bright primary button here out-shouted the fields around it.
+    const easingInherit = document.createElement('button'); easingInherit.type = 'button'; easingInherit.className = 'ink-v2-action-button is-quiet ink-v2-easing-inherit';
+    const syncInherit = () => {
+        easingInherit.textContent = groupEasing ? 'Use each layer\'s own easing' : 'Each layer keeps its own easing';
+        easingInherit.disabled = !groupEasing;
+        easingInherit.classList.toggle('is-note', !groupEasing);
+    };
     easingInherit.addEventListener('click', () => { groupEasing = ''; syncInherit(); syncAndCommit(); });
     const reference = document.createElement('select'); [['group', 'The group section'], ['parent', 'The group\u2019s parent']].forEach(([name, label]) => reference.add(new Option(label, name))); reference.value = group?.scrub?.reference || 'group';
     const pinControl = switchControl({ checked: !!group?.pin?.enabled, ariaLabel: 'Pin the group while it scrubs', onLabel: 'Pinned', offLabel: 'Free' }); const pin = pinControl.checkbox;
     const distance = document.createElement('input'); distance.type = 'number'; distance.min = '0'; distance.max = '400'; distance.step = '25'; distance.value = group?.pin?.distance ?? 100;
 
     const scrollOnly = () => {
-        reference.disabled = trigger.value !== 'scroll';
-        pin.disabled = trigger.value !== 'scroll';
-        distance.disabled = trigger.value !== 'scroll' || !pin.checked;
+        // With orchestration off the group writes nothing, so its fields say so instead of looking
+        // editable and silently doing nothing.
+        const off = !enabled.checked;
+        kind.disabled = off; trigger.disabled = off; stagger.disabled = off; duration.disabled = off;
+        reference.disabled = off || trigger.value !== 'scroll';
+        pin.disabled = off || trigger.value !== 'scroll';
+        distance.disabled = off || trigger.value !== 'scroll' || !pin.checked;
+        easingInherit.disabled = off || !groupEasing;
+        wrapper.classList.toggle('is-off', off);
     };
     const commit = () => {
         if (!enabled.checked) { panel.setValue(control, node, null); return; }
@@ -796,27 +808,37 @@ export function sticky(panel, control, node, value, row) {
         panel.setValue(control, node, { enabled: true, top: Number(top.value) || 0, zIndex: Number(zIndex.value) || 10 });
     };
     [checkbox, top, zIndex].forEach((input) => input.addEventListener('change', commit));
-    field('Position', toggleWrapper); field('Offset from top (px)', top); field('Z-index', zIndex);
-    const hint = document.createElement('small'); hint.className = 'ink-v2-control-description'; hint.textContent = 'Pin this layer inside its scroll container. Build a pinned timeline as a tall motion group whose stage is sticky.'; wrapper.appendChild(hint);
+    field('Sticky', toggleWrapper); field('Offset from top (px)', top); field('Z-index', zIndex);
+    const hint = document.createElement('small'); hint.className = 'ink-v2-control-description'; hint.textContent = 'Keep this layer pinned inside its scroll container, so it stays put while the section moves past it.'; wrapper.appendChild(hint);
     row.appendChild(wrapper); return row;
 }
 
 export function slider(panel, control, node, value, row) {
     const host = document.createElement('div'); host.className = 'ink-v2-slider';
-    const range = document.createElement('input'); range.type = 'range'; range.min = control.min ?? 0; range.max = control.max ?? 100; range.step = control.step ?? 1;
+    // Some values are stored normalized but read in the author's units -- opacity lives at 0-1 and
+    // reads as 0-100%. `scale` translates between the two without touching the stored value.
+    const scale = Number(control.scale) || 1;
+    // Scale on a rounded grid: 0.05 * 100 is 5.000000000000001, which the range input rejects as a
+    // step and silently replaces with 1.
+    const onGrid = (raw) => Math.round(Number(raw) * scale * 1e6) / 1e6;
+    const range = document.createElement('input'); range.type = 'range'; range.min = onGrid(control.min ?? 0); range.max = onGrid(control.max ?? 100); range.step = onGrid(control.step ?? 1);
     const number = document.createElement('input'); number.type = 'number'; number.min = range.min; number.max = range.max; number.step = range.step;
     const size = value && typeof value === 'object' ? value.size : value;
     const initial = size === '' || size === undefined || size === null ? (control.default ?? control.min ?? 0) : size;
-    range.value = initial; number.value = range.value;
+    const displayed = (raw) => String(Number((Number(raw) * scale).toFixed(4)));
+    const toStored = (raw) => Number((Number(raw) / scale).toFixed(6));
+    range.value = displayed(initial); number.value = range.value;
     const unit = control.units ? document.createElement('select') : null;
     if (unit) { unit.className = 'ink-v2-unit'; control.units.forEach((name) => unit.add(new Option(name, name))); unit.value = value?.unit || control.units[0]; }
-    const commit = (source) => { if (source) { range.value = source.value; number.value = range.value; } panel.setValue(control, node, unit ? { size: Number(number.value), unit: unit.value } : Number(number.value)); };
+    const commit = (source) => { if (source) { range.value = source.value; number.value = range.value; } panel.setValue(control, node, unit ? { size: toStored(number.value), unit: unit.value } : toStored(number.value)); };
     range.setAttribute('aria-label', control.label || control.name); number.setAttribute('aria-label', `${control.label || control.name} value`);
-    const scrub = (finish) => { number.value = range.value; panel.scrubValue(control, node, unit ? { size: Number(range.value), unit: unit.value } : Number(range.value), finish); };
+    const scrub = (finish) => { number.value = range.value; panel.scrubValue(control, node, unit ? { size: toStored(range.value), unit: unit.value } : toStored(range.value), finish); };
     range.addEventListener('input', () => scrub(false));
     range.addEventListener('change', () => scrub(true)); range.addEventListener('blur', () => { if (panel.scrubbing) scrub(true); });
     commitOnFinish(number, () => commit(number)); unit?.addEventListener('change', () => commit());
-    host.append(range, number); if (unit) host.appendChild(unit); row.appendChild(host); return row;
+    const valueField = document.createElement('div'); valueField.className = 'ink-v2-slider-value'; valueField.appendChild(number);
+    if (control.suffix) { const suffix = document.createElement('span'); suffix.setAttribute('aria-hidden', 'true'); suffix.textContent = control.suffix; valueField.appendChild(suffix); }
+    host.append(range, valueField); if (unit) host.appendChild(unit); row.appendChild(host); return row;
 }
 
 export function gaps(panel, control, node, value, row) {
@@ -1058,7 +1080,8 @@ export function dimensions(panel, control, node, value, row) {
     let linked = dimensions.linked !== false;
     ['top', 'right', 'bottom', 'left'].forEach((side) => {
         const field = document.createElement('label'); field.innerHTML = `<span>${side[0].toUpperCase()}</span>`;
-        const input = document.createElement('input'); input.type = 'number'; input.value = dimensions[side] ?? '';
+        // "—" marks a side the design leaves to the browser instead of an empty unknown field.
+        const input = document.createElement('input'); input.type = 'number'; input.value = dimensions[side] ?? ''; input.placeholder = '—';
         field.prepend(input); inputs.appendChild(field);
     });
     const unit = document.createElement('select'); unit.className = 'ink-v2-unit';
@@ -1149,7 +1172,7 @@ function openColorStudio(anchor, source, onCommit, palette = INK_COLOR_PALETTE) 
 }
 
 function colorTrigger(source, onCommit, palette) {
-    const rgba = colorChannels(source); const button = document.createElement('button'); button.type = 'button'; button.className = 'ink-v2-color-trigger'; button.style.setProperty('--ink-current-color', colorCss(rgba)); button.innerHTML = `<span></span><code>${colorHex(rgba).slice(1).toUpperCase()}</code><em>${Math.round(rgba.a * 100)}%</em>`; button.addEventListener('click', () => openColorStudio(button, colorCss(rgba), onCommit, palette)); return button;
+    const rgba = colorChannels(source); const button = document.createElement('button'); button.type = 'button'; button.className = 'ink-v2-color-trigger'; button.style.setProperty('--ink-current-color', colorCss(rgba)); button.innerHTML = `<span></span><code>${colorHex(rgba).toUpperCase()}</code><em>${Math.round(rgba.a * 100)}%</em>`; button.addEventListener('click', () => openColorStudio(button, colorCss(rgba), onCommit, palette)); return button;
 }
 
 export function color(panel, control, node, value, row) {
@@ -1561,7 +1584,7 @@ export function background(panel, control, node, value, row) {
         if (node.settings.backgroundSlideshowKenBurns) wrapper.appendChild(settingSub({ name: 'backgroundSlideshowZoomDirection', type: 'select', label: 'Zoom Direction', default: 'in', options: [{ value: 'in', label: 'In' }, { value: 'out', label: 'Out' }] }));
     }
     if (overlay && mode) {
-        wrapper.appendChild(sub({ name: 'overlay-opacity', type: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.01, default: 0.5, responsive: true }));
+        wrapper.appendChild(sub({ name: 'overlay-opacity', type: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.01, scale: 100, suffix: '%', default: 0.5, responsive: true }));
         wrapper.appendChild(sub({ name: 'overlay-filter', type: 'css-filters', label: 'CSS Filters' }));
         wrapper.appendChild(sub({ name: 'overlay-mix-blend-mode', type: 'select', label: 'Blend Mode', options: [{ value: '', label: 'Normal' }, 'multiply', 'screen', 'overlay', 'darken', 'lighten', 'color-dodge', 'saturation', 'color', 'luminosity'] }));
     }
@@ -1785,7 +1808,13 @@ export function dataBinding(panel, control, node, _value, row) {
         if (sourceSelect.value && fieldSelect.value) write(`{{ ${sourceSelect.value}.${fieldSelect.value} }}`);
     });
 
-    grid.append(sourceSelect, fieldSelect);
+    // Two bare selects read as one unknown field pair. Captions name what each one chooses.
+    const withCaption = (text, control) => {
+        const label = document.createElement('label'); label.className = 'ink-v2-data-binding-field';
+        const caption = document.createElement('span'); caption.textContent = text;
+        label.append(caption, control); return label;
+    };
+    grid.append(withCaption('Source', sourceSelect), withCaption('Field', fieldSelect));
     row.appendChild(grid);
     return row;
 }
@@ -1801,7 +1830,7 @@ export function stateNames(panel, control, node, value, row) {
     input.setAttribute('aria-label', control.label || 'Component states');
     commitOnFinish(input, () => panel.setValue(control, node, normalizeStateList(input.value)));
     const hint = document.createElement('small'); hint.className = 'ink-v2-control-description';
-    hint.textContent = 'Variant names this element can be in. Style each one from the state switcher, then switch them with an interaction.';
+    hint.textContent = 'Variant names this layer can be in. Style each one from the state switcher, then switch between them with an interaction.';
     wrapper.append(input, hint);
     row.appendChild(wrapper);
     return row;
@@ -1818,7 +1847,10 @@ export function interactions(panel, control, node, value, row) {
         const element = document.createElement('select');
         options.forEach((option) => element.add(new Option(labels[option] || option, option)));
         element.value = current;
-        element.addEventListener('change', () => onChange(element.value));
+        // Half-width selects truncate, so keep the full current value one hover away.
+        const describe = () => { element.title = element.options[element.selectedIndex]?.textContent || ''; };
+        describe();
+        element.addEventListener('change', () => { describe(); onChange(element.value); });
         return element;
     };
 
@@ -1831,7 +1863,7 @@ export function interactions(panel, control, node, value, row) {
         header.appendChild(field('Do', select(INTERACTION_ACTIONS, INTERACTION_ACTION_LABELS, record.action, (next) => update({ action: next, ...(['toggleState', 'setState'].includes(next) && !record.state ? { state: 'open' } : {}) }))));
         header.appendChild(field('Target', select(INTERACTION_TARGETS, INTERACTION_TARGET_LABELS, record.target, (next) => update({ target: next, ...(next === 'query' && !record.selector ? { selector: '.selector' } : {}) }))));
 
-        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'ink-v2-action-button is-quiet';
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'ink-v2-action-button is-quiet ink-v2-interaction-remove';
         remove.textContent = 'Remove'; remove.setAttribute('aria-label', 'Remove interaction');
         remove.addEventListener('click', () => { list.splice(index, 1); commit(); });
         header.appendChild(remove);
@@ -1891,12 +1923,12 @@ export function interactions(panel, control, node, value, row) {
         wrapper.appendChild(item);
     });
 
-    const add = document.createElement('button'); add.type = 'button'; add.className = 'ink-v2-action-button';
+    const add = document.createElement('button'); add.type = 'button'; add.className = 'ink-v2-action-button ink-v2-interaction-add';
     add.textContent = list.length ? 'Add another interaction' : 'Add interaction';
     add.addEventListener('click', () => { list.push({ on: 'click', action: 'toggleState', target: 'self', state: 'open' }); commit(); });
     wrapper.appendChild(add);
 
-    const hint = document.createElement('small'); hint.className = 'ink-v2-control-description';
+    const hint = document.createElement('small'); hint.className = 'ink-v2-control-description ink-v2-note';
     hint.textContent = 'Runs in Preview and on the published page. Pick a target layer on the canvas to change it — a panel that should open, for example.';
     wrapper.appendChild(hint);
 

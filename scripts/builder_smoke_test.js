@@ -523,7 +523,7 @@ async function main() {
       var row=document.querySelector('#SettingsContainer [data-ink-control="motion"]');
       if(!row) return {missing:true};
       // The first view names the effect and offers a preview; the physics stay one disclosure down.
-      var animation=document.querySelector('#SettingsContainer [data-ink-control="motion"] select[aria-label="Animation"]');
+      var animation=document.querySelector('#SettingsContainer [data-ink-control="motion"] select[aria-label="Animation effect"]');
       var advanced=document.querySelector('#SettingsContainer [data-ink-control="motion"] .ink-v2-motion-advanced');
       var shell={options:Array.from(animation.options).map(function(option){return option.value}), closed:advanced?advanced.open===false:null, physicsInside:!!(advanced&&advanced.querySelector('.ink-v2-easing-spring'))};
       animation.value='fade-up'; animation.dispatchEvent(new Event('change',{bubbles:true}));
@@ -1143,9 +1143,10 @@ async function main() {
       var ordered=['Position','Layout','Appearance','Fill','Stroke','Effects'].every(function(name,i,list){return sectionNames.includes(name)&&(!i||sectionNames.indexOf(name)>sectionNames.indexOf(list[i-1]));});
       var slider=document.querySelector('#SettingsContainer [data-ink-control="opacity"] input[type="range"]');
       slider.closest('details').open=true;slider.focus();var start=r.history.undoStack.length;
-      slider.value='.3';slider.dispatchEvent(new Event('input',{bubbles:true}));
+      // Opacity reads as a percentage (0-100) while the stored value stays 0-1.
+      slider.value='30';slider.dispatchEvent(new Event('input',{bubbles:true}));
       var live=b.iframeDoc.defaultView.getComputedStyle(r.canvas.instances.get(n.id).element).opacity==='0.3';
-      slider.value='.6';slider.dispatchEvent(new Event('input',{bubbles:true}));
+      slider.value='60';slider.dispatchEvent(new Event('input',{bubbles:true}));
       var connected=slider.isConnected;
       slider.dispatchEvent(new Event('change',{bubbles:true}));
       var one=r.history.undoStack.length===start+1&&!r.history.transaction;
@@ -1165,6 +1166,81 @@ async function main() {
     check("inspector follows Position, Layout, Appearance, Fill, Stroke, Effects order",state.ordered,JSON.stringify(state));
     check("opacity and filter drags preview continuously and undo as one gesture",state.live&&state.connected&&state.one&&state.undo&&state.blur&&state.filterOne&&state.compact&&state.restored,JSON.stringify(state));
     check("compound controls keep focus on the field being edited",state.focus,JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,p=r.settingsPanel;
+      // The checks after this one read the document this swap replaces, so it is restored at the end.
+      var saved=JSON.stringify(b.getData());
+      r.document.replace({version:2,type:'page',settings:{title:'Inspector refinement'},children:[]});
+      var outer=r.insert('container',{},{settings:{label:'Hero'}});
+      var inner=r.insert('container',{parentId:outer.id},{settings:{label:'Hero content'}});
+      var deeper=r.insert('container',{parentId:inner.id},{settings:{label:'Copy column'}});
+      var deepest=r.insert('container',{parentId:deeper.id},{settings:{label:'Headline stack'}});
+      var heading=r.insert('heading',{parentId:deepest.id},{settings:{label:'Headline',text:'Support'}});
+      r.selection.select(heading.id); p.activeTab='all'; p.render();
+      // A section named after its own group keeps its place in the DOM but drops the second title.
+      var redundant=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-control-section[data-redundant="1"]'));
+      var untitled=redundant.filter(function(section){return getComputedStyle(section.querySelector('summary')).display==='none'}).length;
+      var contentGroup=document.querySelector('#SettingsContainer .ink-v2-section-group[data-group="content"]');
+      // Opacity reads as a percentage; the stored value is still 0-1.
+      var opacityRow=document.querySelector('#SettingsContainer [data-ink-control="opacity"]');
+      var slider=opacityRow?opacityRow.querySelector('input[type="range"]'):null;
+      var shown=opacityRow?opacityRow.querySelector('.ink-v2-slider-value input'):null;
+      var suffix=opacityRow?opacityRow.querySelector('.ink-v2-slider-value span'):null;
+      var before=JSON.stringify(b.getData());
+      shown.value='35';shown.dispatchEvent(new Event('change',{bubbles:true}));
+      var stored=r.document.get(heading.id).styles.desktop.base.opacity;
+      r.history.undo();
+      var restored=JSON.stringify(b.getData())===before;
+      // A deep trail folds to first + last two, and the ellipsis opens every level again.
+      var folded=Array.from(document.querySelectorAll('.ink-inspector-path button')).map(function(button){return button.textContent});
+      var more=document.querySelector('.ink-inspector-path-more'); if(more) more.click();
+      var unfolded=Array.from(document.querySelectorAll('.ink-inspector-path button')).map(function(button){return button.textContent});
+      var navigated=false;
+      var crumbs=Array.from(document.querySelectorAll('.ink-inspector-path button'));
+      var target=crumbs[crumbs.length-1]; if(target){target.click();navigated=r.selection.selectedId===deepest.id;}
+      r.selection.select(heading.id);p.render();
+      // The device switcher only lights up when this breakpoint stores an override.
+      r.update(outer.id,{styles:{tablet:{base:{'min-width':{size:640,unit:'px'}}}}},'Tablet width');
+      var deviceButton=document.querySelector('.ink-appbar-center [id="tabletModeButton"]'); if(deviceButton) deviceButton.click();
+      r.selection.select(outer.id); p.render();
+      var minWidth=document.querySelector('#SettingsContainer [data-ink-control="min-width"]');
+      var marked=minWidth?minWidth.querySelector('.ink-v2-responsive-switcher'):null;
+      var unmarked=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-responsive-switcher')).filter(function(holder){return !holder.classList.contains('is-overridden')}).length;
+      var result={redundant:redundant.length,untitled:untitled,rows:contentGroup?contentGroup.querySelectorAll('.ink-v2-control').length:0,
+        min:slider?slider.min:'',max:slider?slider.max:'',step:slider?slider.step:'',suffix:suffix?suffix.textContent:'',
+        percent:stored===0.35,restored:restored,
+        folded:folded,unfolded:unfolded,
+        opened:unfolded.indexOf('\u2026')===-1&&unfolded.indexOf('Hero content')!==-1,navigated:navigated,
+        marked:!!marked&&marked.classList.contains('is-overridden'),quiet:unmarked>0};
+      // Leave the builder as it was: desktop device, the previous checks' document, no selection.
+      var desktopButton=document.querySelector('.ink-appbar-center [id="desktopModeButton"]'); if(desktopButton) desktopButton.click();
+      r.document.replace(JSON.parse(saved));
+      r.selection.clear();
+      return result;
+    })()`);
+    check("a section named after its group drops the duplicated title",state.redundant>0&&state.untitled===state.redundant&&state.rows>0,JSON.stringify(state));
+    check("opacity reads as a percentage and still stores 0-1",state.min==='0'&&state.max==='100'&&state.step==='5'&&state.suffix==='%'&&state.percent&&state.restored,JSON.stringify(state));
+    check("a deep ancestor trail folds behind an ellipsis that opens it again",state.folded[0]==='Page'&&state.folded[1]==='Hero'&&state.folded[2]==='…'&&state.opened&&state.navigated,JSON.stringify(state));
+    check("the responsive switcher marks overrides and stays quiet elsewhere",state.marked&&state.quiet,JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
+      var b=builder,r=b.runtime,p=r.settingsPanel;
+      var saved=JSON.stringify(b.getData());
+      r.document.replace({version:2,type:'page',settings:{title:'Link buckets'},children:[]});
+      var link=r.insert('link',{},{settings:{text:'Read more',url:'https://example.com'}});
+      r.selection.select(link.id); p.activeTab='all'; p.render();
+      var groupOf=function(name){
+        var row=document.querySelector('#SettingsContainer [data-ink-control="'+name+'"]');
+        var host=row&&row.closest('.ink-v2-section-group');
+        return host?host.dataset.group:'missing';
+      };
+      var interaction=Array.from(document.querySelectorAll('#SettingsContainer .ink-v2-section-group[data-group="interaction"] .ink-v2-control')).map(function(row){return row.dataset.inkControl});
+      var result={url:groupOf('url'),color:groupOf('color'),shadow:groupOf('text-shadow'),interaction:interaction};
+      r.document.replace(JSON.parse(saved)); r.selection.clear();
+      return result;
+    })()`);
+    check("a link keeps its destination in Content and its styling beside the element's style",state.url==='content'&&state.color==='appearance'&&state.shadow==='appearance'&&state.interaction.indexOf('url')===-1,JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var b=builder,r=b.runtime,t=b.copilotTools,before=JSON.stringify(b.getData());

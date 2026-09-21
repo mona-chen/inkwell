@@ -1913,8 +1913,13 @@ body {
 }
 
 .ink-v2-link-values.is-active {
-  background: var(--ink-editor-accent) !important;
-  color: #fff !important;
+  background: var(--ink-editor-accent-soft) !important;
+  color: var(--ink-editor-accent-bright) !important;
+}
+
+.ink-v2-dimensions .ink-v2-unit {
+  justify-self: end;
+  width: 36px;
 }
 
 .ink-v2-gaps {
@@ -3940,7 +3945,12 @@ body {
 }
 
 .ink-v2-motion-group-control input:disabled, .ink-v2-motion-group-control select:disabled, .ink-v2-sticky-control input:disabled {
-  opacity: 0.45;
+  opacity: 1;
+  color: var(--ink-editor-muted);
+}
+
+.ink-v2-motion-group-control.is-off > label:not(:first-of-type) {
+  opacity: 0.55;
 }
 
 /* Component states + interactions. Each interaction is one event → effect row; the detail line
@@ -3972,19 +3982,29 @@ body {
 }
 
 .ink-v2-interaction-head {
-  display: flex;
-  align-items: flex-end;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 8px;
 }
 
 .ink-v2-interaction-head > label {
   display: flex;
   min-width: 0;
-  flex: 1 1 0;
   flex-direction: column;
   gap: 5px;
   color: var(--ink-editor-faint);
   font-size: 10px;
+}
+
+.ink-v2-interaction-head > label:nth-of-type(3) {
+  grid-column: 1/2;
+}
+
+.ink-v2-interaction-head .ink-v2-interaction-remove {
+  grid-column: 2/3;
+  justify-self: end;
+  align-self: end;
 }
 
 .ink-v2-interaction-head select {
@@ -4562,6 +4582,109 @@ body.ink-is-scrubbing {
 
 .ink-v2-target-status[data-state=missing] {
   color: #e8918c;
+}
+
+.ink-v2-responsive-trigger {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-editor-faint);
+  opacity: 0.5;
+}
+
+.ink-v2-responsive-trigger .material-symbols-rounded {
+  font-size: 13px;
+}
+
+.ink-v2-control:hover .ink-v2-responsive-trigger,
+.ink-v2-responsive-trigger:hover,
+.ink-v2-responsive-trigger:focus-visible {
+  opacity: 1;
+  color: var(--ink-editor-muted);
+  border-color: var(--ink-editor-border);
+  background: var(--ink-editor-surface);
+}
+
+.ink-v2-responsive-switcher.is-overridden .ink-v2-responsive-trigger {
+  opacity: 1;
+  color: var(--ink-editor-accent-bright);
+}
+
+.ink-v2-slider-value {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.ink-v2-slider-value input {
+  padding-right: 16px;
+}
+
+.ink-v2-slider-value > span {
+  position: absolute;
+  right: 7px;
+  color: var(--ink-editor-faint);
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.ink-v2-easing-inherit {
+  grid-column: 1/-1;
+  justify-self: start;
+  min-height: 24px;
+}
+
+.ink-v2-easing-inherit.is-note {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-editor-faint);
+  cursor: default;
+}
+
+.ink-v2-control select:disabled, .ink-v2-control input:disabled {
+  opacity: 1;
+  color: var(--ink-editor-muted);
+}
+
+.ink-v2-interaction-add {
+  width: 100%;
+  min-height: 26px;
+  background: var(--ink-editor-accent-soft);
+  color: var(--ink-editor-accent-bright);
+}
+
+.ink-v2-interaction-add:hover {
+  background: color-mix(in srgb, var(--ink-editor-accent-bright) 24%, transparent);
+}
+
+.ink-v2-note {
+  display: block;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ink-editor-text) 4%, transparent);
+  margin: 2px 0 0;
+}
+
+.ink-v2-data-binding-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ink-v2-data-binding-field > span {
+  color: var(--ink-editor-faint);
+  font-size: 10px;
+}
+
+.ink-v2-primary-field > label {
+  font-weight: 500;
+}
+
+.ink-v2-primary-field input, .ink-v2-primary-field textarea {
+  min-height: 28px;
+  font-size: 12px;
 }
 
 .ink-structure-window {
@@ -7272,6 +7395,46 @@ body:has([data-tab=copilot].active) #copilotButton {
   z-index: 1;
   outline: 2px solid var(--ink-editor-accent);
   outline-offset: 1px;
+}
+
+.ink-inspector-path {
+  gap: 2px;
+  align-items: center;
+  color: var(--ink-editor-faint);
+}
+
+.ink-inspector-path button {
+  max-width: 96px;
+}
+
+.ink-inspector-path button:last-child {
+  color: var(--ink-editor-muted);
+}
+
+.ink-inspector-path-more {
+  padding: 2px 4px;
+  letter-spacing: 0.05em;
+}
+
+.ink-inspector-states-label {
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.ink-v2-control-section[data-redundant="1"] > summary {
+  display: none;
+}
+
+.ink-v2-section-group {
+  border-top-color: color-mix(in srgb, var(--ink-editor-border) 55%, transparent);
+}
+
+.ink-v2-section-group > summary {
+  background: color-mix(in srgb, var(--ink-editor-text) 2%, transparent);
+}
+
+.ink-inspector-identity, .ink-inspector-filter {
+  border-bottom-color: color-mix(in srgb, var(--ink-editor-border) 60%, transparent);
 }
 
 .material-symbols-rounded:has(> .ink-lucide-icon) {

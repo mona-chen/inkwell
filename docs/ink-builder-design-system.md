@@ -171,6 +171,33 @@ The control vocabulary that sits inside those sections:
   adjusts its placeholder to the selected layer, so the Agent tab is tied to the selection rather
   than standing beside it.
 
+Refinements that keep the panel from reading as a stack of forms:
+
+- **No duplicated titles.** A section named after its own group (`Content` under CONTENT) keeps its
+  place in the DOM as the grouping anchor but drops the second title (`data-redundant`), so its
+  controls continue the group instead of restating it.
+- **Sections are keyed by tab and name.** A section belongs to the group its tab implies, so `Link`
+  is *Content › Link* where it holds a destination and *Appearance › Link* where it holds a colour —
+  the two never collapse into whichever control came first. `Link` is therefore not pinned to the
+  Interaction group: a link keeps its destination in Content and its styling with the element's
+  style, and a heading's link colour sits with the rest of its typography.
+- **Folded ancestor trail.** A deep selection shows `Page › Hero › … › Copy column › Headline stack`:
+  the root and the branch the layer lives in, with the middle behind an ellipsis that opens every
+  level. Every crumb is a button and carries the full name as a tooltip.
+- **Percent-first values.** A control can declare `scale` and `suffix` (opacity: `min: 0, max: 1,
+  step: 0.05, scale: 100, suffix: '%'`). The slider and its field speak percentages while the stored
+  value stays 0–1, and the scaled step is rounded so the range input accepts it.
+- **Explicit defaults instead of blanks.** Responsive selects carry a `default` (`overflow` →
+  Visible, `align-self` → Auto), flex numbers show `0`/`1`, unset spacing sides place a `—`, and
+  disabled fields state their value (`--ink-editor-muted`) rather than fading out of legibility.
+- **Quiet where it repeats.** The per-control responsive switcher is borderless and low-contrast
+  until hover/focus, and takes the accent only when that breakpoint actually stores an override
+  (`is-overridden`). Disabled motion-group fields dim as a set (`is-off`), and the group's easing
+  note is plain text until there is a group curve to drop.
+- **Header/filter names say what they are.** `Showing all properties` frames the tab switcher,
+  `Search properties` frames the panel search, and runtime hints (`Runs in Preview and on the
+  published page…`) sit in an inset note (`ink-v2-note`).
+
 ## Importer: what it recovers, and what it does not
 
 Recovered from a captured site (evidence-driven, never site-name-driven):
