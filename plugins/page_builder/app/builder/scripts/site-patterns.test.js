@@ -23,6 +23,16 @@ const link = (text, href, attrs = {}) => ({
   settings: { importedDom: true, importedTag: "a", importedAttributes: { href, ...attrs }, text },
 });
 
+// A control built the way hand-written sites build one: a radio group whose labels pair by `for`.
+const radio = (id, name = "plan") => ({
+  type: "input",
+  settings: { importedDom: true, importedTag: "input", importedAttributes: { type: "radio", name, id } },
+});
+const optionLabel = (id, text) => ({
+  type: "label",
+  settings: { importedDom: true, importedTag: "label", importedAttributes: { for: id }, text },
+});
+
 const viewport = (nodes, extra = {}) => ({
   viewport: { width: 1440, height: 900 }, document: { width: 1440, height: 4000 }, nodes, ...extra,
 });
@@ -253,8 +263,6 @@ test("a scroll section without a sticky stage stays an unpinned stagger group", 
 test("a radio group with matching labels stays one editable switch, at the outermost region", () => {
   // The radio markup the earlier detector could not read, wrapped in the page's own holder: the
   // holder must never become a second switch, or one toggle would be detected (and marked) twice.
-  const radio = (id) => ({ type: "input", settings: { importedDom: true, importedTag: "input", importedAttributes: { type: "radio", name: "plan", id } } });
-  const optionLabel = (id, text) => ({ type: "label", settings: { importedDom: true, importedTag: "label", importedAttributes: { for: id }, text } });
   const monthlyLabel = optionLabel("monthly", "Monthly");
   const yearlyLabel = optionLabel("yearly", "Yearly");
   const row = container({ class: "switch" }, [radio("monthly"), monthlyLabel, radio("yearly"), yearlyLabel]);
@@ -301,4 +309,61 @@ test("a nested blog index is reported once, at its outermost region", () => {
   const band = container({ class: "band" }, [wrap]);
   const { report } = inferPatterns([band], { viewports: [viewport([])] });
   assert.equal(report.counts["content-archive"], 1);
+});
+
+test("any control with stacked sibling variants becomes one stateful component, price or not", () => {
+  const panels = [ "Personal plan details", "Business plan details" ].map((copy) => container({ class: "panel" }, [textNode("paragraph", copy)]));
+  const control = container({ class: "switcher" }, [radio("personal"), optionLabel("personal", "Personal"), radio("business"), optionLabel("business", "Business")]);
+  const section = container({ class: "plans" }, [control, ...panels]);
+  const nodes = [
+    evidence({ class: "plans" }, { x: 0, y: 0, width: 1200, height: 560 }),
+    // The capture recorded both panels at the same box: the site stacks them and reveals one.
+    evidence({ class: "panel" }, { x: 40, y: 120, width: 1120, height: 380 }, { position: "absolute" }),
+    evidence({ class: "panel" }, { x: 40, y: 120, width: 1120, height: 380 }, { position: "absolute" }),
+  ];
+  const { report, css } = inferPatterns([section], { viewports: [viewport(nodes)] });
+
+  assert.deepEqual(section.settings.stateNames, ["personal", "business"]);
+  assert.equal(section.settings.state, "personal");
+  assert.equal(report.counts["variant-switch"], 1);
+  assert.deepEqual(control.children[1].settings.interactions, [{ on: "click", action: "setState", target: "query", selector: ".ink-inferred-toggle-1", state: "personal" }]);
+  assert.deepEqual(panels[1].settings.stateNames, ["personal", "business"]);
+  assert.equal(panels[1].settings.state, "business");
+  assert.match(panels[0].settings.cssClasses, /ink-inferred-toggle-1-variant-1/);
+  assert.match(css, /ink-inferred-toggle-1-variant-2\[data-ink-state="business"\]/);
+  assert.equal(report.counts["pricing-switch"], undefined);
+});
+
+test("equal siblings that sit side by side are not mistaken for stacked variants", () => {
+  const panels = [ "Left column", "Right column" ].map((copy) => container({ class: "panel" }, [textNode("paragraph", copy)]));
+  const control = container({ class: "switcher" }, [radio("a"), optionLabel("a", "Alpha"), radio("b"), optionLabel("b", "Beta")]);
+  const section = container({ class: "band" }, [control, ...panels]);
+  const nodes = [
+    evidence({ class: "band" }, { x: 0, y: 0, width: 1200, height: 560 }),
+    evidence({ class: "panel" }, { x: 0, y: 120, width: 560, height: 380 }),
+    evidence({ class: "panel" }, { x: 620, y: 120, width: 560, height: 380 }),
+  ];
+  const { report } = inferPatterns([section], { viewports: [viewport(nodes)] });
+
+  assert.equal(report.counts["variant-switch"], undefined);
+  assert.equal(section.settings.stateNames, undefined);
+});
+
+test("a control the pricing switch already owns is not bound a second time", () => {
+  const panels = [ "Monthly detail", "Yearly detail" ].map((copy) => container({ class: "price-panel" }, [textNode("paragraph", copy)]));
+  const pricing = container({ id: "pricing" }, [
+    container({ class: "switch" }, [radio("monthly"), optionLabel("monthly", "Monthly"), radio("yearly"), optionLabel("yearly", "Yearly")]),
+    container({ class: "plans" }, [textNode("paragraph", "$29 per month")]),
+    ...panels,
+  ]);
+  const nodes = [
+    evidence({ id: "pricing" }, { x: 0, y: 0, width: 1200, height: 700 }),
+    evidence({ class: "price-panel" }, { x: 40, y: 300, width: 1120, height: 300 }, { position: "absolute" }),
+    evidence({ class: "price-panel" }, { x: 40, y: 300, width: 1120, height: 300 }, { position: "absolute" }),
+  ];
+  const { report } = inferPatterns([pricing], { viewports: [viewport(nodes)] });
+
+  assert.equal(report.counts["pricing-switch"], 1);
+  assert.equal(report.counts["variant-switch"], undefined);
+  assert.deepEqual(pricing.settings.stateNames, ["monthly", "yearly"]);
 });

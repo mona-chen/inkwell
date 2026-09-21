@@ -682,6 +682,67 @@ function toggleOptions(container) {
   }).filter((label) => label && short(label));
 }
 
+// The label a control option contributes to its component's states: "Monthly" -> "monthly".
+function stateLabel(node) {
+  return clampText(textOf(node), 24).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+// Siblings the capture recorded at the same box are mutually exclusive variants: the site stacks
+// every state on one another and reveals one. This has to be read from the capture's own records,
+// not from resolved geometry — equal columns side by side share a size and resolve to a single
+// rect, so a size comparison alone would call two columns a variant pair.
+function stackedVariants(container, evidence) {
+  const primary = evidence.viewports[0];
+  const sameBox = (left, right) => ["x", "y", "width", "height"]
+    .every((property) => Math.abs(left[property] - right[property]) <= 2);
+  const groups = new Map();
+  childrenOf(container).forEach((child) => {
+    // A child is only trustworthy when every record sharing its signature sits in one box. If they
+    // differ (equal columns, repeated cards) this child's geometry is ambiguous, so it is skipped
+    // rather than guessed at.
+    const rects = evidence.matchAll(child)
+      .filter((record) => (!primary || record.viewport === primary) && record.entry.rect)
+      .map((record) => record.entry.rect);
+    if (!rects.length || !rects.every((rect) => sameBox(rect, rects[0]))) return;
+    const key = `${Math.round(rects[0].x)}x${Math.round(rects[0].y)}`;
+    groups.set(key, [...(groups.get(key) || []), child]);
+  });
+  return [...groups.values()].sort((left, right) => right.length - left.length)[0] || [];
+}
+
+// One control group and the variants it switches become a single editable component: the control
+// owns the state names, every option is a real state setter, and the stacked variants are bound to
+// the same states so the generated CSS reveals exactly one. A pricing switch and any other toggle a
+// site builds (billing period, plan tier, size) are the same shape, so they share this.
+function bindStateControl(container, options, { ctx, evidence, css }) {
+  const labels = options.map(stateLabel);
+  if (labels.length < 2 || labels.some((label) => !label) || new Set(labels).size !== labels.length) return null;
+  const group = `ink-inferred-toggle-${++ctx.counters.toggle}`;
+  addClass(container, group);
+  const containerSettings = settingsOf(container);
+  containerSettings.stateNames = labels;
+  containerSettings.state = labels[0];
+  options.forEach((option, index) => {
+    setInteractions(option, [{ on: "click", action: "setState", target: "query", selector: `.${group}`, state: labels[index] }]);
+    settingsOf(option).stateNames = labels;
+    settingsOf(option).state = labels[index];
+  });
+  const variants = stackedVariants(container, evidence);
+  // One variant per state, or the stack is something else (layered overlays, a carousel) and
+  // binding it would hide content.
+  if (variants.length === labels.length) {
+    variants.forEach((variant, index) => {
+      addClass(variant, `${group}-variant-${index + 1}`);
+      const variantSettings = settingsOf(variant);
+      variantSettings.stateNames = labels;
+      variantSettings.state = labels[index];
+      css.push(`.ink-canvas-root .${group}-variant-${index + 1}[data-ink-state]{display:none!important}`,
+        `.ink-canvas-root .${group}-variant-${index + 1}[data-ink-state="${labels[index]}"]{display:block!important}`);
+    });
+  }
+  return { group, labels };
+}
+
 function detectPricingToggle(roots, ctx) {
   const { evidence, report, css } = ctx;
   const candidates = collectRoots(roots, (node) => {
@@ -697,48 +758,40 @@ function detectPricingToggle(roots, ctx) {
     while (ancestor) { if (candidateSet.has(ancestor)) return false; ancestor = ancestor.__inkParent || null; }
     return true;
   });
-  outermost.slice(0, 3).forEach((container, position) => {
-    const options = toggleOptions(container);
-    const labels = options.map((option) => clampText(textOf(option), 24).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")).filter(Boolean);
-    if (labels.length < 2) return;
-    const group = `ink-inferred-toggle-${position + 1}`;
-    addClass(container, group);
-    const containerSettings = settingsOf(container);
-    containerSettings.stateNames = [...new Set(labels)];
-    containerSettings.state = containerSettings.stateNames[0];
-    options.forEach((option, index) => {
-      const label = labels[index];
-      if (!label) return;
-      setInteractions(option, [{ on: "click", action: "setState", target: "query", selector: `.${group}`, state: label }]);
-      settingsOf(option).stateNames = containerSettings.stateNames;
-      settingsOf(option).state = label;
-    });
-    // Stacked variant pairs (the site renders every price state on top of one another) can be
-    // bound to the same states so the generated CSS shows one at a time.
-    const variants = childrenOf(container).filter((child) => (evidenceRect(evidence, child) || {}).width > evidence.width * 0.4);
-    const seenRects = new Map();
-    variants.forEach((child) => {
-      const rect = evidenceRect(evidence, child);
-      if (!rect) return;
-      const key = `${Math.round(rect.width)}x${Math.round(rect.height)}`;
-      seenRects.set(key, (seenRects.get(key) || 0) + 1);
-    });
-    const stackedKey = [...seenRects.entries()].sort((left, right) => right[1] - left[1])[0];
-    if (stackedKey && stackedKey[1] >= containerSettings.stateNames.length) {
-      const group_ = variants.filter((child) => {
-        const rect = evidenceRect(evidence, child);
-        return rect && `${Math.round(rect.width)}x${Math.round(rect.height)}` === stackedKey[0];
-      }).slice(0, containerSettings.stateNames.length);
-      group_.forEach((variant, index) => {
-        addClass(variant, `${group}-variant-${index + 1}`);
-        const variantSettings = settingsOf(variant);
-        variantSettings.stateNames = containerSettings.stateNames;
-        variantSettings.state = containerSettings.stateNames[index];
-        css.push(`.ink-canvas-root .${group}-variant-${index + 1}[data-ink-state]{display:none!important}`,
-          `.ink-canvas-root .${group}-variant-${index + 1}[data-ink-state="${containerSettings.stateNames[index]}"]{display:block!important}`);
-      });
-    }
-    markComponent(container, "pricing-switch", { states: containerSettings.stateNames }, report);
+  outermost.slice(0, 3).forEach((container) => {
+    const bound = bindStateControl(container, toggleOptions(container), { ctx, evidence, css });
+    if (!bound) return;
+    markComponent(container, "pricing-switch", { states: bound.labels }, report);
+  });
+}
+
+// Any other control a site builds — a billing period, a plan tier, a size — is the same shape as a
+// pricing switch: two short options beside sibling variants stacked on one rectangle. Reading it
+// from that structure (never from the copy) turns the toggle into one editable component with
+// states, whether or not the words mention a price.
+function detectVariantGroups(roots, ctx) {
+  const { evidence, report, css } = ctx;
+  const ownedByState = (node) => {
+    let current = node;
+    while (current) { if (settingsOf(current).stateNames) return true; current = current.__inkParent || null; }
+    return false;
+  };
+  const candidates = collectRoots(roots, (node) => {
+    if (insideSitePart(node) || ownedByState(node)) return false;
+    const options = toggleOptions(node);
+    if (options.length < 2 || options.length > 4) return false;
+    return stackedVariants(node, evidence).length === options.length;
+  });
+  const candidateSet = new Set(candidates);
+  const outermost = candidates.filter((node) => {
+    let ancestor = node.__inkParent || null;
+    while (ancestor) { if (candidateSet.has(ancestor)) return false; ancestor = ancestor.__inkParent || null; }
+    return true;
+  });
+  outermost.slice(0, 4).forEach((container) => {
+    const bound = bindStateControl(container, toggleOptions(container), { ctx, evidence, css });
+    if (!bound) return;
+    markComponent(container, "variant-switch", { states: bound.labels }, report);
   });
 }
 
@@ -1064,7 +1117,7 @@ function inferPatterns(children, options = {}) {
   const evidence = createEvidence(options.viewports || []);
   const report = { sections: [], components: [], notices: [], roles: {}, counts: {} };
   const css = [];
-  const ctx = { evidence, report, css, counters: { nav: 0 } };
+  const ctx = { evidence, report, css, counters: { nav: 0, toggle: 0 } };
   if (!Array.isArray(children) || !children.length) return { report, css: "" };
   linkParents(children);
   detectOrbit3d(children, ctx);
@@ -1077,6 +1130,7 @@ function inferPatterns(children, options = {}) {
   detectNavigation(children, ctx);
   detectTabs(children, ctx);
   detectPricingToggle(children, ctx);
+  detectVariantGroups(children, ctx);
   detectCardGrid(children, ctx);
   detectContentArchive(children, ctx);
   detectDetailsAccordion(children, ctx);
