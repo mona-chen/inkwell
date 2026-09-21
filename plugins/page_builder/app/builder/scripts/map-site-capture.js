@@ -9,6 +9,7 @@ const fs = require("fs");
 const path = require("path");
 const parse5 = require("parse5");
 const { importQuality, skippedRoutes } = require("./import-quality");
+const { capturedStylesheetCss } = require("./css-assets");
 const { inferPatterns } = require("./site-patterns");
 
 // The design system is shared with the builder: the same token vocabulary the AI composes with is
@@ -300,7 +301,16 @@ if (manifest.format === "ink-site-capture-v2") {
     const styleParts = [];
     const scriptEntries = [];
     documentHtml = documentHtml.replace(/<style([^>]*)>([\s\S]*?)<\/style>/gi, (_match, attributes, content) => { styleParts.push({ attributes: attributes.trim(), content }); return ""; });
-    documentHtml = documentHtml.replace(/<link\b([^>]*\brel=["']?stylesheet["']?[^>]*)>/gi, "");
+    // A site's CSS usually ships as external files, not inline <style>. Keep the reference here and
+    // re-apply the captured stylesheet below; dropping the tag alone would lose the very rules that
+    // made a hand-written site look designed.
+    const externalStyles = [];
+    documentHtml = documentHtml.replace(/<link\b([^>]*\brel=["']?stylesheet["']?[^>]*)>/gi, (_match, attributes) => {
+      const href = attributes.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1];
+      const media = attributes.match(/\bmedia\s*=\s*["']([^"']+)["']/i)?.[1];
+      if (href) externalStyles.push({ href, media: media || null });
+      return "";
+    });
     documentHtml = documentHtml.replace(/<script([^>]*)>([\s\S]*?)<\/script>/gi, (_match, attributes, content) => {
       const cleanAttributes = attributes.trim();
       const type = cleanAttributes.match(/\btype=["']([^"']+)["']/i)?.[1]?.toLowerCase() || "";
@@ -318,6 +328,18 @@ if (manifest.format === "ink-site-capture-v2") {
     // Structure inference reads this route's own computed-style evidence: geometry, computed
     // styles, captured animations, stylesheet hover rules and pointer probes.
     const pageManifest = JSON.parse(fs.readFileSync(path.join(pageDirectory, "manifest.json"), "utf8"));
+    // The capture downloads same-origin stylesheets beside the page it belongs to, so read them
+    // back verbatim: URLs absolutized against their own stylesheet, media queries preserved. Any
+    // reference the capture never downloaded (cross-origin, failed) is left out rather than faked.
+    const assetRoot = [pageDirectory, path.resolve(pageDirectory, "..", "..")]
+      .find((directory) => fs.existsSync(path.join(directory, "assets"))) || pageDirectory;
+    const externalCss = capturedStylesheetCss({
+      styles: externalStyles,
+      assets: pageManifest.assets,
+      assetRoot,
+      pageUrl: page.url,
+      absolutize: absoluteCssUrls,
+    });
     const patterns = inferPatterns(nativeChildren, { viewports: pageManifest.viewports });
     const tokens = normalizedTokensFromCapture(pageManifest.viewports);
     let capturedNewSitePart = false;
@@ -391,7 +413,7 @@ if (manifest.format === "ink-site-capture-v2") {
     };
     normalizeInitialDocument(body);
     const initialHtml = (body?.childNodes || []).map((child) => parse5.serializeOuter(child)).join("");
-    const importedCss = absoluteCssUrls(styleParts.map((part) => part.content).join("\n\n"), page.url)
+    const importedCss = absoluteCssUrls([externalCss, styleParts.map((part) => part.content).join("\n\n")].filter(Boolean).join("\n\n"), page.url)
       + (patterns.css ? `\n\n/* Ink structure inference */\n${patterns.css}` : "")
       .replace(/(^|})\s*body\s*>/g, "$1 .ink-canvas-root >");
     if (capturedNewSitePart && !capturedSitePartCss) capturedSitePartCss = importedCss;
