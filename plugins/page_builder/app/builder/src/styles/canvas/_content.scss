@@ -12,6 +12,10 @@
 }
 .ink-el-tabs-nav button.is-active { border-bottom-color: var(--ink-color-primary, #6ec1e4); color: var(--ink-color-primary, #6ec1e4); }
 .ink-el-tab-panel { padding: 1rem 0; line-height: 1.6; }
+/* Panel mode: the host only positions designed tab panels, it adds no chrome of its own. */
+.ink-el-tabs-panels { display: block; }
+.ink-el-tabs-panels > .ink-el-tab-panel { padding: 1rem 0; }
+.ink-el-tab-panel[hidden] { display: none; }
 
 .ink-el-accordion { display: grid; }
 .ink-el-accordion details { border-bottom: 1px solid #d4d4d8; }

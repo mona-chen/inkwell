@@ -587,32 +587,74 @@ export default function registerInkElements(registry) {
             caption.append(avatar, copy); root.append(caption); return root;
         },
     });
+    // Tabs has two modes, and every page keeps whichever it was authored in:
+    //   * panel mode — `tab-panel` children, so a tab can hold a full designed layout;
+    //   * text mode   — the original `items` repeater, kept for existing and imported pages.
     register(registry, {
         type: 'tabs', title: 'Tabs', icon: 'tab',
-        defaults: { settings: { items: [{ title: 'Tab 1', content: 'First tab content.' }, { title: 'Tab 2', content: 'Second tab content.' }] }, styles: { base: {} } },
+        acceptsChildren: ['tab-panel'],
+        acceptsChild: (parent, child) => child.type === 'tab-panel',
+        // Panel mode brings its own drop host; text mode must not grow an empty placeholder.
+        showEmptyView: false,
+        defaults: { settings: { activeTab: 0, items: [{ title: 'Tab 1', content: 'First tab content.' }, { title: 'Tab 2', content: 'Second tab content.' }] }, styles: { base: {} } },
         selectors: { root: '&', title: '.ink-el-tabs-nav button', panel: '.ink-el-tab-panel' },
         controls: [
-            items('items', [textField('title', 'Title'), textField('content', 'Content', 'textarea')]),
+            { ...items('items', [textField('title', 'Title'), textField('content', 'Content', 'textarea')]), condition: { not: { children: '__not_empty__' } }, description: 'Text-only tabs. Add a Tab Panel child instead to put a full layout inside a tab.' },
             { tab: 'style', target: 'styles', section: 'Title', name: 'title-color', type: 'color', label: 'Title color', property: 'color', part: 'title' },
             { tab: 'style', target: 'styles', section: 'Panel', name: 'panel-color', type: 'color', label: 'Content color', property: 'color', part: 'panel' },
             ...spacing,
         ],
         render: ({ domDocument }, node) => {
             const root = make(domDocument, 'div', 'ink-el-tabs');
+            const panels = (node.children || []).filter((child) => child.type === 'tab-panel');
             const nav = make(domDocument, 'div', 'ink-el-tabs-nav'); nav.setAttribute('role', 'tablist');
-            const items = node.settings.items || [];
-            items.forEach((item, index) => {
-                const button = make(domDocument, 'button', '', item.title); button.type = 'button';
-                button.id = `ink-tab-${node.id}-${index}`; button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(index === 0)); button.setAttribute('aria-controls', `ink-panel-${node.id}-${index}`); button.tabIndex = index === 0 ? 0 : -1;
-                if (index === 0) button.classList.add('is-active');
+            const active = Math.max(0, Math.min(Number(node.settings.activeTab) || 0, Math.max(0, (panels.length || (node.settings.items || []).length) - 1)));
+            const titles = panels.length ? panels.map((panel) => panel.settings?.label || 'Tab') : (node.settings.items || []).map((item) => item.title);
+            titles.forEach((title, index) => {
+                const button = make(domDocument, 'button', '', title); button.type = 'button';
+                button.id = `ink-tab-${node.id}-${index}`; button.setAttribute('role', 'tab'); button.setAttribute('aria-selected', String(index === active)); button.setAttribute('aria-controls', `ink-panel-${node.id}-${index}`); button.tabIndex = index === active ? 0 : -1;
+                if (index === active) button.classList.add('is-active');
                 nav.appendChild(button);
             });
             root.append(nav);
-            items.forEach((item, index) => {
-                const panel = make(domDocument, 'div', 'ink-el-tab-panel', item.content);
-                panel.id = `ink-panel-${node.id}-${index}`; panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', `ink-tab-${node.id}-${index}`); panel.hidden = index !== 0;
-                root.append(panel);
+            if (panels.length) {
+                const host = make(domDocument, 'div', 'ink-el-tabs-panels'); host.dataset.inkChildren = '';
+                root.append(host);
+            } else {
+                (node.settings.items || []).forEach((item, index) => {
+                    const panel = make(domDocument, 'div', 'ink-el-tab-panel', item.content);
+                    panel.id = `ink-panel-${node.id}-${index}`; panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', `ink-tab-${node.id}-${index}`); panel.hidden = index !== active;
+                    root.append(panel);
+                });
+            }
+            return root;
+        },
+        // Panel children render as plain store children, so they need their tabpanel wiring here
+        // (text-mode panels get theirs in render above).
+        appendChildren: ({ childrenRoot, node, create }) => {
+            (node.children || []).forEach((child, index) => {
+                const element = create(child);
+                element.classList.add('ink-el-tab-panel');
+                element.id = element.id || `ink-panel-${node.id}-${index}`;
+                element.setAttribute('role', 'tabpanel');
+                element.setAttribute('aria-labelledby', `ink-tab-${node.id}-${index}`);
+                element.hidden = index !== (Number(node.settings.activeTab) || 0);
+                childrenRoot.appendChild(element);
             });
+        },
+    });
+
+    register(registry, {
+        type: 'tab-panel', title: 'Tab Panel', icon: 'bottom_panel', category: 'Layout', acceptsChildren: true,
+        canBeChildOf: (child, parent) => parent.type === 'tabs',
+        defaults: { settings: { label: 'Tab' }, styles: { base: {} } },
+        controls: [
+            { tab: 'content', section: 'Panel', name: 'label', type: 'text', label: 'Tab label', description: "Label shown on the tab button for this panel." },
+        ],
+        render: ({ domDocument }, node) => {
+            const root = make(domDocument, 'div', 'ink-el-tab-panel');
+            root.dataset.inkChildren = '';
+            root.dataset.inkPanelLabel = String(node.settings.label || 'Tab');
             return root;
         },
     });

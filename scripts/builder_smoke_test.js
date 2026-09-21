@@ -1695,7 +1695,8 @@ async function main() {
         scoped:html.includes('ink-builder-v2-styles') && html.includes('#ef4444'),
         custom:html.includes('pb-custom-css') && html.includes('--smoke-color'),
         layout:html.includes('data-ink-publish-styles') && html.includes('ink-canvas-styles') && html.includes('.ink-el-columns'),
-        clean:!html.includes('data-ink-element-id') && !html.includes('data-ink-element-type') && !html.includes('draggable=') && !html.includes('ink-editor-canvas-styles') && !html.includes('ink-is-selected') && !html.includes('ink-editor-toolbar') && !html.includes('data-ink-layout') && !html.includes('data-ink-structure')
+        editorLeaks:['data-ink-element-id','data-ink-element-type','draggable=','ink-editor-canvas-styles','ink-is-selected','ink-editor-toolbar','data-ink-layout','data-ink-structure','data-ink-children'].filter(function(token){return html.indexOf(token)>=0;}),
+        clean:['data-ink-element-id','data-ink-element-type','draggable=','ink-editor-canvas-styles','ink-is-selected','ink-editor-toolbar','data-ink-layout','data-ink-structure','data-ink-children'].every(function(token){return html.indexOf(token)<0;})
       };
     })()`);
     check("publish HTML preserves semantic content and scoped styles", state.semantic && state.scoped && state.custom, JSON.stringify(state));
@@ -1731,6 +1732,63 @@ async function main() {
     check("tabs switch panels on click", state.tabSwitched, JSON.stringify(state));
     check("carousel exposes slides, nav, dots, autoplay, and advances", state.carouselMarkup && state.advanced, JSON.stringify(state));
     check("gallery lightbox opens and closes", state.galleryLightbox && state.lightboxClosed, JSON.stringify(state));
+
+    state = await client.evaluate(`(async function(){
+      var b=builder, r=b.runtime, d=b.iframeDoc;
+      var frames=function(){return new Promise(function(resolve){requestAnimationFrame(function(){requestAnimationFrame(resolve);});});};
+      var elFor=function(id){return b.canvasRoot.querySelector('[data-ink-element-id="'+id+'"]');};
+      var sheet=function(){return d.getElementById('ink-builder-v2-styles').textContent;};
+
+      // Component states: the authored variant paints on the canvas and styles compile to a
+      // scoped [data-ink-state] rule rather than a per-site script.
+      var pricing=r.insert('container',{}, {settings:{stateNames:['monthly','yearly'],state:'monthly',cssClasses:'smoke-pricing'}});
+      r.update(pricing.id,{styles:{desktop:{'state:yearly':{opacity:.5}}}},'Yearly variant');
+      await frames();
+      var authoredState=elFor(pricing.id).dataset.inkState;
+      var css=sheet(), at=css.indexOf('[data-ink-state="yearly"]');
+      var scoped=at>=0 && css.slice(Math.max(0,at-90),at).indexOf('.ink-canvas-root')>=0;
+
+      // Declarative interaction: Preview runs it, Design does not (clicks select there).
+      var toggle=r.insert('button',{}, {settings:{text:'Yearly billing',interactions:[{on:'click',action:'toggleState',target:'query',selector:'.smoke-pricing',state:'yearly'}]}});
+      await frames();
+      var serialized=elFor(toggle.id).dataset.inkInteractions;
+      b.setMode('preview'); await frames();
+      elFor(toggle.id).click(); await frames();
+      var onState=elFor(pricing.id).dataset.inkState;
+      elFor(toggle.id).click(); await frames();
+      var offState=elFor(pricing.id).dataset.inkState||null;
+      b.setMode('design'); await frames();
+
+      // Panel-mode tabs hold a real designed layout; text-mode tabs keep their repeater.
+      var tabs=r.insert('tabs',{});
+      var panelOne=r.insert('tab-panel',{parentId:tabs.id},{settings:{label:'Overview'}});
+      r.insert('tab-panel',{parentId:tabs.id},{settings:{label:'Details'}});
+      var inner=r.insert('heading',{parentId:panelOne.id},{settings:{text:'Designed panel',tag:'h3'}});
+      await frames();
+      var tabsEl=elFor(tabs.id);
+      var labels=[].slice.call(tabsEl.querySelectorAll('.ink-el-tabs-nav button')).map(function(button){return button.textContent;});
+      var panels=tabsEl.querySelectorAll('.ink-el-tab-panel');
+      var designed=panels.length===2 && !!panels[0].querySelector('[data-ink-element-id="'+inner.id+'"]');
+      tabsEl.querySelectorAll('.ink-el-tabs-nav button')[1].click(); await frames();
+      var switched=!!panels[1] && panels[1].hidden===false && panels[0].hidden===true;
+
+      var legacy=r.insert('tabs',{},{settings:{items:[{title:'One',content:'First'},{title:'Two',content:'Second'}]}});
+      await frames();
+      var legacyEl=elFor(legacy.id);
+      var legacyOk=legacyEl.querySelectorAll('.ink-el-tabs-nav button').length===2 && legacyEl.querySelectorAll('.ink-el-tab-panel').length===2 && !legacyEl.querySelector('.ink-el-tabs-panels');
+
+      var tool=b.copilotTools.apply('set_interactions',{id:toggle.id,interactions:[{on:'hover',action:'setState',target:'self',state:'idle'}],stateNames:['idle','hovered']});
+      var toolOk=tool.indexOf('"ok":true')>=0;
+      var caps=JSON.parse(b.copilotTools.apply('get_capabilities'));
+
+      r.remove(legacy.id); r.remove(tabs.id); r.remove(toggle.id); r.remove(pricing.id);
+      await frames();
+      return {ok:true,authoredState:authoredState,scoped:scoped,serialized:serialized,onState:onState,offState:offState,labels:labels,designed:designed,switched:switched,legacyOk:legacyOk,toolOk:toolOk,caps:!!caps.interactions&&!!caps.componentStates};
+    })()`);
+    check("component states paint the authored variant and compile scoped data-ink-state rules", state.ok && state.authoredState === "monthly" && state.scoped, JSON.stringify(state));
+    check("interactions run in Preview and toggle the target state both ways", typeof state.serialized === "string" && state.onState === "yearly" && state.offState === null, JSON.stringify(state));
+    check("tabs hold designed tab-panel children while text tabs keep working", JSON.stringify(state.labels) === JSON.stringify(["Overview","Details"]) && state.designed && state.switched && state.legacyOk, JSON.stringify(state));
+    check("Copilot authors interactions and sees the state vocabulary", state.toolOk && state.caps, JSON.stringify(state));
 
     if (process.env.SMOKE_SCREENSHOT) {
       await client.evaluate(`builder.runtime.selection.select(${JSON.stringify(ids.heading)})`);

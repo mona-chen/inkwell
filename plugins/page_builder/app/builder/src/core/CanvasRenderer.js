@@ -1,6 +1,8 @@
 import { attachShaderFill } from './shaderPresets.js';
 import { SHADER_RUNTIME } from './shaderRuntime.js';
 import { SCROLL_MOTION_RUNTIME } from './scrollMotionRuntime.js';
+import { INTERACTION_RUNTIME } from './interactionRuntime.js';
+import { elementStateNames, initialState, normalizeInteractions } from './states.js';
 import { renderIcon } from './icons.js';
 import { previewNode } from './DynamicData.js';
 
@@ -16,9 +18,16 @@ const WIDGET_RUNTIME = `
   function on (evt, sel, handler) { document.addEventListener(evt, function (event) { var target = closest(event.target, sel); if (target) { handler(event, target); } }, true); }
 
   /* Tabs */
+  // Panels are either direct children (text mode) or live in the panel host that holds the
+  // designed tab-panel elements (panel mode). Both are matched without depending on nesting.
+  function tabPanels (root) {
+    var direct = Array.prototype.slice.call(root.querySelectorAll(':scope > .ink-el-tab-panel, :scope > .ink-el-tabs-panels > .ink-el-tab-panel'));
+    return direct.length ? direct : Array.prototype.slice.call(root.querySelectorAll('.ink-el-tab-panel'));
+  }
   function activateTab (nav, index) {
     var tabs = Array.prototype.slice.call(nav.children);
-    var panels = Array.prototype.slice.call(nav.parentElement.children).filter(function (child) { return child.classList.contains('ink-el-tab-panel'); });
+    var root = closest(nav, '.ink-el-tabs') || nav.parentElement;
+    var panels = tabPanels(root);
     tabs.forEach(function (tab, i) { var active = i === index; tab.classList.toggle('is-active', active); tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; });
     panels.forEach(function (panel, i) { panel.hidden = i !== index; });
   }
@@ -204,6 +213,17 @@ export default class CanvasRenderer {
         this.unsubscribers.push(this.events.on('document:settings', () => this.styles.mount(this.root.ownerDocument, this.document)));
         this.unsubscribers.push(this.events.on('document:replace', () => this.render()));
         this.unsubscribers.push(this.events.on('selection:change', () => this.updateImportedChrome()));
+        // Design-time preview of a component state: the author picks "Open" in the panel and the
+        // canvas element carries the state so its [data-ink-state="open"] rules apply. Selecting
+        // Normal restores the state the element is authored in. Never persists.
+        this.unsubscribers.push(this.events.on('element:preview-state', ({ id, state }) => {
+            const element = this.root.querySelector(`[data-ink-element-id="${CSS.escape(id)}"]`);
+            const node = id ? this.document.get(id) : null;
+            if (!element || !node) return;
+            const definition = this.registry.get(node.type);
+            const next = state ? String(state).replace(/^state:/, '') : initialState(definition, node.settings);
+            if (next) element.dataset.inkState = next; else delete element.dataset.inkState;
+        }));
         this.root.ownerDocument.defaultView.addEventListener('scroll', () => this.updateImportedChrome(), true);
         this.root.ownerDocument.defaultView.addEventListener('resize', () => this.updateImportedChrome());
         this.render();
@@ -236,6 +256,17 @@ export default class CanvasRenderer {
         if (node.settings.motion?.enabled !== false && ['scroll', 'enter'].includes(node.settings.motion?.trigger)) {
             element.dataset.inkScrollMotion = JSON.stringify(node.settings.motion);
         }
+        // Component state: the variant this element is authored in. It is data, not script, so
+        // published pages paint the authored state before any runtime runs.
+        if (elementStateNames(definition, node.settings).length) {
+            const state = initialState(definition, node.settings);
+            if (state) element.dataset.inkState = state;
+            const group = String(node.settings.stateGroup || '').trim();
+            if (group) element.dataset.inkStateGroup = group;
+        }
+        // Interactions are declarative element data consumed by the shared runtime.
+        const interactions = normalizeInteractions(node.settings.interactions);
+        if (interactions.length) element.dataset.inkInteractions = JSON.stringify(interactions);
         element.dataset.inkKind = kind;
         element.draggable = !node.settings.locked;
         if (node.settings.hidden) element.dataset.inkHidden = '1';
@@ -383,7 +414,7 @@ export default class CanvasRenderer {
         const doc = this.root.ownerDocument;
         const script = doc.createElement('script');
         script.dataset.inkWidgetRuntime = '';
-        script.textContent = WIDGET_RUNTIME + SHADER_RUNTIME + SCROLL_MOTION_RUNTIME;
+        script.textContent = WIDGET_RUNTIME + SHADER_RUNTIME + SCROLL_MOTION_RUNTIME + INTERACTION_RUNTIME;
         return script;
     }
 

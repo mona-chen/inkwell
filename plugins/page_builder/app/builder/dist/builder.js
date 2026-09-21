@@ -1263,8 +1263,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./shaderPresets.js */ "./src/core/shaderPresets.js");
 /* harmony import */ var _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./shaderRuntime.js */ "./src/core/shaderRuntime.js");
 /* harmony import */ var _scrollMotionRuntime_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./scrollMotionRuntime.js */ "./src/core/scrollMotionRuntime.js");
-/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
-/* harmony import */ var _DynamicData_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./DynamicData.js */ "./src/core/DynamicData.js");
+/* harmony import */ var _interactionRuntime_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./interactionRuntime.js */ "./src/core/interactionRuntime.js");
+/* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
+/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
+/* harmony import */ var _DynamicData_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./DynamicData.js */ "./src/core/DynamicData.js");
 function _readOnlyError(r) { throw new TypeError('"' + r + '" is read-only'); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -1291,11 +1293,13 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 
 
 
+
+
 // Inline widget-behavior runtime. Emitted once per canvas render inside the canvas root so it
 // ships in published output (getHtml clones the body). Uses event delegation on the iframe's
 // document, so widgets added/replaced later are covered automatically. Keep this script free of
 // ERB-sensitive tokens ({{ }}, <% %>) because the saved HTML is later rendered as a live template.
-var WIDGET_RUNTIME = "\n(function () {\n  if (window.__inkWidgetsReady) { return; }\n  window.__inkWidgetsReady = true;\n  function closest (el, sel) { while (el && el.nodeType === 1) { if (el.matches(sel)) { return el; } el = el.parentNode; } return null; }\n  function on (evt, sel, handler) { document.addEventListener(evt, function (event) { var target = closest(event.target, sel); if (target) { handler(event, target); } }, true); }\n\n  /* Tabs */\n  function activateTab (nav, index) {\n    var tabs = Array.prototype.slice.call(nav.children);\n    var panels = Array.prototype.slice.call(nav.parentElement.children).filter(function (child) { return child.classList.contains('ink-el-tab-panel'); });\n    tabs.forEach(function (tab, i) { var active = i === index; tab.classList.toggle('is-active', active); tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; });\n    panels.forEach(function (panel, i) { panel.hidden = i !== index; });\n  }\n  on('click', '.ink-el-tabs-nav button', function (event, button) {\n    var nav = closest(button, '.ink-el-tabs-nav');\n    if (!nav) { return; }\n    activateTab(nav, Array.prototype.indexOf.call(nav.children, button));\n  });\n  on('keydown', '.ink-el-tabs-nav button', function (event, button) {\n    if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].indexOf(event.key) === -1) { return; }\n    event.preventDefault();\n    var nav = closest(button, '.ink-el-tabs-nav');\n    if (!nav) { return; }\n    var buttons = Array.prototype.slice.call(nav.children);\n    var current = buttons.indexOf(button), next = current;\n    if (event.key === 'ArrowRight') { next = (current + 1) % buttons.length; }\n    else if (event.key === 'ArrowLeft') { next = (current - 1 + buttons.length) % buttons.length; }\n    else if (event.key === 'Home') { next = 0; }\n    else if (event.key === 'End') { next = buttons.length - 1; }\n    buttons[next].focus(); activateTab(nav, next);\n  });\n\n  /* Timeline accordion \u2014 shared by native widgets and losslessly imported timelines. */\n  function setTimelineOpen (item, open) {\n    var question = item.querySelector('[data-ink-timeline-question], .ink-el-timeline-question');\n    var content = item.querySelector('[data-ink-timeline-content], .ink-el-timeline-content');\n    item.classList.toggle('is-open', open);\n    if (question) { question.setAttribute('aria-expanded', String(open)); }\n    if (content) { content.setAttribute('aria-hidden', String(!open)); }\n  }\n  function activateTimelineItem (item) {\n    var root = closest(item, '.ink-el-timeline-accordion, [data-framer-name=\"Timeline Wrapper\"]');\n    if (!root) { return; }\n    var opening = !item.classList.contains('is-open');\n    if (opening && root.getAttribute('data-ink-timeline-behavior') !== 'multiple') {\n      root.querySelectorAll('[data-ink-timeline-item], .ink-el-timeline-item').forEach(function (candidate) { if (candidate !== item) { setTimelineOpen(candidate, false); } });\n    }\n    setTimelineOpen(item, opening);\n  }\n  on('click', '[data-ink-timeline-question], .ink-el-timeline-question', function (event, question) {\n    if (document.body.classList.contains('ink-builder-design')) { return; }\n    event.preventDefault();\n    var item = closest(question, '[data-ink-timeline-item], .ink-el-timeline-item');\n    if (item) { activateTimelineItem(item); }\n  });\n  on('keydown', '[data-ink-timeline-question], .ink-el-timeline-question', function (event, question) {\n    if (document.body.classList.contains('ink-builder-design')) { return; }\n    if (event.key !== 'Enter' && event.key !== ' ') { return; }\n    event.preventDefault();\n    var item = closest(question, '[data-ink-timeline-item], .ink-el-timeline-item');\n    if (item) { activateTimelineItem(item); }\n  });\n\n  /* Carousel */\n  function carouselCount (carousel) { return carousel.querySelectorAll('.ink-el-carousel-slide').length; }\n  function carouselIndex (carousel) { return Number(carousel.getAttribute('data-index') || 0); }\n  function renderCarousel (carousel) {\n    var count = carouselCount(carousel);\n    if (!count) { return; }\n    var loop = carousel.getAttribute('data-loop') === 'true';\n    var index = carouselIndex(carousel);\n    if (index >= count) { index = loop ? 0 : count - 1; }\n    if (index < 0) { index = loop ? count - 1 : 0; }\n    carousel.setAttribute('data-index', String(index));\n    var track = carousel.querySelector('.ink-el-carousel-track');\n    if (track) { track.style.transform = 'translateX(' + (-index * 100) + '%)'; }\n    carousel.querySelectorAll('[data-carousel-dot]').forEach(function (dot, i) { dot.classList.toggle('is-active', i === index); });\n    carousel.querySelectorAll('.ink-el-carousel-nav').forEach(function (btn) {\n      var disabled = !loop && ((btn.classList.contains('is-prev') && index === 0) || (btn.classList.contains('is-next') && index === count - 1));\n      btn.disabled = disabled;\n    });\n  }\n  function stepCarousel (carousel, delta) {\n    var count = carouselCount(carousel);\n    if (!count) { return; }\n    var loop = carousel.getAttribute('data-loop') === 'true';\n    var index = carouselIndex(carousel) + delta;\n    if (!loop) { index = Math.max(0, Math.min(count - 1, index)); }\n    carousel.setAttribute('data-index', String(index));\n    renderCarousel(carousel);\n  }\n  on('click', '.ink-el-carousel .is-prev', function (event, button) { var c = closest(button, '.ink-el-carousel'); if (c) { stepCarousel(c, -1); } });\n  on('click', '.ink-el-carousel .is-next', function (event, button) { var c = closest(button, '.ink-el-carousel'); if (c) { stepCarousel(c, 1); } });\n  on('click', '[data-carousel-dot]', function (event, dot) {\n    var c = closest(dot, '.ink-el-carousel');\n    if (c) { c.setAttribute('data-index', String(Number(dot.getAttribute('data-index') || 0))); renderCarousel(c); }\n  });\n  function bindAutoplay (carousel) {\n    if (carousel.getAttribute('data-autoplay-bound')) { return; }\n    carousel.setAttribute('data-autoplay-bound', 'true');\n    var interval = Math.max(500, Number(carousel.getAttribute('data-interval') || 4000));\n    carousel.__inkTimer = setInterval(function () {\n      if (!document.contains(carousel)) { clearInterval(carousel.__inkTimer); return; }\n      if (carousel.getAttribute('data-hover') === 'true') { return; }\n      stepCarousel(carousel, 1);\n    }, interval);\n  }\n  function scanAutoplay () { Array.prototype.forEach.call(document.querySelectorAll('.ink-el-carousel[data-autoplay=\"true\"]'), bindAutoplay); }\n  if (window.MutationObserver) { var observer = new MutationObserver(scanAutoplay); observer.observe(document.body, { childList: true, subtree: true }); }\n  scanAutoplay();\n\n  /* Container background slideshow */\n  function bindBackgroundSlideshow (slideshow) {\n    if (slideshow.getAttribute('data-slideshow-bound')) { return; }\n    var slides = Array.prototype.slice.call(slideshow.querySelectorAll('.ink-el-background-slide'));\n    if (!slides.length) { return; }\n    slideshow.setAttribute('data-slideshow-bound', 'true');\n    var duration = Math.max(250, Number(slideshow.getAttribute('data-duration') || 5000));\n    var loop = slideshow.getAttribute('data-loop') !== 'false';\n    var index = 0;\n    slideshow.style.setProperty('--ink-slide-duration', duration + 'ms');\n    slides.forEach(function (slide, cursor) { slide.classList.toggle('is-active', cursor === 0); });\n    if (slides.length < 2) { return; }\n    slideshow.__inkSlideshowTimer = setInterval(function () {\n      if (!document.contains(slideshow)) { clearInterval(slideshow.__inkSlideshowTimer); return; }\n      if (!loop && index === slides.length - 1) { clearInterval(slideshow.__inkSlideshowTimer); return; }\n      index = (index + 1) % slides.length;\n      slides.forEach(function (slide, cursor) { slide.classList.toggle('is-active', cursor === index); });\n    }, duration);\n  }\n  function scanBackgroundSlideshows () { Array.prototype.forEach.call(document.querySelectorAll('.ink-el-background-slideshow'), bindBackgroundSlideshow); }\n  if (window.MutationObserver) { var slideshowObserver = new MutationObserver(scanBackgroundSlideshows); slideshowObserver.observe(document.body, { childList: true, subtree: true }); }\n  scanBackgroundSlideshows();\n\n  /* Gallery lightbox */\n  var lightbox = null, lightboxSources = [], lightboxIndex = 0;\n  function closeLightbox () { if (lightbox) { lightbox.remove(); lightbox = null; } }\n  function renderLightbox () {\n    if (!lightbox) { return; }\n    var image = lightbox.querySelector('.ink-lightbox-image');\n    image.src = lightboxSources[lightboxIndex];\n    lightbox.querySelector('.ink-lightbox-prev').hidden = lightboxSources.length < 2;\n    lightbox.querySelector('.ink-lightbox-next').hidden = lightboxSources.length < 2;\n  }\n  function openLightbox (sources, index) {\n    closeLightbox();\n    lightboxSources = sources; lightboxIndex = index;\n    lightbox = document.createElement('div');\n    lightbox.className = 'ink-lightbox';\n    var image = document.createElement('img'); image.className = 'ink-lightbox-image'; image.alt = '';\n    var close = document.createElement('button'); close.type = 'button'; close.className = 'ink-lightbox-close'; close.setAttribute('aria-label', 'Close'); close.innerHTML = '<span class=\"material-symbols-rounded\" aria-hidden=\"true\">close</span>';\n    var prev = document.createElement('button'); prev.type = 'button'; prev.className = 'ink-lightbox-prev'; prev.setAttribute('aria-label', 'Previous'); prev.innerHTML = '<span class=\"material-symbols-rounded\" aria-hidden=\"true\">chevron_left</span>';\n    var next = document.createElement('button'); next.type = 'button'; next.className = 'ink-lightbox-next'; next.setAttribute('aria-label', 'Next'); next.innerHTML = '<span class=\"material-symbols-rounded\" aria-hidden=\"true\">chevron_right</span>';\n    lightbox.append(close, prev, image, next);\n    document.body.appendChild(lightbox);\n    renderLightbox();\n  }\n  on('click', '.ink-el-gallery[data-lightbox=\"true\"] img', function (event, img) {\n    var gallery = closest(img, '.ink-el-gallery');\n    var images = Array.prototype.slice.call(gallery.querySelectorAll('img'));\n    var sources = images.map(function (i) { return i.getAttribute('src') || ''; }).filter(Boolean);\n    if (!sources.length) { return; }\n    openLightbox(sources, images.indexOf(img));\n  });\n  on('click', '.ink-lightbox-close', closeLightbox);\n  on('click', '.ink-lightbox', function (event) { if (event.target.classList.contains('ink-lightbox')) { closeLightbox(); } });\n  on('click', '.ink-lightbox-prev', function () { lightboxIndex = (lightboxIndex - 1 + lightboxSources.length) % lightboxSources.length; renderLightbox(); });\n  on('click', '.ink-lightbox-next', function () { lightboxIndex = (lightboxIndex + 1) % lightboxSources.length; renderLightbox(); });\n  document.addEventListener('keydown', function (event) { if (event.key === 'Escape') { closeLightbox(); } });\n})();\n";
+var WIDGET_RUNTIME = "\n(function () {\n  if (window.__inkWidgetsReady) { return; }\n  window.__inkWidgetsReady = true;\n  function closest (el, sel) { while (el && el.nodeType === 1) { if (el.matches(sel)) { return el; } el = el.parentNode; } return null; }\n  function on (evt, sel, handler) { document.addEventListener(evt, function (event) { var target = closest(event.target, sel); if (target) { handler(event, target); } }, true); }\n\n  /* Tabs */\n  // Panels are either direct children (text mode) or live in the panel host that holds the\n  // designed tab-panel elements (panel mode). Both are matched without depending on nesting.\n  function tabPanels (root) {\n    var direct = Array.prototype.slice.call(root.querySelectorAll(':scope > .ink-el-tab-panel, :scope > .ink-el-tabs-panels > .ink-el-tab-panel'));\n    return direct.length ? direct : Array.prototype.slice.call(root.querySelectorAll('.ink-el-tab-panel'));\n  }\n  function activateTab (nav, index) {\n    var tabs = Array.prototype.slice.call(nav.children);\n    var root = closest(nav, '.ink-el-tabs') || nav.parentElement;\n    var panels = tabPanels(root);\n    tabs.forEach(function (tab, i) { var active = i === index; tab.classList.toggle('is-active', active); tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; });\n    panels.forEach(function (panel, i) { panel.hidden = i !== index; });\n  }\n  on('click', '.ink-el-tabs-nav button', function (event, button) {\n    var nav = closest(button, '.ink-el-tabs-nav');\n    if (!nav) { return; }\n    activateTab(nav, Array.prototype.indexOf.call(nav.children, button));\n  });\n  on('keydown', '.ink-el-tabs-nav button', function (event, button) {\n    if (['ArrowRight', 'ArrowLeft', 'Home', 'End'].indexOf(event.key) === -1) { return; }\n    event.preventDefault();\n    var nav = closest(button, '.ink-el-tabs-nav');\n    if (!nav) { return; }\n    var buttons = Array.prototype.slice.call(nav.children);\n    var current = buttons.indexOf(button), next = current;\n    if (event.key === 'ArrowRight') { next = (current + 1) % buttons.length; }\n    else if (event.key === 'ArrowLeft') { next = (current - 1 + buttons.length) % buttons.length; }\n    else if (event.key === 'Home') { next = 0; }\n    else if (event.key === 'End') { next = buttons.length - 1; }\n    buttons[next].focus(); activateTab(nav, next);\n  });\n\n  /* Timeline accordion \u2014 shared by native widgets and losslessly imported timelines. */\n  function setTimelineOpen (item, open) {\n    var question = item.querySelector('[data-ink-timeline-question], .ink-el-timeline-question');\n    var content = item.querySelector('[data-ink-timeline-content], .ink-el-timeline-content');\n    item.classList.toggle('is-open', open);\n    if (question) { question.setAttribute('aria-expanded', String(open)); }\n    if (content) { content.setAttribute('aria-hidden', String(!open)); }\n  }\n  function activateTimelineItem (item) {\n    var root = closest(item, '.ink-el-timeline-accordion, [data-framer-name=\"Timeline Wrapper\"]');\n    if (!root) { return; }\n    var opening = !item.classList.contains('is-open');\n    if (opening && root.getAttribute('data-ink-timeline-behavior') !== 'multiple') {\n      root.querySelectorAll('[data-ink-timeline-item], .ink-el-timeline-item').forEach(function (candidate) { if (candidate !== item) { setTimelineOpen(candidate, false); } });\n    }\n    setTimelineOpen(item, opening);\n  }\n  on('click', '[data-ink-timeline-question], .ink-el-timeline-question', function (event, question) {\n    if (document.body.classList.contains('ink-builder-design')) { return; }\n    event.preventDefault();\n    var item = closest(question, '[data-ink-timeline-item], .ink-el-timeline-item');\n    if (item) { activateTimelineItem(item); }\n  });\n  on('keydown', '[data-ink-timeline-question], .ink-el-timeline-question', function (event, question) {\n    if (document.body.classList.contains('ink-builder-design')) { return; }\n    if (event.key !== 'Enter' && event.key !== ' ') { return; }\n    event.preventDefault();\n    var item = closest(question, '[data-ink-timeline-item], .ink-el-timeline-item');\n    if (item) { activateTimelineItem(item); }\n  });\n\n  /* Carousel */\n  function carouselCount (carousel) { return carousel.querySelectorAll('.ink-el-carousel-slide').length; }\n  function carouselIndex (carousel) { return Number(carousel.getAttribute('data-index') || 0); }\n  function renderCarousel (carousel) {\n    var count = carouselCount(carousel);\n    if (!count) { return; }\n    var loop = carousel.getAttribute('data-loop') === 'true';\n    var index = carouselIndex(carousel);\n    if (index >= count) { index = loop ? 0 : count - 1; }\n    if (index < 0) { index = loop ? count - 1 : 0; }\n    carousel.setAttribute('data-index', String(index));\n    var track = carousel.querySelector('.ink-el-carousel-track');\n    if (track) { track.style.transform = 'translateX(' + (-index * 100) + '%)'; }\n    carousel.querySelectorAll('[data-carousel-dot]').forEach(function (dot, i) { dot.classList.toggle('is-active', i === index); });\n    carousel.querySelectorAll('.ink-el-carousel-nav').forEach(function (btn) {\n      var disabled = !loop && ((btn.classList.contains('is-prev') && index === 0) || (btn.classList.contains('is-next') && index === count - 1));\n      btn.disabled = disabled;\n    });\n  }\n  function stepCarousel (carousel, delta) {\n    var count = carouselCount(carousel);\n    if (!count) { return; }\n    var loop = carousel.getAttribute('data-loop') === 'true';\n    var index = carouselIndex(carousel) + delta;\n    if (!loop) { index = Math.max(0, Math.min(count - 1, index)); }\n    carousel.setAttribute('data-index', String(index));\n    renderCarousel(carousel);\n  }\n  on('click', '.ink-el-carousel .is-prev', function (event, button) { var c = closest(button, '.ink-el-carousel'); if (c) { stepCarousel(c, -1); } });\n  on('click', '.ink-el-carousel .is-next', function (event, button) { var c = closest(button, '.ink-el-carousel'); if (c) { stepCarousel(c, 1); } });\n  on('click', '[data-carousel-dot]', function (event, dot) {\n    var c = closest(dot, '.ink-el-carousel');\n    if (c) { c.setAttribute('data-index', String(Number(dot.getAttribute('data-index') || 0))); renderCarousel(c); }\n  });\n  function bindAutoplay (carousel) {\n    if (carousel.getAttribute('data-autoplay-bound')) { return; }\n    carousel.setAttribute('data-autoplay-bound', 'true');\n    var interval = Math.max(500, Number(carousel.getAttribute('data-interval') || 4000));\n    carousel.__inkTimer = setInterval(function () {\n      if (!document.contains(carousel)) { clearInterval(carousel.__inkTimer); return; }\n      if (carousel.getAttribute('data-hover') === 'true') { return; }\n      stepCarousel(carousel, 1);\n    }, interval);\n  }\n  function scanAutoplay () { Array.prototype.forEach.call(document.querySelectorAll('.ink-el-carousel[data-autoplay=\"true\"]'), bindAutoplay); }\n  if (window.MutationObserver) { var observer = new MutationObserver(scanAutoplay); observer.observe(document.body, { childList: true, subtree: true }); }\n  scanAutoplay();\n\n  /* Container background slideshow */\n  function bindBackgroundSlideshow (slideshow) {\n    if (slideshow.getAttribute('data-slideshow-bound')) { return; }\n    var slides = Array.prototype.slice.call(slideshow.querySelectorAll('.ink-el-background-slide'));\n    if (!slides.length) { return; }\n    slideshow.setAttribute('data-slideshow-bound', 'true');\n    var duration = Math.max(250, Number(slideshow.getAttribute('data-duration') || 5000));\n    var loop = slideshow.getAttribute('data-loop') !== 'false';\n    var index = 0;\n    slideshow.style.setProperty('--ink-slide-duration', duration + 'ms');\n    slides.forEach(function (slide, cursor) { slide.classList.toggle('is-active', cursor === 0); });\n    if (slides.length < 2) { return; }\n    slideshow.__inkSlideshowTimer = setInterval(function () {\n      if (!document.contains(slideshow)) { clearInterval(slideshow.__inkSlideshowTimer); return; }\n      if (!loop && index === slides.length - 1) { clearInterval(slideshow.__inkSlideshowTimer); return; }\n      index = (index + 1) % slides.length;\n      slides.forEach(function (slide, cursor) { slide.classList.toggle('is-active', cursor === index); });\n    }, duration);\n  }\n  function scanBackgroundSlideshows () { Array.prototype.forEach.call(document.querySelectorAll('.ink-el-background-slideshow'), bindBackgroundSlideshow); }\n  if (window.MutationObserver) { var slideshowObserver = new MutationObserver(scanBackgroundSlideshows); slideshowObserver.observe(document.body, { childList: true, subtree: true }); }\n  scanBackgroundSlideshows();\n\n  /* Gallery lightbox */\n  var lightbox = null, lightboxSources = [], lightboxIndex = 0;\n  function closeLightbox () { if (lightbox) { lightbox.remove(); lightbox = null; } }\n  function renderLightbox () {\n    if (!lightbox) { return; }\n    var image = lightbox.querySelector('.ink-lightbox-image');\n    image.src = lightboxSources[lightboxIndex];\n    lightbox.querySelector('.ink-lightbox-prev').hidden = lightboxSources.length < 2;\n    lightbox.querySelector('.ink-lightbox-next').hidden = lightboxSources.length < 2;\n  }\n  function openLightbox (sources, index) {\n    closeLightbox();\n    lightboxSources = sources; lightboxIndex = index;\n    lightbox = document.createElement('div');\n    lightbox.className = 'ink-lightbox';\n    var image = document.createElement('img'); image.className = 'ink-lightbox-image'; image.alt = '';\n    var close = document.createElement('button'); close.type = 'button'; close.className = 'ink-lightbox-close'; close.setAttribute('aria-label', 'Close'); close.innerHTML = '<span class=\"material-symbols-rounded\" aria-hidden=\"true\">close</span>';\n    var prev = document.createElement('button'); prev.type = 'button'; prev.className = 'ink-lightbox-prev'; prev.setAttribute('aria-label', 'Previous'); prev.innerHTML = '<span class=\"material-symbols-rounded\" aria-hidden=\"true\">chevron_left</span>';\n    var next = document.createElement('button'); next.type = 'button'; next.className = 'ink-lightbox-next'; next.setAttribute('aria-label', 'Next'); next.innerHTML = '<span class=\"material-symbols-rounded\" aria-hidden=\"true\">chevron_right</span>';\n    lightbox.append(close, prev, image, next);\n    document.body.appendChild(lightbox);\n    renderLightbox();\n  }\n  on('click', '.ink-el-gallery[data-lightbox=\"true\"] img', function (event, img) {\n    var gallery = closest(img, '.ink-el-gallery');\n    var images = Array.prototype.slice.call(gallery.querySelectorAll('img'));\n    var sources = images.map(function (i) { return i.getAttribute('src') || ''; }).filter(Boolean);\n    if (!sources.length) { return; }\n    openLightbox(sources, images.indexOf(img));\n  });\n  on('click', '.ink-lightbox-close', closeLightbox);\n  on('click', '.ink-lightbox', function (event) { if (event.target.classList.contains('ink-lightbox')) { closeLightbox(); } });\n  on('click', '.ink-lightbox-prev', function () { lightboxIndex = (lightboxIndex - 1 + lightboxSources.length) % lightboxSources.length; renderLightbox(); });\n  on('click', '.ink-lightbox-next', function () { lightboxIndex = (lightboxIndex + 1) % lightboxSources.length; renderLightbox(); });\n  document.addEventListener('keydown', function (event) { if (event.key === 'Escape') { closeLightbox(); } });\n})();\n";
 var CanvasRenderer = /*#__PURE__*/function () {
   function CanvasRenderer() {
     var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
@@ -1349,6 +1353,19 @@ var CanvasRenderer = /*#__PURE__*/function () {
       this.unsubscribers.push(this.events.on('selection:change', function () {
         return _this.updateImportedChrome();
       }));
+      // Design-time preview of a component state: the author picks "Open" in the panel and the
+      // canvas element carries the state so its [data-ink-state="open"] rules apply. Selecting
+      // Normal restores the state the element is authored in. Never persists.
+      this.unsubscribers.push(this.events.on('element:preview-state', function (_ref4) {
+        var id = _ref4.id,
+          state = _ref4.state;
+        var element = _this.root.querySelector("[data-ink-element-id=\"".concat(CSS.escape(id), "\"]"));
+        var node = id ? _this.document.get(id) : null;
+        if (!element || !node) return;
+        var definition = _this.registry.get(node.type);
+        var next = state ? String(state).replace(/^state:/, '') : (0,_states_js__WEBPACK_IMPORTED_MODULE_4__.initialState)(definition, node.settings);
+        if (next) element.dataset.inkState = next;else delete element.dataset.inkState;
+      }));
       this.root.ownerDocument.defaultView.addEventListener('scroll', function () {
         return _this.updateImportedChrome();
       }, true);
@@ -1370,7 +1387,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
       var imported = !!node.settings.importedDom;
       // Resolve dynamic `{{ … }}` bindings against sample data for on-canvas preview only —
       // the store keeps the tokens, so published output still resolves server-side.
-      var renderNode = imported ? node : (0,_DynamicData_js__WEBPACK_IMPORTED_MODULE_4__.previewNode)(node);
+      var renderNode = imported ? node : (0,_DynamicData_js__WEBPACK_IMPORTED_MODULE_6__.previewNode)(node);
       var element = imported ? this.createImportedElement(node) : definition.render({
         document: this.document,
         domDocument: this.root.ownerDocument,
@@ -1398,6 +1415,17 @@ var CanvasRenderer = /*#__PURE__*/function () {
       if (((_node$settings$motion = node.settings.motion) === null || _node$settings$motion === void 0 ? void 0 : _node$settings$motion.enabled) !== false && ['scroll', 'enter'].includes((_node$settings$motion2 = node.settings.motion) === null || _node$settings$motion2 === void 0 ? void 0 : _node$settings$motion2.trigger)) {
         element.dataset.inkScrollMotion = JSON.stringify(node.settings.motion);
       }
+      // Component state: the variant this element is authored in. It is data, not script, so
+      // published pages paint the authored state before any runtime runs.
+      if ((0,_states_js__WEBPACK_IMPORTED_MODULE_4__.elementStateNames)(definition, node.settings).length) {
+        var state = (0,_states_js__WEBPACK_IMPORTED_MODULE_4__.initialState)(definition, node.settings);
+        if (state) element.dataset.inkState = state;
+        var group = String(node.settings.stateGroup || '').trim();
+        if (group) element.dataset.inkStateGroup = group;
+      }
+      // Interactions are declarative element data consumed by the shared runtime.
+      var interactions = (0,_states_js__WEBPACK_IMPORTED_MODULE_4__.normalizeInteractions)(node.settings.interactions);
+      if (interactions.length) element.dataset.inkInteractions = JSON.stringify(interactions);
       element.dataset.inkKind = kind;
       element.draggable = !node.settings.locked;
       if (node.settings.hidden) element.dataset.inkHidden = '1';
@@ -1506,10 +1534,10 @@ var CanvasRenderer = /*#__PURE__*/function () {
           if (node.settings[name] != null && node.settings[name] !== '') attributes[name] = node.settings[name];
         });
       }
-      Object.entries(attributes || {}).forEach(function (_ref4) {
-        var _ref5 = _slicedToArray(_ref4, 2),
-          name = _ref5[0],
-          value = _ref5[1];
+      Object.entries(attributes || {}).forEach(function (_ref5) {
+        var _ref6 = _slicedToArray(_ref5, 2),
+          name = _ref6[0],
+          value = _ref6[1];
         if (!name || /^on/i.test(name) || name.toLowerCase() === 'srcdoc' || value == null) return;
         try {
           if (name === 'xlink:href') element.setAttributeNS('http://www.w3.org/1999/xlink', name, String(value));else element.setAttribute(name, String(value));
@@ -1547,11 +1575,11 @@ var CanvasRenderer = /*#__PURE__*/function () {
         _this4 = this;
       if (!this.root) return;
       this.applyImportedDocumentAttributes();
-      this.instances.forEach(function (_ref6) {
+      this.instances.forEach(function (_ref7) {
         var _definition$unmount;
-        var definition = _ref6.definition,
-          element = _ref6.element,
-          node = _ref6.node;
+        var definition = _ref7.definition,
+          element = _ref7.element,
+          node = _ref7.node;
         return (_definition$unmount = definition.unmount) === null || _definition$unmount === void 0 ? void 0 : _definition$unmount.call(definition, {
           element: element,
           node: node
@@ -1622,23 +1650,23 @@ var CanvasRenderer = /*#__PURE__*/function () {
         body: ((_this$document$data$s = this.document.data.settings) === null || _this$document$data$s === void 0 ? void 0 : _this$document$data$s.importedBodyAttributes) || {},
         html: ((_this$document$data$s2 = this.document.data.settings) === null || _this$document$data$s2 === void 0 ? void 0 : _this$document$data$s2.importedHtmlAttributes) || {}
       };
-      [['body', doc.body], ['html', doc.documentElement]].forEach(function (_ref7) {
-        var _ref8 = _slicedToArray(_ref7, 2),
-          bucket = _ref8[0],
-          target = _ref8[1];
+      [['body', doc.body], ['html', doc.documentElement]].forEach(function (_ref8) {
+        var _ref9 = _slicedToArray(_ref8, 2),
+          bucket = _ref9[0],
+          target = _ref9[1];
         var previous = _this6.importedDocumentAttributes[bucket] || {};
-        Object.entries(previous).forEach(function (_ref9) {
-          var _ref10 = _slicedToArray(_ref9, 2),
-            name = _ref10[0],
-            value = _ref10[1];
+        Object.entries(previous).forEach(function (_ref10) {
+          var _ref11 = _slicedToArray(_ref10, 2),
+            name = _ref11[0],
+            value = _ref11[1];
           if (name === 'class') String(value).split(/\s+/).filter(Boolean).forEach(function (token) {
             return target.classList.remove(token);
           });else if (target.getAttribute(name) === String(value)) target.removeAttribute(name);
         });
-        Object.entries(next[bucket] || {}).forEach(function (_ref11) {
-          var _ref12 = _slicedToArray(_ref11, 2),
-            name = _ref12[0],
-            value = _ref12[1];
+        Object.entries(next[bucket] || {}).forEach(function (_ref12) {
+          var _ref13 = _slicedToArray(_ref12, 2),
+            name = _ref13[0],
+            value = _ref13[1];
           if (value == null || /^on/i.test(name)) return;
           if (name === 'class') String(value).split(/\s+/).filter(Boolean).forEach(function (token) {
             return target.classList.add(token);
@@ -1656,7 +1684,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
       var doc = this.root.ownerDocument;
       var script = doc.createElement('script');
       script.dataset.inkWidgetRuntime = '';
-      script.textContent = WIDGET_RUNTIME + _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__.SHADER_RUNTIME + _scrollMotionRuntime_js__WEBPACK_IMPORTED_MODULE_2__.SCROLL_MOTION_RUNTIME;
+      script.textContent = WIDGET_RUNTIME + _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__.SHADER_RUNTIME + _scrollMotionRuntime_js__WEBPACK_IMPORTED_MODULE_2__.SCROLL_MOTION_RUNTIME + _interactionRuntime_js__WEBPACK_IMPORTED_MODULE_3__.INTERACTION_RUNTIME;
       return script;
     }
   }, {
@@ -1676,7 +1704,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
         content_copy: 'copy',
         "delete": 'trash-2'
       };
-      var glyph = (0,_icons_js__WEBPACK_IMPORTED_MODULE_3__.renderIcon)(button.ownerDocument, "lucide:".concat(lucideIcons[action] || icon), 'ink-canvas-action-icon');
+      var glyph = (0,_icons_js__WEBPACK_IMPORTED_MODULE_5__.renderIcon)(button.ownerDocument, "lucide:".concat(lucideIcons[action] || icon), 'ink-canvas-action-icon');
       glyph.setAttribute('aria-hidden', 'true');
       button.appendChild(glyph);
       button.addEventListener('click', function (event) {
@@ -1746,10 +1774,10 @@ var CanvasRenderer = /*#__PURE__*/function () {
         radius.title = 'Corner radius (Shift: top-right only)';
         overlay.appendChild(radius);
         // Resize handles — 4 corners + 4 edges, Framer-style.
-        [['nw', 'nesw-resize'], ['ne', 'nwse-resize'], ['se', 'nwse-resize'], ['sw', 'nesw-resize']].forEach(function (_ref13) {
-          var _ref14 = _slicedToArray(_ref13, 2),
-            corner = _ref14[0],
-            cursor = _ref14[1];
+        [['nw', 'nesw-resize'], ['ne', 'nwse-resize'], ['se', 'nwse-resize'], ['sw', 'nesw-resize']].forEach(function (_ref14) {
+          var _ref15 = _slicedToArray(_ref14, 2),
+            corner = _ref15[0],
+            cursor = _ref15[1];
           var h = doc.createElement('div');
           h.className = 'ink-resize-handle is-corner';
           h.dataset.inkResizeHandle = corner;
@@ -1757,10 +1785,10 @@ var CanvasRenderer = /*#__PURE__*/function () {
           h.setAttribute('aria-label', "Resize ".concat(corner));
           overlay.appendChild(h);
         });
-        [['n', 'ns-resize'], ['e', 'ew-resize'], ['s', 'ns-resize'], ['w', 'ew-resize']].forEach(function (_ref15) {
-          var _ref16 = _slicedToArray(_ref15, 2),
-            edge = _ref16[0],
-            cursor = _ref16[1];
+        [['n', 'ns-resize'], ['e', 'ew-resize'], ['s', 'ns-resize'], ['w', 'ew-resize']].forEach(function (_ref16) {
+          var _ref17 = _slicedToArray(_ref16, 2),
+            edge = _ref17[0],
+            cursor = _ref17[1];
           var h = doc.createElement('div');
           h.className = 'ink-resize-handle is-edge';
           h.dataset.inkResizeHandle = edge;
@@ -1920,10 +1948,10 @@ var CanvasRenderer = /*#__PURE__*/function () {
       gallery.appendChild(header);
       var list = doc.createElement('div');
       list.className = 'ink-empty-preset-list';
-      presets.forEach(function (_ref17) {
-        var _ref18 = _slicedToArray(_ref17, 2),
-          structure = _ref18[0],
-          label = _ref18[1];
+      presets.forEach(function (_ref18) {
+        var _ref19 = _slicedToArray(_ref18, 2),
+          structure = _ref19[0],
+          label = _ref19[1];
         var button = doc.createElement('button');
         button.type = 'button';
         button.className = 'ink-empty-preset';
@@ -3870,6 +3898,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   createCopilotTools: () => (/* binding */ createCopilotTools)
 /* harmony export */ });
 /* harmony import */ var _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./shaderPresets.js */ "./src/core/shaderPresets.js");
+/* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -3887,6 +3916,7 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+
 
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
@@ -3995,6 +4025,42 @@ function createCopilotTools(runtime, builder) {
     });
     return {
       documentVersion: 2,
+      componentStates: {
+        setting: 'stateNames',
+        instanceState: 'state',
+        styleState: 'state:<name>',
+        example: {
+          settings: {
+            stateNames: ['monthly', 'yearly'],
+            state: 'monthly'
+          },
+          styles: {
+            desktop: {
+              base: {
+                opacity: 1
+              },
+              'state:yearly': {
+                opacity: 1
+              }
+            }
+          }
+        },
+        guidance: 'Any layer can be a state provider: name its variants in settings.stateNames and pick the authored one in settings.state. Style a variant with the reserved style bucket `state:<name>` (desktop/tablet/mobile × state:<name>), which compiles to [data-ink-state="<name>"] on that layer and its parts.'
+      },
+      interactions: {
+        setting: 'interactions',
+        events: _states_js__WEBPACK_IMPORTED_MODULE_1__.INTERACTION_EVENTS,
+        actions: _states_js__WEBPACK_IMPORTED_MODULE_1__.INTERACTION_ACTIONS,
+        targets: _states_js__WEBPACK_IMPORTED_MODULE_1__.INTERACTION_TARGETS,
+        example: {
+          on: 'click',
+          action: 'toggleState',
+          target: 'self',
+          state: 'open',
+          exclusive: true
+        },
+        guidance: 'Interactions are declarative element data set with set_interactions; they run in Preview and on the published page and are undoable. For a two-state pricing switch: give the container stateNames ["monthly","yearly"], then give each option button setState interactions targeting the container (target query + selector) plus show/hide interactions for the panels that should swap.'
+      },
       motion: {
         setting: 'motion',
         triggers: ['load', 'hover', 'enter', 'scroll'],
@@ -4648,6 +4714,29 @@ function createCopilotTools(runtime, builder) {
         case 'css_edit':
           if (!args.selector || !args.property || args.value == null) return 'selector, property and value are required';
           return asJson(cssEdit(String(args.selector), String(args.property), String(args.value)));
+        case 'set_interactions':
+          {
+            var _target = resolve(args.path || args.id);
+            if (!_target) throw new TypeError('Element not found; read_design for current IDs.');
+            var requested = Array.isArray(args.interactions) ? args.interactions : [];
+            var interactions = (0,_states_js__WEBPACK_IMPORTED_MODULE_1__.normalizeInteractions)(requested);
+            if (requested.length && !interactions.length) throw new TypeError('No usable interaction: each needs a valid on/action, and a state name for state actions.');
+            var settings = {
+              interactions: interactions
+            };
+            if (args.stateNames != null) settings.stateNames = (0,_states_js__WEBPACK_IMPORTED_MODULE_1__.normalizeStateList)(args.stateNames);
+            if (args.state != null) settings.state = (0,_states_js__WEBPACK_IMPORTED_MODULE_1__.normalizeStateName)(args.state);
+            runtime.update(_target.node.id, {
+              settings: settings
+            }, 'AI set interactions');
+            return asJson({
+              ok: true,
+              id: _target.node.id,
+              interactions: interactions,
+              stateNames: settings.stateNames,
+              state: settings.state
+            });
+          }
         case 'undo':
           runtime.history.undo();
           return 'ok';
@@ -5192,6 +5281,36 @@ function createCopilotTools(runtime, builder) {
       required: ['selector', 'property', 'value']
     }
   }, {
+    name: 'set_interactions',
+    description: 'Set declarative interactions and/or component-state names on one element. interactions is an array of { on: click|hover|load|enter, action: toggleState|setState|toggleClass|show|hide|scrollTo|playMotion, target: self|parent|next|previous|query|children, state, className, selector, exclusive, delay }. stateNames names this layer\'s variants and state picks the authored one. Everything stays editable in the Interaction panel and runs in Preview/published output.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string'
+        },
+        id: {
+          type: 'string'
+        },
+        interactions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: true
+          }
+        },
+        stateNames: {
+          type: 'array',
+          items: {
+            type: 'string'
+          }
+        },
+        state: {
+          type: 'string'
+        }
+      }
+    }
+  }, {
     name: 'undo',
     description: 'Undo the last builder or Copilot change.',
     parameters: {
@@ -5206,7 +5325,7 @@ function createCopilotTools(runtime, builder) {
       properties: {}
     }
   }];
-  var MUTATING_TOOLS = new Set(['set_shader_fill', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
+  var MUTATING_TOOLS = new Set(['set_shader_fill', 'set_interactions', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
   var context = function context() {
     var _builder$iframe, _builder$iframe2;
     return {
@@ -7622,6 +7741,8 @@ var EditorRuntime = /*#__PURE__*/function () {
       });
       controls.register('button', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.actionButton);
       controls.register('hidden', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.hidden);
+      controls.register('state-names', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.stateNames);
+      controls.register('interactions', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.interactions);
     }
   }, {
     key: "create",
@@ -8382,13 +8503,13 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./StyleValueModel.js */ "./src/core/StyleValueModel.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
@@ -8401,6 +8522,26 @@ var clone = function clone(value) {
   return value == null ? value : structuredClone(value);
 };
 
+
+// Component states and interactions are a universal element contract, not a per-type feature:
+// any layer can be a state provider ("monthly / yearly") and any layer can trigger a change.
+// Registering them once here keeps every element type — including imported DOM — equally capable
+// without repeating two control descriptors a hundred times.
+var INTERACTION_CONTROLS = [{
+  tab: 'advanced',
+  target: 'settings',
+  section: 'Interaction',
+  name: 'stateNames',
+  type: 'state-names',
+  label: 'Component states'
+}, {
+  tab: 'advanced',
+  target: 'settings',
+  section: 'Interaction',
+  name: 'interactions',
+  type: 'interactions',
+  label: 'Interactions'
+}];
 var ElementRegistry = /*#__PURE__*/function () {
   function ElementRegistry() {
     _classCallCheck(this, ElementRegistry);
@@ -8431,14 +8572,18 @@ var ElementRegistry = /*#__PURE__*/function () {
       } finally {
         _iterator.f();
       }
-      this.definitions.set(definition.type, Object.freeze(_objectSpread({
+      var controls = _toConsumableArray(definition.controls || []);
+      if (definition.interactive !== false && !definition.internal) controls.push.apply(controls, INTERACTION_CONTROLS);
+      this.definitions.set(definition.type, Object.freeze(_objectSpread(_objectSpread({
         title: definition.type,
         icon: 'widgets',
         category: 'Basic',
         keywords: [],
         controls: [],
         acceptsChildren: false
-      }, definition)));
+      }, definition), {}, {
+        controls: controls
+      })));
       return this;
     }
   }, {
@@ -9106,11 +9251,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _MediaPicker_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./MediaPicker.js */ "./src/core/MediaPicker.js");
 /* harmony import */ var _StyleValueModel_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./StyleValueModel.js */ "./src/core/StyleValueModel.js");
-/* harmony import */ var _RichTextAdapter_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./RichTextAdapter.js */ "./src/core/RichTextAdapter.js");
-/* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
-/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
-/* harmony import */ var _editorIcons_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./editorIcons.js */ "./src/core/editorIcons.js");
-/* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
+/* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
+/* harmony import */ var _RichTextAdapter_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./RichTextAdapter.js */ "./src/core/RichTextAdapter.js");
+/* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
+/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
+/* harmony import */ var _editorIcons_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./editorIcons.js */ "./src/core/editorIcons.js");
+/* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -9130,6 +9276,7 @@ function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Sym
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+
 
 
 
@@ -9468,7 +9615,7 @@ var PanelManager = /*#__PURE__*/function () {
         siteParts.appendChild(button);
       });
       var colors = section('Global colors');
-      Object.entries(_themeDefaults_js__WEBPACK_IMPORTED_MODULE_6__.DEFAULT_THEME_COLORS).forEach(function (_ref9) {
+      Object.entries(_themeDefaults_js__WEBPACK_IMPORTED_MODULE_7__.DEFAULT_THEME_COLORS).forEach(function (_ref9) {
         var _theme$colors;
         var _ref10 = _slicedToArray(_ref9, 2),
           name = _ref10[0],
@@ -9478,13 +9625,13 @@ var PanelManager = /*#__PURE__*/function () {
         });
       });
       var typography = section('Global typography');
-      field(typography, 'Font family', ((_theme$typography = theme.typography) === null || _theme$typography === void 0 ? void 0 : _theme$typography.fontFamily) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_6__.DEFAULT_THEME_TYPOGRAPHY.fontFamily, 'select', function (value) {
+      field(typography, 'Font family', ((_theme$typography = theme.typography) === null || _theme$typography === void 0 ? void 0 : _theme$typography.fontFamily) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_7__.DEFAULT_THEME_TYPOGRAPHY.fontFamily, 'select', function (value) {
         return _this3.updateTheme('typography', 'fontFamily', value);
-      }, ['Inter,ui-sans-serif,system-ui,sans-serif', 'Roboto,Arial,sans-serif', 'Georgia,serif', 'ui-monospace,SFMono-Regular,monospace'].concat(_toConsumableArray((0,_fonts_js__WEBPACK_IMPORTED_MODULE_3__.availableFonts)(this.runtime.document))));
-      field(typography, 'Base font size', ((_theme$typography2 = theme.typography) === null || _theme$typography2 === void 0 ? void 0 : _theme$typography2.baseSize) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_6__.DEFAULT_THEME_TYPOGRAPHY.baseSize, 'number', function (value) {
+      }, ['Inter,ui-sans-serif,system-ui,sans-serif', 'Roboto,Arial,sans-serif', 'Georgia,serif', 'ui-monospace,SFMono-Regular,monospace'].concat(_toConsumableArray((0,_fonts_js__WEBPACK_IMPORTED_MODULE_4__.availableFonts)(this.runtime.document))));
+      field(typography, 'Base font size', ((_theme$typography2 = theme.typography) === null || _theme$typography2 === void 0 ? void 0 : _theme$typography2.baseSize) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_7__.DEFAULT_THEME_TYPOGRAPHY.baseSize, 'number', function (value) {
         return _this3.updateTheme('typography', 'baseSize', value);
       });
-      field(typography, 'Line height', ((_theme$typography3 = theme.typography) === null || _theme$typography3 === void 0 ? void 0 : _theme$typography3.lineHeight) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_6__.DEFAULT_THEME_TYPOGRAPHY.lineHeight, 'number', function (value) {
+      field(typography, 'Line height', ((_theme$typography3 = theme.typography) === null || _theme$typography3 === void 0 ? void 0 : _theme$typography3.lineHeight) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_7__.DEFAULT_THEME_TYPOGRAPHY.lineHeight, 'number', function (value) {
         return _this3.updateTheme('typography', 'lineHeight', value);
       });
       var customFontSection = section('Custom fonts');
@@ -9988,22 +10135,33 @@ var PanelManager = /*#__PURE__*/function () {
         }
         var section = sections.get(control.section);
         if (control.states && !section.querySelector('.ink-v2-states')) {
-          var available = tabControls.filter(function (candidate) {
+          // The state switcher covers the CSS pseudo-class buckets plus every component
+          // state the selected element type advertises (for example a dropdown's Open).
+          var _definition = _this5.runtime.elements.get(node.type);
+          var declaredStates = (0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateNames)(_definition, node.settings);
+          var available = [].concat(_toConsumableArray(tabControls.filter(function (candidate) {
             return candidate.section === control.section && candidate.states;
           }).flatMap(function (candidate) {
             return Array.isArray(candidate.states) ? candidate.states : ['base', 'hover'];
-          });
+          })), _toConsumableArray(declaredStates.map(function (name) {
+            return (0,_states_js__WEBPACK_IMPORTED_MODULE_2__.stateKey)(name);
+          })));
           var stateOptions = _toConsumableArray(new Set(available));
           var _active = stateOptions.includes(_this5.sectionStates.get(control.section)) ? _this5.sectionStates.get(control.section) : stateOptions[0];
           _this5.sectionStates.set(control.section, _active);
           var states = document.createElement('div');
           states.className = 'ink-v2-states';
-          var labels = {
+          var labels = _objectSpread({
             base: 'Normal',
             hover: 'Hover',
             focus: 'Focus',
             active: 'Active'
-          };
+          }, Object.fromEntries(Object.entries((0,_states_js__WEBPACK_IMPORTED_MODULE_2__.elementStateLabels)(_this5.runtime.elements.get(node.type), node.settings)).map(function (_ref13) {
+            var _ref14 = _slicedToArray(_ref13, 2),
+              name = _ref14[0],
+              label = _ref14[1];
+            return [(0,_states_js__WEBPACK_IMPORTED_MODULE_2__.stateKey)(name), label];
+          })));
           var select = document.createElement('select');
           select.setAttribute('aria-label', "".concat(control.section, " state"));
           stateOptions.forEach(function (state) {
@@ -10015,6 +10173,7 @@ var PanelManager = /*#__PURE__*/function () {
           });
           select.addEventListener('change', function () {
             _this5.sectionStates.set(control.section, select.value);
+            _this5.previewComponentState(node, select.value);
             _this5.render();
           });
           states.appendChild(select);
@@ -10033,16 +10192,20 @@ var PanelManager = /*#__PURE__*/function () {
       var _this6 = this;
       if (!control.condition) return true;
       var test = function test(conditions) {
-        return Object.entries(conditions).every(function (_ref13) {
+        return Object.entries(conditions).every(function (_ref15) {
           var _node$styles$desktop2, _node$styles$tablet2, _node$styles$mobile2, _styles$name;
-          var _ref14 = _slicedToArray(_ref13, 2),
-            name = _ref14[0],
-            expected = _ref14[1];
+          var _ref16 = _slicedToArray(_ref15, 2),
+            name = _ref16[0],
+            expected = _ref16[1];
           var device = _this6.runtime.responsive.device;
           var styles = _objectSpread(_objectSpread(_objectSpread(_objectSpread({}, node.styles.base), (_node$styles$desktop2 = node.styles.desktop) === null || _node$styles$desktop2 === void 0 ? void 0 : _node$styles$desktop2.base), device !== 'desktop' ? (_node$styles$tablet2 = node.styles.tablet) === null || _node$styles$tablet2 === void 0 ? void 0 : _node$styles$tablet2.base : {}), device === 'mobile' ? (_node$styles$mobile2 = node.styles.mobile) === null || _node$styles$mobile2 === void 0 ? void 0 : _node$styles$mobile2.base : {});
-          var actual = (_styles$name = styles[name]) !== null && _styles$name !== void 0 ? _styles$name : node.settings[name];
+          // `children` is a structural predicate, not a style value: controls can show or hide
+          // based on whether the element holds child elements (e.g. Tabs switches from its text
+          // repeater to panel children).
+          var actual = name === 'children' ? node.children : (_styles$name = styles[name]) !== null && _styles$name !== void 0 ? _styles$name : node.settings[name];
           if (Array.isArray(expected)) return expected.includes(actual);
-          if (expected === '__not_empty__') return actual !== undefined && actual !== null && actual !== '';
+          if (expected === '__not_empty__') return name === 'children' ? !!(actual || []).length : actual !== undefined && actual !== null && actual !== '';
+          if (name === 'children') return (actual || []).length === Number(expected);
           return actual === expected;
         });
       };
@@ -10051,6 +10214,19 @@ var PanelManager = /*#__PURE__*/function () {
       if (condition.all) return condition.all.every(test);
       if (condition.not) return !test(condition.not);
       return test(condition);
+    }
+
+    // Preview a component state on the canvas while the author styles it. The attribute is
+    // rewritten on every canvas render from the store, so this never touches saved data.
+  }, {
+    key: "previewComponentState",
+    value: function previewComponentState(node, state) {
+      var _this$runtime;
+      if (!node || !((_this$runtime = this.runtime) !== null && _this$runtime !== void 0 && _this$runtime.events)) return;
+      this.runtime.events.emit('element:preview-state', {
+        id: node.id,
+        state: state && state.startsWith('state:') ? state : null
+      });
     }
   }, {
     key: "currentValue",
@@ -10433,7 +10609,7 @@ var PanelManager = /*#__PURE__*/function () {
         button.dataset.inkNavigatorId = node.id;
         button.draggable = true;
         button.tabIndex = 0;
-        var elementIcon = (0,_icons_js__WEBPACK_IMPORTED_MODULE_4__.renderIcon)(document, "lucide:".concat((0,_editorIcons_js__WEBPACK_IMPORTED_MODULE_5__.lucideName)(definition.icon)), 'ink-v2-navigator-icon');
+        var elementIcon = (0,_icons_js__WEBPACK_IMPORTED_MODULE_5__.renderIcon)(document, "lucide:".concat((0,_editorIcons_js__WEBPACK_IMPORTED_MODULE_6__.lucideName)(definition.icon)), 'ink-v2-navigator-icon');
         var elementLabel = document.createElement('span');
         elementLabel.dataset.inkNavigatorLabel = '';
         elementLabel.textContent = node.settings.label || ((_node$settings$import2 = node.settings.importedAttributes) === null || _node$settings$import2 === void 0 ? void 0 : _node$settings$import2['data-framer-name']) || node.settings.text || definition.title;
@@ -10473,7 +10649,7 @@ var PanelManager = /*#__PURE__*/function () {
         visibility.className = 'ink-v2-navigator-vis';
         visibility.title = node.settings.hidden ? 'Show element' : 'Hide element';
         visibility.setAttribute('aria-label', visibility.title);
-        visibility.appendChild((0,_icons_js__WEBPACK_IMPORTED_MODULE_4__.renderIcon)(document, "lucide:".concat(node.settings.hidden ? 'eye-off' : 'eye'), 'ink-v2-navigator-icon'));
+        visibility.appendChild((0,_icons_js__WEBPACK_IMPORTED_MODULE_5__.renderIcon)(document, "lucide:".concat(node.settings.hidden ? 'eye-off' : 'eye'), 'ink-v2-navigator-icon'));
         visibility.addEventListener('click', function (event) {
           event.preventDefault();
           event.stopPropagation();
@@ -10489,7 +10665,7 @@ var PanelManager = /*#__PURE__*/function () {
         lock.className = 'ink-v2-navigator-lock';
         lock.title = node.settings.locked ? 'Unlock element' : 'Lock element';
         lock.setAttribute('aria-label', lock.title);
-        lock.appendChild((0,_icons_js__WEBPACK_IMPORTED_MODULE_4__.renderIcon)(document, "lucide:".concat(node.settings.locked ? 'lock' : 'unlock'), 'ink-v2-navigator-icon'));
+        lock.appendChild((0,_icons_js__WEBPACK_IMPORTED_MODULE_5__.renderIcon)(document, "lucide:".concat(node.settings.locked ? 'lock' : 'unlock'), 'ink-v2-navigator-icon'));
         lock.addEventListener('click', function (event) {
           event.preventDefault();
           event.stopPropagation();
@@ -10687,16 +10863,16 @@ var PanelManager = /*#__PURE__*/function () {
       }], ['delete', 'delete', 'Delete', function () {
         return _this13.runtime.remove(node.id);
       }]]);
-      actions.forEach(function (_ref15) {
-        var _ref16 = _slicedToArray(_ref15, 4),
-          action = _ref16[0],
-          icon = _ref16[1],
-          label = _ref16[2],
-          run = _ref16[3];
+      actions.forEach(function (_ref17) {
+        var _ref18 = _slicedToArray(_ref17, 4),
+          action = _ref18[0],
+          icon = _ref18[1],
+          label = _ref18[2],
+          run = _ref18[3];
         var item = document.createElement('button');
         item.type = 'button';
         item.dataset.action = action;
-        var actionIcon = (0,_icons_js__WEBPACK_IMPORTED_MODULE_4__.renderIcon)(document, "lucide:".concat((0,_editorIcons_js__WEBPACK_IMPORTED_MODULE_5__.lucideName)(icon)), 'ink-v2-navigator-icon');
+        var actionIcon = (0,_icons_js__WEBPACK_IMPORTED_MODULE_5__.renderIcon)(document, "lucide:".concat((0,_editorIcons_js__WEBPACK_IMPORTED_MODULE_6__.lucideName)(icon)), 'ink-v2-navigator-icon');
         var actionLabel = document.createElement('span');
         actionLabel.textContent = label;
         item.append(actionIcon, actionLabel);
@@ -11531,11 +11707,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (/* binding */ StyleEngine)
 /* harmony export */ });
-/* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
-/* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
+/* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
+/* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
+/* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
@@ -11549,10 +11730,17 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+
 var STATE_PSEUDOS = {
   hover: 'hover',
   focus: 'focus',
   active: 'active'
+};
+var STATE_ORDER = ['base', 'hover', 'focus', 'active'];
+// Component states compile to an attribute selector on the element that carries the state, so
+// `.ink-el-<id>[data-ink-state="open"] .ink-el-tab-panel` styles a part while the element is open.
+var componentStateSelector = function componentStateSelector(state) {
+  return "[data-ink-state=\"".concat((0,_states_js__WEBPACK_IMPORTED_MODULE_0__.stateNameFromKey)(state).replace(/["\\]/g, ''), "\"]");
 };
 var DEVICE_WIDTHS = {
   desktop: null,
@@ -11687,6 +11875,9 @@ var StyleEngine = /*#__PURE__*/function () {
         var device = _arr[_i];
         var deviceStyles = ((_node$styles = node.styles) === null || _node$styles === void 0 ? void 0 : _node$styles[device]) || {};
         var width = DEVICE_WIDTHS[device] ? _this3.responsive.breakpoints[DEVICE_WIDTHS[device]] : null;
+        var declared = Object.keys(deviceStyles).filter(function (state) {
+          return !STATE_ORDER.includes(state) && (0,_states_js__WEBPACK_IMPORTED_MODULE_0__.isComponentStateKey)(state);
+        }).sort();
         var _loop2 = function _loop2() {
           var state = _arr2[_i2];
           var settings = deviceStyles[state] || {};
@@ -11714,7 +11905,7 @@ var StyleEngine = /*#__PURE__*/function () {
             }
             bySelector.set(suffix, target);
           });
-          var pseudo = STATE_PSEUDOS[state] ? ":".concat(state) : '';
+          var pseudo = STATE_PSEUDOS[state] ? ":".concat(state) : (0,_states_js__WEBPACK_IMPORTED_MODULE_0__.isComponentStateKey)(state) ? componentStateSelector(state) : '';
           bySelector.forEach(function (values, selector) {
             var declarations = _this3.declarations(values);
             if (!declarations) return;
@@ -11722,7 +11913,7 @@ var StyleEngine = /*#__PURE__*/function () {
             css += width ? "@media(max-width:".concat(width, "px){").concat(rule, "}") : rule;
           });
         };
-        for (var _i2 = 0, _arr2 = ['base', 'hover', 'focus', 'active']; _i2 < _arr2.length; _i2++) {
+        for (var _i2 = 0, _arr2 = [].concat(STATE_ORDER, _toConsumableArray(declared)); _i2 < _arr2.length; _i2++) {
           if (_loop2()) continue;
         }
       };
@@ -11771,10 +11962,10 @@ var StyleEngine = /*#__PURE__*/function () {
       var _this4 = this;
       var settings = document.data.settings || {};
       var theme = settings.theme || {};
-      var colors = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_1__.DEFAULT_THEME_COLORS), theme.colors || {});
-      var typography = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_1__.DEFAULT_THEME_TYPOGRAPHY), theme.typography || {});
-      var spacing = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_1__.DEFAULT_THEME_SPACING), theme.spacing || {});
-      var css = ":root{--ink-color-primary:".concat(colors.primary, ";--ink-color-secondary:").concat(colors.secondary, ";--ink-color-text:").concat(colors.text, ";--ink-color-accent:").concat(colors.accent, ";--ink-content-width:").concat(Number(spacing.contentWidth) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_1__.DEFAULT_THEME_SPACING.contentWidth, "px;--ink-page-gutter:").concat(Number(spacing.pageGutter) || 0, "px;--ink-section-gap:").concat(Number(spacing.sectionGap) || 0, "px}body{background:").concat(settings.backgroundColor || '#ffffff', ";color:var(--ink-color-text);font-family:").concat(typography.fontFamily, ";font-size:").concat(Number(typography.baseSize) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_1__.DEFAULT_THEME_TYPOGRAPHY.baseSize, "px;line-height:").concat(Number(typography.lineHeight) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_1__.DEFAULT_THEME_TYPOGRAPHY.lineHeight, "}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter);color:inherit}");
+      var colors = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_COLORS), theme.colors || {});
+      var typography = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_TYPOGRAPHY), theme.typography || {});
+      var spacing = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_SPACING), theme.spacing || {});
+      var css = ":root{--ink-color-primary:".concat(colors.primary, ";--ink-color-secondary:").concat(colors.secondary, ";--ink-color-text:").concat(colors.text, ";--ink-color-accent:").concat(colors.accent, ";--ink-content-width:").concat(Number(spacing.contentWidth) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_SPACING.contentWidth, "px;--ink-page-gutter:").concat(Number(spacing.pageGutter) || 0, "px;--ink-section-gap:").concat(Number(spacing.sectionGap) || 0, "px}body{background:").concat(settings.backgroundColor || '#ffffff', ";color:var(--ink-color-text);font-family:").concat(typography.fontFamily, ";font-size:").concat(Number(typography.baseSize) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_TYPOGRAPHY.baseSize, "px;line-height:").concat(Number(typography.lineHeight) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_TYPOGRAPHY.lineHeight, "}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter);color:inherit}");
       var _visit = function visit(node) {
         css += _this4.nodeRules(node);
         css += _this4.motionRules(node);
@@ -11784,10 +11975,10 @@ var StyleEngine = /*#__PURE__*/function () {
       css += document.data.settings.customCss || '';
       // Google Fonts: @import must be the first rules in the stylesheet so the font survives
       // published output (the body keeps this style tag; the head is dropped).
-      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_0__.usedFonts)(document);
-      css = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_0__.customFontFaces)(document) + css;
+      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.usedFonts)(document);
+      css = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.customFontFaces)(document) + css;
       if (fonts.length) css = fonts.map(function (family) {
-        return "@import url('".concat((0,_fonts_js__WEBPACK_IMPORTED_MODULE_0__.fontImportUrl)(family), "');");
+        return "@import url('".concat((0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.fontImportUrl)(family), "');");
       }).join('') + css;
       return css;
     }
@@ -11802,7 +11993,7 @@ var StyleEngine = /*#__PURE__*/function () {
       }
       style.textContent = this.compile(document);
       // Load used Google Fonts into the editor iframe so live editing shows them immediately.
-      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_0__.usedFonts)(document);
+      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.usedFonts)(document);
       var existing = targetDocument.querySelectorAll('link[data-ink-google-font]');
       var loaded = new Set();
       existing.forEach(function (link) {
@@ -11815,7 +12006,7 @@ var StyleEngine = /*#__PURE__*/function () {
         link.rel = 'stylesheet';
         link.dataset.inkGoogleFont = '';
         link.dataset.inkFont = family;
-        link.href = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_0__.fontImportUrl)(family);
+        link.href = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.fontImportUrl)(family);
         targetDocument.head.appendChild(link);
       });
       return style;
@@ -11838,10 +12029,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   DEVICES: () => (/* binding */ DEVICES),
 /* harmony export */   STATES: () => (/* binding */ STATES),
 /* harmony export */   emptyStyles: () => (/* binding */ emptyStyles),
+/* harmony export */   isStateBucket: () => (/* binding */ isStateBucket),
 /* harmony export */   mergeStyles: () => (/* binding */ mergeStyles),
 /* harmony export */   normalizeStyles: () => (/* binding */ normalizeStyles),
 /* harmony export */   resolveLocation: () => (/* binding */ resolveLocation)
 /* harmony export */ });
+/* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -11859,7 +12052,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 //
 // Storage shape for every node:  node.styles = { [device]: { [state]: { [controlName]: value } } }
 //   devices: desktop | tablet | mobile
-//   states:  base | hover | focus | active
+//   states:  base | hover | focus | active  (CSS pseudo-class buckets)
+//            state:<name>                   (component state buckets — see states.js)
 //
 // This lets a control carry an independent value per (device, state) combination — e.g. a hover
 // color that only applies on tablet — which the old flat base/tablet/mobile/hover/focus buckets
@@ -11871,9 +12065,17 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 //   { hover: {...} }       -> desktop.hover
 //   { desktop: {...} }     -> desktop.base (when the value is a flat control map)
 
+
 var DEVICES = ['desktop', 'tablet', 'mobile'];
 var STATES = ['base', 'hover', 'focus', 'active'];
 var STATE_KEYS = new Set(STATES);
+
+// A state bucket is either a CSS pseudo-class bucket (hover/focus/active) or a component state
+// bucket (`state:open`). Component buckets are free-form per element, so they are only created
+// when an element actually uses one.
+var isStateBucket = function isStateBucket(key) {
+  return STATE_KEYS.has(key) || (0,_states_js__WEBPACK_IMPORTED_MODULE_0__.isComponentStateKey)(key);
+};
 function emptyStyles() {
   var styles = {};
   var _iterator = _createForOfIteratorHelper(DEVICES),
@@ -11912,18 +12114,22 @@ function normalizeStyles(styles) {
       value = _Object$entries$_i[1];
     if (value === undefined || value === null) continue;
     if (DEVICES.includes(key)) {
-      if (value && _typeof(value) === 'object' && !Array.isArray(value) && Object.keys(value).some(function (state) {
-        return STATE_KEYS.has(state);
-      })) {
+      if (value && _typeof(value) === 'object' && !Array.isArray(value) && Object.keys(value).some(isStateBucket)) {
         for (var _i2 = 0, _Object$entries2 = Object.entries(value); _i2 < _Object$entries2.length; _i2++) {
           var _Object$entries2$_i = _slicedToArray(_Object$entries2[_i2], 2),
             state = _Object$entries2$_i[0],
             settings = _Object$entries2$_i[1];
-          if (STATE_KEYS.has(state) && settings && _typeof(settings) === 'object') out[key][state] = _objectSpread(_objectSpread({}, out[key][state]), settings);
+          if (!isStateBucket(state) || !settings || _typeof(settings) !== 'object') continue;
+          // Legacy flat maps use `state:open`; normalize the suffix so `state:Open` and
+          // `state:open` can never become two buckets for one variant.
+          var name = (0,_states_js__WEBPACK_IMPORTED_MODULE_0__.isComponentStateKey)(state) ? "state:".concat((0,_states_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStateName)(state.slice('state:'.length))) : state;
+          out[key][name] = _objectSpread(_objectSpread({}, out[key][name]), settings);
         }
       } else {
         out[key].base = _objectSpread(_objectSpread({}, out[key].base), value || {});
       }
+    } else if ((0,_states_js__WEBPACK_IMPORTED_MODULE_0__.isComponentStateKey)(key)) {
+      out.desktop["state:".concat((0,_states_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStateName)(key.slice('state:'.length)))] = _objectSpread(_objectSpread({}, out.desktop.base), value || {});
     } else if (STATE_KEYS.has(key)) {
       out.desktop[key] = _objectSpread(_objectSpread({}, out.desktop[key]), value || {});
     } else {
@@ -12376,6 +12582,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   icon: () => (/* binding */ icon),
 /* harmony export */   imageDimensions: () => (/* binding */ imageDimensions),
 /* harmony export */   importedBackground: () => (/* binding */ importedBackground),
+/* harmony export */   interactions: () => (/* binding */ interactions),
 /* harmony export */   layoutFlow: () => (/* binding */ layoutFlow),
 /* harmony export */   media: () => (/* binding */ media),
 /* harmony export */   motion: () => (/* binding */ motion),
@@ -12387,6 +12594,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   shadow: () => (/* binding */ shadow),
 /* harmony export */   shapeDivider: () => (/* binding */ shapeDivider),
 /* harmony export */   slider: () => (/* binding */ slider),
+/* harmony export */   stateNames: () => (/* binding */ stateNames),
 /* harmony export */   structure: () => (/* binding */ structure),
 /* harmony export */   switcher: () => (/* binding */ switcher),
 /* harmony export */   textStroke: () => (/* binding */ textStroke),
@@ -12400,6 +12608,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../icons.js */ "./src/core/icons.js");
 /* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../fonts.js */ "./src/core/fonts.js");
 /* harmony import */ var _elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../elementorShapes.js */ "./src/core/elementorShapes.js");
+/* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../states.js */ "./src/core/states.js");
 function _toArray(r) { return _arrayWithHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableRest(); }
 function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */ _regeneratorRuntime = function _regeneratorRuntime() { return e; }; var t, e = {}, r = Object.prototype, n = r.hasOwnProperty, o = Object.defineProperty || function (t, e, r) { t[e] = r.value; }, i = "function" == typeof Symbol ? Symbol : {}, a = i.iterator || "@@iterator", c = i.asyncIterator || "@@asyncIterator", u = i.toStringTag || "@@toStringTag"; function define(t, e, r) { return Object.defineProperty(t, e, { value: r, enumerable: !0, configurable: !0, writable: !0 }), t[e]; } try { define({}, ""); } catch (t) { define = function define(t, e, r) { return t[e] = r; }; } function wrap(t, e, r, n) { var i = e && e.prototype instanceof Generator ? e : Generator, a = Object.create(i.prototype), c = new Context(n || []); return o(a, "_invoke", { value: makeInvokeMethod(t, r, c) }), a; } function tryCatch(t, e, r) { try { return { type: "normal", arg: t.call(e, r) }; } catch (t) { return { type: "throw", arg: t }; } } e.wrap = wrap; var h = "suspendedStart", l = "suspendedYield", f = "executing", s = "completed", y = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} var p = {}; define(p, a, function () { return this; }); var d = Object.getPrototypeOf, v = d && d(d(values([]))); v && v !== r && n.call(v, a) && (p = v); var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p); function defineIteratorMethods(t) { ["next", "throw", "return"].forEach(function (e) { define(t, e, function (t) { return this._invoke(e, t); }); }); } function AsyncIterator(t, e) { function invoke(r, o, i, a) { var c = tryCatch(t[r], t, o); if ("throw" !== c.type) { var u = c.arg, h = u.value; return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) { invoke("next", t, i, a); }, function (t) { invoke("throw", t, i, a); }) : e.resolve(h).then(function (t) { u.value = t, i(u); }, function (t) { return invoke("throw", t, i, a); }); } a(c.arg); } var r; o(this, "_invoke", { value: function value(t, n) { function callInvokeWithMethodAndArg() { return new e(function (e, r) { invoke(t, n, e, r); }); } return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg(); } }); } function makeInvokeMethod(e, r, n) { var o = h; return function (i, a) { if (o === f) throw Error("Generator is already running"); if (o === s) { if ("throw" === i) throw a; return { value: t, done: !0 }; } for (n.method = i, n.arg = a;;) { var c = n.delegate; if (c) { var u = maybeInvokeDelegate(c, n); if (u) { if (u === y) continue; return u; } } if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) { if (o === h) throw o = s, n.arg; n.dispatchException(n.arg); } else "return" === n.method && n.abrupt("return", n.arg); o = f; var p = tryCatch(e, r, n); if ("normal" === p.type) { if (o = n.done ? s : l, p.arg === y) continue; return { value: p.arg, done: n.done }; } "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg); } }; } function maybeInvokeDelegate(e, r) { var n = r.method, o = e.iterator[n]; if (o === t) return r.delegate = null, "throw" === n && e.iterator["return"] && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y; var i = tryCatch(o, e.iterator, r.arg); if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y; var a = i.arg; return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y); } function pushTryEntry(t) { var e = { tryLoc: t[0] }; 1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e); } function resetTryEntry(t) { var e = t.completion || {}; e.type = "normal", delete e.arg, t.completion = e; } function Context(t) { this.tryEntries = [{ tryLoc: "root" }], t.forEach(pushTryEntry, this), this.reset(!0); } function values(e) { if (e || "" === e) { var r = e[a]; if (r) return r.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) { var o = -1, i = function next() { for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next; return next.value = t, next.done = !0, next; }; return i.next = i; } } throw new TypeError(_typeof(e) + " is not iterable"); } return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", { value: GeneratorFunctionPrototype, configurable: !0 }), o(GeneratorFunctionPrototype, "constructor", { value: GeneratorFunction, configurable: !0 }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) { var e = "function" == typeof t && t.constructor; return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name)); }, e.mark = function (t) { return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t; }, e.awrap = function (t) { return { __await: t }; }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () { return this; }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) { void 0 === i && (i = Promise); var a = new AsyncIterator(wrap(t, r, n, o), i); return e.isGeneratorFunction(r) ? a : a.next().then(function (t) { return t.done ? t.value : a.next(); }); }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () { return this; }), define(g, "toString", function () { return "[object Generator]"; }), e.keys = function (t) { var e = Object(t), r = []; for (var n in e) r.push(n); return r.reverse(), function next() { for (; r.length;) { var t = r.pop(); if (t in e) return next.value = t, next.done = !1, next; } return next.done = !0, next; }; }, e.values = values, Context.prototype = { constructor: Context, reset: function reset(e) { if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t); }, stop: function stop() { this.done = !0; var t = this.tryEntries[0].completion; if ("throw" === t.type) throw t.arg; return this.rval; }, dispatchException: function dispatchException(e) { if (this.done) throw e; var r = this; function handle(n, o) { return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o; } for (var o = this.tryEntries.length - 1; o >= 0; --o) { var i = this.tryEntries[o], a = i.completion; if ("root" === i.tryLoc) return handle("end"); if (i.tryLoc <= this.prev) { var c = n.call(i, "catchLoc"), u = n.call(i, "finallyLoc"); if (c && u) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } else if (c) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); } else { if (!u) throw Error("try statement without catch or finally"); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } } } }, abrupt: function abrupt(t, e) { for (var r = this.tryEntries.length - 1; r >= 0; --r) { var o = this.tryEntries[r]; if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) { var i = o; break; } } i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null); var a = i ? i.completion : {}; return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a); }, complete: function complete(t, e) { if ("throw" === t.type) throw t.arg; return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y; }, finish: function finish(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y; } }, "catch": function _catch(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.tryLoc === t) { var n = r.completion; if ("throw" === n.type) { var o = n.arg; resetTryEntry(r); } return o; } } throw Error("illegal catch attempt"); }, delegateYield: function delegateYield(e, r, n) { return this.delegate = { iterator: values(e), resultName: r, nextLoc: n }, "next" === this.method && (this.arg = t), y; } }, e; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
@@ -12426,6 +12635,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 // PanelManager stays thin: renderControl() delegates here via the ControlRegistry.
 // Each renderer uses only the panel context (setValue/currentValue/renderControl/
 // runtime) — no private PanelManager state.
+
 
 
 
@@ -15694,6 +15904,178 @@ function dataBinding(panel, control, node, _value, row) {
   return row;
 }
 
+// Component states: the named variants an element can be in (e.g. "monthly, yearly"). They feed
+// the state switcher in the panel and compile to [data-ink-state="…"] rules. See states.js.
+function stateNames(panel, control, node, value, row) {
+  var list = (0,_states_js__WEBPACK_IMPORTED_MODULE_6__.normalizeStateList)(value);
+  var wrapper = document.createElement('div');
+  wrapper.className = 'ink-v2-state-names';
+  var input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'open, closed';
+  input.value = list.join(', ');
+  input.setAttribute('aria-label', control.label || 'Component states');
+  commitOnFinish(input, function () {
+    return panel.setValue(control, node, (0,_states_js__WEBPACK_IMPORTED_MODULE_6__.normalizeStateList)(input.value));
+  });
+  var hint = document.createElement('small');
+  hint.className = 'ink-v2-control-description';
+  hint.textContent = 'Variant names this element can be in. Style each one from the state switcher, then switch them with an interaction.';
+  wrapper.append(input, hint);
+  row.appendChild(wrapper);
+  return row;
+}
+
+// Interactions: an event on this element that changes a target. Declarative element data, so it
+// runs in Preview and published pages and is undoable — never hand-written script.
+function interactions(panel, control, node, value, row) {
+  var list = (0,_states_js__WEBPACK_IMPORTED_MODULE_6__.normalizeInteractions)(value);
+  var wrapper = document.createElement('div');
+  wrapper.className = 'ink-v2-interactions';
+  var commit = function commit() {
+    return panel.setValue(control, node, (0,_states_js__WEBPACK_IMPORTED_MODULE_6__.normalizeInteractions)(list));
+  };
+  var field = function field(labelText, input) {
+    var label = document.createElement('label');
+    label.textContent = labelText;
+    label.appendChild(input);
+    return label;
+  };
+  var select = function select(options, labels, current, onChange) {
+    var element = document.createElement('select');
+    options.forEach(function (option) {
+      return element.add(new Option(labels[option] || option, option));
+    });
+    element.value = current;
+    element.addEventListener('change', function () {
+      return onChange(element.value);
+    });
+    return element;
+  };
+  list.forEach(function (record, index) {
+    var item = document.createElement('div');
+    item.className = 'ink-v2-interaction';
+    var update = function update(patch) {
+      list[index] = _objectSpread(_objectSpread({}, list[index]), patch);
+      commit();
+    };
+    var header = document.createElement('div');
+    header.className = 'ink-v2-interaction-head';
+    header.appendChild(field('When', select(_states_js__WEBPACK_IMPORTED_MODULE_6__.INTERACTION_EVENTS, _states_js__WEBPACK_IMPORTED_MODULE_6__.INTERACTION_EVENT_LABELS, record.on, function (next) {
+      return update({
+        on: next
+      });
+    })));
+    header.appendChild(field('Do', select(_states_js__WEBPACK_IMPORTED_MODULE_6__.INTERACTION_ACTIONS, _states_js__WEBPACK_IMPORTED_MODULE_6__.INTERACTION_ACTION_LABELS, record.action, function (next) {
+      return update(_objectSpread({
+        action: next
+      }, ['toggleState', 'setState'].includes(next) && !record.state ? {
+        state: 'open'
+      } : {}));
+    })));
+    header.appendChild(field('Target', select(_states_js__WEBPACK_IMPORTED_MODULE_6__.INTERACTION_TARGETS, _states_js__WEBPACK_IMPORTED_MODULE_6__.INTERACTION_TARGET_LABELS, record.target, function (next) {
+      return update(_objectSpread({
+        target: next
+      }, next === 'query' && !record.selector ? {
+        selector: '.selector'
+      } : {}));
+    })));
+    var remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'ink-v2-action-button is-quiet';
+    remove.textContent = 'Remove';
+    remove.setAttribute('aria-label', 'Remove interaction');
+    remove.addEventListener('click', function () {
+      list.splice(index, 1);
+      commit();
+    });
+    header.appendChild(remove);
+    var detail = document.createElement('div');
+    detail.className = 'ink-v2-interaction-detail';
+    if (['toggleState', 'setState'].includes(record.action)) {
+      var state = document.createElement('input');
+      state.type = 'text';
+      state.value = record.state || '';
+      state.placeholder = 'open';
+      commitOnFinish(state, function () {
+        return update({
+          state: (0,_states_js__WEBPACK_IMPORTED_MODULE_6__.normalizeStateName)(state.value)
+        });
+      });
+      detail.appendChild(field('State', state));
+      var exclusive = switchControl({
+        checked: record.exclusive === true,
+        onLabel: 'One',
+        offLabel: 'Many',
+        ariaLabel: 'Exclusive state'
+      });
+      exclusive.checkbox.addEventListener('change', function () {
+        return update({
+          exclusive: exclusive.checkbox.checked
+        });
+      });
+      detail.appendChild(field('Siblings', exclusive.wrapper));
+    }
+    if (record.action === 'toggleClass') {
+      var className = document.createElement('input');
+      className.type = 'text';
+      className.value = record.className || '';
+      className.placeholder = 'is-open';
+      commitOnFinish(className, function () {
+        return update({
+          className: className.value.trim()
+        });
+      });
+      detail.appendChild(field('Class', className));
+    }
+    if (record.target === 'query') {
+      var selector = document.createElement('input');
+      selector.type = 'text';
+      selector.value = record.selector || '';
+      selector.placeholder = '.pricing-panel-yearly';
+      commitOnFinish(selector, function () {
+        return update({
+          selector: selector.value.trim()
+        });
+      });
+      detail.appendChild(field('Selector', selector));
+    }
+    var delay = document.createElement('input');
+    delay.type = 'number';
+    delay.min = '0';
+    delay.step = '50';
+    delay.value = record.delay || 0;
+    commitOnFinish(delay, function () {
+      return update({
+        delay: Number(delay.value) || 0
+      });
+    });
+    detail.appendChild(field('Delay (ms)', delay));
+    item.append(header, detail);
+    wrapper.appendChild(item);
+  });
+  var add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'ink-v2-action-button';
+  add.textContent = list.length ? 'Add another interaction' : 'Add interaction';
+  add.addEventListener('click', function () {
+    list.push({
+      on: 'click',
+      action: 'toggleState',
+      target: 'self',
+      state: 'open'
+    });
+    commit();
+  });
+  wrapper.appendChild(add);
+  var hint = document.createElement('small');
+  hint.className = 'ink-v2-control-description';
+  hint.textContent = 'Runs in Preview and on the published page. Use a selector target to change another layer, such as a panel that should open.';
+  wrapper.appendChild(hint);
+  row.appendChild(wrapper);
+  return row;
+}
+
 /***/ }),
 
 /***/ "./src/core/editorIcons.js":
@@ -18686,12 +19068,22 @@ function registerInkElements(registry) {
       return root;
     }
   });
+  // Tabs has two modes, and every page keeps whichever it was authored in:
+  //   * panel mode — `tab-panel` children, so a tab can hold a full designed layout;
+  //   * text mode   — the original `items` repeater, kept for existing and imported pages.
   register(registry, {
     type: 'tabs',
     title: 'Tabs',
     icon: 'tab',
+    acceptsChildren: ['tab-panel'],
+    acceptsChild: function acceptsChild(parent, child) {
+      return child.type === 'tab-panel';
+    },
+    // Panel mode brings its own drop host; text mode must not grow an empty placeholder.
+    showEmptyView: false,
     defaults: {
       settings: {
+        activeTab: 0,
         items: [{
           title: 'Tab 1',
           content: 'First tab content.'
@@ -18709,7 +19101,14 @@ function registerInkElements(registry) {
       title: '.ink-el-tabs-nav button',
       panel: '.ink-el-tab-panel'
     },
-    controls: [items('items', [textField('title', 'Title'), textField('content', 'Content', 'textarea')]), {
+    controls: [_objectSpread(_objectSpread({}, items('items', [textField('title', 'Title'), textField('content', 'Content', 'textarea')])), {}, {
+      condition: {
+        not: {
+          children: '__not_empty__'
+        }
+      },
+      description: 'Text-only tabs. Add a Tab Panel child instead to put a full layout inside a tab.'
+    }), {
       tab: 'style',
       target: 'styles',
       section: 'Title',
@@ -18731,29 +19130,93 @@ function registerInkElements(registry) {
     render: function render(_ref36, node) {
       var domDocument = _ref36.domDocument;
       var root = make(domDocument, 'div', 'ink-el-tabs');
+      var panels = (node.children || []).filter(function (child) {
+        return child.type === 'tab-panel';
+      });
       var nav = make(domDocument, 'div', 'ink-el-tabs-nav');
       nav.setAttribute('role', 'tablist');
-      var items = node.settings.items || [];
-      items.forEach(function (item, index) {
-        var button = make(domDocument, 'button', '', item.title);
+      var active = Math.max(0, Math.min(Number(node.settings.activeTab) || 0, Math.max(0, (panels.length || (node.settings.items || []).length) - 1)));
+      var titles = panels.length ? panels.map(function (panel) {
+        var _panel$settings;
+        return ((_panel$settings = panel.settings) === null || _panel$settings === void 0 ? void 0 : _panel$settings.label) || 'Tab';
+      }) : (node.settings.items || []).map(function (item) {
+        return item.title;
+      });
+      titles.forEach(function (title, index) {
+        var button = make(domDocument, 'button', '', title);
         button.type = 'button';
         button.id = "ink-tab-".concat(node.id, "-").concat(index);
         button.setAttribute('role', 'tab');
-        button.setAttribute('aria-selected', String(index === 0));
+        button.setAttribute('aria-selected', String(index === active));
         button.setAttribute('aria-controls', "ink-panel-".concat(node.id, "-").concat(index));
-        button.tabIndex = index === 0 ? 0 : -1;
-        if (index === 0) button.classList.add('is-active');
+        button.tabIndex = index === active ? 0 : -1;
+        if (index === active) button.classList.add('is-active');
         nav.appendChild(button);
       });
       root.append(nav);
-      items.forEach(function (item, index) {
-        var panel = make(domDocument, 'div', 'ink-el-tab-panel', item.content);
-        panel.id = "ink-panel-".concat(node.id, "-").concat(index);
-        panel.setAttribute('role', 'tabpanel');
-        panel.setAttribute('aria-labelledby', "ink-tab-".concat(node.id, "-").concat(index));
-        panel.hidden = index !== 0;
-        root.append(panel);
+      if (panels.length) {
+        var host = make(domDocument, 'div', 'ink-el-tabs-panels');
+        host.dataset.inkChildren = '';
+        root.append(host);
+      } else {
+        (node.settings.items || []).forEach(function (item, index) {
+          var panel = make(domDocument, 'div', 'ink-el-tab-panel', item.content);
+          panel.id = "ink-panel-".concat(node.id, "-").concat(index);
+          panel.setAttribute('role', 'tabpanel');
+          panel.setAttribute('aria-labelledby', "ink-tab-".concat(node.id, "-").concat(index));
+          panel.hidden = index !== active;
+          root.append(panel);
+        });
+      }
+      return root;
+    },
+    // Panel children render as plain store children, so they need their tabpanel wiring here
+    // (text-mode panels get theirs in render above).
+    appendChildren: function appendChildren(_ref37) {
+      var childrenRoot = _ref37.childrenRoot,
+        node = _ref37.node,
+        create = _ref37.create;
+      (node.children || []).forEach(function (child, index) {
+        var element = create(child);
+        element.classList.add('ink-el-tab-panel');
+        element.id = element.id || "ink-panel-".concat(node.id, "-").concat(index);
+        element.setAttribute('role', 'tabpanel');
+        element.setAttribute('aria-labelledby', "ink-tab-".concat(node.id, "-").concat(index));
+        element.hidden = index !== (Number(node.settings.activeTab) || 0);
+        childrenRoot.appendChild(element);
       });
+    }
+  });
+  register(registry, {
+    type: 'tab-panel',
+    title: 'Tab Panel',
+    icon: 'bottom_panel',
+    category: 'Layout',
+    acceptsChildren: true,
+    canBeChildOf: function canBeChildOf(child, parent) {
+      return parent.type === 'tabs';
+    },
+    defaults: {
+      settings: {
+        label: 'Tab'
+      },
+      styles: {
+        base: {}
+      }
+    },
+    controls: [{
+      tab: 'content',
+      section: 'Panel',
+      name: 'label',
+      type: 'text',
+      label: 'Tab label',
+      description: "Label shown on the tab button for this panel."
+    }],
+    render: function render(_ref38, node) {
+      var domDocument = _ref38.domDocument;
+      var root = make(domDocument, 'div', 'ink-el-tab-panel');
+      root.dataset.inkChildren = '';
+      root.dataset.inkPanelLabel = String(node.settings.label || 'Tab');
       return root;
     }
   });
@@ -18800,8 +19263,8 @@ function registerInkElements(registry) {
         property: 'color',
         part: 'content'
       }].concat(spacing),
-      render: function render(_ref37, node) {
-        var domDocument = _ref37.domDocument;
+      render: function render(_ref39, node) {
+        var domDocument = _ref39.domDocument;
         var root = make(domDocument, 'div', 'ink-el-accordion');
         (node.settings.items || []).forEach(function (item, index) {
           var detail = make(domDocument, 'details');
@@ -18929,8 +19392,8 @@ function registerInkElements(registry) {
       property: 'color',
       part: 'content'
     }].concat(spacing),
-    render: function render(_ref38, node) {
-      var domDocument = _ref38.domDocument;
+    render: function render(_ref40, node) {
+      var domDocument = _ref40.domDocument;
       var root = make(domDocument, 'div', 'ink-el-timeline-accordion');
       (node.settings.items || []).forEach(function (item) {
         var article = make(domDocument, 'article', 'ink-el-timeline-item');
@@ -18947,10 +19410,10 @@ function registerInkElements(registry) {
       });
       return root;
     },
-    mount: function mount(_ref39) {
+    mount: function mount(_ref41) {
       var _node$settings$defaul;
-      var element = _ref39.element,
-        node = _ref39.node;
+      var element = _ref41.element,
+        node = _ref41.node;
       var imported = !!node.settings.importedDom;
       var items = imported ? Array.from(element.querySelectorAll('[data-framer-name="Close"], [data-framer-name="Open"]')) : Array.from(element.querySelectorAll(':scope > .ink-el-timeline-item'));
       var questionFor = function questionFor(item) {
@@ -19010,9 +19473,9 @@ function registerInkElements(registry) {
         element.removeEventListener('keydown', keydown, true);
       };
     },
-    unmount: function unmount(_ref40) {
+    unmount: function unmount(_ref42) {
       var _element$__inkTimelin;
-      var element = _ref40.element;
+      var element = _ref42.element;
       return (_element$__inkTimelin = element.__inkTimelineCleanup) === null || _element$__inkTimelin === void 0 ? void 0 : _element$__inkTimelin.call(element);
     }
   });
@@ -19074,8 +19537,8 @@ function registerInkElements(registry) {
       property: 'color',
       part: 'message'
     }].concat(spacing),
-    render: function render(_ref41, node) {
-      var domDocument = _ref41.domDocument;
+    render: function render(_ref43, node) {
+      var domDocument = _ref43.domDocument;
       var colors = {
         info: '#6ec1e4',
         success: '#61ce70',
@@ -19113,8 +19576,8 @@ function registerInkElements(registry) {
       type: 'media',
       label: 'Audio file'
     }].concat(spacing),
-    render: function render(_ref42, node) {
-      var domDocument = _ref42.domDocument;
+    render: function render(_ref44, node) {
+      var domDocument = _ref44.domDocument;
       var root = make(domDocument, 'audio', 'ink-el-audio');
       root.src = node.settings.src || '';
       root.controls = true;
@@ -19150,8 +19613,8 @@ function registerInkElements(registry) {
       type: 'media',
       label: 'Poster'
     }].concat(spacing),
-    render: function render(_ref43, node) {
-      var domDocument = _ref43.domDocument;
+    render: function render(_ref45, node) {
+      var domDocument = _ref45.domDocument;
       var root = make(domDocument, 'video', 'ink-el-video');
       root.src = node.settings.src || '';
       root.poster = node.settings.poster || '';
@@ -19187,8 +19650,8 @@ function registerInkElements(registry) {
       min: 1,
       max: 20
     }].concat(spacing),
-    render: function render(_ref44, node) {
-      var domDocument = _ref44.domDocument;
+    render: function render(_ref46, node) {
+      var domDocument = _ref46.domDocument;
       var root = make(domDocument, 'iframe', 'ink-el-map');
       root.loading = 'lazy';
       root.referrerPolicy = 'no-referrer-when-downgrade';
@@ -19225,8 +19688,8 @@ function registerInkElements(registry) {
     icon: 'collections',
     defaults: galleryDefaults,
     controls: galleryControls,
-    render: function render(_ref45, node) {
-      var domDocument = _ref45.domDocument;
+    render: function render(_ref47, node) {
+      var domDocument = _ref47.domDocument;
       var root = make(domDocument, 'div', 'ink-el-gallery');
       root.dataset.lightbox = node.settings.lightbox === false ? 'false' : 'true';
       (node.settings.images || []).forEach(function (item) {
@@ -19290,8 +19753,8 @@ function registerInkElements(registry) {
       max: 12000,
       step: 500
     }].concat(spacing),
-    render: function render(_ref46, node) {
-      var domDocument = _ref46.domDocument;
+    render: function render(_ref48, node) {
+      var domDocument = _ref48.domDocument;
       var root = make(domDocument, 'div', 'ink-el-carousel');
       root.dataset.autoplay = node.settings.autoplay ? 'true' : 'false';
       root.dataset.loop = node.settings.loop ? 'true' : 'false';
@@ -19356,8 +19819,8 @@ function registerInkElements(registry) {
       }
     },
     controls: [items('items', [textField('label', 'Label'), textField('icon', 'Icon'), textField('url', 'URL')])].concat(spacing),
-    render: function render(_ref47, node) {
-      var domDocument = _ref47.domDocument;
+    render: function render(_ref49, node) {
+      var domDocument = _ref49.domDocument;
       var root = make(domDocument, 'div', 'ink-el-social');
       (node.settings.items || []).forEach(function (item) {
         var link = make(domDocument, 'a');
@@ -19396,8 +19859,8 @@ function registerInkElements(registry) {
       type: 'number',
       label: 'Offset'
     }].concat(spacing),
-    render: function render(_ref48, node) {
-      var domDocument = _ref48.domDocument;
+    render: function render(_ref50, node) {
+      var domDocument = _ref50.domDocument;
       var root = make(domDocument, 'span', 'ink-el-anchor');
       root.id = node.settings.id || '';
       root.style.setProperty('--anchor-offset', "".concat(node.settings.offset || 0, "px"));
@@ -19430,8 +19893,8 @@ function registerInkElements(registry) {
       type: 'url',
       label: 'URL'
     }, typographyControls].concat(spacing),
-    render: function render(_ref49, node) {
-      var domDocument = _ref49.domDocument;
+    render: function render(_ref51, node) {
+      var domDocument = _ref51.domDocument;
       var root = make(domDocument, 'a', 'ink-el-read-more', node.settings.text);
       root.href = url(node.settings.url) || '#';
       root.append(icon(domDocument, 'arrow_forward'));
@@ -19472,8 +19935,8 @@ function registerInkElements(registry) {
       type: 'code',
       label: 'JSON payload'
     }].concat(spacing),
-    render: function render(_ref50, node) {
-      var domDocument = _ref50.domDocument;
+    render: function render(_ref52, node) {
+      var domDocument = _ref52.domDocument;
       var root = make(domDocument, 'div', 'ink-el-plugin', node.settings.provider && node.settings.widget ? "".concat(node.settings.provider, " / ").concat(node.settings.widget) : 'Choose an installed Ink extension widget');
       root.dataset.inkPluginProvider = node.settings.provider || '';
       root.dataset.inkPluginWidget = node.settings.widget || '';
@@ -22480,6 +22943,32 @@ function registerInkShaderElement(registry) {
 
 /***/ }),
 
+/***/ "./src/core/interactionRuntime.js":
+/*!****************************************!*\
+  !*** ./src/core/interactionRuntime.js ***!
+  \****************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   INTERACTION_RUNTIME: () => (/* binding */ INTERACTION_RUNTIME)
+/* harmony export */ });
+var _templateObject;
+function _taggedTemplateLiteral(e, t) { return t || (t = e.slice(0)), Object.freeze(Object.defineProperties(e, { raw: { value: Object.freeze(t) } })); }
+// Interaction runtime. Shipped with the canvas widget runtime so it also lands in published
+// output, and delegated on the document so elements added later are covered automatically.
+//
+// Everything it does is driven by `data-ink-interactions` (authored element data) and
+// `data-ink-state` (the variant an element is in). There is no per-site scripting here: the
+// same runtime serves a pricing switch, a mega menu, or a disclosure widget on any site.
+//
+// Keep this string free of ERB-sensitive tokens ({{ }}, <% %>): the saved page HTML is later
+// rendered as a live template.
+var INTERACTION_RUNTIME = String.raw(_templateObject || (_templateObject = _taggedTemplateLiteral(["(function () {\n  if (window.__inkInteractions) return;\n  window.__inkInteractions = true;\n\n  function closest(el, sel) {\n    while (el && el.nodeType === 1) { if (el.matches(sel)) return el; el = el.parentNode; }\n    return null;\n  }\n  function hostOf(el) { return closest(el, '[data-ink-interactions]'); }\n  function paused() { return document.body.classList.contains('ink-builder-design'); }\n  function records(host) {\n    try {\n      var parsed = JSON.parse(host.getAttribute('data-ink-interactions') || '[]');\n      return Array.isArray(parsed) ? parsed : [];\n    } catch (error) { return []; }\n  }\n  function resolveTarget(host, record) {\n    switch (record.target) {\n      case 'parent': return closest(host.parentElement, '.ink-element, .ink-imported-element') || host.parentElement;\n      case 'next': return host.nextElementSibling;\n      case 'previous': return host.previousElementSibling;\n      case 'query': try { return host.ownerDocument.querySelector(record.selector); } catch (error) { return null; }\n      case 'children': return host.firstElementChild;\n      default: return host;\n    }\n  }\n\n  // A state group is the set of elements that share one state vocabulary (data-ink-state-group).\n  // Exclusive groups behave like an accordion: only one member may carry the state at a time.\n  function members(host) {\n    var group = host.getAttribute('data-ink-state-group');\n    if (!group) return [host];\n    return Array.prototype.slice.call(host.ownerDocument.querySelectorAll('[data-ink-state-group=\"' + CSS.escape(group) + '\"]'));\n  }\n  function applyState(host, state, toggle, exclusive) {\n    var current = host.getAttribute('data-ink-state');\n    var next = toggle && current === state ? null : state;\n    if (exclusive) members(host).forEach(function (member) { if (member !== host) member.removeAttribute('data-ink-state'); });\n    if (next) host.setAttribute('data-ink-state', next); else host.removeAttribute('data-ink-state');\n    host.dispatchEvent(new CustomEvent('ink:statechange', { bubbles: true, detail: { state: host.getAttribute('data-ink-state') } }));\n  }\n  function setHidden(target, hidden) {\n    if (!target) return;\n    target.hidden = hidden;\n    if (hidden) target.setAttribute('data-ink-hidden-by-interaction', ''); else target.removeAttribute('data-ink-hidden-by-interaction');\n  }\n  function playMotion(target) {\n    if (!target) return;\n    target.style.animation = 'none';\n    void target.offsetWidth;\n    target.style.animation = '';\n  }\n\n  function run(host, record) {\n    var target = resolveTarget(host, record);\n    if (!target) return;\n    var fire = function () {\n      if (record.action === 'toggleState' || record.action === 'setState') {\n        applyState(target, record.state, record.action === 'toggleState', record.exclusive === true);\n      } else if (record.action === 'toggleClass') {\n        target.classList.toggle(record.className);\n      } else if (record.action === 'show') {\n        setHidden(target, false);\n      } else if (record.action === 'hide') {\n        setHidden(target, true);\n      } else if (record.action === 'scrollTo') {\n        target.scrollIntoView({ behavior: 'smooth', block: 'start' });\n      } else if (record.action === 'playMotion') {\n        playMotion(target);\n      }\n    };\n    if (record.delay) setTimeout(fire, record.delay); else fire();\n  }\n\n  function handle(event, name) {\n    if (paused()) return;\n    var host = hostOf(event.target);\n    if (!host) return;\n    records(host).forEach(function (record) { if (record.on === name) run(host, record); });\n  }\n\n  document.addEventListener('click', function (event) { handle(event, 'click'); }, true);\n  document.addEventListener('keydown', function (event) {\n    if (event.key !== 'Enter' && event.key !== ' ') return;\n    if (event.target && event.target.tagName === 'BUTTON') return;\n    handle(event, 'click');\n  }, true);\n  document.addEventListener('mouseover', function (event) {\n    if (event.relatedTarget && event.target.contains(event.relatedTarget)) return;\n    handle(event, 'hover');\n  }, true);\n\n  // The enter event fires once when the host first crosses into the viewport.\n  function observe() {\n    if (paused() || typeof IntersectionObserver !== 'function') return;\n    var observer = new IntersectionObserver(function (entries) {\n      entries.forEach(function (entry) {\n        if (!entry.isIntersecting) return;\n        observer.unobserve(entry.target);\n        records(entry.target).forEach(function (record) { if (record.on === 'enter') run(entry.target, record); });\n      });\n    }, { threshold: 0.25 });\n    return observer;\n  }\n  var observer = observe();\n  function scan() {\n    if (!observer || paused()) return;\n    document.querySelectorAll('[data-ink-interactions]').forEach(function (host) {\n      if (host.dataset.inkInteractionObserved) return;\n      var needsEnter = records(host).some(function (record) { return record.on === 'enter'; });\n      if (!needsEnter) return;\n      host.dataset.inkInteractionObserved = '1';\n      observer.observe(host);\n    });\n  }\n  scan();\n  new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });\n\n  function fireLoad() {\n    if (paused()) return;\n    document.querySelectorAll('[data-ink-interactions]').forEach(function (host) {\n      records(host).forEach(function (record) { if (record.on === 'load') run(host, record); });\n    });\n  }\n  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fireLoad);\n  else fireLoad();\n})();"])));
+
+/***/ }),
+
 /***/ "./src/core/scrollMotionRuntime.js":
 /*!*****************************************!*\
   !*** ./src/core/scrollMotionRuntime.js ***!
@@ -22618,6 +23107,235 @@ function _taggedTemplateLiteral(e, t) { return t || (t = e.slice(0)), Object.fre
 
 // This same source runs in the editor and published pages. No external library or network.
 var SHADER_RUNTIME = String.raw(_templateObject || (_templateObject = _taggedTemplateLiteral(["\n(function () {\n  if (window.__inkShaderRuntimeReady) return;\n  window.__inkShaderRuntimeReady = true;\n  var mounted = new Map();\n  function mount(canvas) {\n    var root = canvas.parentElement, settings;\n    try { settings = JSON.parse(root.dataset.inkShader || '{}'); } catch (_) { return function() {}; }\n    var gl = canvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'low-power' });\n    if (!gl) {root.dataset.shaderStatus='fallback';return function() {};}\n    var frame = 0, disposed = false, visible = true, lost = false, last = 0;\n    var reduced = matchMedia('(prefers-reduced-motion: reduce)');\n    var vertex = gl.createShader(gl.VERTEX_SHADER), fragment = gl.createShader(gl.FRAGMENT_SHADER);\n    gl.shaderSource(vertex, 'attribute vec2 p; void main(){gl_Position=vec4(p,0.,1.);}');\n    var source = ", ";\n    if(settings.preset==='custom') source=", "+(settings.customCode||'')+'\nvoid main(){gl_FragColor=clamp(inkShader(gl_FragCoord.xy/resolution,time,resolution),0.,1.);}';\n    gl.shaderSource(fragment, source);\n    gl.compileShader(vertex); gl.compileShader(fragment);\n    var program = gl.createProgram(); gl.attachShader(program,vertex); gl.attachShader(program,fragment); gl.linkProgram(program);\n    if (!gl.getProgramParameter(program,gl.LINK_STATUS)) { root.dataset.shaderStatus='error';root.dataset.shaderError=gl.getShaderInfoLog(fragment)||gl.getProgramInfoLog(program)||'Shader compilation failed'; gl.deleteProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);return function() {}; }\n    gl.useProgram(program);\n    var buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);\n    var position=gl.getAttribLocation(program,'p');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);\n    var uniforms={};['resolution','time','mode','intensity','grain','a','b','c'].forEach(function(name){uniforms[name]=gl.getUniformLocation(program,name);});\n    function color(hex){return [1,3,5].map(function(i){return parseInt(hex.slice(i,i+2),16)/255;});}\n    gl.uniform3fv(uniforms.a,color(settings.colorA));gl.uniform3fv(uniforms.b,color(settings.colorB));gl.uniform3fv(uniforms.c,color(settings.colorC));\n    gl.uniform1f(uniforms.mode,Math.max(0,['aurora','liquid','waves','grain','moving-gradient','mesh-gradient','water-caustic','nebula','clouds','fractal-noise','moire','glowing-wave','concentric-patterns','pattern-grid'].indexOf(settings.preset)));\n    gl.uniform1f(uniforms.intensity,Math.max(0,Math.min(1,Number(settings.intensity)||0)));\n    gl.uniform1f(uniforms.grain,Math.max(0,Math.min(.3,Number(settings.grain)||0)));\n    function draw(now) {\n      frame=0;if(disposed||lost||!visible||document.hidden)return;\n      if(now-last>=32||!last){\n        last=now;\n        var ratio=Math.min(window.devicePixelRatio||1,1.5);var width=Math.max(1,Math.min(1920,Math.round(root.clientWidth*ratio)));var height=Math.max(1,Math.min(1080,Math.round(root.clientHeight*ratio)));\n        if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;gl.viewport(0,0,width,height);}\n        gl.uniform2f(uniforms.resolution,width,height);gl.uniform1f(uniforms.time,reduced.matches||settings.animate===false?4:now*.001*Math.max(0,Math.min(2,Number(settings.speed)||0)));\n        gl.drawArrays(gl.TRIANGLES,0,6);canvas.style.opacity='1';root.dataset.shaderStatus='ready';\n      }\n      if(!reduced.matches&&settings.animate!==false&&Number(settings.speed)>0)frame=requestAnimationFrame(draw);\n    }\n    function wake(){cancelAnimationFrame(frame);last=0;frame=requestAnimationFrame(draw);}\n    var resize=new ResizeObserver(wake);resize.observe(root);\n    var intersection=new IntersectionObserver(function(entries){visible=entries[0].isIntersecting;wake();});intersection.observe(root);\n    function onLost(event){event.preventDefault();lost=true;cancelAnimationFrame(frame);canvas.style.opacity='0';root.dataset.shaderStatus='fallback';}\n    function onRestore(){dispose(false);mounted.delete(canvas);mounted.set(canvas,mount(canvas));}\n    canvas.addEventListener('webglcontextlost',onLost);canvas.addEventListener('webglcontextrestored',onRestore);\n    reduced.addEventListener('change',wake);document.addEventListener('visibilitychange',wake);wake();\n    function dispose(release){if(disposed)return;disposed=true;cancelAnimationFrame(frame);resize.disconnect();intersection.disconnect();reduced.removeEventListener('change',wake);document.removeEventListener('visibilitychange',wake);canvas.removeEventListener('webglcontextlost',onLost);canvas.removeEventListener('webglcontextrestored',onRestore);gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);if(release!==false&&!lost){var extension=gl.getExtension('WEBGL_lose_context');if(extension)extension.loseContext();}}\n    return dispose;\n  }\n  function scan(){mounted.forEach(function(dispose,canvas){if(!canvas.isConnected){dispose();mounted.delete(canvas);}});document.querySelectorAll('[data-ink-shader] > canvas').forEach(function(canvas){if(!mounted.has(canvas))mounted.set(canvas,mount(canvas));});}\n  var observer=new MutationObserver(scan);observer.observe(document.body,{childList:true,subtree:true});scan();\n})();\n"], ["\n(function () {\n  if (window.__inkShaderRuntimeReady) return;\n  window.__inkShaderRuntimeReady = true;\n  var mounted = new Map();\n  function mount(canvas) {\n    var root = canvas.parentElement, settings;\n    try { settings = JSON.parse(root.dataset.inkShader || '{}'); } catch (_) { return function() {}; }\n    var gl = canvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'low-power' });\n    if (!gl) {root.dataset.shaderStatus='fallback';return function() {};}\n    var frame = 0, disposed = false, visible = true, lost = false, last = 0;\n    var reduced = matchMedia('(prefers-reduced-motion: reduce)');\n    var vertex = gl.createShader(gl.VERTEX_SHADER), fragment = gl.createShader(gl.FRAGMENT_SHADER);\n    gl.shaderSource(vertex, 'attribute vec2 p; void main(){gl_Position=vec4(p,0.,1.);}');\n    var source = ", ";\n    if(settings.preset==='custom') source=", "+(settings.customCode||'')+'\\nvoid main(){gl_FragColor=clamp(inkShader(gl_FragCoord.xy/resolution,time,resolution),0.,1.);}';\n    gl.shaderSource(fragment, source);\n    gl.compileShader(vertex); gl.compileShader(fragment);\n    var program = gl.createProgram(); gl.attachShader(program,vertex); gl.attachShader(program,fragment); gl.linkProgram(program);\n    if (!gl.getProgramParameter(program,gl.LINK_STATUS)) { root.dataset.shaderStatus='error';root.dataset.shaderError=gl.getShaderInfoLog(fragment)||gl.getProgramInfoLog(program)||'Shader compilation failed'; gl.deleteProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);return function() {}; }\n    gl.useProgram(program);\n    var buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);\n    var position=gl.getAttribLocation(program,'p');gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);\n    var uniforms={};['resolution','time','mode','intensity','grain','a','b','c'].forEach(function(name){uniforms[name]=gl.getUniformLocation(program,name);});\n    function color(hex){return [1,3,5].map(function(i){return parseInt(hex.slice(i,i+2),16)/255;});}\n    gl.uniform3fv(uniforms.a,color(settings.colorA));gl.uniform3fv(uniforms.b,color(settings.colorB));gl.uniform3fv(uniforms.c,color(settings.colorC));\n    gl.uniform1f(uniforms.mode,Math.max(0,['aurora','liquid','waves','grain','moving-gradient','mesh-gradient','water-caustic','nebula','clouds','fractal-noise','moire','glowing-wave','concentric-patterns','pattern-grid'].indexOf(settings.preset)));\n    gl.uniform1f(uniforms.intensity,Math.max(0,Math.min(1,Number(settings.intensity)||0)));\n    gl.uniform1f(uniforms.grain,Math.max(0,Math.min(.3,Number(settings.grain)||0)));\n    function draw(now) {\n      frame=0;if(disposed||lost||!visible||document.hidden)return;\n      if(now-last>=32||!last){\n        last=now;\n        var ratio=Math.min(window.devicePixelRatio||1,1.5);var width=Math.max(1,Math.min(1920,Math.round(root.clientWidth*ratio)));var height=Math.max(1,Math.min(1080,Math.round(root.clientHeight*ratio)));\n        if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;gl.viewport(0,0,width,height);}\n        gl.uniform2f(uniforms.resolution,width,height);gl.uniform1f(uniforms.time,reduced.matches||settings.animate===false?4:now*.001*Math.max(0,Math.min(2,Number(settings.speed)||0)));\n        gl.drawArrays(gl.TRIANGLES,0,6);canvas.style.opacity='1';root.dataset.shaderStatus='ready';\n      }\n      if(!reduced.matches&&settings.animate!==false&&Number(settings.speed)>0)frame=requestAnimationFrame(draw);\n    }\n    function wake(){cancelAnimationFrame(frame);last=0;frame=requestAnimationFrame(draw);}\n    var resize=new ResizeObserver(wake);resize.observe(root);\n    var intersection=new IntersectionObserver(function(entries){visible=entries[0].isIntersecting;wake();});intersection.observe(root);\n    function onLost(event){event.preventDefault();lost=true;cancelAnimationFrame(frame);canvas.style.opacity='0';root.dataset.shaderStatus='fallback';}\n    function onRestore(){dispose(false);mounted.delete(canvas);mounted.set(canvas,mount(canvas));}\n    canvas.addEventListener('webglcontextlost',onLost);canvas.addEventListener('webglcontextrestored',onRestore);\n    reduced.addEventListener('change',wake);document.addEventListener('visibilitychange',wake);wake();\n    function dispose(release){if(disposed)return;disposed=true;cancelAnimationFrame(frame);resize.disconnect();intersection.disconnect();reduced.removeEventListener('change',wake);document.removeEventListener('visibilitychange',wake);canvas.removeEventListener('webglcontextlost',onLost);canvas.removeEventListener('webglcontextrestored',onRestore);gl.deleteBuffer(buffer);gl.deleteProgram(program);gl.deleteShader(vertex);gl.deleteShader(fragment);if(release!==false&&!lost){var extension=gl.getExtension('WEBGL_lose_context');if(extension)extension.loseContext();}}\n    return dispose;\n  }\n  function scan(){mounted.forEach(function(dispose,canvas){if(!canvas.isConnected){dispose();mounted.delete(canvas);}});document.querySelectorAll('[data-ink-shader] > canvas').forEach(function(canvas){if(!mounted.has(canvas))mounted.set(canvas,mount(canvas));});}\n  var observer=new MutationObserver(scan);observer.observe(document.body,{childList:true,subtree:true});scan();\n})();\n"])), JSON.stringify(_shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_FRAGMENT), JSON.stringify(_shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_HEADER));
+
+/***/ }),
+
+/***/ "./src/core/states.js":
+/*!****************************!*\
+  !*** ./src/core/states.js ***!
+  \****************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   INTERACTION_ACTIONS: () => (/* binding */ INTERACTION_ACTIONS),
+/* harmony export */   INTERACTION_ACTION_LABELS: () => (/* binding */ INTERACTION_ACTION_LABELS),
+/* harmony export */   INTERACTION_EVENTS: () => (/* binding */ INTERACTION_EVENTS),
+/* harmony export */   INTERACTION_EVENT_LABELS: () => (/* binding */ INTERACTION_EVENT_LABELS),
+/* harmony export */   INTERACTION_TARGETS: () => (/* binding */ INTERACTION_TARGETS),
+/* harmony export */   INTERACTION_TARGET_LABELS: () => (/* binding */ INTERACTION_TARGET_LABELS),
+/* harmony export */   STATE_KEY_PREFIX: () => (/* binding */ STATE_KEY_PREFIX),
+/* harmony export */   componentStateLabels: () => (/* binding */ componentStateLabels),
+/* harmony export */   componentStateNames: () => (/* binding */ componentStateNames),
+/* harmony export */   componentStates: () => (/* binding */ componentStates),
+/* harmony export */   describeInteraction: () => (/* binding */ describeInteraction),
+/* harmony export */   elementStateLabels: () => (/* binding */ elementStateLabels),
+/* harmony export */   elementStateNames: () => (/* binding */ elementStateNames),
+/* harmony export */   initialState: () => (/* binding */ initialState),
+/* harmony export */   interactionKey: () => (/* binding */ interactionKey),
+/* harmony export */   isComponentStateKey: () => (/* binding */ isComponentStateKey),
+/* harmony export */   isValidStateName: () => (/* binding */ isValidStateName),
+/* harmony export */   normalizeInteraction: () => (/* binding */ normalizeInteraction),
+/* harmony export */   normalizeInteractions: () => (/* binding */ normalizeInteractions),
+/* harmony export */   normalizeStateList: () => (/* binding */ normalizeStateList),
+/* harmony export */   normalizeStateName: () => (/* binding */ normalizeStateName),
+/* harmony export */   stateKey: () => (/* binding */ stateKey),
+/* harmony export */   stateNameFromKey: () => (/* binding */ stateNameFromKey)
+/* harmony export */ });
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+// Component states and interactions — the shared vocabulary that turns a styled box into a
+// component. Two independent pieces, deliberately kept apart:
+//
+//   1. Component STATES style an element by variant. Storage lives in the existing
+//      device × state bucket under the reserved key `state:<name>` (see StyleValueModel), and
+//      compiles to the attribute selector `[data-ink-state="<name>"]` (see StyleEngine). The
+//      element that declares the state carries the attribute; its declared parts follow it.
+//
+//   2. INTERACTIONS wire an event to an effect on a target. They are ordinary element data, so
+//      they render in Preview and published pages, are undoable, and are visible to Copilot.
+//
+// Both are expressed as element data rather than custom JS so a human with the raw builder can
+// reproduce anything the Copilot emits, and vice versa.
+
+var STATE_KEY_PREFIX = 'state:';
+var STATE_NAME_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
+
+// A component state name is author-facing ("open", "yearly"); the style bucket key is namespaced
+// (`state:open`) so it can never collide with the hover/focus/active pseudo-class buckets.
+function normalizeStateName(value) {
+  return String(value !== null && value !== void 0 ? value : '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+}
+function isValidStateName(value) {
+  return STATE_NAME_PATTERN.test(String(value !== null && value !== void 0 ? value : ''));
+}
+function stateKey(name) {
+  return "".concat(STATE_KEY_PREFIX).concat(normalizeStateName(name));
+}
+function isComponentStateKey(key) {
+  return String(key !== null && key !== void 0 ? key : '').startsWith(STATE_KEY_PREFIX);
+}
+function stateNameFromKey(key) {
+  return isComponentStateKey(key) ? String(key).slice(STATE_KEY_PREFIX.length) : null;
+}
+
+// The states an element type advertises. Kept as a plain array so definitions stay serializable
+// (Copilot receives them through get_element_schema).
+function componentStates(definition) {
+  var declared = definition === null || definition === void 0 ? void 0 : definition.componentStates;
+  if (!Array.isArray(declared)) return [];
+  return declared.map(function (entry) {
+    return typeof entry === 'string' ? {
+      name: entry
+    } : entry;
+  }).map(function (entry) {
+    return _objectSpread(_objectSpread({}, entry), {}, {
+      name: normalizeStateName(entry === null || entry === void 0 ? void 0 : entry.name)
+    });
+  }).filter(function (entry) {
+    return isValidStateName(entry.name);
+  });
+}
+function componentStateNames(definition) {
+  return componentStates(definition).map(function (entry) {
+    return entry.name;
+  });
+}
+
+// Author-declared states: any element can be a state provider by naming its variants, so a
+// pricing container does not need a bespoke element type. Stored as settings.stateNames.
+function normalizeStateList(list) {
+  var values = Array.isArray(list) ? list : String(list !== null && list !== void 0 ? list : '').split(/[\s,]+/);
+  var seen = new Set();
+  return values.map(normalizeStateName).filter(function (name) {
+    return isValidStateName(name) && !seen.has(name) && seen.add(name);
+  });
+}
+
+// The states an element instance actually offers: the ones its type declares plus the ones the
+// author named. This is what the state switcher lists and what the canvas can paint.
+function elementStateNames(definition, settings) {
+  var declared = [].concat(_toConsumableArray(componentStateNames(definition)), _toConsumableArray(normalizeStateList(settings === null || settings === void 0 ? void 0 : settings.stateNames)));
+  return _toConsumableArray(new Set(declared));
+}
+function elementStateLabels(definition, settings) {
+  var labels = componentStateLabels(definition);
+  normalizeStateList(settings === null || settings === void 0 ? void 0 : settings.stateNames).forEach(function (name) {
+    if (!labels[name]) labels[name] = "".concat(name[0].toUpperCase()).concat(name.slice(1));
+  });
+  return labels;
+}
+function componentStateLabels(definition) {
+  return Object.fromEntries(componentStates(definition).map(function (entry) {
+    return [entry.name, entry.label || "".concat(entry.name[0].toUpperCase()).concat(entry.name.slice(1))];
+  }));
+}
+
+// The state an instance is authored in. Stored in settings so published pages paint the same
+// variant the author chose, without running any script.
+function initialState(definition, settings) {
+  var names = elementStateNames(definition, settings);
+  if (!names.length) return null;
+  var declared = normalizeStateName(settings === null || settings === void 0 ? void 0 : settings.state);
+  if (declared && names.includes(declared)) return declared;
+  var fallback = normalizeStateName(definition === null || definition === void 0 ? void 0 : definition.defaultState);
+  return names.includes(fallback) ? fallback : names[0];
+}
+var INTERACTION_EVENTS = ['click', 'hover', 'load', 'enter'];
+var INTERACTION_ACTIONS = ['toggleState', 'setState', 'toggleClass', 'show', 'hide', 'scrollTo', 'playMotion'];
+var INTERACTION_TARGETS = ['self', 'parent', 'next', 'previous', 'query', 'children'];
+var INTERACTION_EVENT_LABELS = {
+  click: 'On click',
+  hover: 'On hover',
+  load: 'On page load',
+  enter: 'When scrolled into view'
+};
+var INTERACTION_ACTION_LABELS = {
+  toggleState: 'Toggle state',
+  setState: 'Set state',
+  toggleClass: 'Toggle CSS class',
+  show: 'Show target',
+  hide: 'Hide target',
+  scrollTo: 'Scroll to target',
+  playMotion: 'Play motion'
+};
+var INTERACTION_TARGET_LABELS = {
+  self: 'This element',
+  parent: 'Parent element',
+  next: 'Next sibling',
+  previous: 'Previous sibling',
+  query: 'Element matching selector',
+  children: 'First child'
+};
+var SAFE_CLASS = /^[a-zA-Z_][\w-]*$/;
+
+// Normalize one authored interaction. Returns null for records that cannot run, so a bad row in
+// the panel can never break the canvas or published output.
+function normalizeInteraction(record) {
+  if (!record || _typeof(record) !== 'object') return null;
+  var on = INTERACTION_EVENTS.includes(record.on) ? record.on : 'click';
+  var action = INTERACTION_ACTIONS.includes(record.action) ? record.action : null;
+  if (!action) return null;
+  var target = INTERACTION_TARGETS.includes(record.target) ? record.target : 'self';
+  var out = {
+    on: on,
+    action: action,
+    target: target
+  };
+  var id = String(record.id || '').trim();
+  if (id) out.id = id;
+  if (['toggleState', 'setState'].includes(action)) {
+    var state = normalizeStateName(record.state);
+    if (!isValidStateName(state)) return null;
+    out.state = state;
+    // `exclusive` makes a state group behave like an accordion: setting it clears siblings.
+    if (record.exclusive !== undefined) out.exclusive = record.exclusive !== false;
+  }
+  if (action === 'toggleClass') {
+    var _record$className;
+    var className = String((_record$className = record.className) !== null && _record$className !== void 0 ? _record$className : '').trim();
+    if (!SAFE_CLASS.test(className)) return null;
+    out.className = className;
+  }
+  if (target === 'query') {
+    var _record$selector;
+    var selector = String((_record$selector = record.selector) !== null && _record$selector !== void 0 ? _record$selector : '').trim();
+    if (!selector) return null;
+    out.selector = selector;
+  }
+  if (['show', 'hide', 'scrollTo', 'playMotion'].includes(action) && record.inverse) out.inverse = true;
+  if (record.group) out.group = String(record.group).trim().slice(0, 64);
+  var delay = Number(record.delay);
+  if (Number.isFinite(delay) && delay > 0) out.delay = Math.min(10000, Math.round(delay));
+  return out;
+}
+function normalizeInteractions(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(normalizeInteraction).filter(Boolean);
+}
+function interactionKey(record) {
+  return [record.on, record.action, record.target, record.state || record.className || record.selector || ''].join(':');
+}
+
+// Human summary used by the panel list and Copilot output ("On click → toggle state open").
+function describeInteraction(record) {
+  var event = INTERACTION_EVENT_LABELS[record.on] || record.on;
+  var action = INTERACTION_ACTION_LABELS[record.action] || record.action;
+  var target = record.target === 'query' ? record.selector : (INTERACTION_TARGET_LABELS[record.target] || record.target).toLowerCase();
+  var suffix = record.state || record.className || '';
+  return "".concat(event, " \u2192 ").concat(action).concat(suffix ? " ".concat(suffix) : '', " (").concat(target, ")");
+}
 
 /***/ }),
 
@@ -22914,7 +23632,7 @@ module.exports = ".ink-magic-aurora-text {\n  display: flex;\n  align-items: bas
 /***/ ((module) => {
 
 "use strict";
-module.exports = ".ink-icon-svg {\n  width: 1em;\n  height: 1em;\n  flex: none;\n  vertical-align: middle;\n}\n\n.ink-element[data-ink-kind=container] {\n  position: relative;\n}\n\n.ink-el-frame {\n  position: relative;\n  min-width: 0;\n  isolation: isolate;\n}\n\n.ink-el-frame-inner {\n  position: relative;\n  z-index: 1;\n  min-width: 0;\n  height: inherit;\n  min-height: inherit;\n}\n\n.ink-el-frame-overlay {\n  position: absolute;\n  z-index: 0;\n  inset: 0;\n  pointer-events: none;\n  border-radius: inherit;\n  transition: background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease, opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease;\n}\n\n.ink-el-group {\n  display: contents;\n}\n\n.ink-el-section {\n  position: relative;\n  width: 100%;\n}\n\n.ink-el-section-inner {\n  width: 100%;\n  max-width: min(100%, var(--ink-content-width, 1140px));\n  margin-inline: auto;\n  display: flex;\n  flex-direction: column;\n}\n\n.ink-el-section.is-full .ink-el-section-inner,\n.ink-el-section.is-stretched .ink-el-section-inner {\n  max-width: none;\n}\n\n.ink-el-container {\n  position: relative;\n  display: flex;\n  width: 100%;\n  flex-direction: column;\n  isolation: isolate;\n  transition: background-color var(--ink-background-transition, 0s) ease, background-image var(--ink-background-transition, 0s) ease, border-color var(--ink-border-transition, 0s) ease, border-width var(--ink-border-transition, 0s) ease, border-radius var(--ink-border-transition, 0s) ease, box-shadow var(--ink-border-transition, 0s) ease;\n}\n\n.ink-el-background-media {\n  position: absolute;\n  z-index: 0;\n  inset: 0;\n  overflow: hidden;\n  border-radius: inherit;\n  background-position: center;\n  background-size: cover;\n  pointer-events: none;\n}\n\n.ink-el-background-video video {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n}\n\n.ink-el-background-video iframe {\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  width: 177.78vh;\n  min-width: 100%;\n  height: 56.25vw;\n  min-height: 100%;\n  border: 0;\n  transform: translate(-50%, -50%);\n}\n\n.ink-el-background-slide {\n  position: absolute;\n  inset: -1px;\n  opacity: 0;\n  overflow: hidden;\n  transition: opacity var(--ink-slide-transition, 500ms) ease, transform var(--ink-slide-transition, 500ms) ease;\n}\n\n.ink-el-background-slide > img {\n  display: block;\n  width: 100%;\n  height: 100%;\n}\n\n.ink-el-background-slide.is-active {\n  z-index: 1;\n  opacity: 1;\n  transform: translate(0);\n}\n\n.ink-el-background-slideshow.is-slide_right .ink-el-background-slide {\n  transform: translateX(-8%);\n}\n\n.ink-el-background-slideshow.is-slide_left .ink-el-background-slide {\n  transform: translateX(8%);\n}\n\n.ink-el-background-slideshow.is-slide_up .ink-el-background-slide {\n  transform: translateY(8%);\n}\n\n.ink-el-background-slideshow.is-slide_down .ink-el-background-slide {\n  transform: translateY(-8%);\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns {\n  animation-duration: var(--ink-slide-duration, 5000ms);\n  animation-timing-function: ease-in-out;\n  animation-fill-mode: both;\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-in {\n  animation-name: ink-ken-burns-in;\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-out {\n  animation-name: ink-ken-burns-out;\n}\n\n@keyframes ink-ken-burns-in {\n  from {\n    transform: scale(1);\n  }\n  to {\n    transform: scale(1.15);\n  }\n}\n@keyframes ink-ken-burns-out {\n  from {\n    transform: scale(1.15);\n  }\n  to {\n    transform: scale(1);\n  }\n}\n.ink-el-container-overlay {\n  position: absolute;\n  z-index: 1;\n  inset: 0;\n  border-radius: inherit;\n  pointer-events: none;\n  transition: opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease, background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease;\n}\n\n.ink-el-container-inner {\n  position: relative;\n  z-index: 2;\n  min-width: 0;\n  min-height: 0;\n  flex: 1 1 auto;\n  width: 100%;\n  max-width: min(100%, var(--ink-content-width, 1140px));\n  margin-inline: auto;\n  display: flex;\n  flex-direction: column;\n}\n\n.ink-el-container-inner > * {\n  min-width: 0;\n  max-width: 100%;\n}\n\n.ink-el-container.is-full .ink-el-container-inner {\n  max-width: none;\n}\n\n.ink-el-shape-divider {\n  position: absolute;\n  z-index: 0;\n  left: 0;\n  width: 100%;\n  overflow: hidden;\n  line-height: 0;\n  pointer-events: none;\n}\n\n.ink-el-shape-divider-top {\n  top: 0;\n}\n\n.ink-el-shape-divider-bottom {\n  bottom: 0;\n}\n\n.ink-el-shape-divider svg {\n  position: relative;\n  left: 50%;\n  display: block;\n  width: var(--ink-shape-width, 100%);\n  height: var(--ink-shape-height, 100px);\n  transform: translateX(-50%);\n  fill: var(--ink-shape-color, #fff);\n}\n\n.ink-el-shape-divider-top svg {\n  transform: translateX(-50%) rotate(180deg);\n}\n\n.ink-el-shape-divider.is-flipped svg {\n  transform: translateX(-50%) rotateY(180deg);\n}\n\n.ink-el-shape-divider-top.is-flipped svg {\n  transform: translateX(-50%) rotate(180deg) rotateY(180deg);\n}\n\n.ink-el-shape-divider.is-front {\n  z-index: 3;\n}\n\n.ink-el-columns {\n  display: flex;\n  flex-wrap: nowrap;\n  width: 100%;\n  gap: var(--ink-column-gap, 20px);\n}\n\n.ink-el-column {\n  display: flex;\n  min-width: 0;\n  flex: 1 1 0%;\n  flex-direction: column;\n}\n\n.ink-el-columns.is-50-50 > .ink-el-column {\n  flex: 1 1 50%;\n}\n\n.ink-el-columns.is-33-33-33 > .ink-el-column {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-25-25-25-25 > .ink-el-column {\n  flex: 1 1 25%;\n}\n\n.ink-el-columns.is-20-20-20-20-20 > .ink-el-column {\n  flex: 1 1 20%;\n}\n\n.ink-el-columns.is-60-40 > .ink-el-column:first-child {\n  flex: 1 1 60%;\n}\n\n.ink-el-columns.is-60-40 > .ink-el-column:last-child {\n  flex: 1 1 40%;\n}\n\n.ink-el-columns.is-40-60 > .ink-el-column:first-child {\n  flex: 1 1 40%;\n}\n\n.ink-el-columns.is-40-60 > .ink-el-column:last-child {\n  flex: 1 1 60%;\n}\n\n.ink-el-columns.is-66-34 > .ink-el-column:first-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-66-34 > .ink-el-column:last-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-34-66 > .ink-el-column:first-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-34-66 > .ink-el-column:last-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-33-67 > .ink-el-column:first-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-33-67 > .ink-el-column:last-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-25-50-25 > .ink-el-column:nth-child(2) {\n  flex: 1 1 50%;\n}\n\n.ink-el-columns.is-25-50-25 > .ink-el-column:not(:nth-child(2)) {\n  flex: 1 1 25%;\n}\n\n@media (max-width: 767px) {\n  .ink-el-background-video.is-desktop-only {\n    display: none;\n  }\n  .ink-el-columns {\n    flex-wrap: wrap;\n  }\n  .ink-el-columns.is-50-50 > .ink-el-column,\n  .ink-el-columns.is-33-33-33 > .ink-el-column,\n  .ink-el-columns.is-25-25-25-25 > .ink-el-column,\n  .ink-el-columns.is-20-20-20-20-20 > .ink-el-column,\n  .ink-el-columns.is-60-40 > .ink-el-column,\n  .ink-el-columns.is-40-60 > .ink-el-column,\n  .ink-el-columns.is-66-34 > .ink-el-column,\n  .ink-el-columns.is-34-66 > .ink-el-column,\n  .ink-el-columns.is-33-67 > .ink-el-column,\n  .ink-el-columns.is-25-50-25 > .ink-el-column {\n    flex: 1 1 100% !important;\n  }\n  .ink-el-columns > .ink-el-column {\n    flex: 1 1 100% !important;\n  }\n}\n.ink-el-heading, .ink-el-heading a {\n  line-height: 1.2;\n  padding: 0;\n  margin: 0;\n}\n\n.ink-el-heading.ink-size-small {\n  font-size: 15px;\n}\n\n.ink-el-heading.ink-size-medium {\n  font-size: 19px;\n}\n\n.ink-el-heading.ink-size-large {\n  font-size: 29px;\n}\n\n.ink-el-heading.ink-size-xl {\n  font-size: 39px;\n}\n\n.ink-el-heading.ink-size-xxl {\n  font-size: 59px;\n}\n\n.ink-el-paragraph {\n  margin: 0;\n}\n\n.ink-el-paragraph p {\n  margin: 0 0 1em;\n}\n\n.ink-el-paragraph p:last-child {\n  margin-bottom: 0;\n}\n\n.ink-el-text-editor {\n  line-height: 1.6;\n}\n\n.ink-el-text-editor p:first-child {\n  margin-top: 0;\n}\n\n.ink-el-text-editor p:last-child {\n  margin-bottom: 0;\n}\n\n.ink-el-text-editor :where(ul, ol),\n.ink-el-unordered-list,\n.ink-el-ordered-list {\n  margin: 0 0 1em;\n  padding-inline-start: 1.5em;\n}\n\n.ink-el-text-editor ul,\n.ink-el-unordered-list {\n  list-style: disc outside;\n}\n\n.ink-el-text-editor ol,\n.ink-el-ordered-list {\n  list-style: decimal outside;\n}\n\n.ink-el-text-editor li,\n.ink-el-list-item {\n  display: list-item;\n  padding-inline-start: 0.2em;\n}\n\n.ink-el-text-editor :where(ul, ol) :where(ul, ol) {\n  margin-block: 0.35em;\n}\n\n.ink-el-divider {\n  width: 100%;\n  max-width: 100%;\n  border: 0;\n  border-top: 1px solid #7a7a7a;\n  height: 1px;\n}\n\n.ink-el-spacer {\n  display: block;\n}\n\n.ink-el-read-more {\n  display: inline-flex;\n  align-items: center;\n  gap: 0.35rem;\n  color: var(--ink-color-primary, #6ec1e4);\n  font-weight: 600;\n  text-decoration: none;\n}\n\n.ink-el-read-more:hover {\n  color: #4054b2;\n}\n\n.ink-el-anchor {\n  display: block;\n  position: relative;\n  top: calc(-1 * var(--anchor-offset, 0px));\n  visibility: hidden;\n}\n\n.ink-el-button {\n  display: inline-flex;\n  width: fit-content;\n  height: fit-content;\n  align-items: flex-end;\n  padding: 0 0 var(--ink-button-depth, 0);\n  border: 0;\n  background: transparent;\n  color: inherit;\n  font: inherit;\n  text-decoration: none;\n  cursor: pointer;\n  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;\n}\n\n.ink-el-button-surface {\n  display: inline-flex;\n  width: 100%;\n  min-width: 0;\n  align-items: center;\n  justify-content: center;\n  gap: var(--ink-icon-gap, 8px);\n  overflow: hidden;\n  color: inherit;\n  fill: currentColor;\n  text-align: center;\n  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;\n}\n\n.ink-el-button:hover, .ink-el-button:focus, .ink-el-button:visited {\n  color: inherit;\n}\n\n.ink-el-button:active .ink-el-button-surface {\n  transform: translateY(min(var(--ink-button-depth, 0px), 3px));\n}\n\n.ink-el-button:focus-visible {\n  outline: 2px solid var(--ink-color-primary);\n  outline-offset: 2px;\n}\n\n.ink-el-button.is-align-left, .ink-el-button.is-align-center, .ink-el-button.is-align-right {\n  display: flex;\n  width: fit-content;\n}\n\n.ink-el-button.is-align-left {\n  margin-right: auto;\n}\n\n.ink-el-button.is-align-center {\n  margin-inline: auto;\n}\n\n.ink-el-button.is-align-right {\n  margin-left: auto;\n}\n\n.ink-el-button-icon {\n  display: inline-flex;\n  align-items: center;\n}\n\n.ink-el-button-icon .material-symbols-rounded {\n  font-size: 1em;\n}\n\n.ink-el-image {\n  display: block;\n  max-width: 100%;\n  height: auto;\n}\n\n.ink-el-image-link {\n  display: block;\n  max-width: 100%;\n}\n\n.ink-el-image-figure {\n  margin: 0;\n  max-width: 100%;\n}\n\n.ink-el-image-figure img {\n  display: block;\n  width: 100%;\n  height: auto;\n}\n\n.ink-el-image-figure figcaption {\n  margin-top: 0.5em;\n  color: #7a7a7a;\n  font-size: 0.9em;\n  text-align: center;\n}\n\n.ink-el-image.is-align-center {\n  margin-inline: auto;\n}\n\n.ink-el-image.is-align-right {\n  margin-left: auto;\n}\n\n.ink-el-icon {\n  display: inline-grid;\n  place-items: center;\n  font-size: 2.5rem;\n  line-height: 1;\n}\n\n.ink-el-icon-box {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  text-align: center;\n  gap: 0;\n}\n\n.ink-el-icon-box .ink-el-icon {\n  margin-bottom: 15px;\n  color: var(--ink-color-primary, #6ec1e4);\n  font-size: 40px;\n  transition: color 0.3s;\n}\n\n.ink-el-icon-box .ink-el-box-title {\n  width: 100%;\n  margin: 0 0 5px;\n  font-weight: 600;\n}\n\n.ink-el-icon-box .ink-el-box-desc {\n  width: 100%;\n  margin: 0;\n  color: #7a7a7a;\n  line-height: 1.5;\n}\n\n.ink-el-image-box {\n  display: flex;\n  flex-direction: column;\n  align-items: flex-start;\n  text-align: left;\n}\n\n.ink-el-image-box > img {\n  width: 100%;\n  margin-bottom: 15px;\n  object-fit: cover;\n}\n\n.ink-el-image-box .ink-el-box-title {\n  width: 100%;\n  margin: 0 0 5px;\n  font-weight: 600;\n}\n\n.ink-el-image-box .ink-el-box-desc {\n  width: 100%;\n  margin: 0;\n  color: #7a7a7a;\n  line-height: 1.5;\n}\n\n.ink-el-icon-list {\n  display: grid;\n  gap: 0.6rem;\n  margin: 0;\n  padding: 0;\n  list-style: none;\n}\n\n.ink-el-icon-list li {\n  display: flex;\n  gap: 0.7rem;\n  align-items: center;\n}\n\n.ink-el-icon-list .material-symbols-rounded {\n  flex: none;\n  font-size: 1.2em;\n  color: var(--ink-color-primary, #6ec1e4);\n}\n\n.ink-el-icon-list a {\n  color: inherit;\n  text-decoration: none;\n}\n\n.ink-el-social {\n  display: flex;\n  gap: 0.5rem;\n}\n\n.ink-el-social a {\n  display: grid;\n  width: 40px;\n  height: 40px;\n  place-items: center;\n  border-radius: 50%;\n  background: #54595f;\n  color: #fff;\n  text-decoration: none;\n  transition: background 0.3s;\n}\n\n.ink-el-social a:hover {\n  background: #7a7a7a;\n}\n\n.ink-el-social .material-symbols-rounded {\n  font-size: 20px;\n}\n\n.ink-el-counter {\n  display: flex;\n  justify-content: center;\n  align-items: stretch;\n  flex-direction: column-reverse;\n}\n\n.ink-el-counter-number {\n  display: flex;\n  justify-content: center;\n  font-size: 69px;\n  font-weight: 600;\n  line-height: 1;\n  text-align: center;\n}\n\n.ink-el-counter-title {\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  margin: 0;\n  padding: 0;\n  font-size: 19px;\n  font-weight: 400;\n  line-height: 2.5;\n  text-align: center;\n}\n\n.ink-el-progress {\n  text-align: left;\n}\n\n.ink-el-progress-track {\n  position: relative;\n  height: 30px;\n  overflow: hidden;\n  border-radius: 2px;\n  background: #e8eaeb;\n}\n\n.ink-el-progress-value {\n  display: flex;\n  height: 100%;\n  align-items: center;\n  background: #818a91;\n  border-radius: 2px;\n  font-size: 11px;\n  line-height: 30px;\n  color: #fff;\n  transition: width 1s ease-in-out;\n}\n\n.ink-el-progress-value span {\n  flex: 1;\n  padding-inline-start: 15px;\n}\n\n.ink-el-progress-value b {\n  padding-inline-end: 15px;\n  font-weight: 400;\n}\n\n.ink-el-rating {\n  display: flex;\n  gap: 0.1em;\n  font-size: 1.5rem;\n  line-height: 1;\n  color: #818a91;\n}\n\n.ink-el-rating .material-symbols-rounded {\n  font-size: 1em;\n}\n\n.ink-el-rating .is-rated {\n  color: #f0ad4e;\n}\n\n.ink-el-testimonial {\n  display: flex;\n  flex-direction: column;\n  gap: 1rem;\n}\n\n.ink-el-testimonial blockquote {\n  margin: 0;\n  font-size: 1.1rem;\n  line-height: 1.6;\n}\n\n.ink-el-testimonial figcaption {\n  display: flex;\n  gap: 0.75rem;\n  align-items: center;\n}\n\n.ink-el-testimonial img, .ink-el-avatar {\n  width: 48px;\n  height: 48px;\n  border-radius: 50%;\n  object-fit: cover;\n}\n\n.ink-el-testimonial-name {\n  font-weight: 600;\n}\n\n.ink-el-testimonial-role {\n  color: #7a7a7a;\n  font-size: 0.9rem;\n}\n\n.ink-builder-design .ink-el-query-loop {\n  outline: 1px dashed rgba(127, 127, 127, 0.35);\n  outline-offset: 3px;\n}\n\n.ink-builder-design .ink-el-post-content {\n  display: flex;\n  min-height: 96px;\n  align-items: center;\n  justify-content: center;\n  border: 1px dashed rgba(127, 127, 127, 0.5);\n  border-radius: 8px;\n  color: #8a8a8a;\n  font-size: 12px;\n  font-weight: 500;\n  letter-spacing: 0.05em;\n  text-transform: uppercase;\n}\n\n.ink-el-tabs-nav {\n  display: flex;\n  gap: 0;\n  border-bottom: 1px solid #d4d4d8;\n}\n\n.ink-el-tabs-nav button {\n  position: relative;\n  padding: 0.75rem 1rem;\n  border: 0;\n  border-bottom: 2px solid transparent;\n  background: transparent;\n  color: inherit;\n  cursor: pointer;\n}\n\n.ink-el-tabs-nav button.is-active {\n  border-bottom-color: var(--ink-color-primary, #6ec1e4);\n  color: var(--ink-color-primary, #6ec1e4);\n}\n\n.ink-el-tab-panel {\n  padding: 1rem 0;\n  line-height: 1.6;\n}\n\n.ink-el-accordion {\n  display: grid;\n}\n\n.ink-el-accordion details {\n  border-bottom: 1px solid #d4d4d8;\n}\n\n.ink-el-accordion summary {\n  padding: 1rem 0;\n  font-weight: 600;\n  cursor: pointer;\n  list-style: none;\n}\n\n.ink-el-accordion summary::-webkit-details-marker {\n  display: none;\n}\n\n.ink-el-accordion details > div {\n  padding: 0 0 1rem;\n  line-height: 1.6;\n}\n\n.ink-el-timeline-accordion {\n  display: grid;\n  gap: 1rem;\n}\n\n.ink-el-timeline-item {\n  overflow: hidden;\n  border-radius: 1.5rem;\n  background: #111;\n  color: #fff;\n  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease;\n}\n\n.ink-el-timeline-question {\n  display: flex;\n  width: 100%;\n  align-items: center;\n  justify-content: space-between;\n  gap: 1rem;\n  padding: 1.35rem 1.5rem;\n  border: 0;\n  background: transparent;\n  color: inherit;\n  text-align: left;\n  cursor: pointer;\n}\n\n.ink-el-timeline-copy, .ink-el-timeline-eyebrow, .ink-el-timeline-title {\n  display: block;\n}\n\n.ink-el-timeline-eyebrow {\n  margin-bottom: 0.35rem;\n  color: #a970ff;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.14em;\n  text-transform: uppercase;\n}\n\n.ink-el-timeline-title {\n  font-size: clamp(1rem, 2vw, 1.35rem);\n}\n\n.ink-el-timeline-glyph {\n  font-size: 1.6rem;\n  font-weight: 300;\n  transition: transform var(--ink-timeline-duration, 280ms) ease;\n}\n\n.ink-el-timeline-content {\n  padding: 0 1.5rem 1.5rem;\n  color: #aaa;\n  line-height: 1.65;\n}\n\n.ink-el-timeline-item:not(.is-open) > .ink-el-timeline-content {\n  display: none;\n}\n\n.ink-el-timeline-item.is-open .ink-el-timeline-glyph {\n  transform: rotate(45deg);\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-item] {\n  overflow: hidden !important;\n  height: auto !important;\n  min-height: 0 !important;\n  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease !important;\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-item]:not(.is-open) [data-ink-timeline-content] {\n  display: none !important;\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-question] {\n  cursor: pointer;\n}\n\n.ink-el-alert {\n  display: flex;\n  gap: 0.75rem;\n  padding: 1rem;\n  border: 1px solid color-mix(in srgb, var(--alert-color) 35%, transparent);\n  border-radius: 3px;\n  background: color-mix(in srgb, var(--alert-color) 8%, white);\n}\n\n.ink-el-alert > .material-symbols-rounded {\n  flex: none;\n  color: var(--alert-color);\n}\n\n.ink-el-alert strong, .ink-el-alert span {\n  display: block;\n}\n\n.ink-el-audio {\n  width: 100%;\n}\n\n.ink-el-video {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  border: 0;\n}\n\n.ink-el-map {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  border: 0;\n}\n\n.ink-el-gallery {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 0.75rem;\n}\n\n.ink-el-gallery img {\n  width: 100%;\n  aspect-ratio: 1;\n  object-fit: cover;\n}\n\n.ink-el-gallery[data-lightbox=true] img {\n  cursor: zoom-in;\n}\n\n.ink-el-carousel {\n  position: relative;\n  overflow: hidden;\n}\n\n.ink-el-carousel-track {\n  display: flex;\n  transition: transform 0.45s ease;\n}\n\n.ink-el-carousel-slide {\n  flex: 0 0 100%;\n  min-width: 0;\n}\n\n.ink-el-carousel-slide img {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  object-fit: cover;\n}\n\n.ink-el-carousel-nav {\n  position: absolute;\n  z-index: 2;\n  top: 50%;\n  display: flex;\n  width: 40px;\n  height: 40px;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(0, 0, 0, 0.45);\n  color: #fff;\n  cursor: pointer;\n  transform: translateY(-50%);\n  transition: background 0.15s;\n}\n\n.ink-el-carousel-nav:hover {\n  background: rgba(0, 0, 0, 0.65);\n}\n\n.ink-el-carousel-nav:disabled {\n  opacity: 0.35;\n  cursor: not-allowed;\n}\n\n.ink-el-carousel-nav.is-prev {\n  left: 10px;\n}\n\n.ink-el-carousel-nav.is-next {\n  right: 10px;\n}\n\n.ink-el-carousel-nav .material-symbols-rounded, .ink-el-carousel-nav .ink-icon-svg {\n  font-size: 22px;\n  width: 22px;\n  height: 22px;\n}\n\n.ink-el-carousel-dots {\n  position: absolute;\n  z-index: 2;\n  right: 0;\n  bottom: 10px;\n  left: 0;\n  display: flex;\n  gap: 7px;\n  justify-content: center;\n}\n\n.ink-el-carousel-dot {\n  width: 9px;\n  height: 9px;\n  padding: 0;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.6);\n  cursor: pointer;\n  transition: background 0.15s, transform 0.15s;\n}\n\n.ink-el-carousel-dot.is-active, .ink-el-carousel-dot:hover {\n  background: #fff;\n}\n\n.ink-el-carousel-dot.is-active {\n  transform: scale(1.25);\n}\n\n/* Gallery lightbox (ephemeral overlay created by the widget runtime) */\n.ink-lightbox {\n  position: fixed;\n  inset: 0;\n  z-index: 100000;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  background: rgba(0, 0, 0, 0.92);\n}\n\n.ink-lightbox-image {\n  max-width: 86vw;\n  max-height: 82vh;\n  box-shadow: 0 8px 50px rgba(0, 0, 0, 0.55);\n}\n\n.ink-lightbox-close, .ink-lightbox-prev, .ink-lightbox-next {\n  position: absolute;\n  z-index: 2;\n  display: flex;\n  width: 42px;\n  height: 42px;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.15);\n  color: #fff;\n  cursor: pointer;\n  transition: background 0.15s;\n}\n\n.ink-lightbox-close:hover, .ink-lightbox-prev:hover, .ink-lightbox-next:hover {\n  background: rgba(255, 255, 255, 0.3);\n}\n\n.ink-lightbox-close {\n  top: 14px;\n  right: 14px;\n}\n\n.ink-lightbox-prev {\n  top: 50%;\n  left: 14px;\n  transform: translateY(-50%);\n}\n\n.ink-lightbox-next {\n  top: 50%;\n  right: 14px;\n  transform: translateY(-50%);\n}\n\n.ink-lightbox .material-symbols-rounded, .ink-lightbox .ink-icon-svg {\n  font-size: 22px;\n  width: 22px;\n  height: 22px;\n}\n\n.ink-el-plugin {\n  padding: 1rem;\n  border: 1px dashed #a4afb7;\n  background: #f8fafc;\n  color: #54595f;\n  font: 13px ui-monospace, monospace;\n}\n\n@media (max-width: 767px) {\n  .ink-el-gallery {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n  .ink-el-icon-box, .ink-el-image-box {\n    align-items: center;\n    text-align: center;\n  }\n  .ink-el-image-box > img {\n    width: 100%;\n  }\n}";
+module.exports = ".ink-icon-svg {\n  width: 1em;\n  height: 1em;\n  flex: none;\n  vertical-align: middle;\n}\n\n.ink-element[data-ink-kind=container] {\n  position: relative;\n}\n\n.ink-el-frame {\n  position: relative;\n  min-width: 0;\n  isolation: isolate;\n}\n\n.ink-el-frame-inner {\n  position: relative;\n  z-index: 1;\n  min-width: 0;\n  height: inherit;\n  min-height: inherit;\n}\n\n.ink-el-frame-overlay {\n  position: absolute;\n  z-index: 0;\n  inset: 0;\n  pointer-events: none;\n  border-radius: inherit;\n  transition: background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease, opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease;\n}\n\n.ink-el-group {\n  display: contents;\n}\n\n.ink-el-section {\n  position: relative;\n  width: 100%;\n}\n\n.ink-el-section-inner {\n  width: 100%;\n  max-width: min(100%, var(--ink-content-width, 1140px));\n  margin-inline: auto;\n  display: flex;\n  flex-direction: column;\n}\n\n.ink-el-section.is-full .ink-el-section-inner,\n.ink-el-section.is-stretched .ink-el-section-inner {\n  max-width: none;\n}\n\n.ink-el-container {\n  position: relative;\n  display: flex;\n  width: 100%;\n  flex-direction: column;\n  isolation: isolate;\n  transition: background-color var(--ink-background-transition, 0s) ease, background-image var(--ink-background-transition, 0s) ease, border-color var(--ink-border-transition, 0s) ease, border-width var(--ink-border-transition, 0s) ease, border-radius var(--ink-border-transition, 0s) ease, box-shadow var(--ink-border-transition, 0s) ease;\n}\n\n.ink-el-background-media {\n  position: absolute;\n  z-index: 0;\n  inset: 0;\n  overflow: hidden;\n  border-radius: inherit;\n  background-position: center;\n  background-size: cover;\n  pointer-events: none;\n}\n\n.ink-el-background-video video {\n  width: 100%;\n  height: 100%;\n  object-fit: cover;\n}\n\n.ink-el-background-video iframe {\n  position: absolute;\n  top: 50%;\n  left: 50%;\n  width: 177.78vh;\n  min-width: 100%;\n  height: 56.25vw;\n  min-height: 100%;\n  border: 0;\n  transform: translate(-50%, -50%);\n}\n\n.ink-el-background-slide {\n  position: absolute;\n  inset: -1px;\n  opacity: 0;\n  overflow: hidden;\n  transition: opacity var(--ink-slide-transition, 500ms) ease, transform var(--ink-slide-transition, 500ms) ease;\n}\n\n.ink-el-background-slide > img {\n  display: block;\n  width: 100%;\n  height: 100%;\n}\n\n.ink-el-background-slide.is-active {\n  z-index: 1;\n  opacity: 1;\n  transform: translate(0);\n}\n\n.ink-el-background-slideshow.is-slide_right .ink-el-background-slide {\n  transform: translateX(-8%);\n}\n\n.ink-el-background-slideshow.is-slide_left .ink-el-background-slide {\n  transform: translateX(8%);\n}\n\n.ink-el-background-slideshow.is-slide_up .ink-el-background-slide {\n  transform: translateY(8%);\n}\n\n.ink-el-background-slideshow.is-slide_down .ink-el-background-slide {\n  transform: translateY(-8%);\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns {\n  animation-duration: var(--ink-slide-duration, 5000ms);\n  animation-timing-function: ease-in-out;\n  animation-fill-mode: both;\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-in {\n  animation-name: ink-ken-burns-in;\n}\n\n.ink-el-background-slide.is-active > img.has-ken-burns.is-zoom-out {\n  animation-name: ink-ken-burns-out;\n}\n\n@keyframes ink-ken-burns-in {\n  from {\n    transform: scale(1);\n  }\n  to {\n    transform: scale(1.15);\n  }\n}\n@keyframes ink-ken-burns-out {\n  from {\n    transform: scale(1.15);\n  }\n  to {\n    transform: scale(1);\n  }\n}\n.ink-el-container-overlay {\n  position: absolute;\n  z-index: 1;\n  inset: 0;\n  border-radius: inherit;\n  pointer-events: none;\n  transition: opacity var(--ink-overlay-transition, 0s) ease, filter var(--ink-overlay-transition, 0s) ease, background-color var(--ink-overlay-transition, 0s) ease, background-image var(--ink-overlay-transition, 0s) ease;\n}\n\n.ink-el-container-inner {\n  position: relative;\n  z-index: 2;\n  min-width: 0;\n  min-height: 0;\n  flex: 1 1 auto;\n  width: 100%;\n  max-width: min(100%, var(--ink-content-width, 1140px));\n  margin-inline: auto;\n  display: flex;\n  flex-direction: column;\n}\n\n.ink-el-container-inner > * {\n  min-width: 0;\n  max-width: 100%;\n}\n\n.ink-el-container.is-full .ink-el-container-inner {\n  max-width: none;\n}\n\n.ink-el-shape-divider {\n  position: absolute;\n  z-index: 0;\n  left: 0;\n  width: 100%;\n  overflow: hidden;\n  line-height: 0;\n  pointer-events: none;\n}\n\n.ink-el-shape-divider-top {\n  top: 0;\n}\n\n.ink-el-shape-divider-bottom {\n  bottom: 0;\n}\n\n.ink-el-shape-divider svg {\n  position: relative;\n  left: 50%;\n  display: block;\n  width: var(--ink-shape-width, 100%);\n  height: var(--ink-shape-height, 100px);\n  transform: translateX(-50%);\n  fill: var(--ink-shape-color, #fff);\n}\n\n.ink-el-shape-divider-top svg {\n  transform: translateX(-50%) rotate(180deg);\n}\n\n.ink-el-shape-divider.is-flipped svg {\n  transform: translateX(-50%) rotateY(180deg);\n}\n\n.ink-el-shape-divider-top.is-flipped svg {\n  transform: translateX(-50%) rotate(180deg) rotateY(180deg);\n}\n\n.ink-el-shape-divider.is-front {\n  z-index: 3;\n}\n\n.ink-el-columns {\n  display: flex;\n  flex-wrap: nowrap;\n  width: 100%;\n  gap: var(--ink-column-gap, 20px);\n}\n\n.ink-el-column {\n  display: flex;\n  min-width: 0;\n  flex: 1 1 0%;\n  flex-direction: column;\n}\n\n.ink-el-columns.is-50-50 > .ink-el-column {\n  flex: 1 1 50%;\n}\n\n.ink-el-columns.is-33-33-33 > .ink-el-column {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-25-25-25-25 > .ink-el-column {\n  flex: 1 1 25%;\n}\n\n.ink-el-columns.is-20-20-20-20-20 > .ink-el-column {\n  flex: 1 1 20%;\n}\n\n.ink-el-columns.is-60-40 > .ink-el-column:first-child {\n  flex: 1 1 60%;\n}\n\n.ink-el-columns.is-60-40 > .ink-el-column:last-child {\n  flex: 1 1 40%;\n}\n\n.ink-el-columns.is-40-60 > .ink-el-column:first-child {\n  flex: 1 1 40%;\n}\n\n.ink-el-columns.is-40-60 > .ink-el-column:last-child {\n  flex: 1 1 60%;\n}\n\n.ink-el-columns.is-66-34 > .ink-el-column:first-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-66-34 > .ink-el-column:last-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-34-66 > .ink-el-column:first-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-34-66 > .ink-el-column:last-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-33-67 > .ink-el-column:first-child {\n  flex: 1 1 33.3333%;\n}\n\n.ink-el-columns.is-33-67 > .ink-el-column:last-child {\n  flex: 1 1 66.6666%;\n}\n\n.ink-el-columns.is-25-50-25 > .ink-el-column:nth-child(2) {\n  flex: 1 1 50%;\n}\n\n.ink-el-columns.is-25-50-25 > .ink-el-column:not(:nth-child(2)) {\n  flex: 1 1 25%;\n}\n\n@media (max-width: 767px) {\n  .ink-el-background-video.is-desktop-only {\n    display: none;\n  }\n  .ink-el-columns {\n    flex-wrap: wrap;\n  }\n  .ink-el-columns.is-50-50 > .ink-el-column,\n  .ink-el-columns.is-33-33-33 > .ink-el-column,\n  .ink-el-columns.is-25-25-25-25 > .ink-el-column,\n  .ink-el-columns.is-20-20-20-20-20 > .ink-el-column,\n  .ink-el-columns.is-60-40 > .ink-el-column,\n  .ink-el-columns.is-40-60 > .ink-el-column,\n  .ink-el-columns.is-66-34 > .ink-el-column,\n  .ink-el-columns.is-34-66 > .ink-el-column,\n  .ink-el-columns.is-33-67 > .ink-el-column,\n  .ink-el-columns.is-25-50-25 > .ink-el-column {\n    flex: 1 1 100% !important;\n  }\n  .ink-el-columns > .ink-el-column {\n    flex: 1 1 100% !important;\n  }\n}\n.ink-el-heading, .ink-el-heading a {\n  line-height: 1.2;\n  padding: 0;\n  margin: 0;\n}\n\n.ink-el-heading.ink-size-small {\n  font-size: 15px;\n}\n\n.ink-el-heading.ink-size-medium {\n  font-size: 19px;\n}\n\n.ink-el-heading.ink-size-large {\n  font-size: 29px;\n}\n\n.ink-el-heading.ink-size-xl {\n  font-size: 39px;\n}\n\n.ink-el-heading.ink-size-xxl {\n  font-size: 59px;\n}\n\n.ink-el-paragraph {\n  margin: 0;\n}\n\n.ink-el-paragraph p {\n  margin: 0 0 1em;\n}\n\n.ink-el-paragraph p:last-child {\n  margin-bottom: 0;\n}\n\n.ink-el-text-editor {\n  line-height: 1.6;\n}\n\n.ink-el-text-editor p:first-child {\n  margin-top: 0;\n}\n\n.ink-el-text-editor p:last-child {\n  margin-bottom: 0;\n}\n\n.ink-el-text-editor :where(ul, ol),\n.ink-el-unordered-list,\n.ink-el-ordered-list {\n  margin: 0 0 1em;\n  padding-inline-start: 1.5em;\n}\n\n.ink-el-text-editor ul,\n.ink-el-unordered-list {\n  list-style: disc outside;\n}\n\n.ink-el-text-editor ol,\n.ink-el-ordered-list {\n  list-style: decimal outside;\n}\n\n.ink-el-text-editor li,\n.ink-el-list-item {\n  display: list-item;\n  padding-inline-start: 0.2em;\n}\n\n.ink-el-text-editor :where(ul, ol) :where(ul, ol) {\n  margin-block: 0.35em;\n}\n\n.ink-el-divider {\n  width: 100%;\n  max-width: 100%;\n  border: 0;\n  border-top: 1px solid #7a7a7a;\n  height: 1px;\n}\n\n.ink-el-spacer {\n  display: block;\n}\n\n.ink-el-read-more {\n  display: inline-flex;\n  align-items: center;\n  gap: 0.35rem;\n  color: var(--ink-color-primary, #6ec1e4);\n  font-weight: 600;\n  text-decoration: none;\n}\n\n.ink-el-read-more:hover {\n  color: #4054b2;\n}\n\n.ink-el-anchor {\n  display: block;\n  position: relative;\n  top: calc(-1 * var(--anchor-offset, 0px));\n  visibility: hidden;\n}\n\n.ink-el-button {\n  display: inline-flex;\n  width: fit-content;\n  height: fit-content;\n  align-items: flex-end;\n  padding: 0 0 var(--ink-button-depth, 0);\n  border: 0;\n  background: transparent;\n  color: inherit;\n  font: inherit;\n  text-decoration: none;\n  cursor: pointer;\n  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;\n}\n\n.ink-el-button-surface {\n  display: inline-flex;\n  width: 100%;\n  min-width: 0;\n  align-items: center;\n  justify-content: center;\n  gap: var(--ink-icon-gap, 8px);\n  overflow: hidden;\n  color: inherit;\n  fill: currentColor;\n  text-align: center;\n  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;\n}\n\n.ink-el-button:hover, .ink-el-button:focus, .ink-el-button:visited {\n  color: inherit;\n}\n\n.ink-el-button:active .ink-el-button-surface {\n  transform: translateY(min(var(--ink-button-depth, 0px), 3px));\n}\n\n.ink-el-button:focus-visible {\n  outline: 2px solid var(--ink-color-primary);\n  outline-offset: 2px;\n}\n\n.ink-el-button.is-align-left, .ink-el-button.is-align-center, .ink-el-button.is-align-right {\n  display: flex;\n  width: fit-content;\n}\n\n.ink-el-button.is-align-left {\n  margin-right: auto;\n}\n\n.ink-el-button.is-align-center {\n  margin-inline: auto;\n}\n\n.ink-el-button.is-align-right {\n  margin-left: auto;\n}\n\n.ink-el-button-icon {\n  display: inline-flex;\n  align-items: center;\n}\n\n.ink-el-button-icon .material-symbols-rounded {\n  font-size: 1em;\n}\n\n.ink-el-image {\n  display: block;\n  max-width: 100%;\n  height: auto;\n}\n\n.ink-el-image-link {\n  display: block;\n  max-width: 100%;\n}\n\n.ink-el-image-figure {\n  margin: 0;\n  max-width: 100%;\n}\n\n.ink-el-image-figure img {\n  display: block;\n  width: 100%;\n  height: auto;\n}\n\n.ink-el-image-figure figcaption {\n  margin-top: 0.5em;\n  color: #7a7a7a;\n  font-size: 0.9em;\n  text-align: center;\n}\n\n.ink-el-image.is-align-center {\n  margin-inline: auto;\n}\n\n.ink-el-image.is-align-right {\n  margin-left: auto;\n}\n\n.ink-el-icon {\n  display: inline-grid;\n  place-items: center;\n  font-size: 2.5rem;\n  line-height: 1;\n}\n\n.ink-el-icon-box {\n  display: flex;\n  flex-direction: column;\n  align-items: center;\n  text-align: center;\n  gap: 0;\n}\n\n.ink-el-icon-box .ink-el-icon {\n  margin-bottom: 15px;\n  color: var(--ink-color-primary, #6ec1e4);\n  font-size: 40px;\n  transition: color 0.3s;\n}\n\n.ink-el-icon-box .ink-el-box-title {\n  width: 100%;\n  margin: 0 0 5px;\n  font-weight: 600;\n}\n\n.ink-el-icon-box .ink-el-box-desc {\n  width: 100%;\n  margin: 0;\n  color: #7a7a7a;\n  line-height: 1.5;\n}\n\n.ink-el-image-box {\n  display: flex;\n  flex-direction: column;\n  align-items: flex-start;\n  text-align: left;\n}\n\n.ink-el-image-box > img {\n  width: 100%;\n  margin-bottom: 15px;\n  object-fit: cover;\n}\n\n.ink-el-image-box .ink-el-box-title {\n  width: 100%;\n  margin: 0 0 5px;\n  font-weight: 600;\n}\n\n.ink-el-image-box .ink-el-box-desc {\n  width: 100%;\n  margin: 0;\n  color: #7a7a7a;\n  line-height: 1.5;\n}\n\n.ink-el-icon-list {\n  display: grid;\n  gap: 0.6rem;\n  margin: 0;\n  padding: 0;\n  list-style: none;\n}\n\n.ink-el-icon-list li {\n  display: flex;\n  gap: 0.7rem;\n  align-items: center;\n}\n\n.ink-el-icon-list .material-symbols-rounded {\n  flex: none;\n  font-size: 1.2em;\n  color: var(--ink-color-primary, #6ec1e4);\n}\n\n.ink-el-icon-list a {\n  color: inherit;\n  text-decoration: none;\n}\n\n.ink-el-social {\n  display: flex;\n  gap: 0.5rem;\n}\n\n.ink-el-social a {\n  display: grid;\n  width: 40px;\n  height: 40px;\n  place-items: center;\n  border-radius: 50%;\n  background: #54595f;\n  color: #fff;\n  text-decoration: none;\n  transition: background 0.3s;\n}\n\n.ink-el-social a:hover {\n  background: #7a7a7a;\n}\n\n.ink-el-social .material-symbols-rounded {\n  font-size: 20px;\n}\n\n.ink-el-counter {\n  display: flex;\n  justify-content: center;\n  align-items: stretch;\n  flex-direction: column-reverse;\n}\n\n.ink-el-counter-number {\n  display: flex;\n  justify-content: center;\n  font-size: 69px;\n  font-weight: 600;\n  line-height: 1;\n  text-align: center;\n}\n\n.ink-el-counter-title {\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  margin: 0;\n  padding: 0;\n  font-size: 19px;\n  font-weight: 400;\n  line-height: 2.5;\n  text-align: center;\n}\n\n.ink-el-progress {\n  text-align: left;\n}\n\n.ink-el-progress-track {\n  position: relative;\n  height: 30px;\n  overflow: hidden;\n  border-radius: 2px;\n  background: #e8eaeb;\n}\n\n.ink-el-progress-value {\n  display: flex;\n  height: 100%;\n  align-items: center;\n  background: #818a91;\n  border-radius: 2px;\n  font-size: 11px;\n  line-height: 30px;\n  color: #fff;\n  transition: width 1s ease-in-out;\n}\n\n.ink-el-progress-value span {\n  flex: 1;\n  padding-inline-start: 15px;\n}\n\n.ink-el-progress-value b {\n  padding-inline-end: 15px;\n  font-weight: 400;\n}\n\n.ink-el-rating {\n  display: flex;\n  gap: 0.1em;\n  font-size: 1.5rem;\n  line-height: 1;\n  color: #818a91;\n}\n\n.ink-el-rating .material-symbols-rounded {\n  font-size: 1em;\n}\n\n.ink-el-rating .is-rated {\n  color: #f0ad4e;\n}\n\n.ink-el-testimonial {\n  display: flex;\n  flex-direction: column;\n  gap: 1rem;\n}\n\n.ink-el-testimonial blockquote {\n  margin: 0;\n  font-size: 1.1rem;\n  line-height: 1.6;\n}\n\n.ink-el-testimonial figcaption {\n  display: flex;\n  gap: 0.75rem;\n  align-items: center;\n}\n\n.ink-el-testimonial img, .ink-el-avatar {\n  width: 48px;\n  height: 48px;\n  border-radius: 50%;\n  object-fit: cover;\n}\n\n.ink-el-testimonial-name {\n  font-weight: 600;\n}\n\n.ink-el-testimonial-role {\n  color: #7a7a7a;\n  font-size: 0.9rem;\n}\n\n.ink-builder-design .ink-el-query-loop {\n  outline: 1px dashed rgba(127, 127, 127, 0.35);\n  outline-offset: 3px;\n}\n\n.ink-builder-design .ink-el-post-content {\n  display: flex;\n  min-height: 96px;\n  align-items: center;\n  justify-content: center;\n  border: 1px dashed rgba(127, 127, 127, 0.5);\n  border-radius: 8px;\n  color: #8a8a8a;\n  font-size: 12px;\n  font-weight: 500;\n  letter-spacing: 0.05em;\n  text-transform: uppercase;\n}\n\n.ink-el-tabs-nav {\n  display: flex;\n  gap: 0;\n  border-bottom: 1px solid #d4d4d8;\n}\n\n.ink-el-tabs-nav button {\n  position: relative;\n  padding: 0.75rem 1rem;\n  border: 0;\n  border-bottom: 2px solid transparent;\n  background: transparent;\n  color: inherit;\n  cursor: pointer;\n}\n\n.ink-el-tabs-nav button.is-active {\n  border-bottom-color: var(--ink-color-primary, #6ec1e4);\n  color: var(--ink-color-primary, #6ec1e4);\n}\n\n.ink-el-tab-panel {\n  padding: 1rem 0;\n  line-height: 1.6;\n}\n\n/* Panel mode: the host only positions designed tab panels, it adds no chrome of its own. */\n.ink-el-tabs-panels {\n  display: block;\n}\n\n.ink-el-tabs-panels > .ink-el-tab-panel {\n  padding: 1rem 0;\n}\n\n.ink-el-tab-panel[hidden] {\n  display: none;\n}\n\n.ink-el-accordion {\n  display: grid;\n}\n\n.ink-el-accordion details {\n  border-bottom: 1px solid #d4d4d8;\n}\n\n.ink-el-accordion summary {\n  padding: 1rem 0;\n  font-weight: 600;\n  cursor: pointer;\n  list-style: none;\n}\n\n.ink-el-accordion summary::-webkit-details-marker {\n  display: none;\n}\n\n.ink-el-accordion details > div {\n  padding: 0 0 1rem;\n  line-height: 1.6;\n}\n\n.ink-el-timeline-accordion {\n  display: grid;\n  gap: 1rem;\n}\n\n.ink-el-timeline-item {\n  overflow: hidden;\n  border-radius: 1.5rem;\n  background: #111;\n  color: #fff;\n  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease;\n}\n\n.ink-el-timeline-question {\n  display: flex;\n  width: 100%;\n  align-items: center;\n  justify-content: space-between;\n  gap: 1rem;\n  padding: 1.35rem 1.5rem;\n  border: 0;\n  background: transparent;\n  color: inherit;\n  text-align: left;\n  cursor: pointer;\n}\n\n.ink-el-timeline-copy, .ink-el-timeline-eyebrow, .ink-el-timeline-title {\n  display: block;\n}\n\n.ink-el-timeline-eyebrow {\n  margin-bottom: 0.35rem;\n  color: #a970ff;\n  font-size: 0.75rem;\n  font-weight: 700;\n  letter-spacing: 0.14em;\n  text-transform: uppercase;\n}\n\n.ink-el-timeline-title {\n  font-size: clamp(1rem, 2vw, 1.35rem);\n}\n\n.ink-el-timeline-glyph {\n  font-size: 1.6rem;\n  font-weight: 300;\n  transition: transform var(--ink-timeline-duration, 280ms) ease;\n}\n\n.ink-el-timeline-content {\n  padding: 0 1.5rem 1.5rem;\n  color: #aaa;\n  line-height: 1.65;\n}\n\n.ink-el-timeline-item:not(.is-open) > .ink-el-timeline-content {\n  display: none;\n}\n\n.ink-el-timeline-item.is-open .ink-el-timeline-glyph {\n  transform: rotate(45deg);\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-item] {\n  overflow: hidden !important;\n  height: auto !important;\n  min-height: 0 !important;\n  transition: background-color var(--ink-timeline-duration, 280ms) ease, box-shadow var(--ink-timeline-duration, 280ms) ease !important;\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-item]:not(.is-open) [data-ink-timeline-content] {\n  display: none !important;\n}\n\n.ink-imported-element[data-framer-name=\"Timeline Wrapper\"] [data-ink-timeline-question] {\n  cursor: pointer;\n}\n\n.ink-el-alert {\n  display: flex;\n  gap: 0.75rem;\n  padding: 1rem;\n  border: 1px solid color-mix(in srgb, var(--alert-color) 35%, transparent);\n  border-radius: 3px;\n  background: color-mix(in srgb, var(--alert-color) 8%, white);\n}\n\n.ink-el-alert > .material-symbols-rounded {\n  flex: none;\n  color: var(--alert-color);\n}\n\n.ink-el-alert strong, .ink-el-alert span {\n  display: block;\n}\n\n.ink-el-audio {\n  width: 100%;\n}\n\n.ink-el-video {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  border: 0;\n}\n\n.ink-el-map {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  border: 0;\n}\n\n.ink-el-gallery {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));\n  gap: 0.75rem;\n}\n\n.ink-el-gallery img {\n  width: 100%;\n  aspect-ratio: 1;\n  object-fit: cover;\n}\n\n.ink-el-gallery[data-lightbox=true] img {\n  cursor: zoom-in;\n}\n\n.ink-el-carousel {\n  position: relative;\n  overflow: hidden;\n}\n\n.ink-el-carousel-track {\n  display: flex;\n  transition: transform 0.45s ease;\n}\n\n.ink-el-carousel-slide {\n  flex: 0 0 100%;\n  min-width: 0;\n}\n\n.ink-el-carousel-slide img {\n  display: block;\n  width: 100%;\n  aspect-ratio: 16/9;\n  object-fit: cover;\n}\n\n.ink-el-carousel-nav {\n  position: absolute;\n  z-index: 2;\n  top: 50%;\n  display: flex;\n  width: 40px;\n  height: 40px;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(0, 0, 0, 0.45);\n  color: #fff;\n  cursor: pointer;\n  transform: translateY(-50%);\n  transition: background 0.15s;\n}\n\n.ink-el-carousel-nav:hover {\n  background: rgba(0, 0, 0, 0.65);\n}\n\n.ink-el-carousel-nav:disabled {\n  opacity: 0.35;\n  cursor: not-allowed;\n}\n\n.ink-el-carousel-nav.is-prev {\n  left: 10px;\n}\n\n.ink-el-carousel-nav.is-next {\n  right: 10px;\n}\n\n.ink-el-carousel-nav .material-symbols-rounded, .ink-el-carousel-nav .ink-icon-svg {\n  font-size: 22px;\n  width: 22px;\n  height: 22px;\n}\n\n.ink-el-carousel-dots {\n  position: absolute;\n  z-index: 2;\n  right: 0;\n  bottom: 10px;\n  left: 0;\n  display: flex;\n  gap: 7px;\n  justify-content: center;\n}\n\n.ink-el-carousel-dot {\n  width: 9px;\n  height: 9px;\n  padding: 0;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.6);\n  cursor: pointer;\n  transition: background 0.15s, transform 0.15s;\n}\n\n.ink-el-carousel-dot.is-active, .ink-el-carousel-dot:hover {\n  background: #fff;\n}\n\n.ink-el-carousel-dot.is-active {\n  transform: scale(1.25);\n}\n\n/* Gallery lightbox (ephemeral overlay created by the widget runtime) */\n.ink-lightbox {\n  position: fixed;\n  inset: 0;\n  z-index: 100000;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  background: rgba(0, 0, 0, 0.92);\n}\n\n.ink-lightbox-image {\n  max-width: 86vw;\n  max-height: 82vh;\n  box-shadow: 0 8px 50px rgba(0, 0, 0, 0.55);\n}\n\n.ink-lightbox-close, .ink-lightbox-prev, .ink-lightbox-next {\n  position: absolute;\n  z-index: 2;\n  display: flex;\n  width: 42px;\n  height: 42px;\n  align-items: center;\n  justify-content: center;\n  border: 0;\n  border-radius: 50%;\n  background: rgba(255, 255, 255, 0.15);\n  color: #fff;\n  cursor: pointer;\n  transition: background 0.15s;\n}\n\n.ink-lightbox-close:hover, .ink-lightbox-prev:hover, .ink-lightbox-next:hover {\n  background: rgba(255, 255, 255, 0.3);\n}\n\n.ink-lightbox-close {\n  top: 14px;\n  right: 14px;\n}\n\n.ink-lightbox-prev {\n  top: 50%;\n  left: 14px;\n  transform: translateY(-50%);\n}\n\n.ink-lightbox-next {\n  top: 50%;\n  right: 14px;\n  transform: translateY(-50%);\n}\n\n.ink-lightbox .material-symbols-rounded, .ink-lightbox .ink-icon-svg {\n  font-size: 22px;\n  width: 22px;\n  height: 22px;\n}\n\n.ink-el-plugin {\n  padding: 1rem;\n  border: 1px dashed #a4afb7;\n  background: #f8fafc;\n  color: #54595f;\n  font: 13px ui-monospace, monospace;\n}\n\n@media (max-width: 767px) {\n  .ink-el-gallery {\n    grid-template-columns: repeat(2, minmax(0, 1fr));\n  }\n  .ink-el-icon-box, .ink-el-image-box {\n    align-items: center;\n    text-align: center;\n  }\n  .ink-el-image-box > img {\n    width: 100%;\n  }\n}";
 
 /***/ }),
 

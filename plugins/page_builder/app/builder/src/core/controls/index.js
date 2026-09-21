@@ -10,6 +10,10 @@ import { RichTextAdapter } from '../RichTextAdapter.js';
 import { iconNames, iconCount, iconValue, resolveIcon, renderIcon, libraryTitle } from '../icons.js';
 import { availableFonts } from '../fonts.js';
 import { ELEMENTOR_SHAPES } from '../elementorShapes.js';
+import {
+    INTERACTION_ACTIONS, INTERACTION_ACTION_LABELS, INTERACTION_EVENTS, INTERACTION_EVENT_LABELS,
+    INTERACTION_TARGETS, INTERACTION_TARGET_LABELS, normalizeInteractions, normalizeStateList, normalizeStateName,
+} from '../states.js';
 
 const labelFor = (option) => typeof option === 'object' ? option.label : String(option).replace(/-/g, ' ');
 const valueFor = (option) => typeof option === 'object' ? option.value : option;
@@ -1062,5 +1066,94 @@ export function dataBinding(panel, control, node, _value, row) {
 
     grid.append(sourceSelect, fieldSelect);
     row.appendChild(grid);
+    return row;
+}
+
+// Component states: the named variants an element can be in (e.g. "monthly, yearly"). They feed
+// the state switcher in the panel and compile to [data-ink-state="…"] rules. See states.js.
+export function stateNames(panel, control, node, value, row) {
+    const list = normalizeStateList(value);
+    const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-state-names';
+    const input = document.createElement('input'); input.type = 'text';
+    input.placeholder = 'open, closed';
+    input.value = list.join(', ');
+    input.setAttribute('aria-label', control.label || 'Component states');
+    commitOnFinish(input, () => panel.setValue(control, node, normalizeStateList(input.value)));
+    const hint = document.createElement('small'); hint.className = 'ink-v2-control-description';
+    hint.textContent = 'Variant names this element can be in. Style each one from the state switcher, then switch them with an interaction.';
+    wrapper.append(input, hint);
+    row.appendChild(wrapper);
+    return row;
+}
+
+// Interactions: an event on this element that changes a target. Declarative element data, so it
+// runs in Preview and published pages and is undoable — never hand-written script.
+export function interactions(panel, control, node, value, row) {
+    const list = normalizeInteractions(value);
+    const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-interactions';
+    const commit = () => panel.setValue(control, node, normalizeInteractions(list));
+    const field = (labelText, input) => { const label = document.createElement('label'); label.textContent = labelText; label.appendChild(input); return label; };
+    const select = (options, labels, current, onChange) => {
+        const element = document.createElement('select');
+        options.forEach((option) => element.add(new Option(labels[option] || option, option)));
+        element.value = current;
+        element.addEventListener('change', () => onChange(element.value));
+        return element;
+    };
+
+    list.forEach((record, index) => {
+        const item = document.createElement('div'); item.className = 'ink-v2-interaction';
+        const update = (patch) => { list[index] = { ...list[index], ...patch }; commit(); };
+        const header = document.createElement('div'); header.className = 'ink-v2-interaction-head';
+
+        header.appendChild(field('When', select(INTERACTION_EVENTS, INTERACTION_EVENT_LABELS, record.on, (next) => update({ on: next }))));
+        header.appendChild(field('Do', select(INTERACTION_ACTIONS, INTERACTION_ACTION_LABELS, record.action, (next) => update({ action: next, ...(['toggleState', 'setState'].includes(next) && !record.state ? { state: 'open' } : {}) }))));
+        header.appendChild(field('Target', select(INTERACTION_TARGETS, INTERACTION_TARGET_LABELS, record.target, (next) => update({ target: next, ...(next === 'query' && !record.selector ? { selector: '.selector' } : {}) }))));
+
+        const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'ink-v2-action-button is-quiet';
+        remove.textContent = 'Remove'; remove.setAttribute('aria-label', 'Remove interaction');
+        remove.addEventListener('click', () => { list.splice(index, 1); commit(); });
+        header.appendChild(remove);
+
+        const detail = document.createElement('div'); detail.className = 'ink-v2-interaction-detail';
+        if (['toggleState', 'setState'].includes(record.action)) {
+            const state = document.createElement('input'); state.type = 'text'; state.value = record.state || '';
+            state.placeholder = 'open';
+            commitOnFinish(state, () => update({ state: normalizeStateName(state.value) }));
+            detail.appendChild(field('State', state));
+            const exclusive = switchControl({ checked: record.exclusive === true, onLabel: 'One', offLabel: 'Many', ariaLabel: 'Exclusive state' });
+            exclusive.checkbox.addEventListener('change', () => update({ exclusive: exclusive.checkbox.checked }));
+            detail.appendChild(field('Siblings', exclusive.wrapper));
+        }
+        if (record.action === 'toggleClass') {
+            const className = document.createElement('input'); className.type = 'text'; className.value = record.className || '';
+            className.placeholder = 'is-open';
+            commitOnFinish(className, () => update({ className: className.value.trim() }));
+            detail.appendChild(field('Class', className));
+        }
+        if (record.target === 'query') {
+            const selector = document.createElement('input'); selector.type = 'text'; selector.value = record.selector || '';
+            selector.placeholder = '.pricing-panel-yearly';
+            commitOnFinish(selector, () => update({ selector: selector.value.trim() }));
+            detail.appendChild(field('Selector', selector));
+        }
+        const delay = document.createElement('input'); delay.type = 'number'; delay.min = '0'; delay.step = '50'; delay.value = record.delay || 0;
+        commitOnFinish(delay, () => update({ delay: Number(delay.value) || 0 }));
+        detail.appendChild(field('Delay (ms)', delay));
+
+        item.append(header, detail);
+        wrapper.appendChild(item);
+    });
+
+    const add = document.createElement('button'); add.type = 'button'; add.className = 'ink-v2-action-button';
+    add.textContent = list.length ? 'Add another interaction' : 'Add interaction';
+    add.addEventListener('click', () => { list.push({ on: 'click', action: 'toggleState', target: 'self', state: 'open' }); commit(); });
+    wrapper.appendChild(add);
+
+    const hint = document.createElement('small'); hint.className = 'ink-v2-control-description';
+    hint.textContent = 'Runs in Preview and on the published page. Use a selector target to change another layer, such as a panel that should open.';
+    wrapper.appendChild(hint);
+
+    row.appendChild(wrapper);
     return row;
 }

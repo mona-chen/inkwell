@@ -1,6 +1,15 @@
 const clone = (value) => value == null ? value : structuredClone(value);
 import { mergeStyles, emptyStyles } from './StyleValueModel.js';
 
+// Component states and interactions are a universal element contract, not a per-type feature:
+// any layer can be a state provider ("monthly / yearly") and any layer can trigger a change.
+// Registering them once here keeps every element type — including imported DOM — equally capable
+// without repeating two control descriptors a hundred times.
+const INTERACTION_CONTROLS = [
+    { tab: 'advanced', target: 'settings', section: 'Interaction', name: 'stateNames', type: 'state-names', label: 'Component states' },
+    { tab: 'advanced', target: 'settings', section: 'Interaction', name: 'interactions', type: 'interactions', label: 'Interactions' },
+];
+
 export default class ElementRegistry {    constructor() { this.definitions = new Map(); }
 
     register(definition) {
@@ -17,6 +26,8 @@ export default class ElementRegistry {    constructor() { this.definitions = new
                 throw new TypeError(`Element "${definition.type}" control "${control.name}" targets unknown part "${control.part}" — declare it in selectors.`);
             }
         }
+        const controls = [...(definition.controls || [])];
+        if (definition.interactive !== false && !definition.internal) controls.push(...INTERACTION_CONTROLS);
         this.definitions.set(definition.type, Object.freeze({
             title: definition.type,
             icon: 'widgets',
@@ -25,6 +36,7 @@ export default class ElementRegistry {    constructor() { this.definitions = new
             controls: [],
             acceptsChildren: false,
             ...definition,
+            controls,
         }));
         return this;
     }

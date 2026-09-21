@@ -1,4 +1,8 @@
 import { normalizeShader, validateCustomShader, SHADER_PRESETS, CUSTOM_SHADER_EXAMPLE } from './shaderPresets.js';
+import {
+    INTERACTION_ACTIONS, INTERACTION_EVENTS, INTERACTION_TARGETS,
+    normalizeInteractions, normalizeStateList, normalizeStateName,
+} from './states.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -75,6 +79,16 @@ export function createCopilotTools(runtime, builder) {
         });
         return {
             documentVersion: 2,
+            componentStates: {
+                setting: 'stateNames', instanceState: 'state', styleState: 'state:<name>',
+                example: { settings: { stateNames: ['monthly', 'yearly'], state: 'monthly' }, styles: { desktop: { base: { opacity: 1 }, 'state:yearly': { opacity: 1 } } } },
+                guidance: 'Any layer can be a state provider: name its variants in settings.stateNames and pick the authored one in settings.state. Style a variant with the reserved style bucket `state:<name>` (desktop/tablet/mobile × state:<name>), which compiles to [data-ink-state="<name>"] on that layer and its parts.',
+            },
+            interactions: {
+                setting: 'interactions', events: INTERACTION_EVENTS, actions: INTERACTION_ACTIONS, targets: INTERACTION_TARGETS,
+                example: { on: 'click', action: 'toggleState', target: 'self', state: 'open', exclusive: true },
+                guidance: 'Interactions are declarative element data set with set_interactions; they run in Preview and on the published page and are undoable. For a two-state pricing switch: give the container stateNames ["monthly","yearly"], then give each option button setState interactions targeting the container (target query + selector) plus show/hide interactions for the panels that should swap.',
+            },
             motion: { setting: 'motion', triggers: ['load', 'hover', 'enter', 'scroll'], example: { enabled: true, trigger: 'scroll', easing: 'linear', keyframes: [{ offset: 0, transform: 'translateX(0px)' }, { offset: 1, transform: 'translateX(-240px)' }] }, guidance: 'Set motion on a native layer with update_element. enter and scroll use the parent section as their viewport reference, respect reduced motion, and run in Preview/published pages. Motion stays editable in the Motion panel.' },
             elements: groups,
             styleShape: { desktop: { base: { color: '#111827', padding: { top: 24, right: 24, bottom: 24, left: 24, unit: 'px' } } }, tablet: { base: {} }, mobile: { base: {} } },
@@ -536,6 +550,18 @@ export function createCopilotTools(runtime, builder) {
                 case 'css_edit':
                     if (!args.selector || !args.property || args.value == null) return 'selector, property and value are required';
                     return asJson(cssEdit(String(args.selector), String(args.property), String(args.value)));
+                case 'set_interactions': {
+                    const target = resolve(args.path || args.id);
+                    if (!target) throw new TypeError('Element not found; read_design for current IDs.');
+                    const requested = Array.isArray(args.interactions) ? args.interactions : [];
+                    const interactions = normalizeInteractions(requested);
+                    if (requested.length && !interactions.length) throw new TypeError('No usable interaction: each needs a valid on/action, and a state name for state actions.');
+                    const settings = { interactions };
+                    if (args.stateNames != null) settings.stateNames = normalizeStateList(args.stateNames);
+                    if (args.state != null) settings.state = normalizeStateName(args.state);
+                    runtime.update(target.node.id, { settings }, 'AI set interactions');
+                    return asJson({ ok: true, id: target.node.id, interactions, stateNames: settings.stateNames, state: settings.state });
+                }
                 case 'undo': runtime.history.undo(); return 'ok';
                 case 'redo': runtime.history.redo(); return 'ok';
                 default: return `unknown tool: ${name}`;
@@ -577,11 +603,12 @@ export function createCopilotTools(runtime, builder) {
         { name: 'set_custom_css', description: 'Replace page-level custom CSS. Scope design classes under .ink-canvas-root and preserve responsive behavior.', parameters: { type: 'object', properties: { css: { type: 'string' } }, required: ['css'] } },
         { name: 'set_custom_js', description: 'Replace page-level JavaScript for progressive motion, interaction, canvas, WebGL, or shaders. Keep it idempotent and scoped to the page.', parameters: { type: 'object', properties: { js: { type: 'string' } }, required: ['js'] } },
         { name: 'css_edit', description: 'Set one custom-CSS property on one selector.', parameters: { type: 'object', properties: { selector: { type: 'string' }, property: { type: 'string' }, value: { type: 'string' } }, required: ['selector', 'property', 'value'] } },
+        { name: 'set_interactions', description: 'Set declarative interactions and/or component-state names on one element. interactions is an array of { on: click|hover|load|enter, action: toggleState|setState|toggleClass|show|hide|scrollTo|playMotion, target: self|parent|next|previous|query|children, state, className, selector, exclusive, delay }. stateNames names this layer\'s variants and state picks the authored one. Everything stays editable in the Interaction panel and runs in Preview/published output.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' }, interactions: { type: 'array', items: { type: 'object', additionalProperties: true } }, stateNames: { type: 'array', items: { type: 'string' } }, state: { type: 'string' } } } },
         { name: 'undo', description: 'Undo the last builder or Copilot change.', parameters: { type: 'object', properties: {} } },
         { name: 'redo', description: 'Redo the last undone change.', parameters: { type: 'object', properties: {} } },
     ];
 
-    const MUTATING_TOOLS = new Set(['set_shader_fill', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
+    const MUTATING_TOOLS = new Set(['set_shader_fill', 'set_interactions', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
     const context = () => ({
         selection: [...runtime.selection.selectedIds].map((id) => { const node = runtime.document.get(id); return node ? { id, type: node.type, label: node.settings.label || labelOf(node) } : null; }).filter(Boolean),
         device: runtime.responsive.device,

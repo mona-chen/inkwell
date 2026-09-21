@@ -3769,6 +3769,96 @@ body {
   resize: vertical;
 }
 
+/* Component states + interactions. Each interaction is one event → effect row; the detail line
+   only shows the fields that action needs, so the list stays scannable. */
+.ink-v2-state-names {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ink-v2-state-names input {
+  width: 100%;
+}
+
+.ink-v2-interactions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ink-v2-interaction {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--ink-editor-border);
+  border-radius: 6px;
+  background: var(--ink-editor-surface, transparent);
+}
+
+.ink-v2-interaction-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.ink-v2-interaction-head > label {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--ink-editor-faint);
+  font-size: 10px;
+}
+
+.ink-v2-interaction-head select {
+  width: 100%;
+  min-width: 0;
+}
+
+.ink-v2-interaction-remove {
+  flex: none;
+}
+
+.ink-v2-interaction-detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ink-v2-interaction-detail > label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--ink-editor-faint);
+  font-size: 10px;
+}
+
+.ink-v2-interaction-detail > label > .ink-v2-switch {
+  margin-left: 0;
+}
+
+.ink-v2-interaction-detail input, .ink-v2-interaction-detail select {
+  width: 100%;
+  min-width: 0;
+}
+
+.ink-v2-action-button.is-quiet {
+  min-width: 0;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid var(--ink-editor-border);
+  color: var(--ink-editor-faint);
+}
+
+.ink-v2-action-button.is-quiet:hover {
+  color: var(--ink-editor-text);
+  border-color: var(--ink-editor-text);
+}
+
 .ink-structure-window {
   position: fixed;
   z-index: 90;

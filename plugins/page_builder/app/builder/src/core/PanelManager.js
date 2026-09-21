@@ -1,5 +1,6 @@
 import { pickMedia, uploadMedia } from './MediaPicker.js';
 import { resolveLocation } from './StyleValueModel.js';
+import { elementStateNames, elementStateLabels, stateKey } from './states.js';
 import { RichTextAdapter } from './RichTextAdapter.js';
 import { availableFonts } from './fonts.js';
 import { renderIcon } from './icons.js';
@@ -428,17 +429,24 @@ export default class PanelManager {
             }
             const section = sections.get(control.section);
             if (control.states && !section.querySelector('.ink-v2-states')) {
-                const available = tabControls.filter((candidate) => candidate.section === control.section && candidate.states).flatMap((candidate) => Array.isArray(candidate.states) ? candidate.states : ['base', 'hover']);
+                // The state switcher covers the CSS pseudo-class buckets plus every component
+                // state the selected element type advertises (for example a dropdown's Open).
+                const definition = this.runtime.elements.get(node.type);
+                const declaredStates = elementStateNames(definition, node.settings);
+                const available = [
+                    ...tabControls.filter((candidate) => candidate.section === control.section && candidate.states).flatMap((candidate) => Array.isArray(candidate.states) ? candidate.states : ['base', 'hover']),
+                    ...declaredStates.map((name) => stateKey(name)),
+                ];
                 const stateOptions = [...new Set(available)];
                 const active = stateOptions.includes(this.sectionStates.get(control.section)) ? this.sectionStates.get(control.section) : stateOptions[0];
                 this.sectionStates.set(control.section, active);
                 const states = document.createElement('div'); states.className = 'ink-v2-states';
-                const labels = { base: 'Normal', hover: 'Hover', focus: 'Focus', active: 'Active' };
+                const labels = { base: 'Normal', hover: 'Hover', focus: 'Focus', active: 'Active', ...Object.fromEntries(Object.entries(elementStateLabels(this.runtime.elements.get(node.type), node.settings)).map(([name, label]) => [stateKey(name), label])) };
                 const select = document.createElement('select'); select.setAttribute('aria-label', `${control.section} state`);
                 stateOptions.forEach((state) => select.add(new Option(labels[state] || state, state)));
                 select.value = active;
                 select.addEventListener('click', (event) => event.stopPropagation());
-                select.addEventListener('change', () => { this.sectionStates.set(control.section, select.value); this.render(); });
+                select.addEventListener('change', () => { this.sectionStates.set(control.section, select.value); this.previewComponentState(node, select.value); this.render(); });
                 states.appendChild(select);
                 section.querySelector('summary').insertBefore(states, section.querySelector('.ink-v2-section-chevron'));
             }
@@ -453,9 +461,13 @@ export default class PanelManager {
         const test = (conditions) => Object.entries(conditions).every(([name, expected]) => {
             const device = this.runtime.responsive.device;
             const styles = { ...node.styles.base, ...node.styles.desktop?.base, ...(device !== 'desktop' ? node.styles.tablet?.base : {}), ...(device === 'mobile' ? node.styles.mobile?.base : {}) };
-            const actual = styles[name] ?? node.settings[name];
+            // `children` is a structural predicate, not a style value: controls can show or hide
+            // based on whether the element holds child elements (e.g. Tabs switches from its text
+            // repeater to panel children).
+            const actual = name === 'children' ? node.children : (styles[name] ?? node.settings[name]);
             if (Array.isArray(expected)) return expected.includes(actual);
-            if (expected === '__not_empty__') return actual !== undefined && actual !== null && actual !== '';
+            if (expected === '__not_empty__') return name === 'children' ? !!(actual || []).length : (actual !== undefined && actual !== null && actual !== '');
+            if (name === 'children') return (actual || []).length === Number(expected);
             return actual === expected;
         });
         const condition = control.condition;
@@ -463,6 +475,13 @@ export default class PanelManager {
         if (condition.all) return condition.all.every(test);
         if (condition.not) return !test(condition.not);
         return test(condition);
+    }
+
+    // Preview a component state on the canvas while the author styles it. The attribute is
+    // rewritten on every canvas render from the store, so this never touches saved data.
+    previewComponentState(node, state) {
+        if (!node || !this.runtime?.events) return;
+        this.runtime.events.emit('element:preview-state', { id: node.id, state: state && state.startsWith('state:') ? state : null });
     }
 
     currentValue(control, node) {

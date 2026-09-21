@@ -79,6 +79,8 @@ export default class EditorRuntime {
         ['heading', 'divider', 'raw-html', 'notice', 'alert'].forEach((type) => controls.register(type, controlsModule.notice));
         controls.register('button', controlsModule.actionButton);
         controls.register('hidden', controlsModule.hidden);
+        controls.register('state-names', controlsModule.stateNames);
+        controls.register('interactions', controlsModule.interactions);
     }
 
     create(type, overrides) { return this.elements.create(type, overrides); }

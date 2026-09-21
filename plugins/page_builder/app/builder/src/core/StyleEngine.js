@@ -1,4 +1,10 @@
+import { isComponentStateKey, stateNameFromKey } from './states.js';
+
 const STATE_PSEUDOS = { hover: 'hover', focus: 'focus', active: 'active' };
+const STATE_ORDER = ['base', 'hover', 'focus', 'active'];
+// Component states compile to an attribute selector on the element that carries the state, so
+// `.ink-el-<id>[data-ink-state="open"] .ink-el-tab-panel` styles a part while the element is open.
+const componentStateSelector = (state) => `[data-ink-state="${stateNameFromKey(state).replace(/["\\]/g, '')}"]`;
 const DEVICE_WIDTHS = { desktop: null, tablet: 'tablet', mobile: 'mobile' };
 import { usedFonts, fontImportUrl, customFontFaces } from './fonts.js';
 import { DEFAULT_THEME_COLORS, DEFAULT_THEME_TYPOGRAPHY, DEFAULT_THEME_SPACING } from './themeDefaults.js';
@@ -76,7 +82,8 @@ export default class StyleEngine {
         for (const device of ['desktop', 'tablet', 'mobile']) {
             const deviceStyles = node.styles?.[device] || {};
             const width = DEVICE_WIDTHS[device] ? this.responsive.breakpoints[DEVICE_WIDTHS[device]] : null;
-            for (const state of ['base', 'hover', 'focus', 'active']) {
+            const declared = Object.keys(deviceStyles).filter((state) => !STATE_ORDER.includes(state) && isComponentStateKey(state)).sort();
+            for (const state of [...STATE_ORDER, ...declared]) {
                 const settings = deviceStyles[state] || {};
                 if (!Object.keys(settings).length) continue;
                 const bySelector = new Map();
@@ -99,7 +106,7 @@ export default class StyleEngine {
                     }
                     bySelector.set(suffix, target);
                 });
-                const pseudo = STATE_PSEUDOS[state] ? `:${state}` : '';
+                const pseudo = STATE_PSEUDOS[state] ? `:${state}` : (isComponentStateKey(state) ? componentStateSelector(state) : '');
                 bySelector.forEach((values, selector) => {
                     const declarations = this.declarations(values);
                     if (!declarations) return;
