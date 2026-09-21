@@ -348,6 +348,89 @@ function detectOrbit3d(roots, ctx) {
   });
 }
 
+// `position: sticky` is a layout capability the site shipped in its stylesheet. Preserving it as
+// element data keeps a pinned header, a pinned rail, or the stage of a pinned timeline exactly
+// where the original put it -- and it is the same capability a human uses to build one by hand.
+function detectSticky(roots, ctx) {
+  const { evidence, report } = ctx;
+  let applied = 0;
+  walk({ children: roots }, (node) => {
+    if (!node.type) return;
+    const nodeSettings = settingsOf(node);
+    if (nodeSettings.sticky) return;
+    const style = evidenceStyle(evidence, node);
+    const inline = inlineStyles(node);
+    const position = String(style?.position || inline.position || "").toLowerCase();
+    if (position !== "sticky") return;
+    const top = Number.parseFloat(String(style?.top ?? inline.top ?? ""));
+    const bottom = Number.parseFloat(String(style?.bottom ?? inline.bottom ?? ""));
+    const zIndex = Number.parseInt(String(style?.zIndex ?? inline["z-index"] ?? ""), 10);
+    nodeSettings.sticky = {
+      enabled: true,
+      top: Number.isFinite(top) ? top : (Number.isFinite(bottom) ? 0 : 0),
+      zIndex: Number.isFinite(zIndex) ? zIndex : 10,
+    };
+    if (Number.isFinite(bottom) && !Number.isFinite(top)) nodeSettings.sticky.bottom = bottom;
+    applied += 1;
+    markComponent(node, "sticky", { top: nodeSettings.sticky.top }, report);
+  });
+  if (applied) report.notices.push(`${applied} sticky layers were preserved as native sticky positioning.`);
+}
+
+function isStickyDescendant(node) {
+  return childrenOf(node).some((child) => settingsOf(child).sticky)
+    || childrenOf(node).some((child) => collect(child, (candidate) => Boolean(settingsOf(candidate).sticky)).length > 0);
+}
+
+// Hover choreography: when several of one container's children react on hover, the real trigger was
+// the container. Grouping them means the whole card unfolds as the cursor enters it -- which is what
+// the original did, and what a per-layer :hover rule can never reproduce.
+function detectHoverGroup(roots, ctx) {
+  const { report } = ctx;
+  let applied = 0;
+  walk({ children: roots }, (node) => {
+    if (!node.type) return;
+    const nodeSettings = settingsOf(node);
+    if (nodeSettings.motionGroup || nodeSettings.motion) return;
+    const children = childrenOf(node);
+    if (children.length < 2) return;
+    const hoverChildren = children.filter((child) => settingsOf(child).motion && settingsOf(child).motion.trigger === "hover");
+    if (hoverChildren.length < 2) return;
+    nodeSettings.motionGroup = { kind: "unfold", label: "Hover unfold", trigger: "hover", stagger: 60 };
+    applied += 1;
+    markComponent(node, "hoverGroup", { layers: hoverChildren.length }, report);
+  });
+  if (applied) report.notices.push(`${applied} hover clusters became editable motion groups.`);
+}
+
+// Scroll choreography: several layers in one section scrub as the section crosses the viewport.
+// Grouping them onto one progress value keeps them in lockstep, and a section taller than the
+// viewport whose stage is sticky is exactly the pin the original used.
+function detectScrubGroup(roots, ctx) {
+  const { evidence, report } = ctx;
+  let applied = 0;
+  walk({ children: roots }, (node) => {
+    if (!node.type) return;
+    const nodeSettings = settingsOf(node);
+    if (nodeSettings.motionGroup) return;
+    const scrubChildren = childrenOf(node).filter((child) => settingsOf(child).motion && settingsOf(child).motion.trigger === "scroll");
+    if (scrubChildren.length < 2) return;
+    const rect = evidenceRect(evidence, node);
+    const pinned = Boolean(rect && rect.height > evidence.height * 1.05 && isStickyDescendant(node));
+    nodeSettings.motionGroup = {
+      kind: pinned ? "scrub" : "stagger",
+      label: pinned ? "Pinned scroll timeline" : "Scroll stagger",
+      trigger: "scroll",
+      stagger: pinned ? 0 : 80,
+      scrub: { reference: "group" },
+      ...(pinned ? { pin: { enabled: true, distance: Math.round(Math.max(0, (rect.height - evidence.height) / evidence.height) * 100) } } : {}),
+    };
+    applied += 1;
+    markComponent(node, pinned ? "pin" : "scrubGroup", { layers: scrubChildren.length }, report);
+  });
+  if (applied) report.notices.push(`${applied} scroll sections became editable motion groups.`);
+}
+
 // Entrance animations the site actually ran (WAAPI) become native, editable motion. The same
 // data a designer would type into the Motion panel is what the importer writes.
 function detectMotion(roots, ctx) {
@@ -887,8 +970,11 @@ function inferPatterns(children, options = {}) {
   if (!Array.isArray(children) || !children.length) return { report, css: "" };
   linkParents(children);
   detectOrbit3d(children, ctx);
+  detectSticky(children, ctx);
   detectMotion(children, ctx);
   detectStylesheetHover(children, ctx);
+  detectHoverGroup(children, ctx);
+  detectScrubGroup(children, ctx);
   detectSiteParts(children, ctx);
   detectNavigation(children, ctx);
   detectTabs(children, ctx);
@@ -904,6 +990,9 @@ function inferPatterns(children, options = {}) {
 module.exports = {
   inferPatterns,
   createEvidence,
+  detectSticky,
+  detectHoverGroup,
+  detectScrubGroup,
   sitePartKeyFor,
   isSharedSitePart,
   detectSiteParts,

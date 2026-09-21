@@ -1,6 +1,7 @@
 import { attachShaderFill } from './shaderPresets.js';
 import { SHADER_RUNTIME } from './shaderRuntime.js';
 import { SCROLL_MOTION_RUNTIME } from './scrollMotionRuntime.js';
+import { normalizeMotionGroup, effectiveMotion } from './motionGroups.js';
 import { INTERACTION_RUNTIME } from './interactionRuntime.js';
 import { elementStateNames, initialState, normalizeInteractions } from './states.js';
 import { renderIcon } from './icons.js';
@@ -253,9 +254,19 @@ export default class CanvasRenderer {
         if (/^[a-zA-Z_][\w:.-]*$/.test(cssId)) element.id = cssId;
         element.dataset.inkElementId = node.id;
         element.dataset.inkElementType = node.type;
-        if (node.settings.motion?.enabled !== false && ['scroll', 'enter'].includes(node.settings.motion?.trigger)) {
-            element.dataset.inkScrollMotion = JSON.stringify(node.settings.motion);
+        // Motion stays ordinary element data. A parent group contributes the shared trigger, timing
+        // and stagger to each child, so the runtime must receive the *resolved* motion rather than
+        // the raw per-layer value. The group itself is published on its owner so scroll children
+        // can find their shared progress reference and Copilot can read the whole timeline.
+        const parent = this.document.parentOf(node.id);
+        const parentGroup = parent ? normalizeMotionGroup(parent.settings?.motionGroup) : null;
+        const siblingIndex = parent && Array.isArray(parent.children) ? Math.max(0, parent.children.indexOf(node)) : 0;
+        const motion = effectiveMotion(node.settings?.motion, parentGroup, siblingIndex);
+        if (motion && ['scroll', 'enter'].includes(motion.trigger)) {
+            element.dataset.inkScrollMotion = JSON.stringify(motion);
         }
+        const ownGroup = normalizeMotionGroup(node.settings?.motionGroup);
+        if (ownGroup) element.dataset.inkMotionGroup = JSON.stringify(ownGroup);
         // Component state: the variant this element is authored in. It is data, not script, so
         // published pages paint the authored state before any runtime runs.
         if (elementStateNames(definition, node.settings).length) {

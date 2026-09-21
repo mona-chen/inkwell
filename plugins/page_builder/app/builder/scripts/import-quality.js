@@ -1,19 +1,27 @@
 "use strict";
 
 // Report only what the mapper can prove. A reconstructed DOM is not a recovered interaction.
-function importQuality(nodes, viewports = []) {
-  const report = { nativeNodes: 0, containers: 0, maxDepth: 0, nativeMotionNodes: 0, importedDomNodes: 0, unverifiedControls: 0 };
+function importQuality(nodes, viewports = [], extraRoots = []) {
+  const report = { nativeNodes: 0, containers: 0, maxDepth: 0, nativeMotionNodes: 0, importedDomNodes: 0, unverifiedControls: 0, motionGroups: 0, stickyNodes: 0, interactions: 0, statefulNodes: 0, structuredSections: 0, scopedCss: 0 };
   function visit(node, depth) {
     report.nativeNodes++;
     report.maxDepth = Math.max(report.maxDepth, depth);
     if (node.type === "container") report.containers++;
     if (node.settings?.importedDom) report.importedDomNodes++;
     if (node.settings?.motion) report.nativeMotionNodes++;
+    if (node.settings?.motionGroup) report.motionGroups++;
+    if (node.settings?.sticky) report.stickyNodes++;
+    if (Array.isArray(node.settings?.interactions) && node.settings.interactions.length) report.interactions += node.settings.interactions.length;
+    if (Array.isArray(node.settings?.stateNames) && node.settings.stateNames.length) report.statefulNodes++;
+    if (node.settings?.role) report.structuredSections++;
     const attrs = node.settings?.importedAttributes || {};
     if (node.settings?.importedTag === "button" || ["button", "tab", "switch", "menuitem"].includes(attrs.role)) report.unverifiedControls++;
     (node.children || []).forEach((child) => visit(child, depth + 1));
   }
   nodes.forEach((node) => visit(node, 1));
+  // Global header/footer nodes live outside the page tree once they are shared site parts, so a
+  // page-level report must be able to fold them back in for an honest whole-site count.
+  (extraRoots || []).forEach((node) => visit(node, 1));
   report.observedAnimations = Math.max(0, ...viewports.map((view) => (view.animations || []).length));
   report.behaviorVerified = false;
   return report;

@@ -209,3 +209,43 @@ test("evidence from a different element is never read into an ambiguous wrapper"
   // fake card grid or duplicated header may appear.
   assert.deepEqual(report.components, []);
 });
+
+test("a sticky layer keeps its positioning as native builder data", () => {
+  const rail = container({ class: "rail" }, []);
+  const nodes = [evidence({ class: "rail" }, { x: 0, y: 0, width: 300, height: 500 }, { position: "sticky", top: "24px", zIndex: "5" })];
+  const { report } = inferPatterns([rail], { viewports: [viewport(nodes)] });
+  assert.deepEqual(rail.settings.sticky, { enabled: true, top: 24, zIndex: 5 });
+  assert.equal(report.counts.sticky, 1);
+});
+
+test("hover choreography across a container's children becomes one editable motion group", () => {
+  const hover = { enabled: true, trigger: "hover", duration: 400, keyframes: [{ offset: 0 }, { offset: 1, opacity: 0.5 }] };
+  const cards = [1, 2, 3].map((index) => container({ class: `card-${index}` }, [textNode("heading", `Card ${index}`)], { motion: hover }));
+  const deck = container({ class: "deck" }, cards);
+  const { report } = inferPatterns([deck], { viewports: [viewport([evidence({ class: "deck" }, { x: 0, y: 0, width: 900, height: 300 })])] });
+  assert.deepEqual(deck.settings.motionGroup, { kind: "unfold", label: "Hover unfold", trigger: "hover", stagger: 60 });
+  assert.equal(report.counts.hoverGroup, 1);
+});
+
+test("a pinned section whose layers scrub becomes one shared scroll timeline", () => {
+  const scroll = { enabled: true, trigger: "scroll", duration: 800, keyframes: [{ offset: 0, opacity: 0 }, { offset: 1, opacity: 1 }] };
+  const stage = container({ class: "stage" }, [textNode("heading", "Stage")], { sticky: { enabled: true, top: 0, zIndex: 10 } });
+  const layers = [1, 2].map((index) => container({ class: `layer-${index}` }, [], { motion: scroll }));
+  const section = container({ class: "scrub" }, [stage, ...layers]);
+  const nodes = [evidence({ class: "scrub" }, { x: 0, y: 0, width: 1440, height: 2700 })];
+  const { report } = inferPatterns([section], { viewports: [viewport(nodes)] });
+  assert.deepEqual(section.settings.motionGroup, {
+    kind: "scrub", label: "Pinned scroll timeline", trigger: "scroll", stagger: 0,
+    scrub: { reference: "group" }, pin: { enabled: true, distance: 200 },
+  });
+  assert.equal(report.counts.pin, 1);
+});
+
+test("a scroll section without a sticky stage stays an unpinned stagger group", () => {
+  const scroll = { enabled: true, trigger: "scroll", duration: 800, keyframes: [{ offset: 0, opacity: 0 }, { offset: 1, opacity: 1 }] };
+  const section = container({ class: "band" }, [1, 2].map((index) => container({ class: `item-${index}` }, [], { motion: scroll })));
+  const nodes = [evidence({ class: "band" }, { x: 0, y: 0, width: 1440, height: 700 })];
+  const { report } = inferPatterns([section], { viewports: [viewport(nodes)] });
+  assert.deepEqual(section.settings.motionGroup, { kind: "stagger", label: "Scroll stagger", trigger: "scroll", stagger: 80, scrub: { reference: "group" } });
+  assert.equal(report.counts.scrubGroup, 1);
+});

@@ -393,7 +393,7 @@ if (manifest.format === "ink-site-capture-v2") {
       customCss: importedCss,
       customJs: nativeRuntime(scriptEntries, page.url),
       initialHtml,
-      importReport: { ...payload.importReport, mode: "native-dom", inferred: { components: patterns.report.components, roles: patterns.report.roles, sections: patterns.report.sections, notices: patterns.report.notices }, ...importQuality(deduplicatedNativeChildren, pageManifest.viewports) },
+      importReport: { ...payload.importReport, mode: "native-dom", inferred: { components: patterns.report.components, roles: patterns.report.roles, sections: patterns.report.sections, notices: patterns.report.notices, counts: patterns.report.counts }, ...importQuality(deduplicatedNativeChildren, pageManifest.viewports, Object.values(capturedSiteParts)) },
     };
     return { source: page.url, title, slug: routes[routeKey(page.url)], depth: page.depth, parentSource: page.parent, payload: nativePayload };
   });
@@ -417,6 +417,9 @@ if (manifest.format === "ink-site-capture-v2") {
       behaviorVerified: false,
       notices: ["Structure, styles and the interactions the capture could observe were reconstructed as native, editable element data.", "Regions the site renders from component code (for example a nav panel or a dropdown body) are rebuilt from the markup that did ship; review the inferred components list."],
       pages: pages.map((page) => ({ source: page.source, ...page.payload.importReport })),
+      // One honest number for the whole import, including the shared header/footer that the page
+      // tree only references: how much became native structure, motion, state and interaction.
+      quality: importQuality(pages.flatMap((page) => page.payload.children), [], Object.values(capturedSiteParts)),
       skippedRoutes: skippedRoutes(manifest, manifest.pages.map((page) => JSON.parse(fs.readFileSync(path.join(captureDir, page.manifest), 'utf8')))),
     },
   };

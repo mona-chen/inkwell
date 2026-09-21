@@ -1,4 +1,5 @@
 import { isComponentStateKey, stateNameFromKey } from './states.js';
+import { normalizeMotionGroup, effectiveMotion } from './motionGroups.js';
 
 const STATE_PSEUDOS = { hover: 'hover', focus: 'focus', active: 'active' };
 const STATE_ORDER = ['base', 'hover', 'focus', 'active'];
@@ -118,10 +119,41 @@ export default class StyleEngine {
         return css;
     }
 
-    motionRules(node) {
-        const motion = node.settings?.motion;
-        if (['scroll', 'enter'].includes(motion?.trigger)) return ''; // Shared runtime controls progress.
-        if (!motion || motion.enabled === false || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return '';
+    // Sticky is a plain layout capability: any layer can pin inside its scroll container. It is
+    // what makes a pinned scroll timeline composable by hand -- a tall group section whose stage
+    // is sticky -- without ever restructuring the editable tree.
+    stickyRules(node) {
+        const sticky = node.settings?.sticky;
+        if (!sticky || sticky.enabled === false) return '';
+        const top = Number(sticky.top);
+        const bottom = Number(sticky.bottom);
+        const zIndex = Number(sticky.zIndex);
+        const declarations = [
+            'position:sticky',
+            `top:${Number.isFinite(top) ? top : 0}px`,
+            Number.isFinite(bottom) ? `bottom:${bottom}px` : '',
+            `z-index:${Number.isFinite(zIndex) ? Math.round(zIndex) : 10}`,
+        ].filter(Boolean).join(';');
+        return `${this.selector(node.id)}{${declarations}}`;
+    }
+
+    // A pinned motion group reserves the scroll distance its timeline needs; the shared scroll
+    // runtime then scrubs the stage's children across that distance. CSS-only, so Design mode and
+    // published output share one geometry.
+    pinRules(node) {
+        const group = normalizeMotionGroup(node.settings?.motionGroup);
+        if (!group?.pin?.enabled) return '';
+        const distance = group.pin.distance;
+        return `${this.selector(node.id)}{position:relative;min-height:calc(100vh + ${distance}vh)}${this.selector(node.id)} > [data-ink-children]{position:sticky;top:0}`;
+    }
+
+    // Motion for one layer. `context` carries the parent's group (and the parent's selector and
+    // the layer's index) so a group can share its trigger and stagger across siblings without any
+    // element losing its own editable keyframes.
+    motionRules(node, context = {}) {
+        const motion = effectiveMotion(node.settings?.motion, context.group, context.index || 0);
+        if (!motion || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return '';
+        if (['scroll', 'enter'].includes(motion.trigger)) return ''; // Shared runtime controls progress.
         const safeId = String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_');
         const name = `ink-motion-${safeId}`;
         const allowed = new Set(['transform', 'opacity', 'filter', 'clip-path', 'background-color', 'color']);
@@ -138,7 +170,11 @@ export default class StyleEngine {
         const iterations = motion.iterations === 'infinite' ? 'infinite' : Math.max(1, Number(motion.iterations) || 1);
         const easing = /^[a-z-]+$|^cubic-bezier\([\d.,\s-]+\)$|^steps\([\d,\s-]+\)$/i.test(String(motion.easing || '')) ? motion.easing : 'ease';
         const direction = ['normal', 'reverse', 'alternate', 'alternate-reverse'].includes(motion.direction) ? motion.direction : 'normal';
-        const target = `${this.selector(node.id)}${motion.trigger === 'hover' ? ':hover' : ''}`;
+        // A group hover plays every child when the *group* is hovered -- this is what makes an
+        // unfold card work, and it is the difference between real choreography and a per-layer
+        // hover effect that only fires on the exact pixels under the cursor.
+        const grouped = context.group && context.group.trigger === 'hover' && context.groupSelector;
+        const target = grouped ? `${context.groupSelector}:hover ${this.selector(node.id)}` : `${this.selector(node.id)}${motion.trigger === 'hover' ? ':hover' : ''}`;
         return `@keyframes ${name}{${frames}}body:not(.ink-builder-design) ${target}{animation:${name} ${duration}ms ${easing} ${delay}ms ${iterations} ${direction} both;transform-style:preserve-3d}@media(prefers-reduced-motion:reduce){${this.selector(node.id)}{animation:none!important}}`;
     }
 
@@ -149,8 +185,18 @@ export default class StyleEngine {
         const typography = { ...DEFAULT_THEME_TYPOGRAPHY, ...(theme.typography || {}) };
         const spacing = { ...DEFAULT_THEME_SPACING, ...(theme.spacing || {}) };
         let css = `:root{--ink-color-primary:${colors.primary};--ink-color-secondary:${colors.secondary};--ink-color-text:${colors.text};--ink-color-accent:${colors.accent};--ink-content-width:${Number(spacing.contentWidth) || DEFAULT_THEME_SPACING.contentWidth}px;--ink-page-gutter:${Number(spacing.pageGutter) || 0}px;--ink-section-gap:${Number(spacing.sectionGap) || 0}px}body{background:${settings.backgroundColor || '#ffffff'};color:var(--ink-color-text);font-family:${typography.fontFamily};font-size:${Number(typography.baseSize) || DEFAULT_THEME_TYPOGRAPHY.baseSize}px;line-height:${Number(typography.lineHeight) || DEFAULT_THEME_TYPOGRAPHY.lineHeight}}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter);color:inherit}`;
-        const visit = (node) => { css += this.nodeRules(node); css += this.motionRules(node); (node.children || []).forEach(visit); };
-        document.data.children.forEach(visit);
+        const visit = (node, context = {}) => {
+            css += this.nodeRules(node);
+            css += this.stickyRules(node);
+            css += this.pinRules(node);
+            css += this.motionRules(node, context);
+            // A group on this node orchestrates its own children; grandchildren inherit nothing, so
+            // nesting a group inside a group stays explicit and each timeline has one owner.
+            const group = normalizeMotionGroup(node.settings?.motionGroup);
+            const children = node.children || [];
+            children.forEach((child, index) => visit(child, group ? { group, index, groupSelector: this.selector(node.id) } : {}));
+        };
+        document.data.children.forEach((node) => visit(node, {}));
         css += document.data.settings.customCss || '';
         // Google Fonts: @import must be the first rules in the stylesheet so the font survives
         // published output (the body keeps this style tag; the head is dropped).

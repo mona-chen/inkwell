@@ -65,10 +65,11 @@ module Admin
 
     def import_review
       report = @website_import.report || {}
-      return if report["notices"].blank? && report["skippedRoutes"].blank?
+      return if report["notices"].blank? && report["skippedRoutes"].blank? && report["quality"].blank?
 
       section(class: "mt-6 rounded-xl border border-border bg-background p-5") do
         h2(class: "text-sm font-semibold text-foreground") { "Import review" }
+        recovered_behavior(report["quality"])
         Array(report["notices"]).each do |notice|
           p(class: "mt-2 text-sm text-muted-foreground") { notice }
         end
@@ -86,6 +87,28 @@ module Admin
             end
           end
         end
+      end
+    end
+
+    # Honest behaviour accounting: an import may look identical and still carry none of the
+    # interactions. Report what actually became editable element data, not what the pixels imply.
+    def recovered_behavior(quality)
+      quality = quality.to_h
+      return if quality.blank?
+
+      metrics = [
+        ["Native motion", quality["nativeMotionNodes"]],
+        ["Motion groups", quality["motionGroups"]],
+        ["Sticky layers", quality["stickyNodes"]],
+        ["Interactions", quality["interactions"]],
+        ["Component states", quality["statefulNodes"]],
+        ["Sections with a role", quality["structuredSections"]],
+      ]
+      div(class: "mt-4 grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3") do
+        metrics.each { |label, value| metric(label, value || 0) }
+      end
+      p(class: "mt-3 text-xs text-muted-foreground") do
+        "Appearance is preserved for every captured node; the counts above are the behavior that became editable element data. Controls the capture could not verify remain styled containers."
       end
     end
 

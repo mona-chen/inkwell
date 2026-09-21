@@ -14,6 +14,10 @@ import {
     INTERACTION_ACTIONS, INTERACTION_ACTION_LABELS, INTERACTION_EVENTS, INTERACTION_EVENT_LABELS,
     INTERACTION_TARGETS, INTERACTION_TARGET_LABELS, normalizeInteractions, normalizeStateList, normalizeStateName,
 } from '../states.js';
+import {
+    MOTION_GROUP_KINDS, MOTION_GROUP_KIND_LABELS, MOTION_GROUP_TRIGGERS, MOTION_GROUP_TRIGGER_LABELS,
+    describeMotionGroup, motionGroupItems, normalizeMotionGroup,
+} from '../motionGroups.js';
 
 const labelFor = (option) => typeof option === 'object' ? option.label : String(option).replace(/-/g, ' ');
 const valueFor = (option) => typeof option === 'object' ? option.value : option;
@@ -77,6 +81,78 @@ export function motion(panel, control, node, value, row) {
         panel.setValue(control, node, { enabled: enabled.checked, trigger: trigger.value, duration: Math.max(1, Number(duration.value) || 800), delay: Number(delay.value) || 0, easing: easing.value, iterations: iterations.value === 'infinite' ? 'infinite' : Math.max(1, Number(iterations.value) || 1), direction: direction.value, keyframes: parsed });
     };
     [enabled, trigger, duration, delay, easing, iterations, direction, keyframes].forEach((input) => input.addEventListener('change', commit));
+    row.appendChild(wrapper); return row;
+}
+
+// Motion group: the orchestration layer above per-layer motion. It shares one trigger across the
+// children of this element, staggers their starts, and -- for scroll groups -- names the reference
+// they scrub against, so a whole section advances off one progress value. Rendered as an editable
+// timeline summary so the author sees exactly which layers take part and when each one starts.
+export function motionGroup(panel, control, node, value, row) {
+    const group = normalizeMotionGroup(value);
+    const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-motion-group-control';
+    const field = (labelText, input) => { const label = document.createElement('label'); label.textContent = labelText; label.appendChild(input); wrapper.appendChild(label); return input; };
+    const enabledControl = switchControl({ checked: !!group, ariaLabel: 'Orchestrate children as one timeline', onLabel: 'Group', offLabel: 'Off' });
+    const enabled = enabledControl.checkbox;
+    const kind = document.createElement('select'); MOTION_GROUP_KINDS.forEach((name) => kind.add(new Option(MOTION_GROUP_KIND_LABELS[name] || name, name))); kind.value = group?.kind || 'group';
+    const trigger = document.createElement('select'); MOTION_GROUP_TRIGGERS.forEach((name) => trigger.add(new Option(MOTION_GROUP_TRIGGER_LABELS[name] || name, name))); trigger.value = group?.trigger || 'inherit';
+    const stagger = document.createElement('input'); stagger.type = 'number'; stagger.min = '0'; stagger.step = '25'; stagger.value = group?.stagger ?? 0;
+    const duration = document.createElement('input'); duration.type = 'number'; duration.min = '0'; duration.step = '50'; duration.value = group?.duration ?? 0; duration.placeholder = 'each layer';
+    const easing = document.createElement('select'); ['', 'linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier(.16,1,.3,1)'].forEach((name) => easing.add(new Option(name || 'each layer', name))); easing.value = group?.easing || '';
+    const reference = document.createElement('select'); [['group', 'The group section'], ['parent', 'The group\u2019s parent']].forEach(([name, label]) => reference.add(new Option(label, name))); reference.value = group?.scrub?.reference || 'group';
+    const pinControl = switchControl({ checked: !!group?.pin?.enabled, ariaLabel: 'Pin the group while it scrubs', onLabel: 'Pinned', offLabel: 'Free' }); const pin = pinControl.checkbox;
+    const distance = document.createElement('input'); distance.type = 'number'; distance.min = '0'; distance.max = '400'; distance.step = '25'; distance.value = group?.pin?.distance ?? 100;
+
+    const scrollOnly = () => {
+        reference.disabled = trigger.value !== 'scroll';
+        pin.disabled = trigger.value !== 'scroll';
+        distance.disabled = trigger.value !== 'scroll' || !pin.checked;
+    };
+    const commit = () => {
+        if (!enabled.checked) { panel.setValue(control, node, null); return; }
+        panel.setValue(control, node, normalizeMotionGroup({
+            kind: kind.value, trigger: trigger.value, stagger: Number(stagger.value) || 0,
+            duration: Number(duration.value) || 0, easing: easing.value,
+            scrub: { reference: reference.value }, pin: { enabled: pin.checked, distance: Number(distance.value) || 0 },
+        }));
+    };
+    const status = document.createElement('small'); status.className = 'ink-v2-control-description';
+    const sync = () => {
+        scrollOnly();
+        const preview = normalizeMotionGroup({
+            kind: kind.value, trigger: trigger.value, stagger: Number(stagger.value) || 0,
+            duration: Number(duration.value) || 0, easing: easing.value,
+            scrub: { reference: reference.value }, pin: { enabled: pin.checked, distance: Number(distance.value) || 0 },
+        });
+        const items = motionGroupItems({ ...node, settings: { ...node.settings, motionGroup: preview } });
+        status.textContent = items.length
+            ? `${describeMotionGroup(preview)} \u2014 ${items.length} layer${items.length === 1 ? '' : 's'} (${items.map((item) => `${item.delay}ms`).join(', ')})`
+            : 'No child layer has keyframes yet. Add Animation to the children, then they play as one timeline.';
+    };
+    const syncAndCommit = () => { sync(); commit(); };
+    [enabled, kind, trigger, stagger, duration, easing, reference, pin, distance].forEach((input) => input.addEventListener('change', syncAndCommit));
+    field('Orchestrate', enabledControl.wrapper); field('Kind', kind); field('Trigger', trigger); field('Stagger (ms)', stagger); field('Duration (ms)', duration); field('Easing', easing); field('Scroll reference', reference); field('Pin', pinControl.wrapper); field('Pinned distance (vh)', distance);
+    wrapper.appendChild(status); sync();
+    row.appendChild(wrapper); return row;
+}
+
+// Sticky: a plain layout capability any layer can opt into. It is the missing half of a pinned
+// scroll timeline -- the tall group section plus a sticky stage -- and it is also how a site's
+// own `position: sticky` header is preserved on import.
+export function sticky(panel, control, node, value, row) {
+    const stickyValue = value && typeof value === 'object' ? value : {};
+    const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-sticky-control';
+    const field = (labelText, input) => { const label = document.createElement('label'); label.textContent = labelText; label.appendChild(input); wrapper.appendChild(label); return input; };
+    const { wrapper: toggleWrapper, checkbox } = switchControl({ checked: !!value && stickyValue.enabled !== false, ariaLabel: 'Sticky positioning', onLabel: 'Sticky', offLabel: 'Static' });
+    const top = document.createElement('input'); top.type = 'number'; top.step = '1'; top.value = Number.isFinite(Number(stickyValue.top)) ? Number(stickyValue.top) : 0;
+    const zIndex = document.createElement('input'); zIndex.type = 'number'; zIndex.step = '1'; zIndex.value = Number.isFinite(Number(stickyValue.zIndex)) ? Number(stickyValue.zIndex) : 10;
+    const commit = () => {
+        if (!checkbox.checked) { panel.setValue(control, node, null); return; }
+        panel.setValue(control, node, { enabled: true, top: Number(top.value) || 0, zIndex: Number(zIndex.value) || 10 });
+    };
+    [checkbox, top, zIndex].forEach((input) => input.addEventListener('change', commit));
+    field('Position', toggleWrapper); field('Offset from top (px)', top); field('Z-index', zIndex);
+    const hint = document.createElement('small'); hint.className = 'ink-v2-control-description'; hint.textContent = 'Pin this layer inside its scroll container. Build a pinned timeline as a tall motion group whose stage is sticky.'; wrapper.appendChild(hint);
     row.appendChild(wrapper); return row;
 }
 

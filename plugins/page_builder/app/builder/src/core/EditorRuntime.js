@@ -48,6 +48,8 @@ export default class EditorRuntime {
         controls.register('media', controlsModule.media);
         controls.register('imported-background', controlsModule.importedBackground);
         controls.register('motion', controlsModule.motion);
+        controls.register('motion-group', controlsModule.motionGroup);
+        controls.register('sticky', controlsModule.sticky);
         controls.register('gallery', controlsModule.gallery);
         controls.register('repeater', controlsModule.repeater);
         controls.register('box-shadow', controlsModule.shadow);

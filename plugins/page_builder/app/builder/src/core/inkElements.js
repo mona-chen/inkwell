@@ -31,6 +31,8 @@ const vectorAdvanced = [
     { tab: 'advanced', target: 'styles', section: 'Effects', name: 'opacity', type: 'slider', label: 'Opacity', min: 0, max: 1, step: 0.05, responsive: true },
     { tab: 'advanced', target: 'styles', section: 'Effects', name: 'filter', type: 'css-filters', label: 'CSS filters' },
     { tab: 'advanced', target: 'settings', section: 'Motion', name: 'motion', type: 'motion', label: 'Animation', description: 'Native keyframes run in Preview and published pages; Design mode stays stable and editable.' },
+    { tab: 'advanced', target: 'settings', section: 'Motion', name: 'motionGroup', type: 'motion-group', label: 'Motion group', description: 'Orchestrate this layer\'s children as one timeline: a shared trigger, a stagger between them, and for scroll groups the reference they scrub against.' },
+    { tab: 'advanced', target: 'settings', section: 'Motion', name: 'sticky', type: 'sticky', label: 'Sticky', description: 'Pin this layer inside its scroll container. A pinned scroll timeline is a tall motion group whose stage is sticky.' },
 ];
 
 // Single typography popover (Ink) writing to the element's style bucket.

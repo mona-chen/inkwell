@@ -514,6 +514,13 @@
 .ink-v2-motion-control > label:last-of-type,.ink-v2-motion-control > small { grid-column:1/-1; }
 .ink-v2-motion-control input,.ink-v2-motion-control select,.ink-v2-motion-control textarea { width:100%; min-width:0; }
 .ink-v2-motion-control textarea { min-height:150px; resize:vertical; }
+/* Motion groups and sticky reuse the motion field grid so the Motion section reads as one block. */
+.ink-v2-motion-group-control,.ink-v2-sticky-control { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.ink-v2-motion-group-control > label,.ink-v2-sticky-control > label { display:flex; min-width:0; flex-direction:column; gap:5px; color:var(--ink-editor-faint); font-size:10px; }
+.ink-v2-motion-group-control > label:first-child,.ink-v2-sticky-control > label:first-child { grid-column:1/-1; flex-direction:row; align-items:center; justify-content:space-between; }
+.ink-v2-motion-group-control > small,.ink-v2-sticky-control > small { grid-column:1/-1; }
+.ink-v2-motion-group-control input,.ink-v2-motion-group-control select,.ink-v2-sticky-control input { width:100%; min-width:0; }
+.ink-v2-motion-group-control input:disabled,.ink-v2-motion-group-control select:disabled,.ink-v2-sticky-control input:disabled { opacity:.45; }
 
 /* Component states + interactions. Each interaction is one event → effect row; the detail line
    only shows the fields that action needs, so the list stays scannable. */

@@ -1263,10 +1263,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./shaderPresets.js */ "./src/core/shaderPresets.js");
 /* harmony import */ var _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./shaderRuntime.js */ "./src/core/shaderRuntime.js");
 /* harmony import */ var _scrollMotionRuntime_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./scrollMotionRuntime.js */ "./src/core/scrollMotionRuntime.js");
-/* harmony import */ var _interactionRuntime_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./interactionRuntime.js */ "./src/core/interactionRuntime.js");
-/* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
-/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
-/* harmony import */ var _DynamicData_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./DynamicData.js */ "./src/core/DynamicData.js");
+/* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./motionGroups.js */ "./src/core/motionGroups.js");
+/* harmony import */ var _interactionRuntime_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./interactionRuntime.js */ "./src/core/interactionRuntime.js");
+/* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
+/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
+/* harmony import */ var _DynamicData_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./DynamicData.js */ "./src/core/DynamicData.js");
 function _readOnlyError(r) { throw new TypeError('"' + r + '" is read-only'); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -1287,6 +1288,7 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+
 
 
 
@@ -1363,7 +1365,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
         var node = id ? _this.document.get(id) : null;
         if (!element || !node) return;
         var definition = _this.registry.get(node.type);
-        var next = state ? String(state).replace(/^state:/, '') : (0,_states_js__WEBPACK_IMPORTED_MODULE_4__.initialState)(definition, node.settings);
+        var next = state ? String(state).replace(/^state:/, '') : (0,_states_js__WEBPACK_IMPORTED_MODULE_5__.initialState)(definition, node.settings);
         if (next) element.dataset.inkState = next;else delete element.dataset.inkState;
       }));
       this.root.ownerDocument.defaultView.addEventListener('scroll', function () {
@@ -1378,8 +1380,9 @@ var CanvasRenderer = /*#__PURE__*/function () {
   }, {
     key: "create",
     value: function create(node) {
-      var _node$settings$motion,
-        _node$settings$motion2,
+      var _parent$settings,
+        _node$settings,
+        _node$settings2,
         _this2 = this,
         _node$children,
         _definition$mount;
@@ -1387,7 +1390,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
       var imported = !!node.settings.importedDom;
       // Resolve dynamic `{{ … }}` bindings against sample data for on-canvas preview only —
       // the store keeps the tokens, so published output still resolves server-side.
-      var renderNode = imported ? node : (0,_DynamicData_js__WEBPACK_IMPORTED_MODULE_6__.previewNode)(node);
+      var renderNode = imported ? node : (0,_DynamicData_js__WEBPACK_IMPORTED_MODULE_7__.previewNode)(node);
       var element = imported ? this.createImportedElement(node) : definition.render({
         document: this.document,
         domDocument: this.root.ownerDocument,
@@ -1412,19 +1415,29 @@ var CanvasRenderer = /*#__PURE__*/function () {
       if (/^[a-zA-Z_][\w:.-]*$/.test(cssId)) element.id = cssId;
       element.dataset.inkElementId = node.id;
       element.dataset.inkElementType = node.type;
-      if (((_node$settings$motion = node.settings.motion) === null || _node$settings$motion === void 0 ? void 0 : _node$settings$motion.enabled) !== false && ['scroll', 'enter'].includes((_node$settings$motion2 = node.settings.motion) === null || _node$settings$motion2 === void 0 ? void 0 : _node$settings$motion2.trigger)) {
-        element.dataset.inkScrollMotion = JSON.stringify(node.settings.motion);
+      // Motion stays ordinary element data. A parent group contributes the shared trigger, timing
+      // and stagger to each child, so the runtime must receive the *resolved* motion rather than
+      // the raw per-layer value. The group itself is published on its owner so scroll children
+      // can find their shared progress reference and Copilot can read the whole timeline.
+      var parent = this.document.parentOf(node.id);
+      var parentGroup = parent ? (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_3__.normalizeMotionGroup)((_parent$settings = parent.settings) === null || _parent$settings === void 0 ? void 0 : _parent$settings.motionGroup) : null;
+      var siblingIndex = parent && Array.isArray(parent.children) ? Math.max(0, parent.children.indexOf(node)) : 0;
+      var motion = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_3__.effectiveMotion)((_node$settings = node.settings) === null || _node$settings === void 0 ? void 0 : _node$settings.motion, parentGroup, siblingIndex);
+      if (motion && ['scroll', 'enter'].includes(motion.trigger)) {
+        element.dataset.inkScrollMotion = JSON.stringify(motion);
       }
+      var ownGroup = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_3__.normalizeMotionGroup)((_node$settings2 = node.settings) === null || _node$settings2 === void 0 ? void 0 : _node$settings2.motionGroup);
+      if (ownGroup) element.dataset.inkMotionGroup = JSON.stringify(ownGroup);
       // Component state: the variant this element is authored in. It is data, not script, so
       // published pages paint the authored state before any runtime runs.
-      if ((0,_states_js__WEBPACK_IMPORTED_MODULE_4__.elementStateNames)(definition, node.settings).length) {
-        var state = (0,_states_js__WEBPACK_IMPORTED_MODULE_4__.initialState)(definition, node.settings);
+      if ((0,_states_js__WEBPACK_IMPORTED_MODULE_5__.elementStateNames)(definition, node.settings).length) {
+        var state = (0,_states_js__WEBPACK_IMPORTED_MODULE_5__.initialState)(definition, node.settings);
         if (state) element.dataset.inkState = state;
         var group = String(node.settings.stateGroup || '').trim();
         if (group) element.dataset.inkStateGroup = group;
       }
       // Interactions are declarative element data consumed by the shared runtime.
-      var interactions = (0,_states_js__WEBPACK_IMPORTED_MODULE_4__.normalizeInteractions)(node.settings.interactions);
+      var interactions = (0,_states_js__WEBPACK_IMPORTED_MODULE_5__.normalizeInteractions)(node.settings.interactions);
       if (interactions.length) element.dataset.inkInteractions = JSON.stringify(interactions);
       element.dataset.inkKind = kind;
       element.draggable = !node.settings.locked;
@@ -1684,7 +1697,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
       var doc = this.root.ownerDocument;
       var script = doc.createElement('script');
       script.dataset.inkWidgetRuntime = '';
-      script.textContent = WIDGET_RUNTIME + _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__.SHADER_RUNTIME + _scrollMotionRuntime_js__WEBPACK_IMPORTED_MODULE_2__.SCROLL_MOTION_RUNTIME + _interactionRuntime_js__WEBPACK_IMPORTED_MODULE_3__.INTERACTION_RUNTIME;
+      script.textContent = WIDGET_RUNTIME + _shaderRuntime_js__WEBPACK_IMPORTED_MODULE_1__.SHADER_RUNTIME + _scrollMotionRuntime_js__WEBPACK_IMPORTED_MODULE_2__.SCROLL_MOTION_RUNTIME + _interactionRuntime_js__WEBPACK_IMPORTED_MODULE_4__.INTERACTION_RUNTIME;
       return script;
     }
   }, {
@@ -1704,7 +1717,7 @@ var CanvasRenderer = /*#__PURE__*/function () {
         content_copy: 'copy',
         "delete": 'trash-2'
       };
-      var glyph = (0,_icons_js__WEBPACK_IMPORTED_MODULE_5__.renderIcon)(button.ownerDocument, "lucide:".concat(lucideIcons[action] || icon), 'ink-canvas-action-icon');
+      var glyph = (0,_icons_js__WEBPACK_IMPORTED_MODULE_6__.renderIcon)(button.ownerDocument, "lucide:".concat(lucideIcons[action] || icon), 'ink-canvas-action-icon');
       glyph.setAttribute('aria-hidden', 'true');
       button.appendChild(glyph);
       button.addEventListener('click', function (event) {
@@ -3899,6 +3912,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./shaderPresets.js */ "./src/core/shaderPresets.js");
 /* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
+/* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./motionGroups.js */ "./src/core/motionGroups.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -3916,6 +3930,7 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+
 
 
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
@@ -3980,9 +3995,25 @@ function createCopilotTools(runtime, builder) {
       path: String(pathOrId)
     } : null;
   };
+
+  // Behaviour is part of the design, so read_design reports it: a layer's motion, its group
+  // membership, sticky pinning, states and interactions are all visible without running anything.
+  var annotate = function annotate(node) {
+    var _node$settings4, _node$settings5, _node$settings6, _node$settings7, _node$settings8;
+    var tags = [];
+    if ((_node$settings4 = node.settings) !== null && _node$settings4 !== void 0 && _node$settings4.motion) tags.push("motion:".concat(node.settings.motion.trigger || 'load'));
+    var group = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.normalizeMotionGroup)((_node$settings5 = node.settings) === null || _node$settings5 === void 0 ? void 0 : _node$settings5.motionGroup);
+    if (group) tags.push("group:".concat(group.kind, "/").concat(group.trigger).concat(group.stagger ? "+".concat(group.stagger, "ms") : ''));
+    if ((_node$settings6 = node.settings) !== null && _node$settings6 !== void 0 && _node$settings6.sticky) tags.push('sticky');
+    var interactions = (_node$settings7 = node.settings) === null || _node$settings7 === void 0 ? void 0 : _node$settings7.interactions;
+    if (Array.isArray(interactions) && interactions.length) tags.push("interactions:".concat(interactions.length));
+    var states = (0,_states_js__WEBPACK_IMPORTED_MODULE_1__.normalizeStateList)((_node$settings8 = node.settings) === null || _node$settings8 === void 0 ? void 0 : _node$settings8.stateNames);
+    if (states.length) tags.push("states:".concat(states.join('|')));
+    return tags.length ? " {".concat(tags.join(', '), "}") : '';
+  };
   var _indexNode = function indexNode(node, path) {
     var definition = runtime.elements.get(node.type);
-    var lines = ["[".concat(path, "] ").concat(definition.title).concat(labelOf(node), " (type ").concat(node.type, ", id ").concat(node.id, ")")];
+    var lines = ["[".concat(path, "] ").concat(definition.title).concat(labelOf(node), " (type ").concat(node.type, ", id ").concat(node.id, ")").concat(annotate(node))];
     (node.children || []).forEach(function (child, index) {
       return lines.push.apply(lines, _toConsumableArray(_indexNode(child, "".concat(path, ".").concat(index)).map(function (line) {
         return "  ".concat(line);
@@ -4077,6 +4108,31 @@ function createCopilotTools(runtime, builder) {
           }]
         },
         guidance: 'Set motion on a native layer with update_element. enter and scroll use the parent section as their viewport reference, respect reduced motion, and run in Preview/published pages. Motion stays editable in the Motion panel.'
+      },
+      motionGroup: {
+        setting: 'motionGroup',
+        kinds: _motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.MOTION_GROUP_KINDS,
+        triggers: _motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.MOTION_GROUP_TRIGGERS,
+        example: {
+          kind: 'stagger',
+          trigger: 'enter',
+          stagger: 120,
+          duration: 700,
+          easing: 'cubic-bezier(.16,1,.3,1)'
+        },
+        pinnedExample: {
+          kind: 'scrub',
+          trigger: 'scroll',
+          stagger: 0,
+          pin: {
+            enabled: true,
+            distance: 120
+          },
+          scrub: {
+            reference: 'group'
+          }
+        },
+        guidance: 'A motion group orchestrates the children of one layer into a single timeline with set_motion_group: the children keep their own keyframes, the group shares a trigger (hover the group, scroll progress, enter, load) and adds a per-child stagger. For a hover unfold set trigger hover; for a scroll-scrubbed or pinned section set trigger scroll, pin.enabled true, and put the animated stage inside it with set_sticky.'
       },
       elements: groups,
       styleShape: {
@@ -4737,6 +4793,47 @@ function createCopilotTools(runtime, builder) {
               state: settings.state
             });
           }
+        case 'set_motion_group':
+          {
+            var _target2 = resolve(args.path || args.id);
+            if (!_target2) throw new TypeError('Element not found; read_design for current IDs.');
+            var group = args.motionGroup == null ? null : (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.normalizeMotionGroup)(args.motionGroup);
+            if (args.motionGroup != null && !group) throw new TypeError('motionGroup must be an object with a valid kind and trigger.');
+            if (group && !runtime.elements.get(_target2.node.type).acceptsChildren) throw new TypeError("".concat(_target2.node.type, " cannot own children, so it cannot orchestrate a timeline."));
+            runtime.update(_target2.node.id, {
+              settings: {
+                motionGroup: group
+              }
+            }, group ? 'AI set motion group' : 'AI clear motion group');
+            return asJson({
+              ok: true,
+              id: _target2.node.id,
+              motionGroup: group,
+              timeline: (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.motionGroupItems)(_target2.node),
+              summary: group ? (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_2__.describeMotionGroup)(group) : ''
+            });
+          }
+        case 'set_sticky':
+          {
+            var _target3 = resolve(args.path || args.id);
+            if (!_target3) throw new TypeError('Element not found; read_design for current IDs.');
+            var enabled = args.sticky == null ? false : args.sticky.enabled !== false && args.sticky !== false;
+            var sticky = enabled ? {
+              enabled: true,
+              top: Number(args.sticky.top) || 0,
+              zIndex: Number(args.sticky.zIndex) || 10
+            } : null;
+            runtime.update(_target3.node.id, {
+              settings: {
+                sticky: sticky
+              }
+            }, sticky ? 'AI pin layer' : 'AI unpin layer');
+            return asJson({
+              ok: true,
+              id: _target3.node.id,
+              sticky: sticky
+            });
+          }
         case 'undo':
           runtime.history.undo();
           return 'ok';
@@ -5311,6 +5408,42 @@ function createCopilotTools(runtime, builder) {
       }
     }
   }, {
+    name: 'set_motion_group',
+    description: 'Orchestrate the children of one layer as a single editable timeline. motionGroup is { kind: group|stagger|unfold|orbit3d|scrub|carousel, trigger: inherit|load|enter|hover|scroll, stagger, duration, delay, easing, iterations, perspective, scrub: { reference: group|parent, start, end }, pin: { enabled, distance } }. Children keep their own keyframes; the group shares the trigger and staggers their starts. Pass motionGroup null to clear it. Use set_sticky on the stage for a pinned scroll timeline.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string'
+        },
+        id: {
+          type: 'string'
+        },
+        motionGroup: {
+          type: 'object',
+          additionalProperties: true
+        }
+      }
+    }
+  }, {
+    name: 'set_sticky',
+    description: 'Pin a layer inside its scroll container (position: sticky). sticky is { enabled, top, zIndex }; pass sticky null or false to unpin.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string'
+        },
+        id: {
+          type: 'string'
+        },
+        sticky: {
+          type: 'object',
+          additionalProperties: true
+        }
+      }
+    }
+  }, {
     name: 'undo',
     description: 'Undo the last builder or Copilot change.',
     parameters: {
@@ -5325,7 +5458,7 @@ function createCopilotTools(runtime, builder) {
       properties: {}
     }
   }];
-  var MUTATING_TOOLS = new Set(['set_shader_fill', 'set_interactions', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
+  var MUTATING_TOOLS = new Set(['set_shader_fill', 'set_interactions', 'set_motion_group', 'set_sticky', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
   var context = function context() {
     var _builder$iframe, _builder$iframe2;
     return {
@@ -7708,6 +7841,8 @@ var EditorRuntime = /*#__PURE__*/function () {
       controls.register('media', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.media);
       controls.register('imported-background', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.importedBackground);
       controls.register('motion', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.motion);
+      controls.register('motion-group', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.motionGroup);
+      controls.register('sticky', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.sticky);
       controls.register('gallery', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.gallery);
       controls.register('repeater', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.repeater);
       controls.register('box-shadow', _controls_index_js__WEBPACK_IMPORTED_MODULE_14__.shadow);
@@ -11708,8 +11843,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (/* binding */ StyleEngine)
 /* harmony export */ });
 /* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./states.js */ "./src/core/states.js");
-/* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
-/* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
+/* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./motionGroups.js */ "./src/core/motionGroups.js");
+/* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./fonts.js */ "./src/core/fonts.js");
+/* harmony import */ var _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./themeDefaults.js */ "./src/core/themeDefaults.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -11730,6 +11866,7 @@ function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = 
 function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+
 
 var STATE_PSEUDOS = {
   hover: 'hover',
@@ -11922,13 +12059,47 @@ var StyleEngine = /*#__PURE__*/function () {
       }
       return css;
     }
+
+    // Sticky is a plain layout capability: any layer can pin inside its scroll container. It is
+    // what makes a pinned scroll timeline composable by hand -- a tall group section whose stage
+    // is sticky -- without ever restructuring the editable tree.
+  }, {
+    key: "stickyRules",
+    value: function stickyRules(node) {
+      var _node$settings;
+      var sticky = (_node$settings = node.settings) === null || _node$settings === void 0 ? void 0 : _node$settings.sticky;
+      if (!sticky || sticky.enabled === false) return '';
+      var top = Number(sticky.top);
+      var bottom = Number(sticky.bottom);
+      var zIndex = Number(sticky.zIndex);
+      var declarations = ['position:sticky', "top:".concat(Number.isFinite(top) ? top : 0, "px"), Number.isFinite(bottom) ? "bottom:".concat(bottom, "px") : '', "z-index:".concat(Number.isFinite(zIndex) ? Math.round(zIndex) : 10)].filter(Boolean).join(';');
+      return "".concat(this.selector(node.id), "{").concat(declarations, "}");
+    }
+
+    // A pinned motion group reserves the scroll distance its timeline needs; the shared scroll
+    // runtime then scrubs the stage's children across that distance. CSS-only, so Design mode and
+    // published output share one geometry.
+  }, {
+    key: "pinRules",
+    value: function pinRules(node) {
+      var _node$settings2, _group$pin;
+      var group = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_1__.normalizeMotionGroup)((_node$settings2 = node.settings) === null || _node$settings2 === void 0 ? void 0 : _node$settings2.motionGroup);
+      if (!(group !== null && group !== void 0 && (_group$pin = group.pin) !== null && _group$pin !== void 0 && _group$pin.enabled)) return '';
+      var distance = group.pin.distance;
+      return "".concat(this.selector(node.id), "{position:relative;min-height:calc(100vh + ").concat(distance, "vh)}").concat(this.selector(node.id), " > [data-ink-children]{position:sticky;top:0}");
+    }
+
+    // Motion for one layer. `context` carries the parent's group (and the parent's selector and
+    // the layer's index) so a group can share its trigger and stagger across siblings without any
+    // element losing its own editable keyframes.
   }, {
     key: "motionRules",
     value: function motionRules(node) {
-      var _node$settings;
-      var motion = (_node$settings = node.settings) === null || _node$settings === void 0 ? void 0 : _node$settings.motion;
-      if (['scroll', 'enter'].includes(motion === null || motion === void 0 ? void 0 : motion.trigger)) return ''; // Shared runtime controls progress.
-      if (!motion || motion.enabled === false || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return '';
+      var _node$settings3;
+      var context = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+      var motion = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_1__.effectiveMotion)((_node$settings3 = node.settings) === null || _node$settings3 === void 0 ? void 0 : _node$settings3.motion, context.group, context.index || 0);
+      if (!motion || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return '';
+      if (['scroll', 'enter'].includes(motion.trigger)) return ''; // Shared runtime controls progress.
       var safeId = String(node.id).replace(/[^a-zA-Z0-9_-]/g, '_');
       var name = "ink-motion-".concat(safeId);
       var allowed = new Set(['transform', 'opacity', 'filter', 'clip-path', 'background-color', 'color']);
@@ -11953,7 +12124,11 @@ var StyleEngine = /*#__PURE__*/function () {
       var iterations = motion.iterations === 'infinite' ? 'infinite' : Math.max(1, Number(motion.iterations) || 1);
       var easing = /^[a-z-]+$|^cubic-bezier\([\d.,\s-]+\)$|^steps\([\d,\s-]+\)$/i.test(String(motion.easing || '')) ? motion.easing : 'ease';
       var direction = ['normal', 'reverse', 'alternate', 'alternate-reverse'].includes(motion.direction) ? motion.direction : 'normal';
-      var target = "".concat(this.selector(node.id)).concat(motion.trigger === 'hover' ? ':hover' : '');
+      // A group hover plays every child when the *group* is hovered -- this is what makes an
+      // unfold card work, and it is the difference between real choreography and a per-layer
+      // hover effect that only fires on the exact pixels under the cursor.
+      var grouped = context.group && context.group.trigger === 'hover' && context.groupSelector;
+      var target = grouped ? "".concat(context.groupSelector, ":hover ").concat(this.selector(node.id)) : "".concat(this.selector(node.id)).concat(motion.trigger === 'hover' ? ':hover' : '');
       return "@keyframes ".concat(name, "{").concat(frames, "}body:not(.ink-builder-design) ").concat(target, "{animation:").concat(name, " ").concat(duration, "ms ").concat(easing, " ").concat(delay, "ms ").concat(iterations, " ").concat(direction, " both;transform-style:preserve-3d}@media(prefers-reduced-motion:reduce){").concat(this.selector(node.id), "{animation:none!important}}");
     }
   }, {
@@ -11962,23 +12137,39 @@ var StyleEngine = /*#__PURE__*/function () {
       var _this4 = this;
       var settings = document.data.settings || {};
       var theme = settings.theme || {};
-      var colors = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_COLORS), theme.colors || {});
-      var typography = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_TYPOGRAPHY), theme.typography || {});
-      var spacing = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_SPACING), theme.spacing || {});
-      var css = ":root{--ink-color-primary:".concat(colors.primary, ";--ink-color-secondary:").concat(colors.secondary, ";--ink-color-text:").concat(colors.text, ";--ink-color-accent:").concat(colors.accent, ";--ink-content-width:").concat(Number(spacing.contentWidth) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_SPACING.contentWidth, "px;--ink-page-gutter:").concat(Number(spacing.pageGutter) || 0, "px;--ink-section-gap:").concat(Number(spacing.sectionGap) || 0, "px}body{background:").concat(settings.backgroundColor || '#ffffff', ";color:var(--ink-color-text);font-family:").concat(typography.fontFamily, ";font-size:").concat(Number(typography.baseSize) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_TYPOGRAPHY.baseSize, "px;line-height:").concat(Number(typography.lineHeight) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_2__.DEFAULT_THEME_TYPOGRAPHY.lineHeight, "}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter);color:inherit}");
+      var colors = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_COLORS), theme.colors || {});
+      var typography = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_TYPOGRAPHY), theme.typography || {});
+      var spacing = _objectSpread(_objectSpread({}, _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_SPACING), theme.spacing || {});
+      var css = ":root{--ink-color-primary:".concat(colors.primary, ";--ink-color-secondary:").concat(colors.secondary, ";--ink-color-text:").concat(colors.text, ";--ink-color-accent:").concat(colors.accent, ";--ink-content-width:").concat(Number(spacing.contentWidth) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_SPACING.contentWidth, "px;--ink-page-gutter:").concat(Number(spacing.pageGutter) || 0, "px;--ink-section-gap:").concat(Number(spacing.sectionGap) || 0, "px}body{background:").concat(settings.backgroundColor || '#ffffff', ";color:var(--ink-color-text);font-family:").concat(typography.fontFamily, ";font-size:").concat(Number(typography.baseSize) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_TYPOGRAPHY.baseSize, "px;line-height:").concat(Number(typography.lineHeight) || _themeDefaults_js__WEBPACK_IMPORTED_MODULE_3__.DEFAULT_THEME_TYPOGRAPHY.lineHeight, "}.ink-canvas-root{display:flex;flex-direction:column;gap:var(--ink-section-gap);padding-inline:var(--ink-page-gutter);color:inherit}");
       var _visit = function visit(node) {
+        var _node$settings4;
+        var context = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
         css += _this4.nodeRules(node);
-        css += _this4.motionRules(node);
-        (node.children || []).forEach(_visit);
+        css += _this4.stickyRules(node);
+        css += _this4.pinRules(node);
+        css += _this4.motionRules(node, context);
+        // A group on this node orchestrates its own children; grandchildren inherit nothing, so
+        // nesting a group inside a group stays explicit and each timeline has one owner.
+        var group = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_1__.normalizeMotionGroup)((_node$settings4 = node.settings) === null || _node$settings4 === void 0 ? void 0 : _node$settings4.motionGroup);
+        var children = node.children || [];
+        children.forEach(function (child, index) {
+          return _visit(child, group ? {
+            group: group,
+            index: index,
+            groupSelector: _this4.selector(node.id)
+          } : {});
+        });
       };
-      document.data.children.forEach(_visit);
+      document.data.children.forEach(function (node) {
+        return _visit(node, {});
+      });
       css += document.data.settings.customCss || '';
       // Google Fonts: @import must be the first rules in the stylesheet so the font survives
       // published output (the body keeps this style tag; the head is dropped).
-      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.usedFonts)(document);
-      css = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.customFontFaces)(document) + css;
+      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.usedFonts)(document);
+      css = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.customFontFaces)(document) + css;
       if (fonts.length) css = fonts.map(function (family) {
-        return "@import url('".concat((0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.fontImportUrl)(family), "');");
+        return "@import url('".concat((0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.fontImportUrl)(family), "');");
       }).join('') + css;
       return css;
     }
@@ -11993,7 +12184,7 @@ var StyleEngine = /*#__PURE__*/function () {
       }
       style.textContent = this.compile(document);
       // Load used Google Fonts into the editor iframe so live editing shows them immediately.
-      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.usedFonts)(document);
+      var fonts = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.usedFonts)(document);
       var existing = targetDocument.querySelectorAll('link[data-ink-google-font]');
       var loaded = new Set();
       existing.forEach(function (link) {
@@ -12006,7 +12197,7 @@ var StyleEngine = /*#__PURE__*/function () {
         link.rel = 'stylesheet';
         link.dataset.inkGoogleFont = '';
         link.dataset.inkFont = family;
-        link.href = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_1__.fontImportUrl)(family);
+        link.href = (0,_fonts_js__WEBPACK_IMPORTED_MODULE_2__.fontImportUrl)(family);
         targetDocument.head.appendChild(link);
       });
       return style;
@@ -12586,6 +12777,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   layoutFlow: () => (/* binding */ layoutFlow),
 /* harmony export */   media: () => (/* binding */ media),
 /* harmony export */   motion: () => (/* binding */ motion),
+/* harmony export */   motionGroup: () => (/* binding */ motionGroup),
 /* harmony export */   notice: () => (/* binding */ notice),
 /* harmony export */   popoverToggle: () => (/* binding */ popoverToggle),
 /* harmony export */   positioning: () => (/* binding */ positioning),
@@ -12595,6 +12787,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   shapeDivider: () => (/* binding */ shapeDivider),
 /* harmony export */   slider: () => (/* binding */ slider),
 /* harmony export */   stateNames: () => (/* binding */ stateNames),
+/* harmony export */   sticky: () => (/* binding */ sticky),
 /* harmony export */   structure: () => (/* binding */ structure),
 /* harmony export */   switcher: () => (/* binding */ switcher),
 /* harmony export */   textStroke: () => (/* binding */ textStroke),
@@ -12609,6 +12802,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _fonts_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../fonts.js */ "./src/core/fonts.js");
 /* harmony import */ var _elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../elementorShapes.js */ "./src/core/elementorShapes.js");
 /* harmony import */ var _states_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../states.js */ "./src/core/states.js");
+/* harmony import */ var _motionGroups_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../motionGroups.js */ "./src/core/motionGroups.js");
 function _toArray(r) { return _arrayWithHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableRest(); }
 function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */ _regeneratorRuntime = function _regeneratorRuntime() { return e; }; var t, e = {}, r = Object.prototype, n = r.hasOwnProperty, o = Object.defineProperty || function (t, e, r) { t[e] = r.value; }, i = "function" == typeof Symbol ? Symbol : {}, a = i.iterator || "@@iterator", c = i.asyncIterator || "@@asyncIterator", u = i.toStringTag || "@@toStringTag"; function define(t, e, r) { return Object.defineProperty(t, e, { value: r, enumerable: !0, configurable: !0, writable: !0 }), t[e]; } try { define({}, ""); } catch (t) { define = function define(t, e, r) { return t[e] = r; }; } function wrap(t, e, r, n) { var i = e && e.prototype instanceof Generator ? e : Generator, a = Object.create(i.prototype), c = new Context(n || []); return o(a, "_invoke", { value: makeInvokeMethod(t, r, c) }), a; } function tryCatch(t, e, r) { try { return { type: "normal", arg: t.call(e, r) }; } catch (t) { return { type: "throw", arg: t }; } } e.wrap = wrap; var h = "suspendedStart", l = "suspendedYield", f = "executing", s = "completed", y = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} var p = {}; define(p, a, function () { return this; }); var d = Object.getPrototypeOf, v = d && d(d(values([]))); v && v !== r && n.call(v, a) && (p = v); var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p); function defineIteratorMethods(t) { ["next", "throw", "return"].forEach(function (e) { define(t, e, function (t) { return this._invoke(e, t); }); }); } function AsyncIterator(t, e) { function invoke(r, o, i, a) { var c = tryCatch(t[r], t, o); if ("throw" !== c.type) { var u = c.arg, h = u.value; return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) { invoke("next", t, i, a); }, function (t) { invoke("throw", t, i, a); }) : e.resolve(h).then(function (t) { u.value = t, i(u); }, function (t) { return invoke("throw", t, i, a); }); } a(c.arg); } var r; o(this, "_invoke", { value: function value(t, n) { function callInvokeWithMethodAndArg() { return new e(function (e, r) { invoke(t, n, e, r); }); } return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg(); } }); } function makeInvokeMethod(e, r, n) { var o = h; return function (i, a) { if (o === f) throw Error("Generator is already running"); if (o === s) { if ("throw" === i) throw a; return { value: t, done: !0 }; } for (n.method = i, n.arg = a;;) { var c = n.delegate; if (c) { var u = maybeInvokeDelegate(c, n); if (u) { if (u === y) continue; return u; } } if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) { if (o === h) throw o = s, n.arg; n.dispatchException(n.arg); } else "return" === n.method && n.abrupt("return", n.arg); o = f; var p = tryCatch(e, r, n); if ("normal" === p.type) { if (o = n.done ? s : l, p.arg === y) continue; return { value: p.arg, done: n.done }; } "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg); } }; } function maybeInvokeDelegate(e, r) { var n = r.method, o = e.iterator[n]; if (o === t) return r.delegate = null, "throw" === n && e.iterator["return"] && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y; var i = tryCatch(o, e.iterator, r.arg); if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y; var a = i.arg; return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y); } function pushTryEntry(t) { var e = { tryLoc: t[0] }; 1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e); } function resetTryEntry(t) { var e = t.completion || {}; e.type = "normal", delete e.arg, t.completion = e; } function Context(t) { this.tryEntries = [{ tryLoc: "root" }], t.forEach(pushTryEntry, this), this.reset(!0); } function values(e) { if (e || "" === e) { var r = e[a]; if (r) return r.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) { var o = -1, i = function next() { for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next; return next.value = t, next.done = !0, next; }; return i.next = i; } } throw new TypeError(_typeof(e) + " is not iterable"); } return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", { value: GeneratorFunctionPrototype, configurable: !0 }), o(GeneratorFunctionPrototype, "constructor", { value: GeneratorFunction, configurable: !0 }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) { var e = "function" == typeof t && t.constructor; return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name)); }, e.mark = function (t) { return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t; }, e.awrap = function (t) { return { __await: t }; }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () { return this; }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) { void 0 === i && (i = Promise); var a = new AsyncIterator(wrap(t, r, n, o), i); return e.isGeneratorFunction(r) ? a : a.next().then(function (t) { return t.done ? t.value : a.next(); }); }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () { return this; }), define(g, "toString", function () { return "[object Generator]"; }), e.keys = function (t) { var e = Object(t), r = []; for (var n in e) r.push(n); return r.reverse(), function next() { for (; r.length;) { var t = r.pop(); if (t in e) return next.value = t, next.done = !1, next; } return next.done = !0, next; }; }, e.values = values, Context.prototype = { constructor: Context, reset: function reset(e) { if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t); }, stop: function stop() { this.done = !0; var t = this.tryEntries[0].completion; if ("throw" === t.type) throw t.arg; return this.rval; }, dispatchException: function dispatchException(e) { if (this.done) throw e; var r = this; function handle(n, o) { return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o; } for (var o = this.tryEntries.length - 1; o >= 0; --o) { var i = this.tryEntries[o], a = i.completion; if ("root" === i.tryLoc) return handle("end"); if (i.tryLoc <= this.prev) { var c = n.call(i, "catchLoc"), u = n.call(i, "finallyLoc"); if (c && u) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } else if (c) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); } else { if (!u) throw Error("try statement without catch or finally"); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } } } }, abrupt: function abrupt(t, e) { for (var r = this.tryEntries.length - 1; r >= 0; --r) { var o = this.tryEntries[r]; if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) { var i = o; break; } } i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null); var a = i ? i.completion : {}; return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a); }, complete: function complete(t, e) { if ("throw" === t.type) throw t.arg; return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y; }, finish: function finish(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y; } }, "catch": function _catch(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.tryLoc === t) { var n = r.completion; if ("throw" === n.type) { var o = n.arg; resetTryEntry(r); } return o; } } throw Error("illegal catch attempt"); }, delegateYield: function delegateYield(e, r, n) { return this.delegate = { iterator: values(e), resultName: r, nextLoc: n }, "next" === this.method && (this.arg = t), y; } }, e; }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
@@ -12635,6 +12829,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 // PanelManager stays thin: renderControl() delegates here via the ControlRegistry.
 // Each renderer uses only the panel context (setValue/currentValue/renderControl/
 // runtime) — no private PanelManager state.
+
 
 
 
@@ -12833,8 +13028,207 @@ function motion(panel, control, node, value, row) {
   row.appendChild(wrapper);
   return row;
 }
+
+// Motion group: the orchestration layer above per-layer motion. It shares one trigger across the
+// children of this element, staggers their starts, and -- for scroll groups -- names the reference
+// they scrub against, so a whole section advances off one progress value. Rendered as an editable
+// timeline summary so the author sees exactly which layers take part and when each one starts.
+function motionGroup(panel, control, node, value, row) {
+  var _group$stagger, _group$duration, _group$scrub, _group$pin, _group$pin$distance, _group$pin2;
+  var group = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.normalizeMotionGroup)(value);
+  var wrapper = document.createElement('div');
+  wrapper.className = 'ink-v2-motion-group-control';
+  var field = function field(labelText, input) {
+    var label = document.createElement('label');
+    label.textContent = labelText;
+    label.appendChild(input);
+    wrapper.appendChild(label);
+    return input;
+  };
+  var enabledControl = switchControl({
+    checked: !!group,
+    ariaLabel: 'Orchestrate children as one timeline',
+    onLabel: 'Group',
+    offLabel: 'Off'
+  });
+  var enabled = enabledControl.checkbox;
+  var kind = document.createElement('select');
+  _motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.MOTION_GROUP_KINDS.forEach(function (name) {
+    return kind.add(new Option(_motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.MOTION_GROUP_KIND_LABELS[name] || name, name));
+  });
+  kind.value = (group === null || group === void 0 ? void 0 : group.kind) || 'group';
+  var trigger = document.createElement('select');
+  _motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.MOTION_GROUP_TRIGGERS.forEach(function (name) {
+    return trigger.add(new Option(_motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.MOTION_GROUP_TRIGGER_LABELS[name] || name, name));
+  });
+  trigger.value = (group === null || group === void 0 ? void 0 : group.trigger) || 'inherit';
+  var stagger = document.createElement('input');
+  stagger.type = 'number';
+  stagger.min = '0';
+  stagger.step = '25';
+  stagger.value = (_group$stagger = group === null || group === void 0 ? void 0 : group.stagger) !== null && _group$stagger !== void 0 ? _group$stagger : 0;
+  var duration = document.createElement('input');
+  duration.type = 'number';
+  duration.min = '0';
+  duration.step = '50';
+  duration.value = (_group$duration = group === null || group === void 0 ? void 0 : group.duration) !== null && _group$duration !== void 0 ? _group$duration : 0;
+  duration.placeholder = 'each layer';
+  var easing = document.createElement('select');
+  ['', 'linear', 'ease', 'ease-in', 'ease-out', 'ease-in-out', 'cubic-bezier(.16,1,.3,1)'].forEach(function (name) {
+    return easing.add(new Option(name || 'each layer', name));
+  });
+  easing.value = (group === null || group === void 0 ? void 0 : group.easing) || '';
+  var reference = document.createElement('select');
+  [['group', 'The group section'], ['parent', "The group\u2019s parent"]].forEach(function (_ref4) {
+    var _ref5 = _slicedToArray(_ref4, 2),
+      name = _ref5[0],
+      label = _ref5[1];
+    return reference.add(new Option(label, name));
+  });
+  reference.value = (group === null || group === void 0 || (_group$scrub = group.scrub) === null || _group$scrub === void 0 ? void 0 : _group$scrub.reference) || 'group';
+  var pinControl = switchControl({
+    checked: !!(group !== null && group !== void 0 && (_group$pin = group.pin) !== null && _group$pin !== void 0 && _group$pin.enabled),
+    ariaLabel: 'Pin the group while it scrubs',
+    onLabel: 'Pinned',
+    offLabel: 'Free'
+  });
+  var pin = pinControl.checkbox;
+  var distance = document.createElement('input');
+  distance.type = 'number';
+  distance.min = '0';
+  distance.max = '400';
+  distance.step = '25';
+  distance.value = (_group$pin$distance = group === null || group === void 0 || (_group$pin2 = group.pin) === null || _group$pin2 === void 0 ? void 0 : _group$pin2.distance) !== null && _group$pin$distance !== void 0 ? _group$pin$distance : 100;
+  var scrollOnly = function scrollOnly() {
+    reference.disabled = trigger.value !== 'scroll';
+    pin.disabled = trigger.value !== 'scroll';
+    distance.disabled = trigger.value !== 'scroll' || !pin.checked;
+  };
+  var commit = function commit() {
+    if (!enabled.checked) {
+      panel.setValue(control, node, null);
+      return;
+    }
+    panel.setValue(control, node, (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.normalizeMotionGroup)({
+      kind: kind.value,
+      trigger: trigger.value,
+      stagger: Number(stagger.value) || 0,
+      duration: Number(duration.value) || 0,
+      easing: easing.value,
+      scrub: {
+        reference: reference.value
+      },
+      pin: {
+        enabled: pin.checked,
+        distance: Number(distance.value) || 0
+      }
+    }));
+  };
+  var status = document.createElement('small');
+  status.className = 'ink-v2-control-description';
+  var sync = function sync() {
+    scrollOnly();
+    var preview = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.normalizeMotionGroup)({
+      kind: kind.value,
+      trigger: trigger.value,
+      stagger: Number(stagger.value) || 0,
+      duration: Number(duration.value) || 0,
+      easing: easing.value,
+      scrub: {
+        reference: reference.value
+      },
+      pin: {
+        enabled: pin.checked,
+        distance: Number(distance.value) || 0
+      }
+    });
+    var items = (0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.motionGroupItems)(_objectSpread(_objectSpread({}, node), {}, {
+      settings: _objectSpread(_objectSpread({}, node.settings), {}, {
+        motionGroup: preview
+      })
+    }));
+    status.textContent = items.length ? "".concat((0,_motionGroups_js__WEBPACK_IMPORTED_MODULE_7__.describeMotionGroup)(preview), " \u2014 ").concat(items.length, " layer").concat(items.length === 1 ? '' : 's', " (").concat(items.map(function (item) {
+      return "".concat(item.delay, "ms");
+    }).join(', '), ")") : 'No child layer has keyframes yet. Add Animation to the children, then they play as one timeline.';
+  };
+  var syncAndCommit = function syncAndCommit() {
+    sync();
+    commit();
+  };
+  [enabled, kind, trigger, stagger, duration, easing, reference, pin, distance].forEach(function (input) {
+    return input.addEventListener('change', syncAndCommit);
+  });
+  field('Orchestrate', enabledControl.wrapper);
+  field('Kind', kind);
+  field('Trigger', trigger);
+  field('Stagger (ms)', stagger);
+  field('Duration (ms)', duration);
+  field('Easing', easing);
+  field('Scroll reference', reference);
+  field('Pin', pinControl.wrapper);
+  field('Pinned distance (vh)', distance);
+  wrapper.appendChild(status);
+  sync();
+  row.appendChild(wrapper);
+  return row;
+}
+
+// Sticky: a plain layout capability any layer can opt into. It is the missing half of a pinned
+// scroll timeline -- the tall group section plus a sticky stage -- and it is also how a site's
+// own `position: sticky` header is preserved on import.
+function sticky(panel, control, node, value, row) {
+  var stickyValue = value && _typeof(value) === 'object' ? value : {};
+  var wrapper = document.createElement('div');
+  wrapper.className = 'ink-v2-sticky-control';
+  var field = function field(labelText, input) {
+    var label = document.createElement('label');
+    label.textContent = labelText;
+    label.appendChild(input);
+    wrapper.appendChild(label);
+    return input;
+  };
+  var _switchControl2 = switchControl({
+      checked: !!value && stickyValue.enabled !== false,
+      ariaLabel: 'Sticky positioning',
+      onLabel: 'Sticky',
+      offLabel: 'Static'
+    }),
+    toggleWrapper = _switchControl2.wrapper,
+    checkbox = _switchControl2.checkbox;
+  var top = document.createElement('input');
+  top.type = 'number';
+  top.step = '1';
+  top.value = Number.isFinite(Number(stickyValue.top)) ? Number(stickyValue.top) : 0;
+  var zIndex = document.createElement('input');
+  zIndex.type = 'number';
+  zIndex.step = '1';
+  zIndex.value = Number.isFinite(Number(stickyValue.zIndex)) ? Number(stickyValue.zIndex) : 10;
+  var commit = function commit() {
+    if (!checkbox.checked) {
+      panel.setValue(control, node, null);
+      return;
+    }
+    panel.setValue(control, node, {
+      enabled: true,
+      top: Number(top.value) || 0,
+      zIndex: Number(zIndex.value) || 10
+    });
+  };
+  [checkbox, top, zIndex].forEach(function (input) {
+    return input.addEventListener('change', commit);
+  });
+  field('Position', toggleWrapper);
+  field('Offset from top (px)', top);
+  field('Z-index', zIndex);
+  var hint = document.createElement('small');
+  hint.className = 'ink-v2-control-description';
+  hint.textContent = 'Pin this layer inside its scroll container. Build a pinned timeline as a tall motion group whose stage is sticky.';
+  wrapper.appendChild(hint);
+  row.appendChild(wrapper);
+  return row;
+}
 function slider(panel, control, node, value, row) {
-  var _control$min, _control$max, _control$step, _ref4, _control$default;
+  var _control$min, _control$max, _control$step, _ref6, _control$default;
   var host = document.createElement('div');
   host.className = 'ink-v2-slider';
   var range = document.createElement('input');
@@ -12848,7 +13242,7 @@ function slider(panel, control, node, value, row) {
   number.max = range.max;
   number.step = range.step;
   var size = value && _typeof(value) === 'object' ? value.size : value;
-  var initial = size === '' || size === undefined || size === null ? (_ref4 = (_control$default = control["default"]) !== null && _control$default !== void 0 ? _control$default : control.min) !== null && _ref4 !== void 0 ? _ref4 : 0 : size;
+  var initial = size === '' || size === undefined || size === null ? (_ref6 = (_control$default = control["default"]) !== null && _control$default !== void 0 ? _control$default : control.min) !== null && _ref6 !== void 0 ? _ref6 : 0 : size;
   range.value = initial;
   number.value = range.value;
   var unit = control.units ? document.createElement('select') : null;
@@ -12983,10 +13377,10 @@ function layoutFlow(panel, control, node, _value, row) {
   choices.className = 'ink-v2-layout-flow';
   choices.setAttribute('role', 'radiogroup');
   choices.setAttribute('aria-label', 'Layout flow');
-  [['free', 'Freeform'], ['vertical', 'Vertical'], ['horizontal', 'Horizontal'], ['grid', 'Grid']].forEach(function (_ref5) {
-    var _ref6 = _slicedToArray(_ref5, 2),
-      mode = _ref6[0],
-      label = _ref6[1];
+  [['free', 'Freeform'], ['vertical', 'Vertical'], ['horizontal', 'Horizontal'], ['grid', 'Grid']].forEach(function (_ref7) {
+    var _ref8 = _slicedToArray(_ref7, 2),
+      mode = _ref8[0],
+      label = _ref8[1];
     var button = document.createElement('button');
     button.type = 'button';
     button.title = label;
@@ -13060,10 +13454,10 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     var menu = document.createElement('div');
     menu.className = 'ink-v2-resize-menu';
     menu.hidden = true;
-    [['fixed', 'Fixed'], ['relative', 'Relative'], ['hug', 'Hug contents'], ['fill', 'Fill container']].forEach(function (_ref7) {
-      var _ref8 = _slicedToArray(_ref7, 2),
-        nextMode = _ref8[0],
-        label = _ref8[1];
+    [['fixed', 'Fixed'], ['relative', 'Relative'], ['hug', 'Hug contents'], ['fill', 'Fill container']].forEach(function (_ref9) {
+      var _ref10 = _slicedToArray(_ref9, 2),
+        nextMode = _ref10[0],
+        label = _ref10[1];
       var option = document.createElement('button');
       option.type = 'button';
       option.dataset.mode = nextMode;
@@ -13099,11 +13493,11 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     });
     var limits = document.createElement('div');
     limits.className = 'ink-v2-resize-limits';
-    [['min', "Min ".concat(property)], ['max', "Max ".concat(property)]].forEach(function (_ref9) {
+    [['min', "Min ".concat(property)], ['max', "Max ".concat(property)]].forEach(function (_ref11) {
       var _value$size;
-      var _ref10 = _slicedToArray(_ref9, 2),
-        kind = _ref10[0],
-        label = _ref10[1];
+      var _ref12 = _slicedToArray(_ref11, 2),
+        kind = _ref12[0],
+        label = _ref12[1];
       var limit = document.createElement('label');
       limit.append(label);
       var input = document.createElement('input');
@@ -13124,10 +13518,10 @@ var renderResizingFields = function renderResizingFields(panel, control, node) {
     menus.push([menu, mode]);
     mode.addEventListener('click', function () {
       var opening = menu.hidden;
-      menus.forEach(function (_ref11) {
-        var _ref12 = _slicedToArray(_ref11, 2),
-          other = _ref12[0],
-          trigger = _ref12[1];
+      menus.forEach(function (_ref13) {
+        var _ref14 = _slicedToArray(_ref13, 2),
+          other = _ref14[0],
+          trigger = _ref14[1];
         other.hidden = true;
         trigger.classList.remove('is-active');
       });
@@ -13172,11 +13566,11 @@ function positioning(panel, control, node, _value, row) {
   modes.className = 'ink-v2-position-modes';
   modes.setAttribute('role', 'radiogroup');
   modes.setAttribute('aria-label', 'Position mode');
-  [['flow', 'Flow', flowValue], ['absolute', 'Absolute', 'absolute'], ['fixed', 'Fixed', 'fixed'], ['sticky', 'Sticky', 'sticky']].forEach(function (_ref13) {
-    var _ref14 = _slicedToArray(_ref13, 3),
-      mode = _ref14[0],
-      label = _ref14[1],
-      value = _ref14[2];
+  [['flow', 'Flow', flowValue], ['absolute', 'Absolute', 'absolute'], ['fixed', 'Fixed', 'fixed'], ['sticky', 'Sticky', 'sticky']].forEach(function (_ref15) {
+    var _ref16 = _slicedToArray(_ref15, 3),
+      mode = _ref16[0],
+      label = _ref16[1],
+      value = _ref16[2];
     var selected = activeMode === mode;
     var button = document.createElement('button');
     button.type = 'button';
@@ -13407,10 +13801,10 @@ function alignmentGap(panel, control, node, _value, row) {
   });
   unit.value = gaps.unit || 'px';
   var distribution = document.createElement('select');
-  [['Packed', 'flex-start'], ['Center', 'center'], ['Space between', 'space-between'], ['Space around', 'space-around'], ['Space evenly', 'space-evenly']].forEach(function (_ref15) {
-    var _ref16 = _slicedToArray(_ref15, 2),
-      label = _ref16[0],
-      value = _ref16[1];
+  [['Packed', 'flex-start'], ['Center', 'center'], ['Space between', 'space-between'], ['Space around', 'space-around'], ['Space evenly', 'space-evenly']].forEach(function (_ref17) {
+    var _ref18 = _slicedToArray(_ref17, 2),
+      label = _ref18[0],
+      value = _ref18[1];
     return distribution.add(new Option(label, value));
   });
   distribution.value = justify;
@@ -13437,10 +13831,10 @@ function alignmentGap(panel, control, node, _value, row) {
   paddingPopover.appendChild(paddingUnit);
   host.appendChild(paddingPopover);
   var closePopovers = function closePopovers(except) {
-    [[popover, settings], [paddingPopover, individual]].forEach(function (_ref17) {
-      var _ref18 = _slicedToArray(_ref17, 2),
-        menu = _ref18[0],
-        button = _ref18[1];
+    [[popover, settings], [paddingPopover, individual]].forEach(function (_ref19) {
+      var _ref20 = _slicedToArray(_ref19, 2),
+        menu = _ref20[0],
+        button = _ref20[1];
       if (menu !== except) {
         menu.hidden = true;
         button.classList.remove('is-active');
@@ -13671,10 +14065,10 @@ var colorChannels = function colorChannels(source) {
     a: 1
   };
 };
-var colorHex = function colorHex(_ref19) {
-  var r = _ref19.r,
-    g = _ref19.g,
-    b = _ref19.b;
+var colorHex = function colorHex(_ref21) {
+  var r = _ref21.r,
+    g = _ref21.g,
+    b = _ref21.b;
   return "#".concat([r, g, b].map(function (value) {
     return Math.round(clamp(value, 0, 255)).toString(16).padStart(2, '0');
   }).join(''));
@@ -13728,10 +14122,10 @@ var projectPalette = function projectPalette(panel, selectedNode) {
   });
   return found;
 };
-var rgbToHsv = function rgbToHsv(_ref20) {
-  var r = _ref20.r,
-    g = _ref20.g,
-    b = _ref20.b;
+var rgbToHsv = function rgbToHsv(_ref22) {
+  var r = _ref22.r,
+    g = _ref22.g,
+    b = _ref22.b;
   var rr = r / 255;
   var gg = g / 255;
   var bb = b / 255;
@@ -13746,12 +14140,12 @@ var rgbToHsv = function rgbToHsv(_ref20) {
     v: max
   };
 };
-var hsvToRgb = function hsvToRgb(_ref21) {
-  var h = _ref21.h,
-    s = _ref21.s,
-    v = _ref21.v,
-    _ref21$a = _ref21.a,
-    a = _ref21$a === void 0 ? 1 : _ref21$a;
+var hsvToRgb = function hsvToRgb(_ref23) {
+  var h = _ref23.h,
+    s = _ref23.s,
+    v = _ref23.v,
+    _ref23$a = _ref23.a,
+    a = _ref23$a === void 0 ? 1 : _ref23$a;
   var c = v * s;
   var x = c * (1 - Math.abs(h / 60 % 2 - 1));
   var m = v - c;
@@ -13950,13 +14344,13 @@ function cssFilters(panel, control, node, value, row) {
   var add = document.createElement('select');
   add.setAttribute('aria-label', 'Add filter');
   add.add(new Option('Add filter…', ''));
-  definitions.filter(function (_ref23) {
-    var _ref24 = _slicedToArray(_ref23, 1),
-      name = _ref24[0];
-    return filters[name] === undefined;
-  }).forEach(function (_ref25) {
+  definitions.filter(function (_ref25) {
     var _ref26 = _slicedToArray(_ref25, 1),
       name = _ref26[0];
+    return filters[name] === undefined;
+  }).forEach(function (_ref27) {
+    var _ref28 = _slicedToArray(_ref27, 1),
+      name = _ref28[0];
     return add.add(new Option(name[0].toUpperCase() + name.slice(1), name));
   });
   add.disabled = add.options.length === 1;
@@ -13964,17 +14358,17 @@ function cssFilters(panel, control, node, value, row) {
     if (add.value) panel.setValue(control, node, _objectSpread(_objectSpread({}, filters), {}, _defineProperty({}, add.value, ['blur', 'hue'].includes(add.value) ? 0 : 100)));
   });
   wrapper.appendChild(add);
-  definitions.filter(function (_ref27) {
-    var _ref28 = _slicedToArray(_ref27, 1),
-      name = _ref28[0];
+  definitions.filter(function (_ref29) {
+    var _ref30 = _slicedToArray(_ref29, 1),
+      name = _ref30[0];
     return filters[name] !== undefined;
-  }).forEach(function (_ref29) {
+  }).forEach(function (_ref31) {
     var _filters$name;
-    var _ref30 = _slicedToArray(_ref29, 4),
-      name = _ref30[0],
-      min = _ref30[1],
-      max = _ref30[2],
-      step = _ref30[3];
+    var _ref32 = _slicedToArray(_ref31, 4),
+      name = _ref32[0],
+      min = _ref32[1],
+      max = _ref32[2],
+      step = _ref32[3];
     var label = document.createElement('label');
     label.textContent = name;
     var input = document.createElement('input');
@@ -14488,10 +14882,10 @@ function url(panel, control, node, value, row) {
   var summary = document.createElement('summary');
   summary.textContent = '⚙';
   options.appendChild(summary);
-  [['isExternal', 'Open in new window'], ['nofollow', 'Add nofollow']].forEach(function (_ref31) {
-    var _ref32 = _slicedToArray(_ref31, 2),
-      name = _ref32[0],
-      text = _ref32[1];
+  [['isExternal', 'Open in new window'], ['nofollow', 'Add nofollow']].forEach(function (_ref33) {
+    var _ref34 = _slicedToArray(_ref33, 2),
+      name = _ref34[0],
+      text = _ref34[1];
     var label = document.createElement('label');
     var checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
@@ -14729,10 +15123,10 @@ function border(panel, control, node, value, row) {
   var legacy = value && _typeof(value) === 'object' ? value : {};
   var current = panel.currentValue(styleControl, node) || legacy.style || '';
   var style = document.createElement('select');
-  [["", 'Default'], ['none', 'None'], ['solid', 'Solid'], ['double', 'Double'], ['dotted', 'Dotted'], ['dashed', 'Dashed'], ['groove', 'Groove']].forEach(function (_ref33) {
-    var _ref34 = _slicedToArray(_ref33, 2),
-      name = _ref34[0],
-      label = _ref34[1];
+  [["", 'Default'], ['none', 'None'], ['solid', 'Solid'], ['double', 'Double'], ['dotted', 'Dotted'], ['dashed', 'Dashed'], ['groove', 'Groove']].forEach(function (_ref35) {
+    var _ref36 = _slicedToArray(_ref35, 2),
+      name = _ref36[0],
+      label = _ref36[1];
     return style.add(new Option(label, name));
   });
   style.value = current;
@@ -14786,10 +15180,10 @@ function repeater(panel, control, node, value, row) {
     summary.innerHTML = "<span>\u22EE\u22EE</span><strong>".concat(item[control.titleField] || item.title || "Item ".concat(index + 1), "</strong>");
     var tools = document.createElement('span');
     tools.className = 'ink-v2-repeater-tools';
-    [['↑', -1], ['↓', 1]].forEach(function (_ref35) {
-      var _ref36 = _slicedToArray(_ref35, 2),
-        label = _ref36[0],
-        direction = _ref36[1];
+    [['↑', -1], ['↓', 1]].forEach(function (_ref37) {
+      var _ref38 = _slicedToArray(_ref37, 2),
+        label = _ref38[0],
+        direction = _ref38[1];
       var button = document.createElement('button');
       button.type = 'button';
       button.textContent = label;
@@ -14797,9 +15191,9 @@ function repeater(panel, control, node, value, row) {
       button.addEventListener('click', function (event) {
         event.preventDefault();
         var next = _toConsumableArray(items);
-        var _ref37 = [next[index + direction], next[index]];
-        next[index] = _ref37[0];
-        next[index + direction] = _ref37[1];
+        var _ref39 = [next[index + direction], next[index]];
+        next[index] = _ref39[0];
+        next[index + direction] = _ref39[1];
         update(next);
       });
       tools.appendChild(button);
@@ -14829,7 +15223,7 @@ function repeater(panel, control, node, value, row) {
     var fields = document.createElement('div');
     fields.className = 'ink-v2-repeater-fields';
     (control.fields || []).forEach(function (field) {
-      var _ref38, _item$field$name;
+      var _ref40, _item$field$name;
       var label = document.createElement('label');
       label.textContent = field.label || field.name;
       var input;
@@ -14842,7 +15236,7 @@ function repeater(panel, control, node, value, row) {
         input = document.createElement(field.type === 'textarea' ? 'textarea' : 'input');
         if (input.tagName === 'INPUT') input.type = field.type === 'number' ? 'number' : 'text';
       }
-      input.value = (_ref38 = (_item$field$name = item[field.name]) !== null && _item$field$name !== void 0 ? _item$field$name : field["default"]) !== null && _ref38 !== void 0 ? _ref38 : '';
+      input.value = (_ref40 = (_item$field$name = item[field.name]) !== null && _item$field$name !== void 0 ? _item$field$name : field["default"]) !== null && _ref40 !== void 0 ? _ref40 : '';
       input.addEventListener('change', function () {
         var next = structuredClone(items);
         next[index][field.name] = field.type === 'number' ? Number(input.value) : input.value;
@@ -14927,11 +15321,11 @@ function background(panel, control, node, value, row) {
   choices.setAttribute('aria-label', overlay ? 'Overlay fill type' : 'Fill type');
   var backgroundChoices = [['classic', 'square', 'Solid'], ['gradient', 'blend', 'Gradient'], ['image', 'image', 'Image'], ['pattern', 'grid-2x2', 'Pattern']];
   if (!overlay && (control.state || 'base') === 'base') backgroundChoices.push(['video', 'square-play', 'Video'], ['slideshow', 'images', 'Slideshow'], ['shader', 'waves', 'Shader']);
-  backgroundChoices.forEach(function (_ref39) {
-    var _ref40 = _slicedToArray(_ref39, 3),
-      choiceValue = _ref40[0],
-      iconName = _ref40[1],
-      title = _ref40[2];
+  backgroundChoices.forEach(function (_ref41) {
+    var _ref42 = _slicedToArray(_ref41, 3),
+      choiceValue = _ref42[0],
+      iconName = _ref42[1],
+      title = _ref42[2];
     var button = document.createElement('button');
     button.type = 'button';
     button.title = title;
@@ -15040,11 +15434,11 @@ function background(panel, control, node, value, row) {
     var patterns = [['Dots', 'radial-gradient(circle, #81818a 1px, transparent 1px)', '12px 12px'], ['Lines', 'repeating-linear-gradient(45deg, transparent 0px 9px, #81818a 9px 10px)', 'auto'], ['Grid', 'linear-gradient(#81818a 1px, transparent 1px), linear-gradient(90deg, #81818a 1px, transparent 1px)', '20px 20px'], ['Checker', 'conic-gradient(#81818a 25%, transparent 0% 50%, #81818a 0% 75%, transparent 0%)', '24px 24px']];
     var _gallery = document.createElement('div');
     _gallery.className = 'ink-shader-gallery';
-    patterns.forEach(function (_ref41) {
-      var _ref42 = _slicedToArray(_ref41, 3),
-        title = _ref42[0],
-        image = _ref42[1],
-        size = _ref42[2];
+    patterns.forEach(function (_ref43) {
+      var _ref44 = _slicedToArray(_ref43, 3),
+        title = _ref44[0],
+        image = _ref44[1],
+        size = _ref44[2];
       var button = document.createElement('button');
       button.type = 'button';
       button.textContent = title;
@@ -15250,10 +15644,10 @@ function background(panel, control, node, value, row) {
   if (typeof fillImage === 'string') swatch.style.backgroundImage = fillImage;
   if (typeof fillColor === 'string') swatch.style.backgroundColor = fillColor;
   var name = document.createElement('span');
-  name.textContent = displayedMode === 'shader' ? ((_SHADER_PRESETS$find = _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.find(function (_ref43) {
+  name.textContent = displayedMode === 'shader' ? ((_SHADER_PRESETS$find = _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.find(function (_ref45) {
     var _node$settings$shader2;
-    var _ref44 = _slicedToArray(_ref43, 1),
-      id = _ref44[0];
+    var _ref46 = _slicedToArray(_ref45, 1),
+      id = _ref46[0];
     return id === ((_node$settings$shader2 = node.settings.shaderFill) === null || _node$settings$shader2 === void 0 ? void 0 : _node$settings$shader2.preset);
   })) === null || _SHADER_PRESETS$find === void 0 ? void 0 : _SHADER_PRESETS$find[1]) || 'Custom shader' : displayedMode === 'gradient' ? 'Gradient' : ['video', 'slideshow'].includes(displayedMode) ? displayedMode[0].toUpperCase() + displayedMode.slice(1) : fillImage ? 'Image' : fillColor || 'Add fill…';
   trigger.append(swatch, name);
@@ -15329,13 +15723,13 @@ function renderShaderFill(panel, node, wrapper) {
   var gallery = document.createElement('div');
   gallery.className = 'ink-shader-gallery';
   gallery.setAttribute('aria-label', 'Shader presets');
-  _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.forEach(function (_ref45) {
-    var _ref46 = _slicedToArray(_ref45, 5),
-      id = _ref46[0],
-      title = _ref46[1],
-      a = _ref46[2],
-      b = _ref46[3],
-      c = _ref46[4];
+  _shaderPresets_js__WEBPACK_IMPORTED_MODULE_0__.SHADER_PRESETS.forEach(function (_ref47) {
+    var _ref48 = _slicedToArray(_ref47, 5),
+      id = _ref48[0],
+      title = _ref48[1],
+      a = _ref48[2],
+      b = _ref48[3],
+      c = _ref48[4];
     var button = document.createElement('button');
     button.type = 'button';
     button.textContent = title;
@@ -15356,10 +15750,10 @@ function renderShaderFill(panel, node, wrapper) {
   proxy.setValue = function (control, _node, value) {
     return update(_defineProperty({}, control.name, value));
   };
-  [['colorA', 'Base'], ['colorB', 'Primary'], ['colorC', 'Accent']].forEach(function (_ref47) {
-    var _ref48 = _slicedToArray(_ref47, 2),
-      name = _ref48[0],
-      label = _ref48[1];
+  [['colorA', 'Base'], ['colorB', 'Primary'], ['colorC', 'Accent']].forEach(function (_ref49) {
+    var _ref50 = _slicedToArray(_ref49, 2),
+      name = _ref50[0],
+      label = _ref50[1];
     var row = document.createElement('div');
     row.className = 'ink-v2-control';
     row.append(label);
@@ -15380,13 +15774,13 @@ function renderShaderFill(panel, node, wrapper) {
   });
   animate.append(check, 'Animate');
   wrapper.appendChild(animate);
-  [['speed', 'Speed', 0, 2, .05], ['intensity', 'Intensity', 0, 1, .01], ['grain', 'Grain', 0, .3, .01]].forEach(function (_ref49) {
-    var _ref50 = _slicedToArray(_ref49, 5),
-      name = _ref50[0],
-      label = _ref50[1],
-      min = _ref50[2],
-      max = _ref50[3],
-      step = _ref50[4];
+  [['speed', 'Speed', 0, 2, .05], ['intensity', 'Intensity', 0, 1, .01], ['grain', 'Grain', 0, .3, .01]].forEach(function (_ref51) {
+    var _ref52 = _slicedToArray(_ref51, 5),
+      name = _ref52[0],
+      label = _ref52[1],
+      min = _ref52[2],
+      max = _ref52[3],
+      step = _ref52[4];
     var row = document.createElement('label');
     row.className = 'ink-shader-number';
     row.append(label);
@@ -15486,10 +15880,10 @@ function shapeDivider(panel, control, node, value, row) {
   };
   var type = document.createElement('select');
   type.add(new Option('None', ''));
-  Object.entries(_elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__.ELEMENTOR_SHAPES).forEach(function (_ref51) {
-    var _ref52 = _slicedToArray(_ref51, 2),
-      key = _ref52[0],
-      shape = _ref52[1];
+  Object.entries(_elementorShapes_js__WEBPACK_IMPORTED_MODULE_5__.ELEMENTOR_SHAPES).forEach(function (_ref53) {
+    var _ref54 = _slicedToArray(_ref53, 2),
+      key = _ref54[0],
+      shape = _ref54[1];
     return type.add(new Option(shape.title, key));
   });
   type.value = dividerValue.type || '';
@@ -15510,15 +15904,15 @@ function shapeDivider(panel, control, node, value, row) {
       });
     });
     field('Color', colorInput);
-    [].concat(_toConsumableArray(shapeMeta.heightOnly ? [] : [['Width', 'width', 100, 300, 100, '%']]), [['Height', 'height', 0, 500, 100, 'px']]).forEach(function (_ref53) {
+    [].concat(_toConsumableArray(shapeMeta.heightOnly ? [] : [['Width', 'width', 100, 300, 100, '%']]), [['Height', 'height', 0, 500, 100, 'px']]).forEach(function (_ref55) {
       var _dividerValue$key;
-      var _ref54 = _slicedToArray(_ref53, 6),
-        labelText = _ref54[0],
-        key = _ref54[1],
-        min = _ref54[2],
-        max = _ref54[3],
-        fallback = _ref54[4],
-        unit = _ref54[5];
+      var _ref56 = _slicedToArray(_ref55, 6),
+        labelText = _ref56[0],
+        key = _ref56[1],
+        min = _ref56[2],
+        max = _ref56[3],
+        fallback = _ref56[4],
+        unit = _ref56[5];
       var group = document.createElement('div');
       group.className = 'ink-v2-shape-range';
       var range = document.createElement('input');
@@ -15550,16 +15944,16 @@ function shapeDivider(panel, control, node, value, row) {
       group.append(range, number, suffix);
       field(labelText, group);
     });
-    [].concat(_toConsumableArray(shapeMeta.flip ? [['Flip', 'flip']] : []), _toConsumableArray(shapeMeta.negative ? [['Invert', 'invert']] : []), [['Bring to Front', 'front']]).forEach(function (_ref55) {
-      var _ref56 = _slicedToArray(_ref55, 2),
-        labelText = _ref56[0],
-        key = _ref56[1];
-      var _switchControl2 = switchControl({
+    [].concat(_toConsumableArray(shapeMeta.flip ? [['Flip', 'flip']] : []), _toConsumableArray(shapeMeta.negative ? [['Invert', 'invert']] : []), [['Bring to Front', 'front']]).forEach(function (_ref57) {
+      var _ref58 = _slicedToArray(_ref57, 2),
+        labelText = _ref58[0],
+        key = _ref58[1];
+      var _switchControl3 = switchControl({
           checked: !!dividerValue[key],
           ariaLabel: labelText
         }),
-        switcher = _switchControl2.wrapper,
-        checkbox = _switchControl2.checkbox;
+        switcher = _switchControl3.wrapper,
+        checkbox = _switchControl3.checkbox;
       checkbox.addEventListener('change', function () {
         return update(_defineProperty({}, key, checkbox.checked));
       });
@@ -15769,25 +16163,25 @@ function wysiwyg(panel, control, node, value, row) {
     level: 3
   }], [10, 'toggleBlockquote', '❝', 'blockquote', null], [11, 'toggleCodeBlock', '</>', 'codeBlock', null], [12, 'setHorizontalRule', '—', null, null]];
   var refreshActive = function refreshActive() {
-    commands.forEach(function (_ref57) {
-      var _ref58 = _slicedToArray(_ref57, 5),
-        index = _ref58[0],
-        command = _ref58[1],
-        label = _ref58[2],
-        stateCommand = _ref58[3],
-        arg = _ref58[4];
+    commands.forEach(function (_ref59) {
+      var _ref60 = _slicedToArray(_ref59, 5),
+        index = _ref60[0],
+        command = _ref60[1],
+        label = _ref60[2],
+        stateCommand = _ref60[3],
+        arg = _ref60[4];
       if (!stateCommand) return;
       var button = toolbar.querySelector("[data-cmd=\"".concat(index, "\"]"));
       if (button) button.classList.toggle('is-active', adapter.isActive(stateCommand));
     });
   };
-  commands.forEach(function (_ref59) {
-    var _ref60 = _slicedToArray(_ref59, 5),
-      index = _ref60[0],
-      command = _ref60[1],
-      label = _ref60[2],
-      stateCommand = _ref60[3],
-      arg = _ref60[4];
+  commands.forEach(function (_ref61) {
+    var _ref62 = _slicedToArray(_ref61, 5),
+      index = _ref62[0],
+      command = _ref62[1],
+      label = _ref62[2],
+      stateCommand = _ref62[3],
+      arg = _ref62[4];
     var button = document.createElement('button');
     button.type = 'button';
     button.textContent = label;
@@ -15859,10 +16253,10 @@ function dataBinding(panel, control, node, _value, row) {
   var sourceSelect = document.createElement('select');
   sourceSelect.setAttribute('aria-label', 'Data source');
   sourceSelect.add(new Option('Static', ''));
-  Object.entries(sources).forEach(function (_ref61) {
-    var _ref62 = _slicedToArray(_ref61, 2),
-      key = _ref62[0],
-      def = _ref62[1];
+  Object.entries(sources).forEach(function (_ref63) {
+    var _ref64 = _slicedToArray(_ref63, 2),
+      key = _ref64[0],
+      def = _ref64[1];
     return sourceSelect.add(new Option(def.label || key, key));
   });
   sourceSelect.value = currentSource;
@@ -15877,10 +16271,10 @@ function dataBinding(panel, control, node, _value, row) {
       return;
     }
     fieldSelect.add(new Option('Choose field…', ''));
-    Object.entries(def.fields || {}).forEach(function (_ref63) {
-      var _ref64 = _slicedToArray(_ref63, 2),
-        path = _ref64[0],
-        label = _ref64[1];
+    Object.entries(def.fields || {}).forEach(function (_ref65) {
+      var _ref66 = _slicedToArray(_ref65, 2),
+        path = _ref66[0],
+        label = _ref66[1];
       return fieldSelect.add(new Option(label, path));
     });
     fieldSelect.value = currentField;
@@ -17016,6 +17410,22 @@ var vectorAdvanced = [{
   type: 'motion',
   label: 'Animation',
   description: 'Native keyframes run in Preview and published pages; Design mode stays stable and editable.'
+}, {
+  tab: 'advanced',
+  target: 'settings',
+  section: 'Motion',
+  name: 'motionGroup',
+  type: 'motion-group',
+  label: 'Motion group',
+  description: 'Orchestrate this layer\'s children as one timeline: a shared trigger, a stagger between them, and for scroll groups the reference they scrub against.'
+}, {
+  tab: 'advanced',
+  target: 'settings',
+  section: 'Motion',
+  name: 'sticky',
+  type: 'sticky',
+  label: 'Sticky',
+  description: 'Pin this layer inside its scroll container. A pinned scroll timeline is a tall motion group whose stage is sticky.'
 }];
 
 // Single typography popover (Ink) writing to the element's style bucket.
@@ -20642,6 +21052,22 @@ var advancedControls = [{
   type: 'motion',
   label: 'Animation',
   description: 'Native keyframes run in Preview and published pages; Design mode stays stable and editable.'
+}, {
+  tab: 'advanced',
+  target: 'settings',
+  section: 'Motion',
+  name: 'motionGroup',
+  type: 'motion-group',
+  label: 'Motion group',
+  description: 'Orchestrate this layer\'s children as one timeline: a shared trigger, a stagger between them, and for scroll groups the reference they scrub against.'
+}, {
+  tab: 'advanced',
+  target: 'settings',
+  section: 'Motion',
+  name: 'sticky',
+  type: 'sticky',
+  label: 'Sticky',
+  description: 'Pin this layer inside its scroll container. A pinned scroll timeline is a tall motion group whose stage is sticky.'
 }];
 var surfaceControls = [{
   tab: 'style',
@@ -22972,6 +23398,180 @@ var INTERACTION_RUNTIME = String.raw(_templateObject || (_templateObject = _tagg
 
 /***/ }),
 
+/***/ "./src/core/motionGroups.js":
+/*!**********************************!*\
+  !*** ./src/core/motionGroups.js ***!
+  \**********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   MOTION_GROUP_KINDS: () => (/* binding */ MOTION_GROUP_KINDS),
+/* harmony export */   MOTION_GROUP_KIND_LABELS: () => (/* binding */ MOTION_GROUP_KIND_LABELS),
+/* harmony export */   MOTION_GROUP_TRIGGERS: () => (/* binding */ MOTION_GROUP_TRIGGERS),
+/* harmony export */   MOTION_GROUP_TRIGGER_LABELS: () => (/* binding */ MOTION_GROUP_TRIGGER_LABELS),
+/* harmony export */   describeMotionGroup: () => (/* binding */ describeMotionGroup),
+/* harmony export */   effectiveMotion: () => (/* binding */ effectiveMotion),
+/* harmony export */   groupOrchestrates: () => (/* binding */ groupOrchestrates),
+/* harmony export */   isGroupOrchestrated: () => (/* binding */ isGroupOrchestrated),
+/* harmony export */   isSharedTrigger: () => (/* binding */ isSharedTrigger),
+/* harmony export */   motionGroupItems: () => (/* binding */ motionGroupItems),
+/* harmony export */   normalizeMotionGroup: () => (/* binding */ normalizeMotionGroup)
+/* harmony export */ });
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+// Motion groups turn the motion of several sibling elements into ONE authored timeline.
+//
+// A group is ordinary element data on the parent (`settings.motionGroup`): a trigger shared by its
+// children, a stagger between them, and — for scroll groups — the reference they scrub against.
+// Children keep their own `settings.motion` keyframes, so a group orchestrates what each layer
+// already does instead of hiding it. Nothing here is a runtime feature: load/hover/enter compile
+// to CSS (see StyleEngine), scroll groups share one progress driver (see scrollMotionRuntime), and
+// every value stays editable in the Motion panel — by a human, the importer, or the Copilot.
+//
+// This is what lets an imported deck unfold on hover, a grid reveal card by card, or a pinned
+// section scrub a whole timeline, using only data the builder already stores.
+
+var MOTION_GROUP_TRIGGERS = ['inherit', 'load', 'enter', 'hover', 'scroll'];
+var MOTION_GROUP_KINDS = ['group', 'stagger', 'unfold', 'orbit3d', 'scrub', 'carousel'];
+var MOTION_GROUP_TRIGGER_LABELS = {
+  inherit: 'Each child',
+  load: 'Page load',
+  enter: 'Section enters view',
+  hover: 'Hover the group',
+  scroll: 'Scroll progress'
+};
+var MOTION_GROUP_KIND_LABELS = {
+  group: 'Group',
+  stagger: 'Staggered reveal',
+  unfold: 'Hover unfold',
+  orbit3d: '3D orbit',
+  scrub: 'Scroll timeline',
+  carousel: 'Carousel'
+};
+var EASING_PATTERN = /^(?:[a-z-]+|cubic-bezier\([\d.,\s-]+\)|steps\([\d,\s-]+\)|linear\([\d.,\s-]*\))$/i;
+var clamp = function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+};
+var number = function number(value) {
+  var fallback = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
+  var parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+var pick = function pick(list, value, fallback) {
+  return list.includes(String(value !== null && value !== void 0 ? value : '').toLowerCase()) ? String(value).toLowerCase() : fallback;
+};
+
+// Canonical, serializable group. Returns null for anything that is not a group, so callers can
+// treat "no group" and "empty object" identically.
+function normalizeMotionGroup(raw) {
+  var _raw$label;
+  if (!raw || _typeof(raw) !== 'object' || Array.isArray(raw)) return null;
+  var group = {
+    kind: pick(MOTION_GROUP_KINDS, raw.kind, 'group'),
+    trigger: pick(MOTION_GROUP_TRIGGERS, raw.trigger, 'inherit')
+  };
+  var label = String((_raw$label = raw.label) !== null && _raw$label !== void 0 ? _raw$label : '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  if (label) group.label = label;
+  var stagger = clamp(Math.round(number(raw.stagger)), 0, 2000);
+  if (stagger) group.stagger = stagger;
+  var duration = clamp(Math.round(number(raw.duration)), 0, 60000);
+  if (duration) group.duration = duration;
+  var delay = clamp(Math.round(number(raw.delay)), 0, 60000);
+  if (delay) group.delay = delay;
+  if (EASING_PATTERN.test(String(raw.easing || ''))) group.easing = String(raw.easing);
+  if (raw.iterations === 'infinite') group.iterations = 'infinite';else {
+    var iterations = clamp(Math.round(number(raw.iterations, 1)), 1, 99);
+    if (iterations !== 1) group.iterations = iterations;
+  }
+  if (raw.perspective != null) group.perspective = clamp(Math.round(number(raw.perspective)), 100, 5000);
+  if (raw.scrub && _typeof(raw.scrub) === 'object') group.scrub = {
+    reference: raw.scrub.reference === 'parent' ? 'parent' : 'group',
+    start: clamp(number(raw.scrub.start), 0, 1),
+    end: clamp(number(raw.scrub.end, 1), 0, 1)
+  };
+  if (raw.pin && _typeof(raw.pin) === 'object') group.pin = {
+    enabled: raw.pin.enabled !== false,
+    distance: clamp(Math.round(number(raw.pin.distance, 100)), 0, 400)
+  };
+  if (raw.count != null) group.count = clamp(Math.round(number(raw.count)), 0, 500);
+  return group;
+}
+function isGroupOrchestrated(group) {
+  return Boolean(group) && group.trigger !== undefined && group.trigger !== 'inherit';
+}
+function isSharedTrigger(group) {
+  return Boolean(group) && ['hover', 'scroll'].includes(group.trigger);
+}
+
+// Resolve one child's motion against its parent group. The child keeps its keyframes; the group
+// contributes the shared trigger, timing, and stagger offset. Index is the child's position among
+// its siblings, so a stagger reads left-to-right / top-to-bottom exactly as authored.
+function effectiveMotion(motion, group) {
+  var index = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
+  if (!motion || motion.enabled === false) return null;
+  var resolved = _objectSpread({}, motion);
+  if (group) {
+    if (group.trigger && group.trigger !== 'inherit') resolved.trigger = group.trigger;
+    if (group.duration) resolved.duration = group.duration;
+    if (group.easing) resolved.easing = group.easing;
+    if (group.iterations) resolved.iterations = group.iterations;
+    if (group.delay) resolved.delay = number(resolved.delay) + group.delay;
+    var stagger = number(group.stagger);
+    if (stagger) resolved.delay = number(resolved.delay) + Math.max(0, index) * stagger;
+    resolved.groupTrigger = group.trigger;
+  }
+  resolved.motionIndex = Math.max(0, index);
+  return resolved;
+}
+
+// The authored timeline of a group: which children take part, and when each one starts. Used by
+// the Motion panel and by Copilot's read_design so the plan is inspectable without running it.
+function motionGroupItems(node) {
+  var _node$settings;
+  var group = normalizeMotionGroup(node === null || node === void 0 || (_node$settings = node.settings) === null || _node$settings === void 0 ? void 0 : _node$settings.motionGroup);
+  var children = Array.isArray(node === null || node === void 0 ? void 0 : node.children) ? node.children : [];
+  return children.reduce(function (items, child, index) {
+    var _child$settings, _child$settings2;
+    var motion = effectiveMotion(child === null || child === void 0 || (_child$settings = child.settings) === null || _child$settings === void 0 ? void 0 : _child$settings.motion, group, index);
+    if (!motion || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return items;
+    items.push({
+      index: index,
+      id: child.id,
+      label: ((_child$settings2 = child.settings) === null || _child$settings2 === void 0 ? void 0 : _child$settings2.label) || '',
+      trigger: motion.trigger,
+      delay: number(motion.delay),
+      duration: number(motion.duration)
+    });
+    return items;
+  }, []);
+}
+function describeMotionGroup(raw) {
+  var _group$pin;
+  var group = normalizeMotionGroup(raw);
+  if (!group) return '';
+  var parts = [group.label || MOTION_GROUP_KIND_LABELS[group.kind] || group.kind];
+  parts.push(MOTION_GROUP_TRIGGER_LABELS[group.trigger] || group.trigger);
+  if (group.stagger) parts.push("".concat(group.stagger, "ms stagger"));
+  if ((_group$pin = group.pin) !== null && _group$pin !== void 0 && _group$pin.enabled) parts.push("pinned ".concat(group.pin.distance, "vh"));
+  if (group.count) parts.push("".concat(group.count, " layers"));
+  return parts.join(' · ');
+}
+
+// Detectors and Copilot both need to answer "does this group orchestrate the given child?".
+function groupOrchestrates(group, child) {
+  var _child$settings3;
+  if (!group || group.trigger === 'inherit') return false;
+  return Boolean(child === null || child === void 0 || (_child$settings3 = child.settings) === null || _child$settings3 === void 0 ? void 0 : _child$settings3.motion);
+}
+
+/***/ }),
+
 /***/ "./src/core/scrollMotionRuntime.js":
 /*!*****************************************!*\
   !*** ./src/core/scrollMotionRuntime.js ***!
@@ -22986,7 +23586,15 @@ __webpack_require__.r(__webpack_exports__);
 var _templateObject;
 function _taggedTemplateLiteral(e, t) { return t || (t = e.slice(0)), Object.freeze(Object.defineProperties(e, { raw: { value: Object.freeze(t) } })); }
 // Shared by Preview and exported pages. Motion remains ordinary editable element data.
-var SCROLL_MOTION_RUNTIME = String.raw(_templateObject || (_templateObject = _taggedTemplateLiteral(["(function () {\n    if (window.__inkScrollMotion) return;\n    window.__inkScrollMotion = true;\n    const records = new Map();\n    const reduced = matchMedia('(prefers-reduced-motion: reduce)');\n    let scheduled = false;\n    const inactive = () => reduced.matches || document.body.classList.contains('ink-builder-design');\n    const allowed = new Set(['offset', 'transform', 'opacity', 'filter', 'clip-path', 'background-color', 'color']);\n    function update() {\n        scheduled = false;\n        for (const [element, record] of records) {\n            if (!element.isConnected || inactive()) {\n                record.animation.cancel(); records.delete(element); continue;\n            }\n            // The parent is the stable scroll section: animating the target's transform must\n            // never alter its own scroll measurement (which causes feedback and jitter).\n            const rect = element.parentElement.getBoundingClientRect();\n            if (record.trigger === 'scroll') {\n                const progress = Math.max(0, Math.min(1, (innerHeight - rect.top) / (innerHeight + rect.height)));\n                record.animation.currentTime = progress * record.duration;\n            } else if (!record.started && rect.top < innerHeight && rect.bottom > 0) {\n                record.started = true; record.animation.play();\n            }\n        }\n    }\n    function schedule() {\n        if (!scheduled) { scheduled = true; requestAnimationFrame(update); }\n    }\n    function scan() {\n        if (!inactive()) document.querySelectorAll('[data-ink-scroll-motion]').forEach((element) => {\n            if (records.has(element)) return;\n            try {\n                const motion = JSON.parse(element.getAttribute('data-ink-scroll-motion'));\n                if (!['scroll', 'enter'].includes(motion.trigger) || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return;\n                const frames = motion.keyframes.map((frame) => Object.fromEntries(Object.entries(frame).filter(([key]) => allowed.has(key))));\n                const duration = Math.max(1, Number(motion.duration) || 800);\n                const animation = element.animate(frames, {\n                    duration, fill: 'both', iterations: 1,\n                    easing: motion.easing || 'linear',\n                    delay: motion.trigger === 'enter' ? Number(motion.delay) || 0 : 0,\n                });\n                animation.pause();\n                records.set(element, { animation, duration, trigger: motion.trigger, started: false });\n            } catch (error) { console.warn('Ink motion could not start', error.message); }\n        });\n        schedule();\n    }\n    addEventListener('scroll', schedule, { passive: true, capture: true });\n    addEventListener('resize', schedule, { passive: true });\n    reduced.addEventListener('change', scan);\n    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });\n    new MutationObserver(scan).observe(document.body, { attributes: true, attributeFilter: ['class'] });\n    scan();\n})();"])));
+//
+// Two kinds of scroll motion exist and both live here:
+//   1. A single layer whose own motion triggers on `scroll` -- it scrubs against its parent.
+//   2. A motion GROUP (`[data-ink-motion-group]`) whose children scrub against one shared
+//      reference, so a pinned section advances every layer off the *same* progress value.
+// The group's reference is the group element itself, or its parent when the group asked for
+// `scrub.reference = "parent"`. Group members never measure their own transform, which is what
+// keeps a scrubbed transform from feeding back into the scroll position.
+var SCROLL_MOTION_RUNTIME = String.raw(_templateObject || (_templateObject = _taggedTemplateLiteral(["(function () {\n    if (window.__inkScrollMotion) return;\n    window.__inkScrollMotion = true;\n    const records = new Map();\n    const reduced = matchMedia('(prefers-reduced-motion: reduce)');\n    let scheduled = false;\n    const inactive = () => reduced.matches || document.body.classList.contains('ink-builder-design');\n    const allowed = new Set(['offset', 'transform', 'opacity', 'filter', 'clip-path', 'background-color', 'color']);\n    const clamp01 = (value) => Math.max(0, Math.min(1, value));\n    function groupOf(element) {\n        const owner = element.closest('[data-ink-motion-group]');\n        if (!owner) return null;\n        try {\n            const group = JSON.parse(owner.getAttribute('data-ink-motion-group') || 'null');\n            return group && group.trigger === 'scroll' ? { owner, group } : null;\n        } catch (error) { return null; }\n    }\n    function referenceOf(element) {\n        const scoped = groupOf(element);\n        if (!scoped) return element.parentElement;\n        return scoped.group.scrub && scoped.group.scrub.reference === 'parent' ? (scoped.owner.parentElement || scoped.owner) : scoped.owner;\n    }\n    function progressFor(rect, motion) {\n        let progress = clamp01((innerHeight - rect.top) / (innerHeight + rect.height));\n        const scrub = motion.scrub || (motion.scrubWindow);\n        if (scrub && typeof scrub === 'object') {\n            const start = Number(scrub.start) || 0;\n            const end = Number.isFinite(Number(scrub.end)) ? Number(scrub.end) : 1;\n            progress = clamp01((progress - start) / Math.max(0.0001, end - start));\n        }\n        return progress;\n    }\n    function update() {\n        scheduled = false;\n        const frameRects = new Map();\n        for (const [element, record] of records) {\n            if (!element.isConnected || inactive()) {\n                record.animation.cancel(); records.delete(element); continue;\n            }\n            if (record.trigger === 'scroll') {\n                const reference = record.reference || element.parentElement;\n                let rect = frameRects.get(reference);\n                // The reference is the stable scroll section: animating the target's transform must\n                // never alter its own scroll measurement (which causes feedback and jitter). One\n                // measurement per reference per frame is shared by every member of a group.\n                if (!rect) { rect = reference.getBoundingClientRect(); frameRects.set(reference, rect); }\n                record.animation.currentTime = progressFor(rect, record.motion) * record.duration;\n            } else {\n                const rect = element.parentElement.getBoundingClientRect();\n                if (!record.started && rect.top < innerHeight && rect.bottom > 0) {\n                    record.started = true; record.animation.play();\n                }\n            }\n        }\n    }\n    function schedule() {\n        if (!scheduled) { scheduled = true; requestAnimationFrame(update); }\n    }\n    function scan() {\n        if (!inactive()) document.querySelectorAll('[data-ink-scroll-motion]').forEach((element) => {\n            if (records.has(element)) return;\n            try {\n                const motion = JSON.parse(element.getAttribute('data-ink-scroll-motion'));\n                if (!['scroll', 'enter'].includes(motion.trigger) || !Array.isArray(motion.keyframes) || motion.keyframes.length < 2) return;\n                const frames = motion.keyframes.map((frame) => Object.fromEntries(Object.entries(frame).filter(([key]) => allowed.has(key))));\n                const duration = Math.max(1, Number(motion.duration) || 800);\n                const animation = element.animate(frames, {\n                    duration, fill: 'both', iterations: 1,\n                    easing: motion.easing || 'linear',\n                    delay: motion.trigger === 'enter' ? Number(motion.delay) || 0 : 0,\n                });\n                animation.pause();\n                records.set(element, {\n                    animation, duration, motion, trigger: motion.trigger,\n                    reference: motion.trigger === 'scroll' ? referenceOf(element) : null,\n                    started: false,\n                });\n            } catch (error) { console.warn('Ink motion could not start', error.message); }\n        });\n        schedule();\n    }\n    addEventListener('scroll', schedule, { passive: true, capture: true });\n    addEventListener('resize', schedule, { passive: true });\n    reduced.addEventListener('change', scan);\n    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });\n    new MutationObserver(scan).observe(document.body, { attributes: true, attributeFilter: ['class'] });\n    scan();\n})();"])));
 
 /***/ }),
 

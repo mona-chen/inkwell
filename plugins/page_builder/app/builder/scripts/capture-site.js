@@ -62,7 +62,7 @@ async function inspect(page) {
     };
     const computed = (element) => {
       const style = getComputedStyle(element);
-      const keys = ["display", "position", "flexDirection", "flexWrap", "justifyContent", "alignItems", "gridTemplateColumns", "gap", "width", "maxWidth", "minHeight", "padding", "margin", "overflow", "background", "color", "fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "border", "borderRadius", "boxShadow", "transform", "transformStyle", "perspective", "transition", "opacity"];
+      const keys = ["display", "position", "flexDirection", "flexWrap", "justifyContent", "alignItems", "gridTemplateColumns", "gap", "width", "maxWidth", "minHeight", "padding", "margin", "overflow", "background", "color", "fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "border", "borderRadius", "boxShadow", "transform", "transformStyle", "perspective", "transition", "opacity", "top", "bottom", "zIndex"];
       return Object.fromEntries(keys.map((key) => [key, style[key]]));
     };
     const semantic = [...document.querySelectorAll("header,main > section,main > article,main > div,body > section,body > footer,footer")];

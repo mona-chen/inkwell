@@ -3,6 +3,7 @@ import {
     INTERACTION_ACTIONS, INTERACTION_EVENTS, INTERACTION_TARGETS,
     normalizeInteractions, normalizeStateList, normalizeStateName,
 } from './states.js';
+import { MOTION_GROUP_KINDS, MOTION_GROUP_TRIGGERS, describeMotionGroup, motionGroupItems, normalizeMotionGroup } from './motionGroups.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -37,9 +38,23 @@ export function createCopilotTools(runtime, builder) {
         return node ? { node, parent: runtime.document.parentOf(node.id), path: String(pathOrId) } : null;
     };
 
+    // Behaviour is part of the design, so read_design reports it: a layer's motion, its group
+    // membership, sticky pinning, states and interactions are all visible without running anything.
+    const annotate = (node) => {
+        const tags = [];
+        if (node.settings?.motion) tags.push(`motion:${node.settings.motion.trigger || 'load'}`);
+        const group = normalizeMotionGroup(node.settings?.motionGroup);
+        if (group) tags.push(`group:${group.kind}/${group.trigger}${group.stagger ? `+${group.stagger}ms` : ''}`);
+        if (node.settings?.sticky) tags.push('sticky');
+        const interactions = node.settings?.interactions;
+        if (Array.isArray(interactions) && interactions.length) tags.push(`interactions:${interactions.length}`);
+        const states = normalizeStateList(node.settings?.stateNames);
+        if (states.length) tags.push(`states:${states.join('|')}`);
+        return tags.length ? ` {${tags.join(', ')}}` : '';
+    };
     const indexNode = (node, path) => {
         const definition = runtime.elements.get(node.type);
-        const lines = [`[${path}] ${definition.title}${labelOf(node)} (type ${node.type}, id ${node.id})`];
+        const lines = [`[${path}] ${definition.title}${labelOf(node)} (type ${node.type}, id ${node.id})${annotate(node)}`];
         (node.children || []).forEach((child, index) => lines.push(...indexNode(child, `${path}.${index}`).map((line) => `  ${line}`)));
         return lines;
     };
@@ -90,6 +105,7 @@ export function createCopilotTools(runtime, builder) {
                 guidance: 'Interactions are declarative element data set with set_interactions; they run in Preview and on the published page and are undoable. For a two-state pricing switch: give the container stateNames ["monthly","yearly"], then give each option button setState interactions targeting the container (target query + selector) plus show/hide interactions for the panels that should swap.',
             },
             motion: { setting: 'motion', triggers: ['load', 'hover', 'enter', 'scroll'], example: { enabled: true, trigger: 'scroll', easing: 'linear', keyframes: [{ offset: 0, transform: 'translateX(0px)' }, { offset: 1, transform: 'translateX(-240px)' }] }, guidance: 'Set motion on a native layer with update_element. enter and scroll use the parent section as their viewport reference, respect reduced motion, and run in Preview/published pages. Motion stays editable in the Motion panel.' },
+            motionGroup: { setting: 'motionGroup', kinds: MOTION_GROUP_KINDS, triggers: MOTION_GROUP_TRIGGERS, example: { kind: 'stagger', trigger: 'enter', stagger: 120, duration: 700, easing: 'cubic-bezier(.16,1,.3,1)' }, pinnedExample: { kind: 'scrub', trigger: 'scroll', stagger: 0, pin: { enabled: true, distance: 120 }, scrub: { reference: 'group' } }, guidance: 'A motion group orchestrates the children of one layer into a single timeline with set_motion_group: the children keep their own keyframes, the group shares a trigger (hover the group, scroll progress, enter, load) and adds a per-child stagger. For a hover unfold set trigger hover; for a scroll-scrubbed or pinned section set trigger scroll, pin.enabled true, and put the animated stage inside it with set_sticky.' },
             elements: groups,
             styleShape: { desktop: { base: { color: '#111827', padding: { top: 24, right: 24, bottom: 24, left: 24, unit: 'px' } } }, tablet: { base: {} }, mobile: { base: {} } },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },
@@ -562,6 +578,23 @@ export function createCopilotTools(runtime, builder) {
                     runtime.update(target.node.id, { settings }, 'AI set interactions');
                     return asJson({ ok: true, id: target.node.id, interactions, stateNames: settings.stateNames, state: settings.state });
                 }
+                case 'set_motion_group': {
+                    const target = resolve(args.path || args.id);
+                    if (!target) throw new TypeError('Element not found; read_design for current IDs.');
+                    const group = args.motionGroup == null ? null : normalizeMotionGroup(args.motionGroup);
+                    if (args.motionGroup != null && !group) throw new TypeError('motionGroup must be an object with a valid kind and trigger.');
+                    if (group && !runtime.elements.get(target.node.type).acceptsChildren) throw new TypeError(`${target.node.type} cannot own children, so it cannot orchestrate a timeline.`);
+                    runtime.update(target.node.id, { settings: { motionGroup: group } }, group ? 'AI set motion group' : 'AI clear motion group');
+                    return asJson({ ok: true, id: target.node.id, motionGroup: group, timeline: motionGroupItems(target.node), summary: group ? describeMotionGroup(group) : '' });
+                }
+                case 'set_sticky': {
+                    const target = resolve(args.path || args.id);
+                    if (!target) throw new TypeError('Element not found; read_design for current IDs.');
+                    const enabled = args.sticky == null ? false : (args.sticky.enabled !== false && args.sticky !== false);
+                    const sticky = enabled ? { enabled: true, top: Number(args.sticky.top) || 0, zIndex: Number(args.sticky.zIndex) || 10 } : null;
+                    runtime.update(target.node.id, { settings: { sticky } }, sticky ? 'AI pin layer' : 'AI unpin layer');
+                    return asJson({ ok: true, id: target.node.id, sticky });
+                }
                 case 'undo': runtime.history.undo(); return 'ok';
                 case 'redo': runtime.history.redo(); return 'ok';
                 default: return `unknown tool: ${name}`;
@@ -604,11 +637,13 @@ export function createCopilotTools(runtime, builder) {
         { name: 'set_custom_js', description: 'Replace page-level JavaScript for progressive motion, interaction, canvas, WebGL, or shaders. Keep it idempotent and scoped to the page.', parameters: { type: 'object', properties: { js: { type: 'string' } }, required: ['js'] } },
         { name: 'css_edit', description: 'Set one custom-CSS property on one selector.', parameters: { type: 'object', properties: { selector: { type: 'string' }, property: { type: 'string' }, value: { type: 'string' } }, required: ['selector', 'property', 'value'] } },
         { name: 'set_interactions', description: 'Set declarative interactions and/or component-state names on one element. interactions is an array of { on: click|hover|load|enter, action: toggleState|setState|toggleClass|show|hide|scrollTo|playMotion, target: self|parent|next|previous|query|children, state, className, selector, exclusive, delay }. stateNames names this layer\'s variants and state picks the authored one. Everything stays editable in the Interaction panel and runs in Preview/published output.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' }, interactions: { type: 'array', items: { type: 'object', additionalProperties: true } }, stateNames: { type: 'array', items: { type: 'string' } }, state: { type: 'string' } } } },
+        { name: 'set_motion_group', description: 'Orchestrate the children of one layer as a single editable timeline. motionGroup is { kind: group|stagger|unfold|orbit3d|scrub|carousel, trigger: inherit|load|enter|hover|scroll, stagger, duration, delay, easing, iterations, perspective, scrub: { reference: group|parent, start, end }, pin: { enabled, distance } }. Children keep their own keyframes; the group shares the trigger and staggers their starts. Pass motionGroup null to clear it. Use set_sticky on the stage for a pinned scroll timeline.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' }, motionGroup: { type: 'object', additionalProperties: true } } } },
+        { name: 'set_sticky', description: 'Pin a layer inside its scroll container (position: sticky). sticky is { enabled, top, zIndex }; pass sticky null or false to unpin.', parameters: { type: 'object', properties: { path: { type: 'string' }, id: { type: 'string' }, sticky: { type: 'object', additionalProperties: true } } } },
         { name: 'undo', description: 'Undo the last builder or Copilot change.', parameters: { type: 'object', properties: {} } },
         { name: 'redo', description: 'Redo the last undone change.', parameters: { type: 'object', properties: {} } },
     ];
 
-    const MUTATING_TOOLS = new Set(['set_shader_fill', 'set_interactions', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
+    const MUTATING_TOOLS = new Set(['set_shader_fill', 'set_interactions', 'set_motion_group', 'set_sticky', 'compose_landing_page', 'replace_page', 'append_tree', 'insert_element', 'update_element', 'set_styles', 'move_element', 'remove_element', 'duplicate_element', 'set_custom_css', 'set_custom_js', 'css_edit', 'undo', 'redo']);
     const context = () => ({
         selection: [...runtime.selection.selectedIds].map((id) => { const node = runtime.document.get(id); return node ? { id, type: node.type, label: node.settings.label || labelOf(node) } : null; }).filter(Boolean),
         device: runtime.responsive.device,
