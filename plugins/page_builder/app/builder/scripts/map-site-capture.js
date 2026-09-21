@@ -455,6 +455,9 @@ if (manifest.format === "ink-site-capture-v2") {
       // tree only references: how much became native structure, motion, state and interaction.
       quality: importQuality(pages.flatMap((page) => page.payload.children), [], Object.values(capturedSiteParts)),
       skippedRoutes: skippedRoutes(manifest, manifest.pages.map((page) => JSON.parse(fs.readFileSync(path.join(captureDir, page.manifest), 'utf8')))),
+      // Origins the site publishes its articles on but this capture was not authorized to follow.
+      // The import job adopts the public ones and captures again, so these become pages, not a gap.
+      externalOrigins: manifest.externalOrigins || [],
     },
   };
   fs.writeFileSync(siteOutput, JSON.stringify(sitePayload, null, 2));

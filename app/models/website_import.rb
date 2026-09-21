@@ -1,5 +1,7 @@
 class WebsiteImport < ApplicationRecord
   STATUSES = %w[queued capturing mapping ready importing imported failed].freeze
+  # Sibling origins an import may also crawl (a CMS domain, a blog subdomain).
+  MAX_ORIGINS = 10
 
   belongs_to :site
   belongs_to :user
@@ -85,7 +87,7 @@ class WebsiteImport < ApplicationRecord
 
   def origins_must_be_http
     origins = Array(allowed_origins)
-    errors.add(:additional_origins, "allows at most 10 origins") if origins.size > 10
+    errors.add(:additional_origins, "allows at most #{MAX_ORIGINS} origins") if origins.size > MAX_ORIGINS
     origins.each do |origin|
       uri = URI.parse(origin.to_s)
       unless uri.is_a?(URI::HTTP) && uri.host.present? && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil? && [ "", "/" ].include?(uri.path)

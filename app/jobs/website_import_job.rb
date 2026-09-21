@@ -19,13 +19,13 @@ class WebsiteImportJob < ApplicationJob
     FileUtils.mkdir_p(website_import.capture_directory.parent)
 
     website_import.begin_capture!
-    run!(
-      "npm", "run", "capture-site", "--", website_import.source_url,
-      "--confirm-ownership", "--depth", website_import.max_depth.to_s,
-      "--max-pages", website_import.max_pages.to_s,
-      "--output", website_import.capture_directory.to_s,
-      *website_import.allowed_origins.flat_map { |origin| [ "--include-origin", origin ] }
-    )
+    capture!(website_import)
+
+    # A site often publishes its articles on a sibling origin — a CMS domain, a blog subdomain.
+    # The first pass only records those origins, because the crawler must never visit a host this
+    # import was not authorized for. Adopt the public ones and capture once more, so the linked
+    # posts become pages instead of a reported gap.
+    capture!(website_import) if adopt_discovered_origins(website_import).any?
 
     website_import.begin_mapping!
     run!("npm", "run", "map-site", "--", website_import.capture_directory.to_s)
@@ -36,6 +36,47 @@ class WebsiteImportJob < ApplicationJob
   end
 
   private
+
+  def capture!(website_import)
+    run!(
+      "npm", "run", "capture-site", "--", website_import.source_url,
+      "--confirm-ownership", "--depth", website_import.max_depth.to_s,
+      "--max-pages", website_import.max_pages.to_s,
+      "--output", website_import.capture_directory.to_s,
+      *website_import.allowed_origins.flat_map { |origin| [ "--include-origin", origin ] }
+    )
+  end
+
+  # Origins the site links to for its articles that this capture was not authorized to follow.
+  # Only public, bare origins are adopted, and never past the model's own limit, so a page cannot
+  # turn the crawl into an SSRF probe or a wide net. The adopted set is persisted, so a re-run and
+  # the import report both show exactly which hosts were captured.
+  def adopt_discovered_origins(website_import)
+    manifest_path = website_import.capture_directory.join("manifest.json")
+    return [] unless manifest_path.exist?
+
+    discovered = Array(JSON.parse(manifest_path.read)["externalOrigins"]).filter_map do |entry|
+      origin = entry.is_a?(Hash) ? entry["origin"].to_s : ""
+      next if origin.blank? || website_import.allowed_origins.include?(origin) || !public_origin?(origin)
+      origin
+    end.uniq
+    return [] if discovered.empty?
+
+    adopted = discovered.first([ WebsiteImport::MAX_ORIGINS - website_import.allowed_origins.size, 0 ].max)
+    return [] if adopted.empty?
+
+    website_import.update!(allowed_origins: website_import.allowed_origins + adopted)
+    adopted
+  rescue JSON::ParserError
+    []
+  end
+
+  def public_origin?(origin)
+    assert_public_destination!(origin)
+    true
+  rescue StandardError
+    false
+  end
 
   def run!(*command)
     stdout, stderr, status = Open3.capture3(*command, chdir: builder_root.to_s)

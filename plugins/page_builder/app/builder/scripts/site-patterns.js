@@ -18,17 +18,10 @@ const clampText = (value, limit = 400) => String(value || "").replace(/\s+/g, " 
 
 const PRICE_PATTERN = /(?:[$€£¥]\s?\d|\d[\d.,]*\s?(?:\/|per\s)\s?(?:mo|month|yr|year|user|seat|mo\.))/i;
 const PRICE_CYCLE_PATTERN = /\b(monthly|yearly|annual|annually|per month|per year|month|year)\b/i;
-const ARCHIVE_SEGMENT = /^(blog|blogs|post|posts|article|articles|news|insights?|stories)$/i;
 
-// An article URL has an archive segment followed by a slug, so "…/blogs/why-we-built-x" is a post
-// while "…/blogs.html" is only the index.
-function isArticleLink(href) {
-  try {
-    const segments = new URL(String(href || ""), "https://ink.invalid/").pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
-    const index = segments.findIndex((segment) => ARCHIVE_SEGMENT.test(segment));
-    return index >= 0 && index < segments.length - 1;
-  } catch (_) { return false; }
-}
+// The article-route convention is shared with the capture, so the origins it decides to follow
+// and the links this mapper decides are post cards can never disagree.
+const { isArticleLink } = require("./site-routes");
 const NAV_ROLE_LABELS = { nav: "Nav", hero: "Hero", features: "Features", pricing: "Pricing", testimonials: "Testimonials", faq: "FAQ", cta: "Call to action", blog: "Blog", form: "Form", footer: "Footer", content: "Section" };
 
 function settingsOf(node) { if (!node.settings) node.settings = {}; return node.settings; }

@@ -7,6 +7,7 @@
 // a later mapper can reconstruct native Ink elements and use a sandbox only for unsupported code.
 
 const crypto = require("crypto");
+const { outOfScopeArticleOrigins } = require("./site-routes");
 const fs = require("fs");
 const path = require("path");
 // puppeteer-core v25+ is ESM-only; loaded via dynamic import inside the async main block below
@@ -247,6 +248,8 @@ async function inspect(page) {
   const capturedAssets = new Map();
   const sitePages = [];
   const failures = [];
+  // Out-of-scope origins the site links to for its articles (a CMS domain, a blog subdomain).
+  const externalOrigins = new Map();
   const normalizePageUrl = (value) => {
     try {
       const url = new URL(value, sourceUrl);
@@ -323,6 +326,15 @@ async function inspect(page) {
         const result = await capturePage(item.url, pageDirectory);
         const desktop = result.manifest.viewports.find((viewport) => viewport.viewport.width >= 1000) || result.manifest.viewports[0];
         sitePages.push({ key, url: item.url, title: desktop.title, depth: item.depth, parent: item.parent, manifest: `pages/${key}/manifest.json`, document: desktop.document, technology: desktop.technology });
+        // Links the site publishes to another origin are not followed on this pass: the importer
+        // must never crawl a host it was not authorized for. Recording the origins that carry
+        // article routes lets the caller adopt them explicitly, so the individual post pages are
+        // captured too instead of being silently skipped.
+        outOfScopeArticleOrigins(result.discoveredLinks, { pageUrl: item.url, allowedOrigins: [...allowedOrigins] }).forEach((urls, origin) => {
+          const entry = externalOrigins.get(origin) || { origin, urls: new Set() };
+          urls.forEach((url) => { if (entry.urls.size < 500) entry.urls.add(url); });
+          externalOrigins.set(origin, entry);
+        });
         if (item.depth < maxDepth) {
           result.discoveredLinks.map(normalizePageUrl).filter(Boolean).forEach((url) => {
             if (queued.has(url) || sitePages.some((page) => page.url === url) || queue.length + sitePages.length >= maxPages) return;
@@ -345,6 +357,7 @@ async function inspect(page) {
     executionPolicy: "Captured JavaScript is evidence only and must not execute in the editor without explicit review.",
     pages: sitePages,
     failures,
+    externalOrigins: [...externalOrigins.values()].map(({ origin, urls }) => ({ origin, routes: urls.size, sample: [...urls][0] })),
     assets: [...capturedAssets.values()],
   };
   fs.writeFileSync(path.join(output, "manifest.json"), JSON.stringify(manifest, null, 2));
