@@ -725,11 +725,17 @@ export default function registerInkElements(registry) {
         },
         mount: ({ element, node }) => {
             const imported = !!node.settings.importedDom;
+            // The importer marks the trigger/content pair it inferred on any site, so an imported
+            // timeline is driven by structure rather than by one framework's layer names.
             const items = imported
-                ? Array.from(element.querySelectorAll('[data-framer-name="Close"], [data-framer-name="Open"]'))
+                ? Array.from(element.querySelectorAll('.ink-inferred-accordion-item, [data-framer-name="Close"], [data-framer-name="Open"]'))
                 : Array.from(element.querySelectorAll(':scope > .ink-el-timeline-item'));
-            const questionFor = (item) => imported ? item.querySelector('[data-framer-name="Question Wrapper"]') : item.querySelector('.ink-el-timeline-question');
-            const contentFor = (item) => imported ? item.querySelector('[data-framer-name="Details Wrapper"]') : item.querySelector('.ink-el-timeline-content');
+            const questionFor = (item) => imported
+                ? item.querySelector('.ink-inferred-accordion-question, [data-framer-name="Question Wrapper"]')
+                : item.querySelector('.ink-el-timeline-question');
+            const contentFor = (item) => imported
+                ? item.querySelector('.ink-inferred-accordion-content, [data-framer-name="Details Wrapper"]')
+                : item.querySelector('.ink-el-timeline-content');
             const setOpen = (item, open) => {
                 const question = questionFor(item); const content = contentFor(item);
                 item.classList.toggle('is-open', open); item.dataset.inkTimelineItem = '';
@@ -740,6 +746,7 @@ export default function registerInkElements(registry) {
             items.forEach((item, index) => setOpen(item, index === defaultOpen));
             element.style.setProperty('--ink-timeline-duration', `${Math.max(0, Number(node.settings.transitionDuration) || 280)}ms`);
             element.dataset.inkTimelineBehavior = node.settings.behavior || 'single';
+            element.dataset.inkTimelineRoot = '';
             const activate = (item) => {
                 const opening = !item.classList.contains('is-open');
                 if (opening && node.settings.behavior !== 'multiple') items.forEach((candidate) => { if (candidate !== item) setOpen(candidate, false); });

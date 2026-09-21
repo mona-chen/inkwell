@@ -9,6 +9,7 @@ const fs = require("fs");
 const path = require("path");
 const parse5 = require("parse5");
 const { importQuality, skippedRoutes } = require("./import-quality");
+const { inferPatterns } = require("./site-patterns");
 
 const args = process.argv.slice(2);
 const captureDir = path.resolve(args[0] || "");
@@ -85,27 +86,6 @@ if (manifest.format === "ink-site-capture-v2") {
     else delete attributes.style;
     return { source: "framer-appear", id: appearId || null, initial };
   };
-  const hasDescendantTag = (element, tagName) => (element.childNodes || []).some((child) => child.tagName === tagName || hasDescendantTag(child, tagName));
-  const descendantFramerNames = (element, names = new Set()) => {
-    (element.childNodes || []).forEach((child) => {
-      const name = (child.attrs || []).find((attribute) => attribute.name === "data-framer-name")?.value;
-      if (name) names.add(name);
-      descendantFramerNames(child, names);
-    });
-    return names;
-  };
-  const sitePartKeyFor = (element, attributes) => {
-    if (element.tagName !== "div" || !String(attributes.class || "").includes("-container")) return null;
-    const children = (element.childNodes || []).filter((child) => child.tagName);
-    // Framer frequently labels a page-level section "Footer" even when that section also
-    // contains a route-specific CTA. The genuinely shared component is the nested instance
-    // carrying the link columns and legal row. Extract that exact boundary so inner pages do
-    // not inherit the home page's promotional CTA.
-    const names = descendantFramerNames(element);
-    if (["Top Container", "Products", "Resources", "Other pages", "Bottom Container"].every((name) => names.has(name))) return "footer";
-    if (children.length && children.every((child) => /(?:^|\s)ssr-variant(?:\s|$)/.test((child.attrs || []).find((attribute) => attribute.name === "class")?.value || "")) && children.some((child) => hasDescendantTag(child, "nav"))) return "header";
-    return null;
-  };
   const importedTree = (element, pageUrl) => {
     if (!element?.tagName || ["script", "style", "link", "meta", "base", "noscript"].includes(element.tagName)) return null;
     const attributes = {};
@@ -131,12 +111,8 @@ if (manifest.format === "ink-site-capture-v2") {
     }
     const text = (element.childNodes || []).filter((child) => child.nodeName === "#text").map((child) => child.value || "").join("");
     const tag = element.tagName;
-    const sitePartKey = sitePartKeyFor(element, attributes);
     const cta = tag === "button" || (tag === "a" && (/button|cta/i.test(`${attributes["data-framer-name"] || ""} ${attributes.role || ""}`) || /(signup|register|cal\.com|demo)/i.test(attributes.href || "")));
-    const componentName = String(attributes["data-framer-name"] || "").trim().toLowerCase();
-    const type = sitePartKey ? "site-part"
-      : tag === "div" && componentName === "timeline wrapper" ? "timeline-accordion"
-      : /^(section|main|header|footer|nav|article|aside|div)$/.test(tag) ? "container"
+    const type = /^(section|main|header|footer|nav|article|aside|div)$/.test(tag) ? "container"
       : /^h[1-6]$/.test(tag) ? "heading"
       : tag === "p" ? "paragraph"
       : cta ? "button"
@@ -187,9 +163,7 @@ if (manifest.format === "ink-site-capture-v2") {
       importedTextSegments: textSegments,
       importedLabel: attributes["data-framer-name"] || attributes["aria-label"] || attributes.id || attributes.class?.split(/\s+/)[0] || tag,
       ...(importedAnimation ? { importedAnimation } : {}),
-      ...(sitePartKey ? { partKey: sitePartKey } : {}),
     };
-    if (type === "timeline-accordion") Object.assign(nativeSettings, { behavior: "single", defaultOpen: 0, transitionDuration: 280 });
     if (type === "container") Object.assign(nativeSettings, { tag, layout: "full" });
     if (type === "heading") Object.assign(nativeSettings, { tag, text: text.trim() });
     if (type === "paragraph") nativeSettings.text = text;
@@ -209,43 +183,6 @@ if (manifest.format === "ink-site-capture-v2") {
       settings: nativeSettings,
       ...(children.length ? { children } : {}),
     };
-  };
-  const decorateNativeMotion = (nodes) => {
-    const visit = (node) => {
-      // Ruut's About portrait stack is a continuously rotating 3D composition. Framer drives
-      // it from component code, so no CSS keyframes or document.getAnimations() record exists
-      // in the capture. Preserve it as Ink's native, editable motion data instead of loading
-      // the Framer React bundle and surrendering ownership of the DOM.
-      if (node.settings?.importedLabel === "Images" && String(node.settings?.importedAttributes?.class || "").includes("framer-cg6ygb")) {
-        const cards = [];
-        const collect = (candidate) => {
-          if (["1", "2", "3", "4"].includes(candidate.settings?.importedLabel)) cards.push(candidate);
-          (candidate.children || []).forEach(collect);
-        };
-        (node.children || []).forEach(collect);
-        const states = [
-          "translate3d(123.5px,0,0) rotateY(0deg)",
-          "translate3d(-123.5px,0,-220px) rotateY(60deg)",
-          "translate3d(-123.5px,0,-360px) rotateY(0deg)",
-          "translate3d(123.5px,0,-220px) rotateY(-60deg)",
-        ];
-        cards.sort((left, right) => Number(left.settings.importedLabel) - Number(right.settings.importedLabel)).forEach((card, index) => {
-          const phase = [1, 0, 3, 2][index] || 0;
-          card.settings.motion = {
-            trigger: "load",
-            duration: 6000,
-            delay: 0,
-            easing: "linear",
-            iterations: "infinite",
-            direction: "normal",
-            keyframes: [0, 1, 2, 3, 4].map((step) => ({ offset: step / 4, transform: states[(phase + step) % 4] })),
-          };
-        });
-        node.settings.motionGroup = { type: "3d-carousel", label: "Portrait carousel", perspective: 1200 };
-      }
-      (node.children || []).forEach(visit);
-    };
-    nodes.forEach(visit);
   };
   const scriptAttributes = (raw) => {
     const fragment = parse5.parseFragment(`<script ${raw || ""}></script>`);
@@ -371,7 +308,10 @@ if (manifest.format === "ink-site-capture-v2") {
     const framerRoot = findElementWithAttribute(parsed, "data-framer-root");
     const framerRootClasses = (framerRoot?.attrs || []).find((attribute) => attribute.name === "class")?.value || "";
     const nativeChildren = (body?.childNodes || []).map((child) => importedTree(child, page.url)).filter(Boolean);
-    decorateNativeMotion(nativeChildren);
+    // Structure inference reads this route's own computed-style evidence: geometry, computed
+    // styles, captured animations, stylesheet hover rules and pointer probes.
+    const pageManifest = JSON.parse(fs.readFileSync(path.join(pageDirectory, "manifest.json"), "utf8"));
+    const patterns = inferPatterns(nativeChildren, { viewports: pageManifest.viewports });
     let capturedNewSitePart = false;
     const extractSiteParts = (node) => {
       if (node.type === "site-part" && node.settings?.partKey) {
@@ -444,6 +384,7 @@ if (manifest.format === "ink-site-capture-v2") {
     normalizeInitialDocument(body);
     const initialHtml = (body?.childNodes || []).map((child) => parse5.serializeOuter(child)).join("");
     const importedCss = absoluteCssUrls(styleParts.map((part) => part.content).join("\n\n"), page.url)
+      + (patterns.css ? `\n\n/* Ink structure inference */\n${patterns.css}` : "")
       .replace(/(^|})\s*body\s*>/g, "$1 .ink-canvas-root >");
     if (capturedNewSitePart && !capturedSitePartCss) capturedSitePartCss = importedCss;
     const nativePayload = {
@@ -452,7 +393,7 @@ if (manifest.format === "ink-site-capture-v2") {
       customCss: importedCss,
       customJs: nativeRuntime(scriptEntries, page.url),
       initialHtml,
-      importReport: { ...payload.importReport, mode: "native-dom", ...importQuality(deduplicatedNativeChildren, JSON.parse(fs.readFileSync(path.join(pageDirectory, 'manifest.json'), 'utf8')).viewports) },
+      importReport: { ...payload.importReport, mode: "native-dom", inferred: { components: patterns.report.components, roles: patterns.report.roles, sections: patterns.report.sections, notices: patterns.report.notices }, ...importQuality(deduplicatedNativeChildren, pageManifest.viewports) },
     };
     return { source: page.url, title, slug: routes[routeKey(page.url)], depth: page.depth, parentSource: page.parent, payload: nativePayload };
   });
@@ -474,7 +415,7 @@ if (manifest.format === "ink-site-capture-v2") {
     importReport: {
       capturedPages: manifest.pages.length, mappedPages: pages.length, failedPages: (manifest.failures || []).length, routes,
       behaviorVerified: false,
-      notices: ["Structure and styles were reconstructed. Menus, switches, hover effects, and script-driven motion still require behavior review.", "Container nesting preserves source CSS relationships; it has not been converted into reusable semantic components."],
+      notices: ["Structure, styles and the interactions the capture could observe were reconstructed as native, editable element data.", "Regions the site renders from component code (for example a nav panel or a dropdown body) are rebuilt from the markup that did ship; review the inferred components list."],
       pages: pages.map((page) => ({ source: page.source, ...page.payload.importReport })),
       skippedRoutes: skippedRoutes(manifest, manifest.pages.map((page) => JSON.parse(fs.readFileSync(path.join(captureDir, page.manifest), 'utf8')))),
     },

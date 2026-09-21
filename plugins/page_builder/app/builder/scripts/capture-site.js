@@ -54,7 +54,7 @@ const extensionFor = (contentType, url) => {
 const digest = (value) => crypto.createHash("sha256").update(value).digest("hex").slice(0, 16);
 
 async function inspect(page) {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
     const number = (value) => Number.parseFloat(value) || 0;
     const rectOf = (element) => {
       const rect = element.getBoundingClientRect();
@@ -62,7 +62,7 @@ async function inspect(page) {
     };
     const computed = (element) => {
       const style = getComputedStyle(element);
-      const keys = ["display", "position", "flexDirection", "flexWrap", "justifyContent", "alignItems", "gridTemplateColumns", "gap", "width", "maxWidth", "minHeight", "padding", "margin", "overflow", "background", "color", "fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "border", "borderRadius", "boxShadow", "transform", "opacity"];
+      const keys = ["display", "position", "flexDirection", "flexWrap", "justifyContent", "alignItems", "gridTemplateColumns", "gap", "width", "maxWidth", "minHeight", "padding", "margin", "overflow", "background", "color", "fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "border", "borderRadius", "boxShadow", "transform", "transformStyle", "perspective", "transition", "opacity"];
       return Object.fromEntries(keys.map((key) => [key, style[key]]));
     };
     const semantic = [...document.querySelectorAll("header,main > section,main > article,main > div,body > section,body > footer,footer")];
@@ -95,9 +95,33 @@ async function inspect(page) {
         target: target ? { tag: target.tagName.toLowerCase(), id: target.id || null, classes: [...target.classList].slice(0, 10), framerName: target.getAttribute("data-framer-name") } : null,
         timing: animation.effect && animation.effect.getTiming ? animation.effect.getTiming() : null,
         playState: animation.playState,
+        // A non-document timeline means progress is driven by scroll, not time. Keep the
+        // identity only: the timeline object itself is not serializable.
+        timeline: animation.timeline ? String(animation.timeline.constructor && animation.timeline.constructor.name || "timeline") : null,
         frames,
       };
     });
+    // Hover choreography is authored in stylesheets (a fold, a lift, a tilt) and never shows up in
+    // the resting computed style, so record the rules themselves. This is styling evidence the
+    // mapper turns into editable native hover motion; it is never injected back verbatim.
+    const motionProperties = ["transform", "opacity", "filter", "box-shadow", "perspective", "scale", "rotate", "translate", "clip-path", "color", "background-color", "transition"];
+    const hoverRules = [];
+    const collectRules = (list, media) => {
+      for (const rule of list) {
+        if (hoverRules.length > 600) return;
+        if (rule.cssRules) { collectRules(rule.cssRules, rule.conditionText ? `${media || ""}@${rule.conditionText}` : media); continue; }
+        if (!rule.selectorText || !rule.selectorText.includes(":hover")) continue;
+        const declarations = {};
+        for (const property of motionProperties) { const value = rule.style.getPropertyValue(property); if (value) declarations[property] = value; }
+        if (Object.keys(declarations).length) hoverRules.push({ selector: rule.selectorText.slice(0, 400), media: media || null, declarations });
+      }
+    };
+    for (const sheet of [...document.styleSheets]) {
+      if (hoverRules.length > 600) break;
+      let rules = null;
+      try { rules = sheet.cssRules; } catch (_) { continue; }
+      if (rules) collectRules(rules, "");
+    }
     const visibleElements = [...document.body.querySelectorAll("*")].filter((element) => {
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
@@ -120,6 +144,81 @@ async function inspect(page) {
         attributes: Object.fromEntries([...element.attributes].filter((attribute) => /^(href|src|alt|role|aria-|data-framer)/.test(attribute.name)).slice(0, 16).map((attribute) => [attribute.name, attribute.value.slice(0, 500)])),
       };
     });
+    // Hover behaviour that lives in component code (Framer/Webflow variants, any JS-driven
+    // interaction) is invisible to a resting snapshot: the effect only exists while the pointer
+    // is inside. Synthesize a real pointer sequence over a bounded sample of interactive
+    // elements and their closest descendants, then diff the computed style to recover it as
+    // evidence the mapper can turn into editable native hover motion.
+    const hoverSnapshot = (element) => {
+      const style = getComputedStyle(element);
+      return {
+        transform: style.transform,
+        transformOrigin: style.transformOrigin,
+        opacity: style.opacity,
+        filter: style.filter,
+        boxShadow: style.boxShadow,
+        backgroundColor: style.backgroundColor,
+        color: style.color,
+        borderColor: style.borderColor,
+        clipPath: style.clipPath,
+        backdropFilter: style.backdropFilter,
+        transition: style.transition,
+      };
+    };
+    // Must stay in lockstep with signatureOf() in site-patterns.js.
+    const hoverSignature = (element) => [
+      element.tagName.toLowerCase(),
+      [...element.classList].sort().join("."),
+      element.getAttribute("data-framer-name") || "",
+      element.id || "",
+    ].join("|");
+    const hoverDiff = (before, after) => {
+      const changes = {};
+      Object.keys(after).forEach((property) => {
+        if (property === "transition") return;
+        if (before[property] !== after[property]) changes[property] = after[property];
+      });
+      return changes;
+    };
+    const pointerInto = (element) => {
+      ["pointerover", "mouseover"].forEach((type) => element.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerType: "mouse", isPrimary: true })));
+      element.dispatchEvent(new PointerEvent("pointerenter", { bubbles: false, cancelable: false, pointerType: "mouse", isPrimary: true }));
+      if (typeof MouseEvent === "function") element.dispatchEvent(new MouseEvent("mouseenter", { bubbles: false, cancelable: false }));
+    };
+    const pointerOut = (element) => {
+      ["pointerout", "mouseout"].forEach((type) => element.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerType: "mouse", isPrimary: true })));
+      element.dispatchEvent(new PointerEvent("pointerleave", { bubbles: false, cancelable: false, pointerType: "mouse", isPrimary: true }));
+      if (typeof MouseEvent === "function") element.dispatchEvent(new MouseEvent("mouseleave", { bubbles: false, cancelable: false }));
+    };
+    const nextFrames = (count) => new Promise((resolve) => {
+      const step = (remaining) => (remaining <= 0 ? resolve() : requestAnimationFrame(() => step(remaining - 1)));
+      step(count);
+    });
+    const hoverProbes = visibleElements.filter((element) => {
+      const rect = element.getBoundingClientRect();
+      if (rect.width < 8 || rect.height < 8 || rect.width > innerWidth * .96) return false;
+      const style = getComputedStyle(element);
+      return style.cursor === "pointer" || element.hasAttribute("data-framer-name") || element.tagName === "A" || element.tagName === "BUTTON";
+    }).slice(0, 140);
+    const hoverEffects = [];
+    const seenHoverSignatures = new Set();
+    for (const element of hoverProbes) {
+      const members = [element, ...element.querySelectorAll("*")].slice(0, 9);
+      const before = members.map(hoverSnapshot);
+      pointerInto(element);
+      await nextFrames(3);
+      let changed = false;
+      members.forEach((member, index) => {
+        const changes = hoverDiff(before[index], hoverSnapshot(member));
+        const signature = hoverSignature(member);
+        if (!Object.keys(changes).length || seenHoverSignatures.has(signature)) return;
+        seenHoverSignatures.add(signature);
+        changed = true;
+        hoverEffects.push({ signature, changes, transition: before[index].transition, origin: member === element ? "self" : "descendant" });
+      });
+      pointerOut(element);
+      if (changed) await nextFrames(2);
+    }
     return {
       url: location.href,
       title: document.title,
@@ -129,6 +228,8 @@ async function inspect(page) {
       sections,
       nodes,
       animations,
+      hoverRules,
+      hoverEffects,
       fonts: [...document.fonts].map((font) => ({ family: font.family, style: font.style, weight: font.weight, status: font.status })).slice(0, 120),
       stylesheets: [...document.querySelectorAll('link[rel="stylesheet"]')].map((link) => link.href),
       scripts: [...document.scripts].map((script) => ({ src: script.src || null, type: script.type || "text/javascript", inlineCharacters: script.src ? 0 : script.textContent.length })),

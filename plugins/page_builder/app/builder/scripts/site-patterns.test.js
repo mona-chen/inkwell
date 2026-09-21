@@ -1,0 +1,211 @@
+"use strict";
+
+// Unit coverage for the importer's structure inference. Every fixture is synthetic: these tests
+// assert that behaviour is derived from markup and geometry, never from a particular website.
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const {
+  inferPatterns, parsePose, poseFromMatrix, poseSignature, poseToTransform,
+} = require("./site-patterns");
+
+const container = (attrs = {}, children = [], settings = {}) => ({
+  type: "container",
+  settings: { importedDom: true, importedTag: "div", importedAttributes: attrs, ...settings },
+  ...(children.length ? { children } : {}),
+});
+const textNode = (type, text, attrs = {}, settings = {}) => ({
+  type,
+  settings: { importedDom: true, importedTag: type === "heading" ? "h2" : "p", importedAttributes: attrs, text, ...settings },
+});
+const link = (text, href, attrs = {}) => ({
+  type: "link",
+  settings: { importedDom: true, importedTag: "a", importedAttributes: { href, ...attrs }, text },
+});
+
+const viewport = (nodes, extra = {}) => ({
+  viewport: { width: 1440, height: 900 }, document: { width: 1440, height: 4000 }, nodes, ...extra,
+});
+const evidence = (attrs, rect, style = {}) => ({
+  tag: attrs.tag || "div", id: attrs.id || null, classes: String(attrs.class || "").split(/\s+/).filter(Boolean),
+  framerName: attrs["data-framer-name"] || null, rect,
+  style: { display: "block", position: "relative", overflow: "visible", transform: "none", ...style },
+  text: attrs.text || "", attributes: attrs,
+});
+
+test("reads a rotation column out of matrix3d without picking up digits from the function name", () => {
+  const pose = poseFromMatrix("matrix3d(0.5, 0, 0.866025, 0, 0, 1, 0, 0, -0.866025, 0, 0.5, 0, 0, 0, -220, 1)");
+  assert.equal(pose.rotateY, 60);
+  assert.equal(pose.translateZ, -220);
+  const flat = poseFromMatrix("matrix(1, 0, 0, 1, -181, -154)");
+  assert.equal(flat.translateX, -181);
+  assert.equal(flat.translateY, -154);
+  assert.equal(poseFromMatrix("none"), null);
+});
+
+test("pose helpers round-trip into a transform string", () => {
+  const pose = parsePose("translateZ(-220px) rotateY(-60deg)");
+  assert.equal(pose.rotateY, -60);
+  assert.equal(pose.translateZ, -220);
+  assert.equal(poseToTransform({ ...pose, translateX: -107.5 }), "translate3d(-107.5px,0px,-220px) rotateY(-60deg)");
+  assert.equal(poseSignature({ rotateX: 0, rotateY: 60, translateZ: -218 }), "0:60:-225");
+});
+
+test("an authored 3D card orbit becomes an editable motion group with measured poses", () => {
+  const cards = [1, 2, 3, 4].map((label) => container(
+    { class: `card-${label}`, "data-framer-name": String(label), style: `transform:${["translateZ(-220px) rotateY(-60deg)", "translateZ(-360px)", "translateZ(-220px) rotateY(60deg)", "translateZ(1px)"][label - 1]}` },
+    [],
+  ));
+  const orbit = container({ class: "orbit", "data-framer-name": "Images", style: "transform:perspective(1200px)" }, cards);
+  const nodes = [
+    evidence({ class: "orbit", "data-framer-name": "Images" }, { x: 675, y: 0, width: 462, height: 284 }, { transform: "matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)" }),
+    evidence({ class: "card-1", "data-framer-name": "1" }, { x: 799, y: 0, width: 214, height: 284 }, { transform: "none" }),
+    evidence({ class: "card-2", "data-framer-name": "2" }, { x: 962, y: 0, width: 105, height: 257 }, { transform: "matrix3d(0.5,0,0.866025,0,0,1,0,0,-0.866025,0,0.5,0,0,0,-220,1)" }),
+    evidence({ class: "card-3", "data-framer-name": "3" }, { x: 824, y: 0, width: 165, height: 218 }, { transform: "matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,-360,1)" }),
+    evidence({ class: "card-4", "data-framer-name": "4" }, { x: 746, y: 0, width: 105, height: 257 }, { transform: "matrix3d(0.5,0,-0.866025,0,0,1,0,0,0.866025,0,0.5,0,0,0,-220,1)" }),
+  ];
+  const { report } = inferPatterns([orbit], { viewports: [viewport(nodes)] });
+  assert.deepEqual(orbit.settings.motionGroup, { kind: "orbit3d", label: "3D orbit", perspective: 1200, count: 4 });
+  assert.equal(report.counts.orbit3d, 1);
+  // Each card carries the whole cycle, offset so the captured state is frame zero.
+  const first = cards[0].settings.motion;
+  assert.equal(first.trigger, "load");
+  assert.equal(first.iterations, "infinite");
+  assert.equal(first.keyframes.length, 5);
+  assert.deepEqual(first.keyframes.map((frame) => frame.offset), [0, 0.25, 0.5, 0.75, 1]);
+  assert.match(first.keyframes[0].transform, /translate3d\(-107\.5px,0px,-220px\) rotateY\(-60deg\)/);
+  assert.match(first.keyframes[2].transform, /translate3d\(108\.5px,0px,-220px\) rotateY\(60deg\)/);
+  assert.equal(cards[0].settings.motion.keyframes[4].transform, first.keyframes[0].transform, "the cycle must close");
+  assert.equal(cards[1].settings.motion.keyframes[0].transform, first.keyframes[1].transform);
+});
+
+test("a navigation rebuilds the mobile panel the site renders from component code", () => {
+  const nav = container({ class: "top-nav" }, [
+    container({ class: "links" }, [link("Product", "/product"), link("Pricing", "/pricing")]),
+    container({ class: "burger" }, [{ type: "svg", settings: { importedDom: true, importedTag: "svg", importedAttributes: {} } }]),
+  ]);
+  const nodes = [
+    evidence({ class: "top-nav" }, { x: 0, y: 0, width: 1440, height: 80 }),
+    evidence({ class: "links" }, { x: 0, y: 0, width: 400, height: 24 }),
+    evidence({ class: "burger" }, { x: 1390, y: 20, width: 30, height: 30 }, { display: "block" }),
+  ];
+  const { report, css } = inferPatterns([nav], { viewports: [viewport(nodes)] });
+  const panel = nav.children[nav.children.length - 1];
+  assert.match(panel.settings.cssClasses, /ink-inferred-nav-panel-1/);
+  assert.deepEqual(panel.settings.stateNames, ["closed", "open"]);
+  assert.deepEqual(panel.children.map((child) => child.settings.text), ["Product", "Pricing"]);
+  const burger = nav.children[1];
+  assert.deepEqual(burger.settings.interactions, [{ on: "click", action: "toggleState", target: "query", selector: ".ink-inferred-nav-panel-1", state: "open" }]);
+  assert.match(css, /@media\(max-width:991px\)/);
+  assert.equal(report.components.filter((entry) => entry.kind === "nav").length, 1);
+});
+
+test("a monthly/yearly switch becomes component states with real setter interactions", () => {
+  const options = [
+    { type: "button", settings: { importedDom: true, importedTag: "button", importedAttributes: { class: "opt" }, text: "Monthly" } },
+    { type: "button", settings: { importedDom: true, importedTag: "button", importedAttributes: { class: "opt" }, text: "Yearly" } },
+  ];
+  const pricing = container({ class: "plans" }, [
+    container({ class: "switch" }, options),
+    container({ class: "price" }, [textNode("paragraph", "$29 per month")]),
+  ]);
+  const { report } = inferPatterns([pricing], { viewports: [viewport([evidence({ class: "plans" }, { x: 0, y: 0, width: 1200, height: 600 })])] });
+  assert.deepEqual(pricing.settings.stateNames, ["monthly", "yearly"]);
+  assert.equal(pricing.settings.state, "monthly");
+  assert.deepEqual(options[1].settings.interactions, [{ on: "click", action: "setState", target: "query", selector: ".ink-inferred-toggle-1", state: "yearly" }]);
+  assert.equal(report.counts["pricing-switch"], 1);
+});
+
+test("repeated trigger/panel items become a native timeline accordion", () => {
+  const items = [1, 2, 3, 4].map((index) => container({ class: "row" }, [
+    container({ class: "question" }, [textNode("heading", `Question ${index}`)]),
+    container({ class: "answer" }, [textNode("paragraph", `Long answer number ${index} that explains the point in detail.`)], { }),
+  ]));
+  const accordion = container({ class: "faq" }, items);
+  const nodes = [evidence({ class: "faq" }, { x: 0, y: 0, width: 900, height: 400 })];
+  items.forEach((item, index) => {
+    nodes.push(evidence({ class: "row" }, { x: 0, y: index * 90, width: 900, height: 86 }));
+    nodes.push(evidence({ class: "answer" }, { x: 0, y: index * 90, width: 900, height: 86 }, { overflow: "hidden", position: "absolute" }));
+    nodes.push(evidence({ class: "question" }, { x: 0, y: index * 90, width: 800, height: 40 }));
+  });
+  const { report } = inferPatterns([accordion], { viewports: [viewport(nodes)] });
+  assert.equal(accordion.type, "timeline-accordion");
+  assert.equal(accordion.settings.behavior, "single");
+  assert.match(items[0].children[0].settings.cssClasses, /ink-inferred-accordion-question/);
+  assert.match(items[0].children[1].settings.cssClasses, /ink-inferred-accordion-content/);
+  assert.equal(report.counts.accordion, 1);
+});
+
+test("a repeated card row is reported as one grid component", () => {
+  const cards = [1, 2, 3, 4, 5, 6].map(() => container({ class: "card" }, [textNode("heading", "Card"), textNode("paragraph", "Body copy for the card.")]));
+  const grid = container({ class: "cards" }, cards);
+  const nodes = [evidence({ class: "cards" }, { x: 0, y: 0, width: 1200, height: 600 }, { display: "grid", gridTemplateColumns: "380px 380px 380px" })];
+  cards.forEach((card, index) => nodes.push(evidence({ class: "card" }, { x: (index % 3) * 400, y: Math.floor(index / 3) * 300, width: 380, height: 280 })));
+  const { report } = inferPatterns([grid], { viewports: [viewport(nodes)] });
+  const component = report.components.find((entry) => entry.kind === "card-grid");
+  assert.ok(component, "expected a card grid");
+  assert.equal(component.count, 6);
+  assert.equal(component.columns, 3);
+  assert.equal(cards[0].settings.role, "card");
+});
+
+test("shared header and footer are defined once from structure, not from layer names", () => {
+  const header = container({ class: "masthead" }, [container({ class: "nav" }, [link("Home", "/"), link("Blog", "/blog")])]);
+  header.settings.importedTag = "header";
+  const footer = container({ class: "legal" }, [
+    container({ class: "columns" }, [
+      container({ class: "col" }, [link("A", "/a"), link("B", "/b")]),
+      container({ class: "col" }, [link("C", "/c"), link("D", "/d")]),
+    ]),
+    textNode("paragraph", "© 2026 Inkwell"),
+  ]);
+  const page = container({ class: "page" }, [header, footer]);
+  const nodes = [
+    evidence({ class: "masthead", tag: "header" }, { x: 0, y: 0, width: 1440, height: 90 }),
+    evidence({ class: "nav" }, { x: 0, y: 0, width: 1400, height: 60 }),
+    evidence({ class: "legal" }, { x: 0, y: 3700, width: 1440, height: 300 }),
+  ];
+  const { report } = inferPatterns([page], { viewports: [viewport(nodes)] });
+  assert.equal(header.type, "site-part");
+  assert.equal(header.settings.partKey, "header");
+  assert.equal(footer.type, "site-part");
+  assert.equal(footer.settings.partKey, "footer");
+  assert.equal(report.counts.header, 1);
+  assert.equal(report.counts.footer, 1);
+});
+
+test("captured animations and hover probes become native motion", () => {
+  const hero = container({ class: "hero" }, [textNode("heading", "Hello")]);
+  const card = container({ class: "tilt" }, [textNode("paragraph", "Body")]);
+  const nodes = [
+    evidence({ class: "hero" }, { x: 0, y: 0, width: 1200, height: 500 }),
+    evidence({ class: "tilt" }, { x: 0, y: 900, width: 300, height: 200 }),
+  ];
+  const animations = [{
+    target: { tag: "div", id: null, classes: ["hero"], framerName: null },
+    timing: { duration: 900, delay: 100, easing: "ease-out", iterations: 1, direction: "normal" },
+    timeline: null,
+    frames: [{ computedOffset: 0, opacity: "0" }, { computedOffset: 1, opacity: "1", transform: "none" }],
+  }];
+  const hoverEffects = [{ signature: "div|tilt||", changes: { transform: "rotateX(24deg)" }, transition: "0.4s ease", origin: "self" }];
+  inferPatterns([hero, card], { viewports: [viewport(nodes, { animations, hoverEffects })] });
+  assert.equal(hero.settings.motion.trigger, "load");
+  assert.equal(hero.settings.motion.duration, 900);
+  assert.equal(card.settings.motion.trigger, "hover");
+  assert.equal(card.settings.motion.keyframes[1].transform, "rotateX(24deg)");
+  assert.equal(card.settings.motion.duration, 400);
+});
+
+test("evidence from a different element is never read into an ambiguous wrapper", () => {
+  const wrapperA = container({ class: "" }, [textNode("paragraph", "Alpha")]);
+  const wrapperB = container({ class: "" }, [textNode("paragraph", "Bravo")]);
+  const page = container({ class: "page" }, [wrapperA, wrapperB]);
+  const nodes = [
+    evidence({ class: "page" }, { x: 0, y: 0, width: 1440, height: 4000 }),
+    evidence({ class: "" }, { x: 0, y: 0, width: 1440, height: 4000 }),
+  ];
+  const { report } = inferPatterns([page], { viewports: [viewport(nodes)] });
+  // A signature shared by elements of different sizes carries no trustworthy geometry, so no
+  // fake card grid or duplicated header may appear.
+  assert.deepEqual(report.components, []);
+});

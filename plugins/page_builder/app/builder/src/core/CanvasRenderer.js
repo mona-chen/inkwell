@@ -59,7 +59,7 @@ const WIDGET_RUNTIME = `
     if (content) { content.setAttribute('aria-hidden', String(!open)); }
   }
   function activateTimelineItem (item) {
-    var root = closest(item, '.ink-el-timeline-accordion, [data-framer-name="Timeline Wrapper"]');
+    var root = closest(item, '.ink-el-timeline-accordion, [data-ink-timeline-root], [data-framer-name="Timeline Wrapper"]');
     if (!root) { return; }
     var opening = !item.classList.contains('is-open');
     if (opening && root.getAttribute('data-ink-timeline-behavior') !== 'multiple') {
