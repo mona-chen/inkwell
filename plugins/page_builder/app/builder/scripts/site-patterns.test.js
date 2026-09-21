@@ -249,3 +249,56 @@ test("a scroll section without a sticky stage stays an unpinned stagger group", 
   assert.deepEqual(section.settings.motionGroup, { kind: "stagger", label: "Scroll stagger", trigger: "scroll", stagger: 80, scrub: { reference: "group" } });
   assert.equal(report.counts.scrubGroup, 1);
 });
+
+test("a radio group with matching labels stays one editable switch, at the outermost region", () => {
+  // The radio markup the earlier detector could not read, wrapped in the page's own holder: the
+  // holder must never become a second switch, or one toggle would be detected (and marked) twice.
+  const radio = (id) => ({ type: "input", settings: { importedDom: true, importedTag: "input", importedAttributes: { type: "radio", name: "plan", id } } });
+  const optionLabel = (id, text) => ({ type: "label", settings: { importedDom: true, importedTag: "label", importedAttributes: { for: id }, text } });
+  const monthlyLabel = optionLabel("monthly", "Monthly");
+  const yearlyLabel = optionLabel("yearly", "Yearly");
+  const row = container({ class: "switch" }, [radio("monthly"), monthlyLabel, radio("yearly"), yearlyLabel]);
+  const plans = container({ class: "plans" }, [container({ class: "plan" }, [textNode("paragraph", "$29 per month")])]);
+  const pricing = container({ id: "pricing" }, [row, plans]);
+  const { report } = inferPatterns([pricing], { viewports: [viewport([evidence({ id: "pricing" }, { x: 0, y: 0, width: 1200, height: 700 })])] });
+  assert.deepEqual(pricing.settings.stateNames, ["monthly", "yearly"]);
+  assert.equal(pricing.settings.state, "monthly");
+  assert.deepEqual(monthlyLabel.settings.interactions, [{ on: "click", action: "setState", target: "query", selector: ".ink-inferred-toggle-1", state: "monthly" }]);
+  assert.deepEqual(yearlyLabel.settings.interactions, [{ on: "click", action: "setState", target: "query", selector: ".ink-inferred-toggle-1", state: "yearly" }]);
+  assert.equal(report.counts["pricing-switch"], 1);
+});
+
+test("sibling <details> become a native accordion without an inline display hint", () => {
+  const summary = (text) => ({ type: "inline-text", settings: { importedDom: true, importedTag: "summary", importedAttributes: {}, text } });
+  const item = (index) => ({ type: "container", settings: { importedDom: true, importedTag: "details", importedAttributes: {} }, children: [summary(`Question ${index}`), textNode("paragraph", `Answer ${index}`)] });
+  const details = [1, 2, 3].map(item);
+  const faq = container({ class: "faq" }, details);
+  const { report, css } = inferPatterns([faq], { viewports: [viewport([evidence({ class: "faq" }, { x: 0, y: 0, width: 900, height: 360 })])] });
+  assert.equal(faq.type, "timeline-accordion");
+  assert.equal(report.counts.accordion, 1);
+  assert.match(details[0].settings.cssClasses, /ink-inferred-accordion-item/);
+  assert.match(details[0].children[0].settings.cssClasses, /ink-inferred-accordion-question/);
+  assert.match(details[0].children[1].settings.cssClasses, /ink-inferred-accordion-content/);
+  assert.match(css, /ink-inferred-accordion-1/);
+});
+
+test("only a questions heading makes a section an FAQ, never body copy", () => {
+  const copy = container({ class: "copy-band" }, [textNode("paragraph", "The questions we hear most from teams are answered below.")]);
+  const asked = container({ class: "faq-band" }, [textNode("heading", "Questions"), textNode("paragraph", "Answers live in the docs.")]);
+  const nodes = [
+    evidence({ class: "copy-band" }, { x: 0, y: 0, width: 1200, height: 400 }),
+    evidence({ class: "faq-band" }, { x: 0, y: 600, width: 1200, height: 400 }),
+  ];
+  inferPatterns([copy, asked], { viewports: [viewport(nodes)] });
+  assert.notEqual(copy.settings.role, "faq");
+  assert.equal(copy.settings.role, "content");
+  assert.equal(asked.settings.role, "faq");
+});
+
+test("a nested blog index is reported once, at its outermost region", () => {
+  const grid = container({ class: "post-grid" }, [1, 2, 3].map((index) => container({ class: "post" }, [link(`Post ${index}`, `/blogs/post-${index}`)])));
+  const wrap = container({ class: "wrap" }, [grid]);
+  const band = container({ class: "band" }, [wrap]);
+  const { report } = inferPatterns([band], { viewports: [viewport([])] });
+  assert.equal(report.counts["content-archive"], 1);
+});

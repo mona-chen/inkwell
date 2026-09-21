@@ -65,9 +65,12 @@ function textOf(node, limit = 600) {
   const visit = (current) => {
     if (out.length > limit) return;
     const nodeSettings = current.settings || {};
+    // An imported node carries its own text in `importedTextSegments`, which already covers the
+    // direct text nodes that `settings.text` duplicates; only fall back to `text` when there are no
+    // segments, or every label would read "Monthly Monthly" and every price "\$29 $29".
     const segments = nodeSettings.importedTextSegments || nodeSettings.textSegments;
     if (Array.isArray(segments)) segments.forEach((segment) => { out += ` ${segment == null ? "" : segment}`; });
-    if (typeof nodeSettings.text === "string") out += ` ${nodeSettings.text}`;
+    else if (typeof nodeSettings.text === "string") out += ` ${nodeSettings.text}`;
     childrenOf(current).forEach(visit);
   };
   visit(node);
@@ -82,6 +85,19 @@ function walk(node, visit, depth = 0) {
 
 function collect(node, predicate, out = []) {
   walk(node, (candidate) => { if (predicate(candidate)) out.push(candidate); });
+  return out;
+}
+
+// Detectors reason about the captured page, never about a synthetic holder built to collect its
+// top-level nodes. If that holder were a candidate too, one radio switch would become two and a
+// phantom container could take a component or a section role, so the roots are walked directly.
+function eachRoot(roots, visit) {
+  (roots || []).forEach((root) => walk(root, visit));
+}
+
+function collectRoots(roots, predicate) {
+  const out = [];
+  eachRoot(roots, (candidate) => { if (predicate(candidate)) out.push(candidate); });
   return out;
 }
 
@@ -277,12 +293,12 @@ function markComponent(node, kind, detail = {}, report) {
 // back exactly instead of hard-coding one site's stack.
 function detectOrbit3d(roots, ctx) {
   const { evidence, report, css } = ctx;
-  const parents = collect(roots.length ? { children: roots } : null, (node) => {
+  const parents = collectRoots(roots, (node) => {
     const style = inlineStyles(node);
     const transform = String(style.transform || "");
     const evidenceStyle_ = evidenceStyle(evidence, node) || {};
     return /perspective\(/i.test(transform) || /preserve-3d/i.test(String(style["transform-style"] || "")) || /preserve-3d/i.test(String(evidenceStyle_["transformStyle"] || "")) || (evidenceStyle_.perspective && evidenceStyle_.perspective !== "none");
-  }).filter((node) => node !== roots);
+  });
 
   let index = 0;
   parents.forEach((parent) => {
@@ -354,7 +370,7 @@ function detectOrbit3d(roots, ctx) {
 function detectSticky(roots, ctx) {
   const { evidence, report } = ctx;
   let applied = 0;
-  walk({ children: roots }, (node) => {
+  eachRoot(roots, (node) => {
     if (!node.type) return;
     const nodeSettings = settingsOf(node);
     if (nodeSettings.sticky) return;
@@ -388,7 +404,7 @@ function isStickyDescendant(node) {
 function detectHoverGroup(roots, ctx) {
   const { report } = ctx;
   let applied = 0;
-  walk({ children: roots }, (node) => {
+  eachRoot(roots, (node) => {
     if (!node.type) return;
     const nodeSettings = settingsOf(node);
     if (nodeSettings.motionGroup || nodeSettings.motion) return;
@@ -409,7 +425,7 @@ function detectHoverGroup(roots, ctx) {
 function detectScrubGroup(roots, ctx) {
   const { evidence, report } = ctx;
   let applied = 0;
-  walk({ children: roots }, (node) => {
+  eachRoot(roots, (node) => {
     if (!node.type) return;
     const nodeSettings = settingsOf(node);
     if (nodeSettings.motionGroup) return;
@@ -436,7 +452,7 @@ function detectScrubGroup(roots, ctx) {
 function detectMotion(roots, ctx) {
   const { evidence, report, css } = ctx;
   let index = 0;
-  walk({ children: roots }, (node) => {
+  eachRoot(roots, (node) => {
     if (!node.type) return;
     const nodeSettings = settingsOf(node);
     if (nodeSettings.motion) return;
@@ -512,7 +528,7 @@ function detectStylesheetHover(roots, ctx) {
     tokens.forEach((token) => {
       const className = token.match(/\.([A-Za-z_][\w-]*)$/)?.[1];
       if (!className) return;
-      walk({ children: roots }, (node) => {
+      eachRoot(roots, (node) => {
         if (!node.type || settingsOf(node).motion) return;
         if (!classListOf(node).includes(className)) return;
         const keyframe = {};
@@ -535,7 +551,7 @@ function detectStylesheetHover(roots, ctx) {
 // rebuilds the mobile panel the site renders from component code (which is never in the source).
 function detectNavigation(roots, ctx) {
   const { evidence, report, css } = ctx;
-  const navRoots = collect({ children: roots }, (node) => {
+  const navRoots = collectRoots(roots, (node) => {
     const tag = tagOf(node);
     if (tag === "nav" || tag === "header") return true;
     const rect = evidenceRect(evidence, node);
@@ -593,8 +609,8 @@ function detectNavigation(roots, ctx) {
 // panels are stacked on top of each other. Both become native component states.
 function detectTabs(roots, ctx) {
   const { evidence, report, css } = ctx;
-  const arLists = collect({ children: roots }, (node) => collect(node, (candidate) => roleOf(candidate) === "tab").length >= 2);
-  const roots_ = arLists.length ? arLists : collect({ children: roots }, (node) => {
+  const arLists = collectRoots(roots, (node) => collect(node, (candidate) => roleOf(candidate) === "tab").length >= 2);
+  const roots_ = arLists.length ? arLists : collectRoots(roots, (node) => {
     const children = childrenOf(node);
     if (children.length < 2) return false;
     const labels = new Set(children.map((child) => framerNameOf(child)).filter(Boolean));
@@ -646,16 +662,50 @@ function detectTabs(roots, ctx) {
 
 // A pricing switch: two short labelled options beside price text. The container becomes the state
 // holder and the options become native state setters, so the switch is editable, not decorative.
+// The two ways a site builds a monthly/yearly toggle without a framework: a row of buttons, or a
+// radio group whose labels the browser switches. A hand-written site almost always uses the radios,
+// so pairing a shared `name` group with each label's `for` is real evidence, not a guess.
+function toggleOptions(container) {
+  const short = (child) => { const text = clampText(textOf(child), 24); return text.length >= 2 && text.length <= 16; };
+  const buttons = childrenOf(container).flatMap((child) => childrenOf(child)).filter((child) => /^(a|button)$/.test(tagOf(child)) && short(child));
+  if (buttons.length >= 2) return buttons;
+  const radios = collect(container, (child) => tagOf(child) === "input" && /^radio$/i.test(String(attributesOf(child).type || "")));
+  const named = new Map();
+  radios.forEach((radio) => {
+    const name = String(attributesOf(radio).name || "");
+    if (!name) return;
+    named.set(name, [...(named.get(name) || []), radio]);
+  });
+  const group = [...named.values()].sort((left, right) => right.length - left.length)[0] || [];
+  if (group.length < 2) return [];
+  const labels = collect(container, (child) => tagOf(child) === "label");
+  return group.map((radio) => {
+    const id = String(attributesOf(radio).id || "");
+    const explicit = id ? labels.find((label) => String(attributesOf(label).for || "") === id) : null;
+    if (explicit) return explicit;
+    // A wrapping label is just as common as `for`; closestAncestor starts at the radio itself, which
+    // is never a label, so the first match is the wrapper.
+    return closestAncestor(radio, (candidate) => tagOf(candidate) === "label") || null;
+  }).filter((label) => label && short(label));
+}
+
 function detectPricingToggle(roots, ctx) {
   const { evidence, report, css } = ctx;
-  const candidates = collect({ children: roots }, (node) => {
+  const candidates = collectRoots(roots, (node) => {
     const text = textOf(node, 4000);
     if (!PRICE_PATTERN.test(text) || !PRICE_CYCLE_PATTERN.test(text)) return false;
-    const options = childrenOf(node).flatMap((child) => childrenOf(child)).filter((child) => /^(a|button)$/.test(tagOf(child)) && clampText(textOf(child), 24).length <= 16);
-    return options.length >= 2;
+    return toggleOptions(node).length >= 2;
   });
-  candidates.slice(0, 3).forEach((container, position) => {
-    const options = childrenOf(container).flatMap((child) => childrenOf(child)).filter((child) => /^(a|button)$/.test(tagOf(child)) && clampText(textOf(child), 24).length <= 16);
+  // A pricing section nests: the section, its wrapper and its plan grid all contain the same prices.
+  // Only the outermost match owns the toggle, or one switch becomes three.
+  const candidateSet = new Set(candidates);
+  const outermost = candidates.filter((node) => {
+    let ancestor = node.__inkParent || null;
+    while (ancestor) { if (candidateSet.has(ancestor)) return false; ancestor = ancestor.__inkParent || null; }
+    return true;
+  });
+  outermost.slice(0, 3).forEach((container, position) => {
+    const options = toggleOptions(container);
     const labels = options.map((option) => clampText(textOf(option), 24).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")).filter(Boolean);
     if (labels.length < 2) return;
     const group = `ink-inferred-toggle-${position + 1}`;
@@ -724,7 +774,7 @@ function columnCount(grid, children, rects, evidence) {
 function detectCardGrid(roots, ctx) {
   const { evidence, report } = ctx;
   let index = 0;
-  const candidates = collect({ children: roots }, (node) => {
+  const candidates = collectRoots(roots, (node) => {
     if (insideSitePart(node)) return false;
     const children = childrenOf(node).filter((child) => !["script", "style"].includes(tagOf(child)));
     if (children.length < 3) return false;
@@ -753,14 +803,23 @@ function detectCardGrid(roots, ctx) {
 // is what a theme's blog index needs to be rebuilt natively.
 function detectContentArchive(roots, ctx) {
   const { evidence, report } = ctx;
-  const candidates = collect({ children: roots }, (node) => {
+  const candidates = collectRoots(roots, (node) => {
     if (insideSitePart(node)) return false;
     const links = collect(node, (candidate) => tagOf(candidate) === "a" && isArticleLink(attributesOf(candidate).href));
     if (links.length < 3) return false;
     const rect = evidenceRect(evidence, node);
     return !rect || rect.height > 120;
   });
-  candidates.slice(0, 2).forEach((archive) => {
+  // A blog index nests too (the page root, its wrapper and the post grid all reach the same
+  // articles), so only the outermost archive is the component; otherwise a single index would be
+  // reported once per level it sits inside.
+  const candidateSet = new Set(candidates);
+  const outermost = candidates.filter((node) => {
+    let ancestor = node.__inkParent || null;
+    while (ancestor) { if (candidateSet.has(ancestor)) return false; ancestor = ancestor.__inkParent || null; }
+    return true;
+  });
+  outermost.slice(0, 2).forEach((archive) => {
     const links = collect(archive, (candidate) => tagOf(candidate) === "a" && isArticleLink(attributesOf(candidate).href));
     markComponent(archive, "content-archive", { links: links.length }, report);
   });
@@ -770,10 +829,56 @@ function detectContentArchive(roots, ctx) {
 // clipping at rest (absolutely positioned with hidden overflow, or display:none). The marker
 // classes let the shared timeline widget drive any site's markup instead of one framework's
 // layer names.
+// The scoped rules that let the shared timeline widget drive any site's markup.
+function accordionCss(marker) {
+  return [
+    `.ink-canvas-root .${marker}-content{display:none}`,
+    `.ink-canvas-root .${marker}-item.is-open .${marker}-content{display:block!important;position:relative!important;top:auto!important;left:auto!important;right:auto!important;bottom:auto!important;height:auto!important;opacity:1!important;transform:none!important}`,
+    `.ink-canvas-root .${marker}-content *{opacity:1!important}`,
+    `.ink-canvas-root .${marker}-item{overflow:hidden}`,
+  ];
+}
+
+// Native disclosure widgets. A group of sibling <details> is an accordion on any site — the browser
+// owns the open/close, so this needs no framework hint, and (unlike the heuristic below) it does not
+// depend on the closed panel carrying an inline display, because the UA stylesheet hides it.
+function detectDetailsAccordion(roots, ctx) {
+  const { report, css } = ctx;
+  const isDetails = (node) => tagOf(node) === "details";
+  const contentChildren = (node) => childrenOf(node).filter((child) => !/^(script|style)$/.test(tagOf(child)));
+  const groups = collectRoots(roots, (node) => {
+    if (insideSitePart(node)) return false;
+    const children = contentChildren(node);
+    return children.length >= 2 && children.every(isDetails);
+  });
+  let index = 0;
+  groups.slice(0, 3).forEach((group) => {
+    const entries = contentChildren(group).map((item) => {
+      const children = contentChildren(item);
+      const trigger = children.find((child) => tagOf(child) === "summary");
+      const panels = trigger ? children.filter((child) => child !== trigger) : [];
+      return trigger && panels.length ? { item, trigger, panels } : null;
+    }).filter(Boolean);
+    if (entries.length < 2) return;
+    const marker = `ink-inferred-accordion-${++index}`;
+    entries.forEach(({ item, trigger, panels }) => {
+      addClass(item, "ink-inferred-accordion-item", `${marker}-item`);
+      addClass(trigger, "ink-inferred-accordion-question", `${marker}-question`);
+      panels.forEach((panel) => addClass(panel, "ink-inferred-accordion-content", `${marker}-content`));
+      settingsOf(item).role = settingsOf(item).role || "accordion-item";
+    });
+    group.type = "timeline-accordion";
+    Object.assign(settingsOf(group), { behavior: settingsOf(group).behavior || "single", defaultOpen: 0, transitionDuration: 280 });
+    css.push(...accordionCss(marker));
+    markComponent(group, "accordion", { items: entries.length }, report);
+  });
+}
+
 function detectAccordion(roots, ctx) {
   const { evidence, report, css } = ctx;
-  const candidates = collect({ children: roots }, (node) => {
+  const candidates = collectRoots(roots, (node) => {
     if (insideSitePart(node)) return false;
+    if (node.type === "timeline-accordion") return false;
     const items = childrenOf(node).filter((child) => !/^(script|style)$/.test(tagOf(child)));
     if (items.length < 3) return false;
     const rects = items.map((item) => evidenceRect(evidence, item)).filter(Boolean);
@@ -815,12 +920,7 @@ function detectAccordion(roots, ctx) {
     });
     accordion.type = "timeline-accordion";
     Object.assign(settingsOf(accordion), { behavior: settingsOf(accordion).behavior || "single", defaultOpen: 0, transitionDuration: 280 });
-    css.push(
-      `.ink-canvas-root .${marker}-content{display:none}`,
-      `.ink-canvas-root .${marker}-item.is-open .${marker}-content{display:block!important;position:relative!important;top:auto!important;left:auto!important;right:auto!important;bottom:auto!important;height:auto!important;opacity:1!important;transform:none!important}`,
-      `.ink-canvas-root .${marker}-content *{opacity:1!important}`,
-      `.ink-canvas-root .${marker}-item{overflow:hidden}`,
-    );
+    css.push(...accordionCss(marker));
     markComponent(accordion, "accordion", { items: triggers.length }, report);
   });
 }
@@ -829,7 +929,7 @@ function detectAccordion(roots, ctx) {
 // report, and they are derived from tag, geometry, copy and structure — never from a site name.
 function detectSectionRoles(roots, ctx) {
   const { evidence, report } = ctx;
-  const candidates = collect({ children: roots }, (node) => {
+  const candidates = collectRoots(roots, (node) => {
     const tag = tagOf(node);
     if (["nav", "header", "footer"].includes(tag)) return true;
     const rect = evidenceRect(evidence, node);
@@ -851,7 +951,10 @@ function detectSectionRoles(roots, ctx) {
     const rect = evidenceRect(evidence, node);
     const text = textOf(node, 3000);
     const slugText = `${framerNameOf(node)} ${attributesOf(node)["data-framer-name"] || ""} ${classListOf(node).join(" ")}`;
-    const headings = collect(node, (candidate) => /^h[1-3]$/.test(tagOf(candidate))).length;
+    const headingNodes = collect(node, (candidate) => /^h[1-3]$/.test(tagOf(candidate)));
+    const headings = headingNodes.length;
+    const headingText = headingNodes.map((heading) => textOf(heading, 200)).join(" ");
+    const disclosures = collect(node, (candidate) => tagOf(candidate) === "details").length;
     const links = collect(node, (candidate) => tagOf(candidate) === "a").length;
     const hasForm = collect(node, (candidate) => tagOf(candidate) === "form" || tagOf(candidate) === "input").length > 0;
     const cardCount = collect(node, (candidate) => settingsOf(candidate).inferredComponent?.kind === "card-grid").length;
@@ -861,7 +964,9 @@ function detectSectionRoles(roots, ctx) {
     else if (hasForm) role = "form";
     else if (PRICE_PATTERN.test(text) && PRICE_CYCLE_PATTERN.test(text)) role = "pricing";
     else if (/\b(testimonial|reviews?|what .* say|trusted by)\b/i.test(text) || collect(node, (candidate) => tagOf(candidate) === "blockquote").length >= 2) role = "testimonials";
-    else if (/\b(faq|frequently asked|questions?)\b/i.test(text) || settingsOf(node).inferredComponent?.kind === "accordion") role = "faq";
+    // "question" in body copy is not a FAQ section; a questions heading, two native disclosures or a
+    // reconstructed accordion are.
+    else if (disclosures >= 2 || /\b(faq|frequently asked|questions?)\b/i.test(headingText) || settingsOf(node).inferredComponent?.kind === "accordion") role = "faq";
     else if (collect(node, (candidate) => tagOf(candidate) === "a" && isArticleLink(attributesOf(candidate).href)).length >= 3) role = "blog";
     else if (position === 0 && headings && rect && rect.height > 320) role = "hero";
     else if (cardCount || (headings >= 2 && rect && rect.height > 320)) role = "features";
@@ -981,6 +1086,7 @@ function inferPatterns(children, options = {}) {
   detectPricingToggle(children, ctx);
   detectCardGrid(children, ctx);
   detectContentArchive(children, ctx);
+  detectDetailsAccordion(children, ctx);
   detectAccordion(children, ctx);
   detectSectionRoles(children, ctx);
   report.counts = report.components.reduce((totals, component) => ({ ...totals, [component.kind]: (totals[component.kind] || 0) + 1 }), {});
