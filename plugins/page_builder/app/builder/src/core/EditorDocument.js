@@ -1,5 +1,5 @@
 const clone = (value) => structuredClone(value);
-import { normalizeStyles, mergeStyles, yieldSizeFloors } from './StyleValueModel.js';
+import { DEVICES, normalizeStyles, mergeStyles, yieldSizeFloors } from './StyleValueModel.js';
 
 const BUTTON_SIZE_PRESETS = {
     xs: { fontSize: 13, padding: [10, 20], radius: 2 },
@@ -31,6 +31,12 @@ export default class EditorDocument {
             children: clone(data.children || []),
         };
         if (data.version && data.version !== 2) throw new Error(`Unsupported builder document version: ${data.version}`);
+        // The sizing contract a document was written under. Before contract 2 a Frame stored its own
+        // `width/height: fit-content` placeholder, which silently overrode grid and flex stretch; the
+        // heal below removes that once, and the version is stamped back so a later explicit Hug -- which
+        // a Frame legitimately stores as `fit-content` -- is never rewritten by a heal that already ran.
+        const needsSizingHeal = Number(document.settings.sizingContract || 1) < 2;
+        document.settings.sizingContract = 2;
         // Normalize old storage once at the document boundary. Runtime controls and renderers
         // only consume the canonical modern model after this point.
         const visit = (node) => {
@@ -60,6 +66,19 @@ export default class EditorDocument {
                 // min-size next to an explicit size. Treating the placeholder as authored is what kept
                 // a designed 7px accent dot rendering at 120x80, so heal it once here.
                 yieldSizeFloors(node.styles, { defaults: this.typeFloors(node.type) });
+            }
+            // A page saved before Frames stopped declaring a size carries that placeholder on every
+            // Frame, where it silently overrode grid and flex stretch. The heal runs after the floor heal
+            // on purpose -- the hug is what tells the floor to yield -- and only once, keyed by the
+            // document's sizing contract, so an author's later explicit Hug is never rewritten. It skips
+            // hover/focus/active/component buckets, which are deliberate by construction, and only a
+            // Frame is affected: a Button's fit-content is its own meaningful default.
+            if (needsSizingHeal && node?.type === 'frame' && node.styles) {
+                for (const device of DEVICES) {
+                    const bucket = node.styles[device]?.base;
+                    if (!bucket) continue;
+                    for (const axis of ['width', 'height']) if (bucket[axis] === 'fit-content') delete bucket[axis];
+                }
             }
             if (node?.type === 'button' && BUTTON_SIZE_PRESETS[node.settings?.size]) {
                 const preset = BUTTON_SIZE_PRESETS[node.settings.size];
@@ -139,13 +158,19 @@ export default class EditorDocument {
         return { from: origin, to: destination };
     }
 
-    // The element type's own default styles, normalized. Style writes need them to tell a
-    // placeholder size floor ("keep a fresh Frame visible") from one the author chose.
+    // The element type's own default styles, normalized, widened with any placeholder footprint the
+    // type used to store as real styles. Style writes need them to tell a placeholder size floor
+    // ("keep a fresh Frame visible") from one the author chose.
     typeFloors(type) {
         if (!this.registry?.has?.(type)) return null;
         const definition = this.registry.get(type);
         const defaults = typeof definition.defaults === 'function' ? definition.defaults() : (definition.defaults || {});
-        return defaults.styles ? normalizeStyles(defaults.styles) : null;
+        const floors = normalizeStyles(defaults.styles || {});
+        const legacy = definition.placeholderFloors ? normalizeStyles(definition.placeholderFloors) : null;
+        if (legacy) {
+            for (const device of DEVICES) for (const state of Object.keys(legacy[device] || {})) Object.assign(floors[device][state], legacy[device][state]);
+        }
+        return floors;
     }
 
     update(id, patch) {

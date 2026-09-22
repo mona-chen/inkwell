@@ -4312,7 +4312,7 @@ function createCopilotTools(runtime, builder) {
           color: '"#RRGGBB" (or any CSS color string)',
           keyword: '"fit-content" | "auto" | "100%" | "100vh" — plain CSS strings are passed through'
         },
-        rules: ['Sizes are always { size, unit }. { value, unit } is accepted and normalized to it, but the inspector writes { size, unit } — prefer that spelling.', 'Use the control name the element actually declares. Frames, containers, text and inputs carry `background`; a Button carries `background-color` (its surface) — call get_element_schema when unsure.', 'A record the compiler does not recognize is dropped from the stylesheet rather than published, and audit_design reports it. Never invent a record shape; use a plain CSS string instead.', 'Element styles are authoritative over custom CSS: write layout, type, colour and spacing as node styles and keep custom CSS for what nodes cannot express.']
+        rules: ['Sizes are always { size, unit }. { value, unit } is accepted and normalized to it, but the inspector writes { size, unit } — prefer that spelling.', 'Use the control name the element actually declares. Frames, containers, text and inputs carry `background`; a Button carries `background-color` (its surface) — call get_element_schema when unsure.', 'A record the compiler does not recognize is dropped from the stylesheet rather than published, and audit_design reports it. Never invent a record shape; use a plain CSS string instead.', 'Element styles are authoritative over custom CSS: write layout, type, colour and spacing as node styles and keep custom CSS for what nodes cannot express.', 'A Frame or Container declares no size of its own, so it fills its parent -- a card fills its grid column. Set width/height only to change that: { size, unit } for a fixed size, "fit-content" to hug its content (a pill, chip, badge, button), "100%" to fill explicitly.']
       },
       customCode: {
         css: true,
@@ -7788,6 +7788,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (/* binding */ EditorDocument)
 /* harmony export */ });
 /* harmony import */ var _StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./StyleValueModel.js */ "./src/core/StyleValueModel.js");
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -7866,6 +7869,12 @@ var EditorDocument = /*#__PURE__*/function () {
         children: clone(data.children || [])
       };
       if (data.version && data.version !== 2) throw new Error("Unsupported builder document version: ".concat(data.version));
+      // The sizing contract a document was written under. Before contract 2 a Frame stored its own
+      // `width/height: fit-content` placeholder, which silently overrode grid and flex stretch; the
+      // heal below removes that once, and the version is stamped back so a later explicit Hug -- which
+      // a Frame legitimately stores as `fit-content` -- is never rewritten by a heal that already ran.
+      var needsSizingHeal = Number(document.settings.sizingContract || 1) < 2;
+      document.settings.sizingContract = 2;
       // Normalize old storage once at the document boundary. Runtime controls and renderers
       // only consume the canonical modern model after this point.
       var _visit = function visit(node) {
@@ -7912,6 +7921,32 @@ var EditorDocument = /*#__PURE__*/function () {
           (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.yieldSizeFloors)(node.styles, {
             defaults: _this.typeFloors(node.type)
           });
+        }
+        // A page saved before Frames stopped declaring a size carries that placeholder on every
+        // Frame, where it silently overrode grid and flex stretch. The heal runs after the floor heal
+        // on purpose -- the hug is what tells the floor to yield -- and only once, keyed by the
+        // document's sizing contract, so an author's later explicit Hug is never rewritten. It skips
+        // hover/focus/active/component buckets, which are deliberate by construction, and only a
+        // Frame is affected: a Button's fit-content is its own meaningful default.
+        if (needsSizingHeal && (node === null || node === void 0 ? void 0 : node.type) === 'frame' && node.styles) {
+          var _iterator = _createForOfIteratorHelper(_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.DEVICES),
+            _step;
+          try {
+            for (_iterator.s(); !(_step = _iterator.n()).done;) {
+              var _node$styles$device;
+              var device = _step.value;
+              var bucket = (_node$styles$device = node.styles[device]) === null || _node$styles$device === void 0 ? void 0 : _node$styles$device.base;
+              if (!bucket) continue;
+              for (var _i = 0, _arr = ['width', 'height']; _i < _arr.length; _i++) {
+                var axis = _arr[_i];
+                if (bucket[axis] === 'fit-content') delete bucket[axis];
+              }
+            }
+          } catch (err) {
+            _iterator.e(err);
+          } finally {
+            _iterator.f();
+          }
         }
         if ((node === null || node === void 0 ? void 0 : node.type) === 'button' && BUTTON_SIZE_PRESETS[(_node$settings4 = node.settings) === null || _node$settings4 === void 0 ? void 0 : _node$settings4.size]) {
           var preset = BUTTON_SIZE_PRESETS[node.settings.size];
@@ -8071,8 +8106,9 @@ var EditorDocument = /*#__PURE__*/function () {
       };
     }
 
-    // The element type's own default styles, normalized. Style writes need them to tell a
-    // placeholder size floor ("keep a fresh Frame visible") from one the author chose.
+    // The element type's own default styles, normalized, widened with any placeholder footprint the
+    // type used to store as real styles. Style writes need them to tell a placeholder size floor
+    // ("keep a fresh Frame visible") from one the author chose.
   }, {
     key: "typeFloors",
     value: function typeFloors(type) {
@@ -8080,7 +8116,26 @@ var EditorDocument = /*#__PURE__*/function () {
       if (!((_this$registry = this.registry) !== null && _this$registry !== void 0 && (_this$registry$has = _this$registry.has) !== null && _this$registry$has !== void 0 && _this$registry$has.call(_this$registry, type))) return null;
       var definition = this.registry.get(type);
       var defaults = typeof definition.defaults === 'function' ? definition.defaults() : definition.defaults || {};
-      return defaults.styles ? (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStyles)(defaults.styles) : null;
+      var floors = (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStyles)(defaults.styles || {});
+      var legacy = definition.placeholderFloors ? (0,_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.normalizeStyles)(definition.placeholderFloors) : null;
+      if (legacy) {
+        var _iterator2 = _createForOfIteratorHelper(_StyleValueModel_js__WEBPACK_IMPORTED_MODULE_0__.DEVICES),
+          _step2;
+        try {
+          for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
+            var device = _step2.value;
+            for (var _i2 = 0, _Object$keys = Object.keys(legacy[device] || {}); _i2 < _Object$keys.length; _i2++) {
+              var state = _Object$keys[_i2];
+              Object.assign(floors[device][state], legacy[device][state]);
+            }
+          }
+        } catch (err) {
+          _iterator2.e(err);
+        } finally {
+          _iterator2.f();
+        }
+      }
+      return floors;
     }
   }, {
     key: "update",
@@ -25715,6 +25770,12 @@ function registerInkFoundationElements(registry) {
     // Empty Frames are deliberate transparent layout/positioning surfaces, not legacy
     // widget buckets. Selection chrome makes them discoverable; the author chooses whether
     // to give them a fill, child content, or freeform absolute children.
+    //
+    // A Frame declares no size of its own, so CSS flow decides it: a Frame fills its parent in a
+    // block, a grid cell, or a stretched flex track -- which is what a layout container means --
+    // and the author asks to hug with `width: 'fit-content'` (a pill, a chip, a badge) or gives a
+    // fixed size. Stored here, `fit-content` used to override `justify-items: stretch`, so a card
+    // in a 388px grid column hugged its text instead of filling the column.
     defaults: {
       settings: {
         tag: 'div',
@@ -25723,8 +25784,17 @@ function registerInkFoundationElements(registry) {
       styles: {
         base: {
           display: 'block',
-          width: 'fit-content',
-          height: 'fit-content',
+          position: 'relative'
+        }
+      },
+      children: []
+    },
+    // The placeholder footprint this element used to store as real styles. Declared so pages saved
+    // by that builder still heal it out (EditorDocument.typeFloors); the footprint a fresh, empty
+    // Frame needs on canvas is editor chrome now (canvas-editor.scss).
+    placeholderFloors: {
+      desktop: {
+        base: {
           'min-width': {
             size: 120,
             unit: 'px'
@@ -25732,11 +25802,9 @@ function registerInkFoundationElements(registry) {
           'min-height': {
             size: 80,
             unit: 'px'
-          },
-          position: 'relative'
+          }
         }
-      },
-      children: []
+      }
     },
     showEmptyView: false,
     selectors: {

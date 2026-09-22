@@ -29,6 +29,7 @@ We copy the architectural ideas, not Elementor's WordPress/PHP coupling, Backbon
 9. Templates and design kits are document fragments composed from registered elements, not bespoke layout modes hidden in Grid.
 10. The v2 store is authoritative. V1 saved-page compatibility is not a requirement.
 11. Placeholders are chrome, never design data. A placeholder size floor (the 120x80 minimum that keeps a fresh Frame grabbable) yields whenever the element decides its own size on that axis — an explicit size, or a content hug such as `fit-content` — and an empty Frame's footprint comes from editor CSS, so it can never publish or pin a designed element.
+12. An element declares no size it did not choose. A Frame stores neither a width nor a height by default, so CSS flow decides it: it fills its parent in a block, its grid column, or a stretched flex track. Hugging is opt-in (`width: 'fit-content'` for a pill, chip, or badge); a fixed size is `{ size, unit }`. Documents written before this contract carry the old placeholder `fit-content` on every Frame, which silently overrode `justify-items: stretch`; `EditorDocument.normalize` drops it once, keyed on `settings.sizingContract`, so a later explicit Hug the author writes survives the next load.
 
 ## V2 document contract
 

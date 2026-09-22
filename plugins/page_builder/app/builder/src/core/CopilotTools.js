@@ -141,6 +141,7 @@ export function createCopilotTools(runtime, builder) {
                     'Use the control name the element actually declares. Frames, containers, text and inputs carry `background`; a Button carries `background-color` (its surface) — call get_element_schema when unsure.',
                     'A record the compiler does not recognize is dropped from the stylesheet rather than published, and audit_design reports it. Never invent a record shape; use a plain CSS string instead.',
                     'Element styles are authoritative over custom CSS: write layout, type, colour and spacing as node styles and keep custom CSS for what nodes cannot express.',
+                    'A Frame or Container declares no size of its own, so it fills its parent -- a card fills its grid column. Set width/height only to change that: { size, unit } for a fixed size, "fit-content" to hug its content (a pill, chip, badge, button), "100%" to fill explicitly.',
                 ],
             },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },

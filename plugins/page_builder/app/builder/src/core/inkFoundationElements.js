@@ -262,7 +262,17 @@ export default function registerInkFoundationElements(registry) {
         // Empty Frames are deliberate transparent layout/positioning surfaces, not legacy
         // widget buckets. Selection chrome makes them discoverable; the author chooses whether
         // to give them a fill, child content, or freeform absolute children.
-        defaults: { settings: { tag: 'div', label: 'Frame' }, styles: { base: { display: 'block', width: 'fit-content', height: 'fit-content', 'min-width': { size: 120, unit: 'px' }, 'min-height': { size: 80, unit: 'px' }, position: 'relative' } }, children: [] },
+        //
+        // A Frame declares no size of its own, so CSS flow decides it: a Frame fills its parent in a
+        // block, a grid cell, or a stretched flex track -- which is what a layout container means --
+        // and the author asks to hug with `width: 'fit-content'` (a pill, a chip, a badge) or gives a
+        // fixed size. Stored here, `fit-content` used to override `justify-items: stretch`, so a card
+        // in a 388px grid column hugged its text instead of filling the column.
+        defaults: { settings: { tag: 'div', label: 'Frame' }, styles: { base: { display: 'block', position: 'relative' } }, children: [] },
+        // The placeholder footprint this element used to store as real styles. Declared so pages saved
+        // by that builder still heal it out (EditorDocument.typeFloors); the footprint a fresh, empty
+        // Frame needs on canvas is editor chrome now (canvas-editor.scss).
+        placeholderFloors: { desktop: { base: { 'min-width': { size: 120, unit: 'px' }, 'min-height': { size: 80, unit: 'px' } } } },
         showEmptyView: false,
         selectors: { root: '&', inner: '.ink-el-frame-inner', overlay: '.ink-el-frame-overlay' },
         styleMap: {

@@ -690,7 +690,11 @@ async function main() {
       var mergeStyle=canvas.defaultView.getComputedStyle(mergeEl);
       var frameFootprint=mergeEl.classList.contains('ink-is-empty-w') && mergeEl.classList.contains('ink-is-empty-h') && mergeEl.getBoundingClientRect().height>0 && parseFloat(mergeStyle.minHeight)===80 && parseFloat(mergeStyle.minWidth)===120 && dotEl.className.indexOf('ink-is-empty-w')<0;
       var floorBefore=mergeNode.styles.desktop.base['min-width'];
-      var floorUnstored=floorBefore===undefined && !('min-height' in mergeNode.styles.desktop.base);
+      var floorUnstored=floorBefore===undefined && !('min-height' in mergeNode.styles.desktop.base) && mergeNode.styles.desktop.base.width===undefined;
+      // A page the older builder saved stored the placeholder on every Frame (the hugging size plus the
+      // 120x80 floor); the next write to that node heals both, without the author touching sizing.
+      mergeNode.styles.desktop.base.width='fit-content';
+      mergeNode.styles.desktop.base.height='fit-content';
       mergeNode.styles.desktop.base['min-width']={size:120,unit:'px'};
       mergeNode.styles.desktop.base['min-height']={size:80,unit:'px'};
       b.copilotTools.execute('set_styles', {id:merge.id, styles:{desktop:{base:{background:'#111111'}}}});
@@ -746,6 +750,27 @@ async function main() {
       return {startH:startH,followed:followed,pinned:pinned,stayed:stayed,refit:refit,auto:v.followsContent(),affordance:v.fitButton.classList.contains('is-active')};
     })()`);
     check("the frame height follows the design until the author pins it", state.followed >= state.startH + 700 && state.pinned === 600 && state.stayed === 600 && state.refit >= 2500 && state.auto === true && state.affordance === true, JSON.stringify(state));
+
+    // The one-time sizing migration. A page saved before Frames stopped declaring a size carries that
+    // placeholder on every Frame, where it quietly overrode grid and flex stretch. It heals once, so an
+    // explicit Hug set afterwards -- the author's own decision -- survives the next load.
+    state = await client.evaluate(`(function(){
+      var r=builder.runtime,before=r.serialize();
+      var legacy={version:2,type:'page',settings:{title:'Legacy sizing'},children:[
+        {id:'legacy-frame-a',type:'frame',settings:{tag:'div',label:'Card'},styles:{base:{display:'block',width:'fit-content',height:'fit-content','min-width':{size:120,unit:'px'},'min-height':{size:80,unit:'px'},position:'relative'}},children:[]}
+      ]};
+      r.document.replace(legacy);
+      var healed=r.document.get('legacy-frame-a').styles.desktop.base;
+      var contract=r.document.data.settings.sizingContract;
+      var afterHeal={width:healed.width,minWidth:healed['min-width'],minHeight:healed['min-height']};
+      r.update('legacy-frame-a',{styles:{desktop:{base:{width:'fit-content'}}}});
+      r.document.replace(r.document.serialize());
+      var reloaded=r.document.get('legacy-frame-a').styles.desktop.base;
+      var survives=reloaded.width==='fit-content'&&reloaded['min-width']===undefined;
+      r.document.replace(before);
+      return {afterHeal:afterHeal,contract:contract,survives:survives,declaresNoSize:before.type==='page'};
+    })()`);
+    check("the Frame sizing migration heals once and keeps a later explicit Hug", state.declaresNoSize && state.contract === 2 && state.afterHeal.width === undefined && state.afterHeal.minWidth === undefined && state.afterHeal.minHeight === undefined && state.survives === true, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var r=builder.runtime, canvas=builder.iframeDoc;

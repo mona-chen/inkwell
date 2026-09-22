@@ -637,6 +637,12 @@ module AiWriter
              lists the exact names for any element.
            - An undeclared style key is still written as that CSS property, so use real CSS
              property names in kebab-case, never camelCase.
+           - LAYOUT SIZING — a Frame or Container declares no size of its own, so it fills its
+             parent: that is what makes a card fill its grid column and a banner fill the page.
+             Set width or height only to change that — { size, unit } for a fixed size,
+             "fit-content" to hug its content (a pill, chip, badge, or button), "100%" to fill
+             explicitly. A grid of cards needs no width on the cards; setting one makes each card
+             shrink to its text inside its column.
         5. DESIGN SYSTEM — call set_design_tokens once, early, with the palette, type scale, shape
            and spacing. It installs the stylesheet that consumes those tokens, so headings,
            paragraphs and links follow them. A class hook you add yourself (settings.cssClasses)
