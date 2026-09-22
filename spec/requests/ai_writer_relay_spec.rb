@@ -106,4 +106,125 @@ RSpec.describe "AiWriter client-driven Copilot relay", type: :request do
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Copilot session expired")
   end
+
+  # The browser is handed the REAL reason a call cannot run. Turning a cut-off payload into `{}` made
+  # the builder answer "replace_page requires a non-empty children array", which reads as a broken
+  # tree, so the model resent the same oversized payload and the user watched nothing happen.
+  it "relays a cut-off payload with its real reason instead of as an empty call" do
+    calls = [ { "id" => "call_1", "type" => "function",
+                "function" => { "name" => "replace_page", "arguments" => '{"children":[{"type":"frame",' } } ]
+    allow_any_instance_of(AiWriter::Client).to receive(:stream_round).and_wrap_original do |_orig, *_args, &blk|
+      blk&.call({ tool_calls: calls })
+      { role: "assistant", content: nil, tool_calls: calls, finish_reason: "length" }
+    end
+
+    post "/plugins/ai_writer/chat", params: {
+      clientTools: true, prompt: "redesign the entire page", mode: "design", designIndex: "(empty page)",
+      tools: [].to_json
+    }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include('"argument_error"')
+    expect(response.body).to include("not valid JSON", "finish_reason: length")
+    expect(response.body).not_to include('"arguments":{}')
+
+    session_id = response.body[/"session_id":"(\h+)"/, 1]
+    session = AiWriter::CompletionsController::CLIENT_SESSIONS[session_id]
+    # The stop reason stays server-side: an assistant turn with an unknown key is not something every
+    # OpenAI-compatible provider accepts back.
+    expect(session[:messages].last).not_to have_key(:finish_reason)
+  ensure
+    AiWriter::CompletionsController::CLIENT_SESSIONS.delete(session_id) if session_id
+  end
+
+  # A loop the server can already see should not be paid for. An identical payload is the same
+  # payload, so the second failure of the same call ends the request with an explanation.
+  it "stops when the same failing call is repeated verbatim" do
+    session_id = "repeat_stall_session"
+    AiWriter::CompletionsController::CLIENT_SESSIONS[session_id] = {
+      messages: [ { role: "user", content: "add a section" } ], user_id: user.id, site_id: site.id,
+      created_at: Time.now, emitted: [ "append_tree\u001F", "append_tree\u001F" ]
+    }
+    expect_any_instance_of(AiWriter::Client).not_to receive(:stream_round)
+
+    post "/plugins/ai_writer/tool_result", params: {
+      session_id: session_id,
+      results: [ { id: "a", content: '{"ok":false,"error":"no type"}', failed: true },
+                 { id: "b", content: '{"ok":false,"error":"no type"}', failed: true } ]
+    }, as: :json
+
+    expect(response.body).to include("repeated the same failed append_tree call")
+    expect(AiWriter::CompletionsController::CLIENT_SESSIONS.key?(session_id)).to be(false)
+  ensure
+    AiWriter::CompletionsController::CLIENT_SESSIONS.delete(session_id)
+  end
+
+  it "stops after a run of rounds in which nothing succeeded" do
+    session_id = "barren_stall_session"
+    AiWriter::CompletionsController::CLIENT_SESSIONS[session_id] = {
+      messages: [ { role: "user", content: "add a section" } ], user_id: user.id, site_id: site.id,
+      created_at: Time.now, emitted: [ "append_tree\u001F{}" ], barren_rounds: 2
+    }
+    expect_any_instance_of(AiWriter::Client).not_to receive(:stream_round)
+
+    post "/plugins/ai_writer/tool_result", params: {
+      session_id: session_id, results: [ { id: "a", content: '{"ok":false}', failed: true } ]
+    }, as: :json
+
+    expect(response.body).to include("rounds in a row had every tool call fail")
+    expect(AiWriter::CompletionsController::CLIENT_SESSIONS.key?(session_id)).to be(false)
+  ensure
+    AiWriter::CompletionsController::CLIENT_SESSIONS.delete(session_id)
+  end
+
+  # The round ceiling used to be the finish line, which is how a request ended with half a page and
+  # no explanation. Now the model's own "I'm done" is checked against the request and the tree first.
+  it "continues the request when the judge finds the page unfinished" do
+    session_id = "judge_session"
+    AiWriter::CompletionsController::CLIENT_SESSIONS[session_id] = {
+      messages: [ { role: "user", content: "design a landing page" } ], user_id: user.id, site_id: site.id,
+      created_at: Time.now, mutated: true, request: "design a landing page", design_index: "[0] Frame"
+    }
+    rounds = 0
+    prompts = []
+    allow_any_instance_of(AiWriter::Client).to receive(:stream_round) do |_client, *args, **_kwargs, &blk|
+      rounds += 1
+      prompts << args.first.last[:content]
+      blk&.call({ content: "Done." })
+      { role: "assistant", content: "Done." }
+    end
+    verdicts = [ '{"complete":false,"missing":["Add the pricing section","Add the footer"]}', '{"complete":true}' ]
+    allow_any_instance_of(AiWriter::Client).to receive(:generate) { verdicts.shift }
+
+    post "/plugins/ai_writer/tool_result", params: {
+      session_id: session_id, results: [ { id: "c1", content: "ok" } ], mutated: true
+    }, as: :json
+
+    expect(rounds).to eq(2)
+    expect(prompts.last).to include("Add the pricing section", "Add the footer")
+    expect(response.body).to include("Done.")
+    expect(AiWriter::CompletionsController::CLIENT_SESSIONS.key?(session_id)).to be(false)
+  ensure
+    AiWriter::CompletionsController::CLIENT_SESSIONS.delete(session_id)
+  end
+
+  it "never traps the user behind a judge that answers with prose" do
+    session_id = "bad_judge_session"
+    AiWriter::CompletionsController::CLIENT_SESSIONS[session_id] = {
+      messages: [ { role: "user", content: "design" } ], user_id: user.id, site_id: site.id,
+      created_at: Time.now, mutated: true
+    }
+    allow_any_instance_of(AiWriter::Client).to receive(:stream_round) do |_client, *_args, **_kwargs, &blk|
+      blk&.call({ content: "All set." })
+      { role: "assistant", content: "All set." }
+    end
+    allow_any_instance_of(AiWriter::Client).to receive(:generate).and_return("Honestly, it looks lovely.")
+
+    post "/plugins/ai_writer/tool_result", params: { session_id: session_id, results: [] }, as: :json
+
+    expect(response.body).to include("All set.")
+    expect(AiWriter::CompletionsController::CLIENT_SESSIONS.key?(session_id)).to be(false)
+  ensure
+    AiWriter::CompletionsController::CLIENT_SESSIONS.delete(session_id)
+  end
 end

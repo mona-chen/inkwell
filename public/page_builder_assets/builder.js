@@ -5727,7 +5727,7 @@ function createCopilotTools(runtime, builder) {
     }
   }, {
     name: 'replace_page',
-    description: 'Compose an original page or app interface as a complete recursive native element tree in one undo step. Use responsive node styles for editable layout, typography, fills, and effects; optional custom CSS/JS enhances the native elements. Preserve existing content unless the request calls for replacement.',
+    description: "Compose an original page or app interface as a complete recursive native element tree in one undo step. Use responsive node styles for editable layout, typography, fills, and effects; optional custom CSS/JS enhances the native elements. Preserve existing content unless the request calls for replacement. ONE CALL IS CAPPED AT ".concat(MAX_TREE_NODES, " NODES (get_capabilities composition.maximumNodes), and a whole landing page normally does NOT fit: a payload that large is cut off before it arrives and changes nothing, so build multi-section pages with append_tree instead of gambling the whole page on one oversized call."),
     parameters: {
       type: 'object',
       properties: {
@@ -5736,6 +5736,7 @@ function createCopilotTools(runtime, builder) {
         },
         children: {
           type: 'array',
+          minItems: 1,
           items: treeNodeSchema
         },
         customCss: {
@@ -5749,7 +5750,7 @@ function createCopilotTools(runtime, builder) {
     }
   }, {
     name: 'append_tree',
-    description: 'Append one complete recursive layout tree at the root or inside a container. Preferred for an Add section request.',
+    description: "Append one complete recursive layout tree at the root or inside a container. This is the DEFAULT way to build a multi-section page: one call per section, each validated on its own and atomic, so a rejected section costs nothing else. A call is capped at ".concat(MAX_TREE_NODES, " nodes (get_capabilities composition.maximumNodes) \u2014 keep every section comfortably under it."),
     parameters: {
       type: 'object',
       properties: {

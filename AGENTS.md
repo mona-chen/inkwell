@@ -62,6 +62,11 @@ The agent loop is client-driven: the server relays the model's tool calls over S
 (`POST /plugins/ai_writer/chat` with `clientTools: true`), the widget executes them against
 `builder.copilotTools`, and `POST /plugins/ai_writer/tool_result` resumes the loop. Only the
 model's message history lives server-side (in-memory `CLIENT_SESSIONS`, TTL 600s).
+The server is the loop's referee, not a pass-through: a tool payload that arrives cut off or empty
+is relayed to the browser with its real reason (`argument_error`) instead of being retried as an
+empty object, a completion judge checks the model's "done" against the request and the live tree
+before a session closes, and a call that fails identically twice — or a run of rounds in which
+nothing succeeds — ends the request with an explanation rather than spending the whole allowance.
 
 Regression safety: `bin/rails builder:smoke` (Node/CDP harness in
 `scripts/builder_smoke_test.js`) exercises builder load, real drag & drop, store

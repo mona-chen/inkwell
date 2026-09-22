@@ -15,6 +15,14 @@ module AiWriter
     DEFAULT_MODEL = "gpt-4o-mini"
     MAX_TOOL_ROUNDS = 8
 
+    # A tool call's arguments arrive as a stream of JSON fragments. When the provider stops early —
+    # its output limit, a dropped connection — the fragments end mid-payload and JSON.parse fails.
+    # Falling back to `{}` there is a lie that costs a whole round: "the model sent nothing" and
+    # "the payload was cut in half" need OPPOSITE corrections ("fill it in" vs. "split the work"),
+    # so the model resends the same oversized payload and the user watches an unchanged page. The
+    # evidence is kept and handed back as a tool result instead.
+    TOOL_ARGUMENT_TAIL = 120
+
     class Error < StandardError; end
 
     def initialize(site:)
@@ -128,6 +136,7 @@ module AiWriter
         tool_calls = nil
         tool_order = []
         content = +""
+        finish_reason = nil
         http.request(request) do |response|
           unless response.is_a?(Net::HTTPSuccess)
             raise Error, failure_message(response)
@@ -143,7 +152,11 @@ module AiWriter
               next if data == "[DONE]"
 
               parsed = JSON.parse(data) rescue next
-              delta = parsed.dig("choices", 0, "delta") || {}
+              choice = parsed.dig("choices", 0) || {}
+              # Why the provider stopped is part of the diagnosis: `length` means the response —
+              # and therefore any tool payload inside it — was cut off at the output limit.
+              finish_reason = choice["finish_reason"] if choice["finish_reason"].present?
+              delta = choice["delta"] || {}
               block.call({ reasoning_content: delta["reasoning_content"] }) if delta["reasoning_content"]
               if delta["content"]
                 content << delta["content"]
@@ -183,7 +196,9 @@ module AiWriter
 
           # Non-streaming fallback (provider ignores stream:true).
           if raw.present? && !raw.include?("data:")
-            message = JSON.parse(raw).dig("choices", 0, "message") rescue nil
+            payload = JSON.parse(raw) rescue nil
+            finish_reason ||= payload&.dig("choices", 0, "finish_reason")
+            message = payload&.dig("choices", 0, "message")
             if message
               tool_calls = { entries: [], by_id: {}, by_index: {} }
               if message["tool_calls"].present?
@@ -206,7 +221,14 @@ module AiWriter
           all_messages << { role: "assistant", content: content.presence, tool_calls: calls }
           calls.each do |call|
             fn = call["function"] || {}
-            result = tool_executor.call(fn["name"], safe_parse(fn["arguments"]))
+            parsed = self.class.parse_tool_arguments(fn["arguments"])
+            # A cut payload becomes a correction the model reads on the next round, never a silent
+            # `{}` that makes the builder look like it rejected a perfectly reasonable call.
+            result = if parsed[:ok]
+              tool_executor.call(fn["name"], parsed[:value])
+            else
+              self.class.argument_failure_message(fn["name"], parsed, finish_reason: finish_reason)
+            end
             all_messages << { role: "tool", tool_call_id: call["id"], content: result.to_s }
           end
           next
@@ -237,6 +259,7 @@ module AiWriter
 
       tool_calls = nil
       content = +""
+      finish_reason = nil
       http.request(request) do |response|
         unless response.is_a?(Net::HTTPSuccess)
           raise Error, failure_message(response)
@@ -251,7 +274,9 @@ module AiWriter
           next if data.blank? || data == "[DONE]"
 
           parsed = JSON.parse(data) rescue next
-          delta = parsed.dig("choices", 0, "delta") || {}
+          choice = parsed.dig("choices", 0) || {}
+          finish_reason = choice["finish_reason"] if choice["finish_reason"].present?
+          delta = choice["delta"] || {}
           block.call({ reasoning_content: delta["reasoning_content"] }) if delta["reasoning_content"]
           if delta["content"]
             content << delta["content"]
@@ -292,7 +317,9 @@ module AiWriter
 
         # Non-streaming fallback (provider ignores stream:true).
         if raw.present? && !raw.include?("data:")
-          message = JSON.parse(raw).dig("choices", 0, "message") rescue nil
+          payload = JSON.parse(raw) rescue nil
+          finish_reason ||= payload&.dig("choices", 0, "finish_reason")
+          message = payload&.dig("choices", 0, "message")
           if message
             tool_calls = { entries: [], by_id: {}, by_index: {} }
             if message["tool_calls"].present?
@@ -312,12 +339,66 @@ module AiWriter
       calls = entries.map do |tc|
         { "id" => tc["id"], "type" => "function", "function" => { "name" => tc["function"]["name"], "arguments" => tc["function"]["arguments"] } }
       end
+      # `finish_reason` is carried on the returned message so the caller can explain a payload that
+      # the provider cut off. The caller strips it before appending the message to the session: an
+      # unknown key on an assistant turn is not something every OpenAI-compatible provider accepts.
       if calls.any?
         block.call({ tool_calls: calls })
-        return { role: "assistant", content: content.presence, tool_calls: calls }
+        return { role: "assistant", content: content.presence, tool_calls: calls, finish_reason: finish_reason }
       end
 
-      { role: "assistant", content: content.presence }
+      { role: "assistant", content: content.presence, finish_reason: finish_reason }
+    end
+
+    # Evidence about one tool call's arguments, so a failure can be described instead of guessed at.
+    #   reason — :ok, :empty (nothing arrived), :unparseable (arrived, but is not valid JSON),
+    #            :not_an_object (valid JSON that is not an argument object)
+    # Never raises: the caller turns a failure into a tool result the model reads in the same request.
+    def self.parse_tool_arguments(raw)
+      text = raw.to_s
+      return { ok: false, reason: :empty, bytes: 0, tail: "", value: nil } if text.strip.empty?
+
+      value = JSON.parse(text)
+      unless value.is_a?(Hash)
+        return { ok: false, reason: :not_an_object, bytes: text.bytesize, tail: argument_tail(text), value: nil }
+      end
+
+      { ok: true, reason: :ok, bytes: text.bytesize, tail: "", value: value }
+    rescue JSON::ParserError
+      { ok: false, reason: :unparseable, bytes: text.bytesize, tail: argument_tail(text), value: nil }
+    end
+
+    # Where a payload stopped, so a person reading the tool result can see it mid-value. `Slice` with a
+    # negative start returns nil past the beginning of the string, which would quietly report "nothing
+    # arrived" for a short payload, so the short case is handled here rather than by an index.
+    def self.argument_tail(text)
+      text.length > TOOL_ARGUMENT_TAIL ? text[-TOOL_ARGUMENT_TAIL..] : text
+    end
+    private_class_method :argument_tail
+
+    # The correction, in the model's own terms. A payload that never arrived and a payload that was
+    # cut in half take opposite fixes, and guessing wrong burns a round, so the message says which
+    # one happened, how much arrived, and what to do instead of resending the same call.
+    def self.argument_failure_message(name, problem, finish_reason: nil)
+      tool = name.to_s.presence || "The tool call"
+      stopped = finish_reason.to_s == "length" ? ", and the provider stopped at its output limit (finish_reason: length)" : ""
+      evidence = problem[:bytes].to_i.positive? ? " (#{problem[:bytes]} bytes arrived, ending with #{problem[:tail].to_s.inspect}#{stopped})" : ""
+
+      case problem[:reason]
+      when :empty
+        "#{tool} was called with NO arguments#{evidence}, so NOTHING changed and repeating this call " \
+          "as-is cannot work. Call #{tool} again with the full arguments. If the payload is large, do " \
+          "not send it in one call: get_capabilities reports the per-call node limit " \
+          "(composition.maximumNodes) and one section per append_tree call stays under it."
+      when :not_an_object
+        "#{tool} received JSON that is not an argument object#{evidence}, so the call was discarded " \
+          "and NOTHING changed. Send the arguments as an object with the named fields."
+      else
+        "#{tool} arguments are not valid JSON#{evidence}, so the call was discarded and NOTHING " \
+          "changed. A payload that stops mid-write was cut off, not composed wrong: do NOT resend the " \
+          "same call. Split the work into smaller calls — one section per append_tree call, each under " \
+          "the composition.maximumNodes limit from get_capabilities."
+      end
     end
 
     private
@@ -343,12 +424,6 @@ module AiWriter
       end
       detail = body.strip[0, 300].presence unless detail.is_a?(String) && detail.present?
       "AI request failed (#{response.code}): #{detail.presence || 'the provider gave no reason.'}"
-    end
-
-    def safe_parse(string)
-      JSON.parse(string.to_s)
-    rescue JSON::ParserError
-      {}
     end
 
     def base_url

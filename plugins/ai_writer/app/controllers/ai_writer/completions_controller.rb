@@ -7,7 +7,24 @@ module AiWriter
 
     # Conversation history survives reloads and worker changes; the browser owns the design.
     CLIENT_SESSIONS = ClientSessions.new
-    MAX_CLIENT_ROUNDS = 16
+    # The round ceiling is a safety net, not the finish line. Capping tightly is what leaves a user
+    # with half a page: the model is not out of ideas, it is out of the allowance. So the allowance
+    # is generous, the client loop keeps feeding it, and the completion judge below decides whether
+    # the request is actually satisfied instead of counting rounds and stopping.
+    MAX_CLIENT_ROUNDS = 32
+    # How many times one request may be sent back to the model because the judge found it unfinished.
+    # Each interruption costs a model call, so this stays small; the judge is a correction, not a loop.
+    MAX_CLIENT_JUDGMENTS = 3
+    # The same failing call, byte for byte, cannot succeed on a second try — the payload is the same
+    # payload. One retry is a fix attempt; the identical repeat after it is a loop, so it ends there.
+    MAX_REPEAT_ATTEMPTS = 2
+    # Rounds in a row in which every tool call failed. Different broken calls each round is still the
+    # same dead end: nothing is being learned and nothing is landing, so the request is stopped and
+    # reported rather than paid for until the round ceiling is reached.
+    MAX_BARREN_ROUNDS = 3
+    # Joins a call's tool name to its raw arguments into one comparison key. A unit separator cannot
+    # occur in either part, so two different calls can never collide into one signature.
+    SIGNATURE_SEPARATOR = "\u001F"
 
     def self.prune_sessions
       CLIENT_SESSIONS.cleanup
@@ -88,6 +105,10 @@ module AiWriter
           messages: [ { role: "user", content: client_build_prompt } ],
           system: client_system_prompt(client_tools),
           tools: client_tools,
+          # Kept for the completion judge: the judge compares what was asked against what the page
+          # actually holds, and neither is recoverable from the tool results alone.
+          request: params[:prompt].to_s,
+          design_index: params[:designIndex].to_s,
           rounds: 0,
           user_id: current_user.id,
           site_id: Current.site.id,
@@ -554,8 +575,9 @@ module AiWriter
 
     private
 
-    # One round of the client-driven loop: run the model, stream deltas, append the assistant
-    # message; if it emitted tool calls, stream them as a "tools" event for the browser to execute.
+    # One step of the client-driven loop, repeated until the model either asks for tools (which the
+    # browser executes, so the request ends and resumes via tool_result) or stops and the completion
+    # judge agrees the request is satisfied.
     def run_client_round(client, session_id, results)
       session = CLIENT_SESSIONS[session_id]
       unless session && session[:user_id] == current_user.id && session[:site_id] == Current.site.id
@@ -564,34 +586,165 @@ module AiWriter
         return
       end
       session[:created_at] = Time.now
-      session[:rounds] = session.fetch(:rounds, 0) + 1
-      if session[:rounds] > MAX_CLIENT_ROUNDS
-        CLIENT_SESSIONS.delete(session_id)
-        stream_json(error: "Copilot reached the design-round limit. The applied changes are safe; send a focused follow-up to continue.")
-        stream_done
-        return
-      end
+      # Only the browser knows whether the canvas actually changed — a model that reads tools for a
+      # whole round never touches the page, and judging a request that changed nothing is pure cost.
+      session[:mutated] = true if params[:mutated].to_s == "true"
+      session[:design_index] = params[:designIndex].to_s if params[:designIndex].present?
       results.each do |result|
         session[:messages] << { role: "tool", tool_call_id: result["id"].to_s, content: result["content"].to_s }
       end
-      assistant = client.stream_round(session[:messages], system: session[:system], tools: session[:tools]) do |piece|
-        stream_json(choice: { delta: piece }) unless piece[:tool_calls]
-      end
-      session[:messages] << assistant
-      if assistant[:tool_calls]&.any?
-        calls = assistant[:tool_calls].map do |call|
-          arguments = call.dig("function", "arguments")
-          arguments = JSON.parse(arguments) if arguments.is_a?(String)
-          { "id" => call["id"], "name" => call.dig("function", "name"), "arguments" => arguments || {} }
-        rescue JSON::ParserError
-          { "id" => call["id"], "name" => call.dig("function", "name"), "arguments" => {} }
-        end
-        CLIENT_SESSIONS[session_id] = session
-        stream_json(tools: { session_id: session_id, calls: calls })
-      else
+
+      # Stopped before another model round is paid for: a loop that is already visible should be named
+      # and reported, not discovered three rounds later when the allowance runs out and the page is
+      # still half-built.
+      if (stall = stall_reason(session, Array(results)))
         CLIENT_SESSIONS.delete(session_id)
+        stream_json(error: stall)
+        stream_done
+        return
       end
-      stream_done
+
+      loop do
+        session[:rounds] = session.fetch(:rounds, 0) + 1
+        if session[:rounds] > MAX_CLIENT_ROUNDS
+          CLIENT_SESSIONS.delete(session_id)
+          stream_json(error: "Copilot reached its #{MAX_CLIENT_ROUNDS}-round safety limit for one request. " \
+            "Everything applied so far is safe and undoable. Send a focused follow-up — for example " \
+            "\"finish the pricing and footer sections\" — and it will continue from here.")
+          stream_done
+          return
+        end
+
+        assistant = client.stream_round(session[:messages], system: session[:system], tools: session[:tools]) do |piece|
+          stream_json(choice: { delta: piece }) unless piece[:tool_calls]
+        end
+        # Stays out of the message history: an assistant turn carrying an unknown key is not
+        # something every OpenAI-compatible provider accepts back.
+        finish_reason = assistant.delete(:finish_reason)
+        session[:messages] << assistant
+        # Kept directly rather than searched for later: the judge needs the model's own claim about what
+        # it just did, and the session round-trips through a cache whose key types are its business.
+        session[:last_reply] = assistant[:content] if assistant[:content].present?
+
+        if assistant[:tool_calls]&.any?
+          calls = tool_calls_payload(session, assistant[:tool_calls], finish_reason)
+          CLIENT_SESSIONS[session_id] = session
+          stream_json(tools: { session_id: session_id, calls: calls })
+          stream_done
+          return
+        end
+
+        # The model stopped calling tools. That is its own opinion about whether the work is done,
+        # and the whole complaint against a chatty builder is that this opinion is sometimes wrong:
+        # the turn ends, the canvas keeps half a page, and the user has to notice and ask again.
+        verdict = completion_verdict(client, session)
+        if verdict[:continue]
+          session[:messages] << { role: "user", content: verdict[:directive] }
+          next
+        end
+
+        CLIENT_SESSIONS.delete(session_id)
+        stream_done
+        return
+      end
+    end
+
+    # The "tools" event the browser executes. A call whose arguments never arrived cannot be run, and
+    # turning it into `{}` is worse than useless: the builder then answers a perfectly reasonable
+    # call with "replace_page requires a non-empty children array", the model believes its payload
+    # was structurally wrong, and it resends the same oversized tree. The real reason travels with
+    # the call instead, the widget skips execution, and the model repairs it inside this same request.
+    def tool_calls_payload(session, tool_calls, finish_reason)
+      # Each emitted call's signature is kept position for position, so the round that reports the
+      # results can say which call failed without trusting anything the browser sends but the result.
+      session[:emitted] = []
+      tool_calls.map do |call|
+        name = call.dig("function", "name")
+        raw = call.dig("function", "arguments").to_s
+        session[:emitted] << "#{name}#{SIGNATURE_SEPARATOR}#{raw}"
+        problem = AiWriter::Client.parse_tool_arguments(raw)
+        entry = { "id" => call["id"], "name" => name, "arguments" => problem[:value] }
+        next entry if problem[:ok]
+
+        entry["arguments"] = nil
+        entry["argument_error"] = AiWriter::Client.argument_failure_message(name, problem, finish_reason: finish_reason)
+        entry
+      end
+    end
+
+    # Whether this request has stopped making sense, and how to say so. Two shapes of the same dead
+    # end: the identical failed call again, and round after round where nothing succeeded. Both end
+    # the request with a message a person can act on, because the alternative — spending the whole
+    # allowance and then reporting nothing — is exactly the experience this is meant to remove.
+    def stall_reason(session, results)
+      emitted = Array(session[:emitted])
+      session[:emitted] = []
+      attempts = session[:attempts] ||= {}
+
+      failed = results.select { |result| result["failed"].to_s == "true" }
+      signatures = []
+      results.each_with_index do |result, index|
+        signatures << emitted[index] if result["failed"].to_s == "true" && emitted[index]
+      end
+      signatures.each { |signature| attempts[signature] = attempts.fetch(signature, 0) + 1 }
+
+      repeated = signatures.find { |signature| attempts[signature] >= MAX_REPEAT_ATTEMPTS }
+      if repeated
+        return "Copilot stopped early: it repeated the same failed #{repeated.split(SIGNATURE_SEPARATOR).first} " \
+          "call verbatim, and an identical call cannot produce a different result. That call changed nothing, " \
+          "and everything already applied is undoable. Ask again with a narrower request — one section at a " \
+          "time works well."
+      end
+
+      session[:barren_rounds] = results.any? && failed.length == results.length ? session.fetch(:barren_rounds, 0) + 1 : 0
+      return nil if session[:barren_rounds] < MAX_BARREN_ROUNDS
+
+      "Copilot stopped early: #{MAX_BARREN_ROUNDS} rounds in a row had every tool call fail. Everything already " \
+        "applied is safe and undoable. Try a smaller request — one section, or one element to fix — and it will " \
+        "continue from the current page."
+    end
+
+    # The completion judge. A model stops for many reasons that are not "the work is finished" — the
+    # payload kept failing, it wrote a long summary, it ran out of momentum. So once a request has
+    # actually changed the page, one cheap question is asked before the session closes: does the page
+    # now contain what was asked for? Only a concrete "no" — with named gaps — continues the request,
+    # and a judge that errors, waffles, or returns prose is treated as "done" so it can never trap
+    # the user in a loop that will not end.
+    JUDGE_SYSTEM_PROMPT = <<~PROMPT
+      You verify whether a design request was actually satisfied. Reply with JSON only, no prose:
+      {"complete": true|false, "missing": ["…"]}. "complete" is true only when the current page
+      already contains every part the request asked for. When it is false, "missing" lists the
+      still-absent pieces as short imperative instructions, most important first, at most four.
+      Do not invent new requirements, do not ask for polish or refinement, and never list something
+      the page already has.
+    PROMPT
+
+    def completion_verdict(client, session)
+      return { continue: false } unless session[:mutated]
+      return { continue: false } if session.fetch(:judgments, 0) >= MAX_CLIENT_JUDGMENTS
+
+      prompt = <<~PROMPT
+        The user asked: #{session[:request].to_s}
+
+        The assistant last reported: #{session[:last_reply].to_s[0, 600]}
+
+        The page now contains:
+        #{session[:design_index].presence || "(the current tree was not reported)"}
+      PROMPT
+      raw = client.generate(prompt, system: JUDGE_SYSTEM_PROMPT)
+      verdict = JSON.parse(raw.to_s[/\{.*\}/m].to_s)
+      return { continue: false } unless verdict.is_a?(Hash) && verdict["complete"] == false
+
+      missing = Array(verdict["missing"]).map { |item| item.to_s.strip }.reject(&:blank?).first(4)
+      return { continue: false } if missing.empty?
+
+      session[:judgments] = session.fetch(:judgments, 0) + 1
+      { continue: true, directive: "The page is not finished yet. Still missing:\n" \
+        "#{missing.map { |item| "- #{item}" }.join("\n")}\n" \
+        "Complete them now with native builder tools, then stop." }
+    rescue StandardError
+      # A judge is a convenience. A judge that breaks must never block the user's reply.
+      { continue: false }
     end
 
     def client_build_prompt
@@ -632,22 +785,28 @@ module AiWriter
            content keys for common primitives. Read a schema only for unfamiliar controls;
            never read schemas for every primitive before starting. Surgical edits need only
            the relevant read_element/read_custom_code. The current tree is already supplied.
-           Tool rounds are budgeted (roughly sixteen for the whole request): spend them on the
-           design, not on discovery. Never insert test, probe or placeholder elements into the
-           live page to learn how something behaves — read the schema instead.
+           Tool rounds are budgeted (about thirty per request, and a completion check runs before
+           the request is allowed to end): spend them on the design, not on discovery. Never insert
+           test, probe or placeholder elements into the live page to learn how something behaves —
+           read the schema instead.
         2. Match the requested composition, including app screens, dashboards, editorial sites,
-           commerce, portfolios, and layered interactive layouts. Use replace_page with recursive
-           native Frame/container trees for an original whole-page design; use append_tree for a
-           section. The optional compose_landing_page is a fixed portfolio template, only use it
-           when that specific structure suits the request. Never force unrelated requests into it.
+           commerce, portfolios, and layered interactive layouts. Every call has a hard node cap
+           (get_capabilities reports it as composition.maximumNodes), so build a multi-section page
+           the way that stays safe: ONE SECTION PER append_tree CALL, in page order, each validated
+           and undoable on its own. Use recursive native Frame/container trees inside those sections.
+           Reach for replace_page only when the whole page genuinely fits in one call: it swaps the
+           entire page at once, so a call that arrives cut off or empty is refused outright — the
+           wrong tool for a long page. The optional compose_landing_page is a fixed portfolio
+           template, only use it when that specific structure suits the request. Never force
+           unrelated requests into it.
            Read get_element_schema for exact control options before configuring unfamiliar elements.
            Prefer responsive node styles over custom CSS for dimensions, layout, typography,
            colors, transforms, and effects, so the human's inspector remains authoritative.
            Target selected IDs from editor context when the user says this or these. Preserve
            surrounding work for targeted edits. Do not replace a page for a small correction.
-           Send replace_page the COMPLETE tree in one call: a payload that arrives empty or short
-           is rejected and the page is preserved, so a page too large for one payload is built
-           section by section with append_tree instead of retried unchanged.
+           When a tool result says a call was cut off, empty, or not valid JSON, the design was not
+           wrong — the payload did not survive the trip. Do not resend it: split it into smaller
+           calls and continue.
         3. After you change the canvas, call audit_design. Correct every error and meaningful
            warning with precise tools, then audit again. Do not claim completion without a final
            audit. Tool errors are feedback: correct the payload and continue.

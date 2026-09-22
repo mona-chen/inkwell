@@ -1078,7 +1078,9 @@
           tools: JSON.stringify(tools)
         }
         try {
-          for (let round = 0; round < 16; round++) {
+          // Generous by design: the server owns the real budget (and its own completion judge), so
+          // this number only exists to guarantee the loop cannot spin forever if a response lies.
+          for (let round = 0; round < 48; round++) {
             const resp = await fetch(url, {
               method: "POST",
               headers: { "X-CSRF-Token": csrf, "Content-Type": "application/json", "Accept": "text/event-stream" },
@@ -1097,15 +1099,29 @@
             clearTimeout(this.requestTimer)
             const results = []
             for (const call of streamed.tools.calls) {
-              const execution = await this.executeTool(call.name, call.arguments)
+              // A call whose arguments were cut off mid-stream cannot be executed, and running it as
+              // an empty object just makes the builder answer a reasonable-looking call with a
+              // nonsense refusal. The real reason goes back to the model as the tool result, so it
+              // can split the payload and retry inside this same request.
+              const execution = call.argument_error
+                ? { content: JSON.stringify({ ok: false, error: call.argument_error }), mutated: false, cutOff: call.argument_error }
+                : await this.executeTool(call.name, call.arguments)
               if (execution.mutated) changed = true
+              else if (execution.cutOff) this.noteCutPayload(execution.cutOff)
               else this.noteToolRejection(call.name, execution.content)
-              results.push({ id: call.id, content: execution.content })
+              // `failed` is what lets the server notice a loop: a call that keeps failing in the same
+              // way is not going to start working, and the request should end with an explanation.
+              results.push({ id: call.id, content: execution.content, failed: this.toolFailed(execution.content) })
             }
             this.requestStartedAt = Date.now()
             this.armRequestTimeout()
             url = "/plugins/ai_writer/tool_result"
-            body = { session_id: streamed.tools.session_id, results }
+            // `mutated` and the tree travel with the results: the server's completion judge needs to
+            // know whether the canvas actually changed and what it now holds.
+            body = {
+              session_id: streamed.tools.session_id, results,
+              mutated: changed, designIndex: window.builder.copilotTools.index()
+            }
           }
           this.handleClientReply(finalContent || lastContent, changed, prompt)
         } catch (e) {
@@ -1134,6 +1150,28 @@
         if (!payload || payload.ok !== false || !payload.error) return
         const detail = String(payload.error)
         this.logAction("The builder refused " + name + " — " + (detail.length > 200 ? detail.slice(0, 197) + "…" : detail))
+      }
+
+      // A payload the provider cut off mid-write is not a builder refusal — the builder never saw it
+      // — so it must not be reported as one. The line names what actually happened; the Copilot is
+      // already being told to split the work, and the next rounds either fix it or say why not.
+      noteCutPayload(message) {
+        const detail = String(message || "")
+        if (!detail) return
+        this.logAction(detail.length > 220 ? detail.slice(0, 217) + "…" : detail)
+      }
+
+      // A refused or errored call answers `{ ok: false, error }` or "tool error: …". Everything else
+      // is a usable result even when it changed nothing — reads never mutate, so "no change" alone
+      // must not be read as failure, or every read round would look like a stuck one.
+      toolFailed(content) {
+        const text = String(content == null ? "" : content)
+        if (text.startsWith("tool error:")) return true
+        if (text[0] !== "{") return false
+        try {
+          const payload = JSON.parse(text)
+          return !!payload && payload.ok === false
+        } catch (e) { return false }
       }
 
       // Client-tools path: edits already morphed the canvas live; checkpoint the v2 store only

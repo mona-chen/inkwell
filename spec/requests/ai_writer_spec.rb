@@ -97,6 +97,20 @@ RSpec.describe "AI Writer plugin", type: :request do
       %(data: {"choices":[{"delta":{"content":"#{text}"}}]}\n\ndata: [DONE]\n\n)
     end
 
+    # A tool call's arguments arrive as raw fragments — exactly as the provider streamed them — so a
+    # test can reproduce a payload that stops mid-write, which is what a cut-off response looks like.
+    def sse_tool_fragment(id, name, fragment)
+      turn = { "choices" => [ { "delta" => { "tool_calls" => [
+        { "index" => 0, "id" => id, "type" => "function", "function" => { "name" => name, "arguments" => fragment } }
+      ] } } ] }
+      "data: #{JSON.generate(turn)}\n\n"
+    end
+
+    def sse_finish(reason)
+      stop = { "choices" => [ { "delta" => {}, "finish_reason" => reason } ] }
+      "data: #{JSON.generate(stop)}\n\ndata: [DONE]\n\n"
+    end
+
     it "runs a tool-calling loop, executes the tools, then yields the final answer" do
       site.set_setting!("ai_api_key", "k")
       client = AiWriter::Client.new(site: site)
@@ -138,6 +152,93 @@ RSpec.describe "AI Writer plugin", type: :request do
                            tools: [ { "type" => "function", "function" => { "name" => "search_designs" } } ],
                            tool_executor: ->(_n, _a) { "again" }) { |_d| }
       }.to raise_error(AiWriter::Client::Error, /tool-calling rounds/)
+    end
+
+    describe "tool argument diagnosis" do
+      # A cut-off payload used to parse to {} and be executed as if the model had sent an empty call:
+      # the builder then refused a call that looked reasonable, the model believed its tree was
+      # structurally wrong, and it resent the same oversized payload. The raw fragments are kept so
+      # the failure can be described with the size and the tail of what actually arrived.
+      it "keeps the evidence when the arguments stop mid-write, instead of reporting an empty object" do
+        raw = '{"children":[{"type":"frame","children":['
+        problem = AiWriter::Client.parse_tool_arguments(raw)
+
+        expect(problem[:ok]).to be(false)
+        expect(problem[:reason]).to eq(:unparseable)
+        expect(problem[:bytes]).to eq(raw.bytesize)
+        expect(problem[:tail]).to eq(raw)
+        expect(problem[:value]).to be_nil
+      end
+
+      it "tells nothing arriving apart from a payload that is not an argument object" do
+        expect(AiWriter::Client.parse_tool_arguments("")[:reason]).to eq(:empty)
+        expect(AiWriter::Client.parse_tool_arguments("   ")[:reason]).to eq(:empty)
+        expect(AiWriter::Client.parse_tool_arguments("[]")[:reason]).to eq(:not_an_object)
+        expect(AiWriter::Client.parse_tool_arguments('{"children":[{"type":"frame"}]}')).to include(ok: true)
+      end
+
+      # The two failures need opposite corrections — split the work vs. send it — so the wording has
+      # to be about the payload, not the design, or the model simply rebuilds the same broken call.
+      it "names the output limit and tells the model to split the work rather than resend it" do
+        problem = AiWriter::Client.parse_tool_arguments('{"children":[')
+        message = AiWriter::Client.argument_failure_message("replace_page", problem, finish_reason: "length")
+
+        expect(message).to include("not valid JSON", "NOTHING changed", "finish_reason: length")
+        expect(message).to include("#{problem[:bytes]} bytes arrived")
+        expect(message).to include("do NOT resend")
+        expect(message).to include("composition.maximumNodes")
+      end
+
+      it "asks a call with no arguments at all to send them" do
+        message = AiWriter::Client.argument_failure_message("append_tree", AiWriter::Client.parse_tool_arguments(""))
+
+        expect(message).to include("NO arguments", "NOTHING changed", "append_tree")
+        expect(message).not_to include("not valid JSON")
+      end
+    end
+
+    it "carries the provider's stop reason on the streamed turn" do
+      site.set_setting!("ai_api_key", "k")
+      client = AiWriter::Client.new(site: site)
+      allow(client).to receive(:http).and_return(tool_fake_http([
+        sse_tool_fragment("call_1", "replace_page", "{}") + sse_finish("length")
+      ]))
+
+      message = client.stream_round([ { role: "user", content: "go" } ], tools: []) { |_d| }
+
+      expect(message[:finish_reason]).to eq("length")
+      expect(message[:tool_calls].first["function"]["name"]).to eq("replace_page")
+    end
+
+    it "feeds a cut-off payload back as a correction instead of executing an empty call" do
+      site.set_setting!("ai_api_key", "k")
+      client = AiWriter::Client.new(site: site)
+      bodies = []
+      responses = [
+        sse_tool_fragment("call_1", "replace_page", '{"children":[{"type":"frame",') + sse_finish("length"),
+        sse_content("Rebuilding it one section at a time.")
+      ]
+      http = Object.new
+      http.define_singleton_method(:request) do |req, &block|
+        bodies << JSON.parse(req.body)
+        response = Object.new
+        response.define_singleton_method(:is_a?) { |klass| klass == Net::HTTPSuccess }
+        response.define_singleton_method(:read_body) { |&b| b.call(responses.shift) }
+        block.call(response)
+      end
+      allow(client).to receive(:http).and_return(http)
+
+      executed = []
+      chunks = []
+      client.stream_chat([ { role: "user", content: "redesign the entire page" } ],
+                         tools: [ { "type" => "function", "function" => { "name" => "replace_page" } } ],
+                         tool_executor: ->(name, args) { executed << [ name, args ]; "ok" }) { |d| chunks << d }
+
+      expect(executed).to be_empty
+      expect(chunks).to eq([ { content: "Rebuilding it one section at a time." } ])
+      correction = bodies.last["messages"].last
+      expect(correction["role"]).to eq("tool")
+      expect(correction["content"]).to include("not valid JSON", "finish_reason: length")
     end
   end
 
