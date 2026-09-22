@@ -11,6 +11,7 @@ import { archetype, buildSection, composePage, listArchetypes } from './sectionA
 import { materializeSpec, specNodeCount } from './elementSpec.js';
 import { auditStore } from './designAudit.js';
 import { isUnsupportedValue, previewValue, shapeOf } from './styleValues.js';
+import { iconCount, libraryTitle, searchIcons } from './icons.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -123,6 +124,11 @@ export function createCopilotTools(runtime, builder) {
                 guidance: 'The design system is tokens plus named section archetypes. Set the palette once with set_design_tokens (or pass preset), then compose with compose_page/compose_section using archetype names and variants. Archetypes emit real editable elements styled only from tokens, so a human can reproduce any composition from the Elements library and the Theme controls.',
             },
             elements: groups,
+            icons: {
+                libraries: ['material', 'lucide', 'phosphor'].map((library) => ({ library, title: libraryTitle(library), count: iconCount(library) })),
+                valueShape: 'A bare name is a Material Symbols ligature and must be a real snake_case Material name ("arrow_forward"). Prefix another library as "lucide:eye-off" or "phosphor:eye-slash" to store that vendored icon.',
+                guidance: 'Call search_icons before setting an icon rather than guessing a name. Lucide and Phosphor are vendored inline SVGs, so they render the same in the canvas and on published output and need no font; Material Symbols are font ligatures in the canvas. Never invent a name: an unresolved name renders as its literal text.',
+            },
             styleShape: { desktop: { base: { color: '#111827', padding: { top: 24, right: 24, bottom: 24, left: 24, unit: 'px' } } }, tablet: { base: {} }, mobile: { base: {} } },
             styleContract: {
                 shape: 'styles is { desktop|tablet|mobile: { base|hover|focus|active|"state:<name>": { controlName: value } } }. A flat { base: {...} } is accepted and normalized.',
@@ -467,6 +473,7 @@ export function createCopilotTools(runtime, builder) {
                 case 'read_element': return target ? asJson({ id: target.node.id, type: target.node.type, settings: target.node.settings, styles: target.node.styles, children: (target.node.children || []).map(({ id, type }) => ({ id, type })) }) : asJson({ ok: false, error: 'Element not found' });
                 case 'read_custom_code': return asJson({ css: builder.customCode.getCss(), js: builder.customCode.getJs() });
                 case 'audit_design': return asJson(auditDesign());
+                case 'search_icons': return asJson({ query: args.query, results: searchIcons(args.query, Number(args.limit) || 24) });
                 case 'compose_landing_page': return asJson(composeLandingPage(args));
                 case 'compose_page': return asJson(composeArchetypePage(args));
                 case 'compose_section': return composeSection(args);
@@ -557,6 +564,7 @@ export function createCopilotTools(runtime, builder) {
     const TOOLS = [
         { name: 'set_shader_fill', description: 'Apply a preset or custom GLSL shader fill to an existing layer. fill accepts enabled, preset, colorA/colorB/colorC hex colors, animate, speed (0–2), intensity (0–1), grain (0–0.3), and customCode. For custom GLSL set preset custom and define vec4 inkShader(vec2 uv,float time,vec2 resolution); uniforms a,b,c and intensity are available. Code is compiled before mutation.', parameters: { type: 'object', properties: { id: { type: 'string' }, fill: { type: 'object', additionalProperties: true } }, required: ['id','fill'] } },
         { name: 'get_capabilities', description: 'Return every available builder element grouped by category, its editable setting names/defaults, the responsive style shape, and custom-code support. Call this before composing a page.', parameters: { type: 'object', properties: {} } },
+        { name: 'search_icons', description: 'Search the builder icon libraries (Material Symbols, Lucide, Phosphor) by name or keyword and return storable values. Call this before setting an icon: a bare name must be a real Material Symbols ligature, while a Lucide or Phosphor icon is stored as "lucide:eye-off". An unresolved name renders as its literal text.', parameters: { type: 'object', properties: { query: { type: 'string', description: 'Name or keyword, e.g. "eye", "user check", "shield".' }, limit: { type: 'number', description: 'Maximum results (default 24).' } }, required: ['query'] } },
         { name: 'get_editor_context', description: 'Read selected layer IDs, current breakpoint, page settings, and viewport before context-dependent edits.', parameters: { type: 'object', properties: {} } },
         { name: 'get_element_schema', description: 'Return the exact control schema for one element type, including options, conditions, targets, and responsive support. Use to configure layout, interaction, or advanced properties without guessing.', parameters: { type: 'object', properties: { type: { type: 'string' } }, required: ['type'] } },
         { name: 'read_design', description: 'Return the current page as a numbered tree. Call before a targeted edit.', parameters: { type: 'object', properties: {} } },

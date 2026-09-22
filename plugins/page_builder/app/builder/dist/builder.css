@@ -6345,6 +6345,22 @@ body.loading {
   display: none !important;
 }
 
+.ink-studio-preview .ink-canvas-stage {
+  overflow: auto;
+  padding: 24px 0;
+}
+
+.ink-studio-preview .ink-canvas-stage > .content-container {
+  position: relative;
+  transform: none;
+  zoom: var(--ink-preview-scale, 1);
+  margin: 0 auto;
+}
+
+.ink-studio-preview .ink-pan-surface {
+  display: none;
+}
+
 .ink-canvas-selection-label {
   cursor: grab;
 }

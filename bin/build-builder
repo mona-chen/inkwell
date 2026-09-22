@@ -17,6 +17,11 @@ sync_builder_dist() {
   echo "==> Syncing Builder.js dist to $ASSETS_DIR/"
   cp "$BUILDER_DIR/dist/builder.js" "$ASSETS_DIR/builder.js"
   cp "$BUILDER_DIR/dist/builder.css" "$ASSETS_DIR/builder.css"
+  # The design kit (and the Material Symbols font it imports for published icons) is served from
+  # public/page_builder_theme, so keep that mirror in step with the canonical source.
+  echo "==> Syncing design kit to $THEME_DIR/"
+  mkdir -p "$THEME_DIR"
+  cp "plugins/page_builder/themes/standard/1_column_layout/ink-design-kit.css" "$THEME_DIR/ink-design-kit.css"
 }
 
 sync_theme() {

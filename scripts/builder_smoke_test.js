@@ -1252,6 +1252,24 @@ async function main() {
     check("Preview hides canvas tools and restores the design camera on return", state.preview&&state.restored, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
+      var b=builder,v=b.viewport,stage=document.querySelector('.ink-canvas-stage');
+      v.setSize(Number(v.widthInput.value),4000,{manual:true});
+      var designOverflow=getComputedStyle(stage).overflow,designTransform=getComputedStyle(b.mainContainer).transform;
+      b.setMode('preview');
+      var previewOverflow=getComputedStyle(stage).overflow,previewTransform=getComputedStyle(b.mainContainer).transform;
+      var overflows=stage.scrollHeight>stage.clientHeight+40;
+      stage.scrollTop=320;
+      var scrolled=stage.scrollTop>0;
+      b.setMode('design');
+      var backOverflow=getComputedStyle(stage).overflow,backTransform=getComputedStyle(b.mainContainer).transform;
+      v.fitContentHeight();
+      return {designOverflow:designOverflow,designTransform:designTransform,previewOverflow:previewOverflow,previewTransform:previewTransform,overflows:overflows,scrolled:scrolled,backOverflow:backOverflow,backTransform:backTransform,follows:v.followsContent()};
+    })()`);
+    check("Preview scrolls the page natively instead of parking it in an unscrollable camera",
+      state.designOverflow==='hidden'&&state.designTransform!=='none'&&state.previewOverflow!=='hidden'&&state.previewTransform==='none'&&state.overflows&&state.scrolled&&state.backOverflow==='hidden'&&state.backTransform!=='none'&&state.follows,
+      JSON.stringify(state));
+
+    state = await client.evaluate(`(function(){
       var b=builder,r=b.runtime,p=r.settingsPanel,before=JSON.stringify(b.getData());
       var n=r.insert('container',{},{});r.selection.select(n.id);p.activeTab='all';p.render();
       // Sections now live inside named groups, so read them in document order rather than as direct

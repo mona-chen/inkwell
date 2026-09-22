@@ -21,3 +21,16 @@ for (const file of files) {
   fs.copyFileSync(source, path.join(targetDir, file));
 }
 console.log(`Copied ${files.join(", ")} → ${path.relative(repoRoot, targetDir)}`);
+
+// The design kit is the .cp-* vocabulary and the Material Symbols font published pages link, so the
+// Rails-served mirror is part of the build rather than a file someone has to remember to copy.
+const designKitSource = path.join(repoRoot, "plugins/page_builder/themes/standard/1_column_layout/ink-design-kit.css");
+const themeDir = path.join(repoRoot, "public", "page_builder_theme");
+if (fs.existsSync(designKitSource)) {
+  fs.mkdirSync(themeDir, { recursive: true });
+  fs.copyFileSync(designKitSource, path.join(themeDir, "ink-design-kit.css"));
+  console.log(`Copied ink-design-kit.css → ${path.relative(repoRoot, themeDir)}`);
+} else {
+  console.error(`Missing design kit: ${designKitSource}`);
+  process.exit(1);
+}

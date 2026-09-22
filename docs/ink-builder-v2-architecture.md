@@ -30,6 +30,7 @@ We copy the architectural ideas, not Elementor's WordPress/PHP coupling, Backbon
 10. The v2 store is authoritative. V1 saved-page compatibility is not a requirement.
 11. Placeholders are chrome, never design data. A placeholder size floor (the 120x80 minimum that keeps a fresh Frame grabbable) yields whenever the element decides its own size on that axis — an explicit size, or a content hug such as `fit-content` — and an empty Frame's footprint comes from editor CSS, so it can never publish or pin a designed element.
 12. An element declares no size it did not choose. A Frame stores neither a width nor a height by default, so CSS flow decides it: it fills its parent in a block, its grid column, or a stretched flex track. Hugging is opt-in (`width: 'fit-content'` for a pill, chip, or badge); a fixed size is `{ size, unit }`. Documents written before this contract carry the old placeholder `fit-content` on every Frame, which silently overrode `justify-items: stretch`; `EditorDocument.normalize` drops it once, keyed on `settings.sizingContract`, so a later explicit Hug the author writes survives the next load.
+13. An icon is a stored value, not a name the author has to guess. `settings.icon` is either a bare Material Symbols ligature (`arrow_forward` — snake_case, a font glyph, so the canvas and published output both need the font the design kit imports) or a prefixed vendored icon (`lucide:eye-off`, `phosphor:eye-slash` — inline SVG from `src/vendor/`, font-free and identical everywhere). A bare kebab-case name can never be a Material ligature, so `resolveIcon` resolves it to the vendored icon of that name instead of printing it on the page, and `searchIcons` backs the `search_icons` Copilot tool so the model finds a real name rather than inventing one.
 
 ## V2 document contract
 
@@ -114,6 +115,8 @@ The active editor device changes only the canvas viewport and the responsive val
 
 Frame height is editor state, never part of the document. The frame follows the design by default: content inserted or grown below its edge extends it, and a ResizeObserver catches reflow from fonts and media that lands after the last document event. A height the author typed or dragged pins that device, and Fit to content (the ↕ control in the responsive bar, or a double-click on the S grip) re-arms following.
 
+Design is a camera; Preview is a reader. In Design the frame sits inside an `overflow: hidden` stage and the wheel pans the workspace, so the page can never scroll under the pointer. Preview hands the wheel back to the browser: the stage becomes the scroll container and the frame returns to normal flow, with the camera's fit-width applied as `zoom` rather than `transform` so the scroll height is the page's real height. The stage must stay scrollable in Preview — a reader that cannot reach the bottom of the page is a broken preview.
+
 ## Rendering lifecycle
 
 1. A command updates the document tree.
@@ -134,4 +137,3 @@ Published output uses the same element definitions and generated CSS. Editor hel
 5. Design kit/template fragments.
 6. Magic UI lifecycle components.
 7. Remove v1 classes, globals and templates after parity tests pass.
-

@@ -133,6 +133,14 @@
 .ink-appbar button[data-studio-breakpoints][aria-pressed="true"] { background: var(--ink-editor-accent-soft); color: var(--ink-editor-accent-bright); }
 .ink-studio-preview .ink-explorer, .ink-studio-preview .builder-sidebar { display: none; }
 .ink-studio-preview .content-container .ink-v2-responsive-bar, .ink-studio-preview .ink-v2-viewport-handle { display: none !important; }
+// Preview is a reader, not a camera. Design mode parks the frame inside an overflow:hidden stage and
+// moves it with a transform, so the wheel pans the workspace and the page can never scroll. Preview
+// hands the wheel back to the browser, so the stage becomes the scroll container and the frame
+// returns to normal flow — the camera's fit-width becomes `zoom`, which participates in layout, so
+// the scroll height is the page's real height instead of a transform the scrollbar cannot see.
+.ink-studio-preview .ink-canvas-stage { overflow: auto; padding: 24px 0; }
+.ink-studio-preview .ink-canvas-stage > .content-container { position: relative; transform: none; zoom: var(--ink-preview-scale, 1); margin: 0 auto; }
+.ink-studio-preview .ink-pan-surface { display: none; }
 .ink-canvas-selection-label { cursor: grab; }
 .ink-canvas-selection-label:active { cursor: grabbing; }
 .content-container .ink-v2-responsive-bar, .ink-breakpoint-label { bottom: calc(100% + 30px / var(--ink-preview-scale, 1)); }

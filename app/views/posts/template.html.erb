@@ -1,2 +1,5 @@
+<%# A builder-designed template supplies its own page gutter through .ink-canvas-root, so the theme's
+    content container would inset the design again — the canvas and the published page would disagree. %>
+<% content_for :full_bleed, true %>
 <% content_for :title, @post.title %>
 <%= @template_body %>

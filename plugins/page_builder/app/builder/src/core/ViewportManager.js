@@ -152,6 +152,9 @@ export default class ViewportManager {
     startPan(event) {
         // The camera may own the canvas, but never gestures that start on editor controls.
         if (event.target.closest?.('.ink-canvas-toolbar,.ink-v2-responsive-bar,.ink-v2-viewport-handle,.ink-canvas-chrome,button,input,select,textarea')) return;
+        // Preview scrolls natively, so dragging the background would move the frame around inside a
+        // scrollable stage instead of scrolling the page. Design pans; the pan tool still works.
+        if (this.builder.mode !== 'design' && !this.panEnabled) return;
         if (event.button !== 1 && !(event.button === 0 && (this.panEnabled || event.target === this.stage))) return;
         event.preventDefault();
         const x = this.x, y = this.y, startX = event.clientX, startY = event.clientY;

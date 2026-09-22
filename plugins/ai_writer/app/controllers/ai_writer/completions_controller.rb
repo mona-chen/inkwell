@@ -673,6 +673,16 @@ module AiWriter
         - Prefer container/section primitives for structure and native heading, paragraph,
           button, image, icon, list, testimonial, accordion, tabs, video, and data elements for
           content. Use Magic elements as accents or demonstrations, not as wallpaper.
+        - ICONS — never invent an icon name. Call search_icons first and store what it returns:
+          a bare name is a Material Symbols ligature and must be a real snake_case Material name
+          ("arrow_forward"), while Lucide and Phosphor icons are stored as "lucide:eye-off" or
+          "phosphor:eye-slash". Lucide and Phosphor are vendored inline SVGs, so prefer them when
+          you want an icon that renders identically in the canvas and on the published page. An
+          unresolved name renders as its literal text on the page.
+        - IMAGES — the page has no image search or generation tool, so an empty media slot is
+          better than a broken one. Leave the media empty and shape the layout with type and
+          colour, or reference a URL the user already gave you; never point at a stock or
+          placeholder host you cannot verify.
 
         CUSTOM CSS / JS
         - Give important nodes memorable CSS classes through their cssClasses setting and scope

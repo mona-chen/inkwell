@@ -30,6 +30,10 @@ RSpec.describe "Builder content-type templates", type: :request do
     expect(response.body).to include("data-tpl='single'")
     expect(response.body).to include("Hello Template")
     expect(response.body).to include("A custom excerpt")
+    # A builder template supplies its own page gutter through .ink-canvas-root, so the theme must not
+    # re-inset it: full_bleed drops the max-w-7xl/px-5/py-12 content container.
+    expect(response.body).to include('<main class="py-0">')
+    expect(response.body).not_to include('mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16')
   end
 
   it "renders an archive template at the posts index" do
@@ -42,6 +46,7 @@ RSpec.describe "Builder content-type templates", type: :request do
     expect(response.body).to include("data-tpl='archive'")
     expect(response.body).to include("card-title")
     expect(response.body).to include("Hello Template")
+    expect(response.body).to include('<main class="py-0">')
   end
 
   it "falls back to the theme when no template is assigned" do

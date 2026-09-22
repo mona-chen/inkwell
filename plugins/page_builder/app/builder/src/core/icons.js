@@ -50,13 +50,44 @@ export function iconNames(library) {
     return meta.data ? Object.keys(meta.data).sort() : MATERIAL_ICONS;
 }
 
-// Resolve a stored icon value into { library, name }. Bare strings are Material Symbols.
+// Resolve a stored icon value into { library, name }. Bare strings are Material Symbols, whose
+// names are snake_case ligatures ("arrow_forward"). A kebab-case bare name ("eye-off",
+// "user-check") can never be one, so when it matches a vendored Lucide/Phosphor icon that is the
+// author's real intent: it renders as inline SVG and needs no font, in the canvas and on published
+// output alike. An explicit "lucide:"/"phosphor:" prefix always wins.
 export function resolveIcon(value) {
     if (value && typeof value === 'object') return { library: value.library || 'material', name: value.name || '' };
     const string = String(value || '');
     const match = /^(lucide|phosphor):(.+)$/.exec(string);
     if (match) return { library: match[1], name: match[2] };
+    if (string.includes('-')) {
+        if (LUCIDE[string]) return { library: 'lucide', name: string };
+        if (PHOSPHOR[string]) return { library: 'phosphor', name: string };
+    }
     return { library: 'material', name: string };
+}
+
+// Search every library for a name or a keyword, so an author — or the Copilot — can find the real
+// icon instead of inventing a name that renders as text. Returns fully-qualified, storable values.
+export function searchIcons(query, limit = 24) {
+    const needle = String(query || '').trim().toLowerCase();
+    if (!needle) return [];
+    const terms = needle.split(/[\s,_]+/).filter(Boolean);
+    const score = (name) => {
+        if (name === needle) return 0;
+        if (name.startsWith(needle)) return 1;
+        if (name.includes(needle)) return 2;
+        return terms.every((term) => name.includes(term)) ? 3 : -1;
+    };
+    const hits = [];
+    for (const library of ['material', 'lucide', 'phosphor']) {
+        for (const name of iconNames(library)) {
+            const rank = score(name.toLowerCase());
+            if (rank >= 0) hits.push({ library, name, value: iconValue(library, name), rank: rank + (library === 'material' ? 0 : 0.5) });
+        }
+    }
+    return hits.sort((a, b) => a.rank - b.rank || a.name.length - b.name.length || a.name.localeCompare(b.name)).slice(0, limit)
+        .map(({ library, name, value, rank }) => ({ library, name, value, rank }));
 }
 
 // Store an icon selection as a compact, migration-safe value.

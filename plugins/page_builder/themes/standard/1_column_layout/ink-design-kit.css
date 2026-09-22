@@ -2,6 +2,10 @@
    Imported by the builder (webpack asset/source) and injected INLINE into the canvas + panel;
    copied to public/page_builder_theme/ink-design-kit.css and linked on published pages +
    classic previews. --cp-* tokens alias --pb-* for legacy page CSS. */
+/* The default icon library is Material Symbols: icons are font ligatures, so published output and
+   classic previews need the font the canvas already loads. Lucide and Phosphor ship as vendored
+   inline SVGs and need nothing. */
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block');
 :root {
   --pb-accent: var(--cp-accent, #2563eb);
   --pb-accent-2: var(--cp-accent-2, #7c3aed);
