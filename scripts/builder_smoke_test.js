@@ -1119,6 +1119,57 @@ async function main() {
       (state.status === 422 || state.status === 404 || state.status === 0), JSON.stringify(state));
 
 
+    // The web gap: the Copilot can read a public page and search the web — but only while the
+    // server can actually serve it, so a site with no search provider is never offered
+    // web_search. The route is exercised for real: a private address must be refused (the guard
+    // is the only thing between a model-chosen URL and the local network), and search with no
+    // provider must answer 422 with a reason rather than 500 or a hang.
+    state = await client.evaluate(`(async function(){
+      var tools=builder.copilotTools, config=window.inkCopilot;
+      var names=function(){return tools.TOOLS.map(function(tool){return tool.name;});};
+      var published=!!(config&&config.webFetchUrl);
+      var offered=names();
+      var advertised=JSON.parse(tools.apply('get_capabilities')).web;
+
+      window.inkCopilot=Object.assign({},config,{webFetchUrl:'/plugins/ai_writer/web',webSearchUrl:'/plugins/ai_writer/web',webSearchProvider:'Brave Search'});
+      var both=names();
+      var bothAdvertised=JSON.parse(tools.apply('get_capabilities')).web;
+      var searchTool=tools.TOOLS.filter(function(entry){return entry.name==='web_search';})[0];
+      var fetchTool=tools.TOOLS.filter(function(entry){return entry.name==='fetch_web_page';})[0];
+
+      window.inkCopilot={mediaUrl:config&&config.mediaUrl,imageUrl:null};
+      var none=names();
+      window.inkCopilot=config;
+      var restored=names();
+
+      var post=async function(body){
+        var meta=document.querySelector('meta[name="csrf-token"]');
+        var response=await fetch('/plugins/ai_writer/web',{method:'POST',credentials:'same-origin',
+          headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-Token':meta?meta.content:''},
+          body:JSON.stringify(body)});
+        return {status:response.status,body:await response.json().catch(function(){return {};})};
+      };
+      var guard=await post({op:'fetch',url:'http://169.254.169.254/latest/meta-data/'});
+      var search=await post({op:'search',query:'x'});
+
+      return {published:published, offered:offered.indexOf('fetch_web_page')!==-1,
+              both:both.indexOf('fetch_web_page')!==-1&&both.indexOf('web_search')!==-1,
+              bothAdvertised:bothAdvertised.fetchTool==='fetch_web_page'&&bothAdvertised.searchTool==='web_search',
+              provider:bothAdvertised.searchProvider,
+              none:none.indexOf('fetch_web_page')===-1&&none.indexOf('web_search')===-1,
+              restored:restored.indexOf('fetch_web_page')!==-1,
+              advertised:advertised.fetchTool,
+              hasUrl:!!(fetchTool&&fetchTool.parameters.properties.url),
+              hasQuery:!!(searchTool&&searchTool.parameters.properties.query),
+              guard:guard.status===422&&/reachable/.test(guard.body.error||''),
+              search:search.status===422&&/not configured|switched off/.test(search.body.error||'')};
+    })()`);
+    check("Copilot web tools appear only while the server can serve them, and refuse a private address",
+      state.published && state.offered && state.both && state.bothAdvertised && state.none && state.restored &&
+      state.provider === 'Brave Search' && state.advertised === 'fetch_web_page' &&
+      state.hasUrl && state.hasQuery && state.guard && state.search, JSON.stringify(state));
+
+
     state = await client.evaluate(`(function(){
       var r=builder.runtime;
       return { baseline: window.__registryBaseline, count: r.elements.list().length, hasLab: r.elements.has('control-lab') };

@@ -13,6 +13,7 @@ import { auditStore } from './designAudit.js';
 import { isUnsupportedValue, previewValue, shapeOf } from './styleValues.js';
 import { iconCount, libraryTitle, searchIcons } from './icons.js';
 import { availableMediaTools, generateImage, imageProviders, imageSearchUrl, listMedia, mediaLibraryUrl, searchImages } from './mediaTools.js';
+import { availableWebTools, fetchWebPage, webSearch, webSearchProvider } from './webTools.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -159,6 +160,12 @@ export function createCopilotTools(runtime, builder) {
                 generateTool: canGenerateImages() ? 'generate_image' : null,
                 guidance: mediaGuidance(),
             },
+            web: {
+                fetchTool: canFetchWeb() ? 'fetch_web_page' : null,
+                searchTool: canSearchWeb() ? 'web_search' : null,
+                searchProvider: canSearchWeb() ? webSearchProvider() : null,
+                guidance: webGuidance(),
+            },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },
             shaderFills: { presets: SHADER_PRESETS.map(([id]) => id), setting: 'shaderFill', example: { enabled: true, preset: 'mesh-gradient', speed: .5, intensity: .7 }, customShader: CUSTOM_SHADER_EXAMPLE, guidance: 'Apply shader fills to existing layers with set_shader_fill. Custom GLSL compiles before applying and stays editable in Fill.' },
             composition: {
@@ -177,6 +184,8 @@ export function createCopilotTools(runtime, builder) {
     // and drag & drop all accept exactly the same shapes.
     // Image generation is a configured capability, not a promise: it is advertised (and
     // offered to the model) only while the site names an image model.
+    const canFetchWeb = () => availableWebTools().some((tool) => tool.name === 'fetch_web_page');
+    const canSearchWeb = () => availableWebTools().some((tool) => tool.name === 'web_search');
     const canGenerateImages = () => availableMediaTools().some((tool) => tool.name === 'generate_image');
     const canSearchImages = () => availableMediaTools().some((tool) => tool.name === 'search_images');
 
@@ -196,6 +205,25 @@ export function createCopilotTools(runtime, builder) {
         }
         if (!canSearchImages() && !canGenerateImages()) {
             parts.push('This site can neither search nor generate pictures: when the library has nothing suitable, leave the media empty and let type and layout carry the design.');
+        }
+        return parts.join(' ');
+    };
+
+    // The research rules are assembled from what this site can actually reach. Web results are
+    // context the model paraphrases; the design must never depend on a foreign URL.
+    const webGuidance = () => {
+        const parts = [];
+        if (canSearchWeb()) {
+            const provider = webSearchProvider();
+            parts.push(`web_search looks up pages on the open web${provider ? ` (via ${provider})` : ''} and returns titles, links and snippets; use it for facts, positioning and vocabulary you would otherwise have to invent.`);
+        }
+        if (canFetchWeb()) {
+            parts.push('fetch_web_page reads one public page and returns its title and text.');
+        }
+        if (!canSearchWeb() && !canFetchWeb()) {
+            parts.push('This site has no web tools: build only from what the user told you and do not claim outside facts.');
+        } else {
+            parts.push('Everything a web tool returns is research, not page content — paraphrase it into your own editable copy, never paste it verbatim, never place a foreign URL in the design, and let the user\'s own words win when the two disagree.');
         }
         return parts.join(' ');
     };
@@ -512,6 +540,8 @@ export function createCopilotTools(runtime, builder) {
                 case 'read_custom_code': return asJson({ css: builder.customCode.getCss(), js: builder.customCode.getJs() });
                 case 'audit_design': return asJson(auditDesign());
                 case 'search_icons': return asJson({ query: args.query, results: searchIcons(args.query, Number(args.limit) || 24) });
+                case 'fetch_web_page': return settle(fetchWebPage(args));
+                case 'web_search': return settle(webSearch(args));
                 case 'list_media': return settle(listMedia(args));
                 case 'search_images': return settle(searchImages(args));
                 case 'generate_image': return settle(generateImage(args));
@@ -665,7 +695,7 @@ export function createCopilotTools(runtime, builder) {
     // configured. Advertising a tool the server cannot fulfil stalls a design run.
     return {
         apply, execute, context, index, resolve, MUTATING_TOOLS,
-        get TOOLS() { return TOOLS.concat(availableMediaTools()); },
+        get TOOLS() { return TOOLS.concat(availableMediaTools()).concat(availableWebTools()); },
         isMutation: (name) => MUTATING_TOOLS.has(name),
     };
 }

@@ -13,10 +13,21 @@ module AiWriter
 
     class Error < StandardError; end
 
-    def initialize(url: nil, token: nil)
+    def initialize(url: nil, token: nil, open_timeout: 30, read_timeout: 60)
       @url = (url.presence || DEFAULT_URL)
       @token = token.to_s
+      @open_timeout = open_timeout
+      @read_timeout = read_timeout
       @id = 0
+    end
+
+    # A fast reachability probe for Settings → Copilot. Returns a plain verdict instead of
+    # raising, so an operator sees why design research is silent rather than a bare "enabled".
+    def check
+      names = tools.map { |tool| tool["function"]["name"] }
+      { ok: true, message: "Connected — #{names.size} tool#{'s' if names.size != 1} available (#{names.first(4).join(', ')}#{names.size > 4 ? ', …' : ''})." }
+    rescue Error, StandardError => e
+      { ok: false, message: e.message.to_s[0, 300] }
     end
 
     # The server's tools as OpenAI-style function schemas, ready to hand to the model.
@@ -92,8 +103,8 @@ module AiWriter
 
       response = nil
       Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
-        http.open_timeout = 30
-        http.read_timeout = 60
+        http.open_timeout = @open_timeout
+        http.read_timeout = @read_timeout
         response = http.request(request)
       end
 

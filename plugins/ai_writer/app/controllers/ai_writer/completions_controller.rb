@@ -109,6 +109,7 @@ module AiWriter
       design_dirty = false
       mcp_configured = mcp_enabled? && mcp_token.present?
       mcp_client = mcp_configured ? AiWriter::McpClient.new(url: mcp_url, token: mcp_token) : nil
+      @web_client = AiWriter::WebClient.new(site: Current.site)
       executor = lambda do |name, arguments|
         # Stream the tool turn so the widget can show what the AI is doing, subtly.
         stream_json(tool: { name: name.to_s, args: arguments })
@@ -121,6 +122,8 @@ module AiWriter
           "ok — design now has #{design.sections.length} sections"
         elsif READ_TOOL_NAMES.include?(name.to_s)
           design.apply_tool(name, arguments) # read-only: returns data, never mutates
+        elsif WEB_TOOL_NAMES.include?(name.to_s)
+          web_tool_result(name, arguments)
         elsif mcp_client
           mcp_client.call(name, arguments)
         else
@@ -130,7 +133,7 @@ module AiWriter
         "MCP tool error: #{e.message}"
       end
 
-      tools = EDITING_TOOL_SCHEMAS + READ_TOOL_SCHEMAS + mcp_tools
+      tools = EDITING_TOOL_SCHEMAS + READ_TOOL_SCHEMAS + web_tool_schemas + mcp_tools
 
       # Phase 1 — BUILD. The model creates the design (via editing tools and/or the marked-text
       # format). For the page builder we buffer the raw content so it's not shown verbatim; the
@@ -266,20 +269,6 @@ module AiWriter
       format (REPLY:/BG:/H1:/…) only for a whole-page build or explicit
       "rewrite / design from scratch" requests.
     PROMPT
-
-    # Appended to the system prompt when an MCP research server (DesignMD) is configured.
-    # The model discovers the tool schemas from the request; this tells it WHY/HOW to use them.
-    RESEARCH_HINT = <<~HINT
-      DESIGN RESEARCH: You have access to a design-research tool server (DesignMD). Before you
-      propose a design, USE its tools to ground your work in real, tasteful design systems:
-      search_designs(query) to find a matching brand/aesthetic or mood, get_design(slug) or
-      get_full_system(slug) for a system's colors/typography/spacing, generate_css_variables(slug)
-      for ready-made design tokens, compare_designs(slug_a, slug_b) to weigh two directions, and
-      search_patterns(query) or search_blocks(query) for component patterns. Call the tools, then
-      weave the fetched design language (palette, type, spacing) into your proposal so it looks
-      like a considered, on-brand design rather than generic defaults. Never claim research you
-      didn't actually perform.
-    HINT
 
     # Design skills loaded from the MCP server and appended to the system prompt for builder
     # (env=html) design requests, so the model follows the DesignMD methodology and design
@@ -508,6 +497,43 @@ module AiWriter
 
     READ_TOOL_NAMES = READ_TOOL_SCHEMAS.map { |s| s["function"]["name"] }.freeze
 
+    # Web research tools, available in the server-owned agent path (the block editor). They are
+    # offered only while this server can serve them: fetch is keyless and on by default, search
+    # needs a provider. A tool the server cannot fulfil stalls the run, so it is never advertised.
+    WEB_TOOL_SCHEMAS = [
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "fetch_web_page",
+          "description" => "Read one public web page and return its title and readable text. Use it to ground copy in something real — a product's features, a company's about page, an article the user named. The text is research: paraphrase it into editable content yourself and never place the page's URL in the document.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "url" => { "type" => "string", "description" => "Full http(s) URL of the page to read." }
+            },
+            "required" => %w[url]
+          }
+        }
+      },
+      {
+        "type" => "function",
+        "function" => {
+          "name" => "web_search",
+          "description" => "Search the open web and return titles, links and snippets. Call it to find the pages worth reading, then fetch_web_page the most promising one. Use the snippets as a starting point, not a source to quote at length.",
+          "parameters" => {
+            "type" => "object",
+            "properties" => {
+              "query" => { "type" => "string", "description" => "What to look up, phrased as a search." },
+              "limit" => { "type" => "integer", "description" => "How many results to return; default 5, maximum 8." }
+            },
+            "required" => %w[query]
+          }
+        }
+      }
+    ].freeze
+
+    WEB_TOOL_NAMES = WEB_TOOL_SCHEMAS.map { |s| s["function"]["name"] }.freeze
+
     # Resume a client-driven Copilot loop after the browser executed a batch of tools against the
     # live builder store. Appends the tool results to the session and streams the next model turn.
     def tool_result
@@ -684,6 +710,7 @@ module AiWriter
           you want an icon that renders identically in the canvas and on the published page. An
           unresolved name renders as its literal text on the page.
         - IMAGES — #{images_rule}
+        - WEB RESEARCH — #{web_rule}
 
         CUSTOM CSS / JS
         - Give important nodes memorable CSS classes through their cssClasses setting and scope
@@ -707,6 +734,29 @@ module AiWriter
       # tools execute only in the server-owned agent path; advertising them here makes the
       # model issue calls the browser cannot fulfil and stalls an otherwise valid design run.
       prompt
+    end
+
+    # The WEB rule follows the same contract as IMAGES: it is derived from the tools the browser
+    # actually published, so a site with no search provider is never told it can search.
+    def web_rule
+      names = Array(@client_tool_names)
+      fetches = names.include?("fetch_web_page")
+      searches = names.include?("web_search")
+
+      if !fetches && !searches
+        return "this site has no web tools, so build only from what the user told you — never claim " \
+               "outside facts (a product's features, a competitor's pricing, a statistic) you cannot " \
+               "verify, and never place a URL you did not get from the user into the design."
+      end
+
+      steps = []
+      steps << "call web_search to find the pages worth reading" if searches
+      steps << "call fetch_web_page to read one public page and get its title and text" if fetches
+
+      "#{steps.join(', then ')} — use them when the work depends on facts you would otherwise " \
+      "have to invent. Everything they return is research: paraphrase it into your own editable " \
+      "copy, never paste it verbatim, and never place a fetched URL in the design as a source link. " \
+      "The user's own words win over anything the web says."
     end
 
     # The IMAGES rule is derived from the tools the browser actually published. Selling the model
@@ -778,27 +828,137 @@ module AiWriter
       Current.site.setting("mcp_token").presence
     end
 
+    # Request-path timeouts are deliberately far shorter than the client defaults: if the research
+    # server cannot answer in seconds it is down as far as this request is concerned, and a design
+    # run must not stall for a minute waiting to find that out.
+    MCP_REQUEST_TIMEOUTS = { open_timeout: 8, read_timeout: 20 }.freeze
+
     def mcp_tools
       return [] unless mcp_enabled? && mcp_token.present?
+      return @mcp_tools if @mcp_tools
 
-      @mcp_tools ||= AiWriter::McpClient.new(url: mcp_url, token: mcp_token).tools
-    rescue StandardError
-      []
+      @mcp_tools = AiWriter::McpClient.new(url: mcp_url, token: mcp_token, **MCP_REQUEST_TIMEOUTS).tools
+    rescue StandardError => e
+      # Silence here is how a configured-but-broken integration hides: the tools vanish, the model
+      # proceeds without them, and the operator still sees "enabled". Keep the reason, say it, and
+      # remember the failure so the rest of the request does not pay for the same dead connection.
+      @mcp_error = e.message
+      @mcp_tools = []
     end
 
     def system_prompt
       base = params[:env] == "html" ? PAGE_BUILDER_SYSTEM_PROMPT : COPILOT_SYSTEM_PROMPT
-      return base unless mcp_enabled?
-
-      parts = [ base, RESEARCH_HINT ]
+      parts = [ base ]
+      parts << web_hint if web_tool_schemas.any?
       parts << research_skills if params[:env] == "html"
+      parts << (mcp_status_hint || mcp_research_hint)
+      parts = parts.compact.reject(&:blank?)
+      return base if parts.size == 1
+
       parts.join("\n\n")
+    end
+
+    # What the web tools are FOR. The tools themselves arrive as schemas; this is the discipline:
+    # research is paraphrased into editable content, and a foreign URL never enters the document.
+    def web_hint
+      steps = []
+      steps << "web_search(query) finds pages and returns titles, links and snippets" if web_search_configured?
+      steps << "fetch_web_page(url) reads one public page and returns its title and text" if web_fetch_available?
+      return nil if steps.empty?
+
+      "WEB RESEARCH: #{steps.join('; ')}. Use them when the work depends on facts you would " \
+      "otherwise have to invent — a product's actual features, a company's positioning, current " \
+      "terminology. Everything they return is research, not document content: paraphrase it into " \
+      "your own copy, never paste it verbatim, and never place a fetched URL in the document as a " \
+      "source link. When what the user told you disagrees with the web, the user wins."
+    end
+
+    # What the research tools are FOR — said only when the server actually answered with tools.
+    # This used to be a constant appended whenever MCP was merely *enabled*, which is how the model
+    # ended up being told to call tools that were not in the request.
+    # Did the research server answer at all this request? An empty tool list is still an answer —
+    # the server may serve skills and designs without advertising tools — but a failed connection
+    # is not, and every later call would fail the same way.
+    def mcp_reachable?
+      mcp_tools
+      @mcp_error.blank?
+    end
+
+    def mcp_research_hint
+      return nil unless mcp_enabled? && mcp_token.present?
+
+      names = mcp_tools.filter_map { |tool| tool.dig("function", "name") }
+      return nil if names.empty?
+
+      "DESIGN RESEARCH: you have a design-research tool server (#{names.join(', ')}). Before you " \
+      "propose a design, use it to ground the work in real, tasteful design systems: find a " \
+      "matching brand or mood, pull a system's colours/typography/spacing, generate ready-made " \
+      "design tokens, and weigh two directions. Weave the fetched design language (palette, type, " \
+      "spacing) into your proposal so it reads as a considered, on-brand design rather than " \
+      "generic defaults, and never claim research you did not actually perform."
+    end
+
+    # Design research is a real capability only when the server actually answers. A configured but
+    # unreachable server used to go silent — the tools simply vanished and nothing said why. Telling
+    # the model (and, through it, the operator) keeps a dead integration honest.
+    def mcp_status_hint
+      return nil unless mcp_enabled? && mcp_token.present?
+      return nil if mcp_tools.any?
+
+      "DESIGN RESEARCH: the configured research server is not responding this run" \
+      "#{@mcp_error.present? ? " (#{@mcp_error.to_s[0, 160]})" : ''}, so no research tools are available. " \
+      "Design from the user's brief and your own judgement, and mention to the user that the " \
+      "research server is unreachable if their request depended on it."
+    end
+
+    def web_fetch_available?
+      @web_client&.fetch_enabled? || false
+    end
+
+    def web_search_configured?
+      @web_client&.search_configured? || false
+    end
+
+    # Only the tools this server can actually serve.
+    def web_tool_schemas
+      @web_tool_schemas ||= WEB_TOOL_SCHEMAS.select do |schema|
+        name = schema["function"]["name"]
+        name == "fetch_web_page" ? web_fetch_available? : web_search_configured?
+      end
+    end
+
+    def web_tool_result(name, arguments)
+      arguments = arguments || {}
+      case name.to_s
+      when "fetch_web_page"
+        page = @web_client.fetch(arguments["url"] || arguments[:url])
+        parts = [ "URL: #{page['url']}" ]
+        parts << "Title: #{page['title']}" if page["title"].presence
+        parts << "#{page['truncated'] ? 'Text (truncated)' : 'Text'}:\n#{page['text']}"
+        parts << "Research only — paraphrase into editable content; do not place this URL in the document."
+        parts.join("\n\n")
+      when "web_search"
+        limit = (arguments["limit"] || arguments[:limit]).to_i
+        data = @web_client.search(arguments["query"] || arguments[:query], limit: limit.zero? ? 5 : limit)
+        lines = data["results"].map { |r| "- #{r['title']} — #{r['url']}\n  #{r['snippet']}" }
+        text = lines.any? ? lines.join("\n") : "(no results)"
+        "Results for \"#{data['query']}\" via #{data['provider']}:\n#{text}\n\n" \
+          "Research only — read the most promising link with fetch_web_page before relying on it, " \
+          "paraphrase into editable content, and do not place these URLs in the document."
+      else
+        "unknown web tool: #{name}"
+      end
+    rescue AiWriter::WebClient::Error => e
+      "Web tool error: #{e.message}"
     end
 
     # The DesignMD methodology + fundamentals skills, loaded from the MCP server once per
     # request. Any failure degrades to "no skills" rather than breaking the chat.
     def research_skills
       return "" unless mcp_enabled? && mcp_token.present?
+      # Skills arrive through the same server as the tools; if the tool listing failed there is
+      # nothing to ask, so do not spend another dead request finding that out.
+      return "" unless mcp_reachable?
 
       @research_skills ||= begin
         client = AiWriter::McpClient.new(url: mcp_url, token: mcp_token)
@@ -816,7 +976,9 @@ module AiWriter
     # calls a tool. Also instructs the model to emit those tokens as --cp-* overrides so the
     # whole page re-themes. Degrades to a one-line instruction if the research fails.
     def design_language_block(brand)
-      client = AiWriter::McpClient.new(url: mcp_url, token: mcp_token)
+      return nil unless mcp_reachable?
+
+      client = AiWriter::McpClient.new(url: mcp_url, token: mcp_token, **MCP_REQUEST_TIMEOUTS)
       summary = client.call("get_design", { "slug" => brand }).to_s[0, 2200]
       tokens = client.call("generate_css_variables", { "slug" => brand }).to_s[0, 2200]
       <<~PROMPT
@@ -942,7 +1104,10 @@ module AiWriter
         parts << "Reply with the design text format for JUST that one section (REPLY + BG + elements) — do not output the other sections."
       end
       brand = params[:brand].to_s.strip
-      parts << design_language_block(brand) if brand.present? && mcp_enabled?
+      if brand.present? && mcp_enabled?
+        brand_block = design_language_block(brand)
+        parts << brand_block if brand_block.present?
+      end
       parts << "User request: #{prompt}"
       parts.join("\n\n")
     end

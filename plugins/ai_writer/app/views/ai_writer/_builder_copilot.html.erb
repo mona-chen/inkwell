@@ -18,7 +18,13 @@
          a new capability without the Copilot or the builder bundle ever naming that plugin. The
          Image Sources plugin answers with a search endpoint and the kinds it can serve; a site
          with no such plugin gets no extra keys, and therefore no extra tools. %>
-     data-builder-copilot-config-value="<%= Inkwell::Hooks.filter(:builder_copilot_config, { mediaUrl: main_app.admin_media_path, imageUrl: (AiWriter::Engine.routes.url_helpers.images_path if AiWriter::ImageClient.new(site: Current.site).configured?) }).to_json %>">
+     <%# The web tools follow the same rule: each endpoint is published only while this server can
+         actually serve it, so a site with no search provider is never offered web_search. Reading
+         a page is keyless and on by default. %>
+     data-builder-copilot-config-value="<%= Inkwell::Hooks.filter(:builder_copilot_config, {
+       mediaUrl: main_app.admin_media_path,
+       imageUrl: (AiWriter::Engine.routes.url_helpers.images_path if AiWriter::ImageClient.new(site: Current.site).configured?)
+     }.merge(AiWriter::WebClient.capabilities(Current.site))).to_json %>">
   <button type="button" data-builder-copilot-target="fab" data-action="builder-copilot#open" aria-label="Open Copilot" class="bc-fab">
     <span class="bc-fab-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9z"/><circle cx="19" cy="5" r="1.6"/><circle cx="5.5" cy="17.5" r="1.2"/></svg>
