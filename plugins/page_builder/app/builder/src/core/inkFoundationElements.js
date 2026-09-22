@@ -1,4 +1,5 @@
 import { elementorShapeMarkup } from './elementorShapes.js';
+import { isHugSize } from './styleValues.js';
 
 const text = (domDocument, tag, className, value) => {
     const element = domDocument.createElement(tag);
@@ -118,6 +119,15 @@ function renderFrame(domDocument, node) {
     const overlay = domDocument.createElement('div'); overlay.className = 'ink-el-frame-overlay'; overlay.setAttribute('aria-hidden', 'true');
     const inner = domDocument.createElement('div'); inner.className = 'ink-el-frame-inner'; inner.dataset.inkChildren = '';
     root.append(overlay, inner);
+    // An empty Frame keeps a discoverable footprint in the editor, per axis, exactly where the
+    // content decides the size. It is chrome (see canvas-editor.scss), never a stored style: a
+    // persisted 120x80 minimum would publish, and would pin a Frame that hugs, or that the author
+    // sized by hand (a drawn 7px dot is an empty Frame too).
+    if (!node.children?.length) {
+        const base = node.styles?.desktop?.base || {};
+        if (base.width === undefined || isHugSize(base.width)) root.classList.add('ink-is-empty-w');
+        if (base.height === undefined || isHugSize(base.height)) root.classList.add('ink-is-empty-h');
+    }
     return root;
 }
 

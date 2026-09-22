@@ -4,7 +4,12 @@ const editable = (target) => target?.isContentEditable || target?.closest?.('inp
 // Real iframe dimensions retain browser breakpoints. The surrounding editor camera owns
 // translation and scale; panning never changes the design or writes element positions.
 export default class ViewportManager {
-    constructor(builder) { this.builder = builder; this.device = 'desktop'; this.scale = 1; this.x = 0; this.y = 56; this.sizes = structuredClone(DEFAULTS); }
+    constructor(builder) {
+        this.builder = builder; this.device = 'desktop'; this.scale = 1; this.x = 0; this.y = 56; this.sizes = structuredClone(DEFAULTS);
+        // The frame height follows the design until the author pins it. A page that grows past the
+        // frame must never hide its own content behind a resize the author has to remember to drag.
+        this.autoHeight = { desktop: true, tablet: true, mobile: true };
+    }
     mount(container) {
         this.container = container; this.stage = container.parentElement;
         this.renderBar(); this.renderHandles();
@@ -19,14 +24,24 @@ export default class ViewportManager {
         });
         this.resizeObserver = new ResizeObserver(() => { if (this.fitted) this.fitScale(); });
         this.resizeObserver.observe(this.stage);
+        // Fonts, images and reflow settle after the last document event, so the frame also follows
+        // the design's own box. The observer re-measures the content (never the frame, which it is
+        // about to change), so it settles instead of chasing itself.
+        const canvasRoot = this.builder.iframeDoc.querySelector('.ink-canvas-root');
+        if (canvasRoot) { this.contentObserver = new ResizeObserver(() => this.syncHeightToContent()); this.contentObserver.observe(canvasRoot); }
         return this;
     }
     renderBar() {
         this.bar = document.createElement('div'); this.bar.className = 'ink-v2-responsive-bar';
         this.bar.innerHTML = `<strong data-device-label>Desktop</strong><span class="ink-viewport-primary">Breakpoint</span><div class="ink-v2-viewport-size"><label>W <input aria-label="Viewport width" type="number" min="240" max="3840" data-width></label><label>H <input aria-label="Viewport height" title="Frame height — extend to reveal more of the page" type="number" min="320" max="20000" data-height></label><button type="button" data-fit-content aria-label="Fit frame height to content" title="Fit height to content">↕</button></div>`;
         this.widthInput = this.bar.querySelector('[data-width]'); this.heightInput = this.bar.querySelector('[data-height]');
-        [this.widthInput, this.heightInput].forEach((input) => input.addEventListener('change', () => { this.setSize(Number(this.widthInput.value), Number(this.heightInput.value)); if (this.fitted) this.fitScale(); }));
-        this.bar.querySelector('[data-fit-content]').addEventListener('click', () => this.fitContentHeight());
+        // Typing a width re-crops the frame and keeps following the content; typing a height is a
+        // decision about the page frame, so it pins that device until Fit to content re-arms it.
+        const applySize = (manual) => { this.setSize(Number(this.widthInput.value), Number(this.heightInput.value), { manual }); if (this.fitted) this.fitScale(); };
+        this.widthInput.addEventListener('change', () => applySize(false));
+        this.heightInput.addEventListener('change', () => applySize(true));
+        this.fitButton = this.bar.querySelector('[data-fit-content]');
+        this.fitButton.addEventListener('click', () => this.fitContentHeight());
         this.container.prepend(this.bar);
     }
     renderHandles() {
@@ -42,29 +57,60 @@ export default class ViewportManager {
                 if (!direction[event.key]) return;
                 event.preventDefault(); event.stopPropagation();
                 const { width, height } = this.sizes[this.device], delta = direction[event.key] * (event.shiftKey ? 10 : 1);
-                this.setSize(width + (edge === 's' ? 0 : delta), height + (edge === 's' ? delta : 0)); this.applyCamera();
+                this.setSize(width + (edge === 's' ? 0 : delta), height + (edge === 's' ? delta : 0), { manual: edge === 's' }); this.applyCamera();
             });
             this.container.appendChild(handle); return handle;
         });
     }
-    fitContentHeight() {
-        const root = this.builder.iframeDoc.querySelector('.ink-canvas-root');
-        if (!root) return;
-        // Measure actual content, not the document scrollHeight (which is at least the frame height).
+    // The design's own bottom edge, measured from the elements rather than documentElement
+    // .scrollHeight (which is never smaller than the frame, so it can only ever agree).
+    contentBottom() {
+        const root = this.builder.iframeDoc?.querySelector?.('.ink-canvas-root');
+        if (!root) return null;
         const elements = [...root.children].filter((node) => node.matches('.ink-element'));
-        const bottom = Math.max(320, ...elements.map((node) => node.getBoundingClientRect().bottom));
-        this.setSize(this.sizes[this.device].width, Math.ceil(bottom)); this.applyCamera();
+        if (!elements.length) return null;
+        return Math.max(320, Math.ceil(Math.max(...elements.map((node) => node.getBoundingClientRect().bottom))));
+    }
+    followsContent(device = this.device) { return this.autoHeight[device] !== false; }
+    // Called after the design changes. Only ever moves the frame edge: the camera, the page data,
+    // and the authored heights of elements are untouched, so this can never fight an edit.
+    syncHeightToContent() {
+        if (!this.followsContent()) return false;
+        const bottom = this.contentBottom();
+        if (bottom === null || Math.abs(bottom - this.sizes[this.device].height) < 2) return false;
+        this.setSize(this.sizes[this.device].width, bottom, { manual: false });
+        return true;
+    }
+    fitContentHeight() {
+        const bottom = this.contentBottom();
+        if (bottom === null) return;
+        this.autoHeight[this.device] = true;
+        this.setSize(this.sizes[this.device].width, bottom, { manual: false });
+        this.applyCamera(); this.syncAffordance();
+    }
+    // The fit control shows whether the frame is following the design or pinned to a typed height.
+    syncAffordance() {
+        if (!this.fitButton) return;
+        const auto = this.followsContent();
+        this.fitButton.classList.toggle('is-active', auto);
+        this.fitButton.setAttribute('aria-pressed', String(auto));
+        this.fitButton.title = auto ? 'Following content — the frame grows with the design. Click to re-fit.' : 'Fit height to content';
+        if (this.heightInput) this.heightInput.title = auto ? 'Frame height — follows the content' : 'Frame height — pinned to the height you set';
     }
     setDevice(device) {
         if (!DEFAULTS[device]) return;
         this.device = device; this.container.dataset.inkViewportDevice = device;
         this.bar.querySelector('[data-device-label]').textContent = `${device[0].toUpperCase() + device.slice(1)} · ${this.sizes[device].width}`;
         ['desktop', 'tablet', 'mobile'].forEach((name) => { const button = document.getElementById(`${name}ModeButton`); button?.classList.toggle('active', name === device); button?.setAttribute('aria-pressed', String(name === device)); });
-        const dimensions = this.sizes[device]; this.setSize(dimensions.width, dimensions.height); this.fitScale(); this.builder.breakpoints?.refresh();
+        const dimensions = this.sizes[device]; this.setSize(dimensions.width, dimensions.height, { manual: false }); this.fitScale(); this.builder.breakpoints?.refresh(); this.syncHeightToContent();
     }
-    setSize(width, height) {
+    // `manual` marks a deliberate height change -- the H field, the S grip, the arrow keys, or a
+    // programmatic SetSize call -- which pins this device's frame until Fit to content re-arms it.
+    setSize(width, height, { manual = true } = {}) {
         width = Math.round(Math.max(240, Math.min(3840, Number.isFinite(width) && width > 0 ? width : DEFAULTS[this.device].width))); height = Math.round(Math.max(320, Math.min(20000, Number.isFinite(height) && height > 0 ? height : DEFAULTS[this.device].height)));
+        if (manual) this.autoHeight[this.device] = false;
         this.sizes[this.device] = { width, height };
+        this.syncAffordance();
         this.container.style.width = `${width}px`; this.container.style.height = `${height}px`; this.builder.iframe.style.width = '100%'; this.builder.iframe.style.height = `${height}px`;
         this.widthInput.value = width; this.heightInput.value = height;
         this.handles?.forEach((handle) => { handle.setAttribute('aria-valuenow', handle.dataset.edge === 's' ? height : width); handle.setAttribute('aria-valuemin', handle.dataset.edge === 's' ? 320 : 240); handle.setAttribute('aria-valuemax', handle.dataset.edge === 's' ? 20000 : 3840); });
@@ -137,7 +183,7 @@ export default class ViewportManager {
         const handle = event.currentTarget; handle.setPointerCapture(event.pointerId);
         const move = (pointer) => {
             const dx = (pointer.clientX - startX) / scale, dy = (pointer.clientY - startY) / scale;
-            this.setSize(edge === 'e' ? width + dx : edge === 'w' ? width - dx : width, edge === 's' ? height + dy : height);
+            this.setSize(edge === 'e' ? width + dx : edge === 'w' ? width - dx : width, edge === 's' ? height + dy : height, { manual: edge === 's' });
             if (edge === 'w') this.x = startCameraX + (width - Number(this.widthInput.value)) * scale;
             this.fitted = false; this.applyCamera();
         };

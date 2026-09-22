@@ -28,6 +28,7 @@ We copy the architectural ideas, not Elementor's WordPress/PHP coupling, Backbon
 8. Editor chrome is isolated from canvas CSS. Bootstrap may remain in legacy chrome only while the v2 panel replaces it.
 9. Templates and design kits are document fragments composed from registered elements, not bespoke layout modes hidden in Grid.
 10. The v2 store is authoritative. V1 saved-page compatibility is not a requirement.
+11. Placeholders are chrome, never design data. A placeholder size floor (the 120x80 minimum that keeps a fresh Frame grabbable) yields whenever the element decides its own size on that axis — an explicit size, or a content hug such as `fit-content` — and an empty Frame's footprint comes from editor CSS, so it can never publish or pin a designed element.
 
 ## V2 document contract
 
@@ -109,6 +110,8 @@ Controls use consistent rows, labels, help, responsive device indicator, reset/i
 Each element owns a stable `.ink-el-{id}` scope. The style engine emits one style node for the document, ordered desktop-first and then breakpoint overrides. Responsive values inherit from the next wider device when absent. State styles use explicit pseudo-state buckets. Global theme tokens resolve to CSS custom properties.
 
 The active editor device changes only the canvas viewport and the responsive value being edited. It does not add design classes that alter the page differently from publication.
+
+Frame height is editor state, never part of the document. The frame follows the design by default: content inserted or grown below its edge extends it, and a ResizeObserver catches reflow from fonts and media that lands after the last document event. A height the author typed or dragged pins that device, and Fit to content (the ↕ control in the responsive bar, or a double-click on the S grip) re-arms following.
 
 ## Rendering lifecycle
 

@@ -1,5 +1,11 @@
 // Editor-only interaction chrome. Never included in the published canvas stylesheet.
 html:has(> body.ink-builder-design), body.ink-builder-design { overflow: clip !important; overscroll-behavior: none; }
+// An empty Frame keeps a discoverable, selectable footprint while it has no content, on each axis
+// the content decides (the renderer adds these classes; see inkFoundationElements.renderFrame).
+// This is editor chrome: never stored, never published, and absent whenever the author sized the
+// axis, so a drawn 7px dot stays 7px.
+.ink-el-frame.ink-is-empty-w { min-width: 120px; }
+.ink-el-frame.ink-is-empty-h { min-height: 80px; }
 body.ink-builder-design {
   --ink-editor-accent: #0099ff;
   --ink-handle-scale: calc(1 / var(--ink-editor-canvas-scale, 1));

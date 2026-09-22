@@ -671,7 +671,8 @@ async function main() {
       var ruleFor=function(node){ return r.styles.nodeRules(node); };
       var dot=r.insert('frame', {}, { settings:{label:'Smoke dot'}, styles:{desktop:{base:{display:'block','width':{unit:'px',value:7},'height':{unit:'px',value:7},background:'#B4451F'}}} });
       var dotCss=ruleFor(dot);
-      var dotRect=canvas.querySelector('[data-ink-element-id="'+dot.id+'"]').getBoundingClientRect();
+      var dotEl=canvas.querySelector('[data-ink-element-id="'+dot.id+'"]');
+      var dotRect=dotEl.getBoundingClientRect();
       var dotSize=Math.round(dotRect.width)+'x'+Math.round(dotRect.height);
       var stored=JSON.parse(JSON.stringify(r.document.get(dot.id).styles.desktop.base));
       var rogue=r.insert('paragraph', {parentId:null}, { settings:{text:'Rogue',cssClasses:'smoke-inert-hook'}, styles:{desktop:{base:{'width':{nonsense:true}}}} });
@@ -680,12 +681,22 @@ async function main() {
       var audit=JSON.parse(b.copilotTools.execute('audit_design', {}).content);
       var codes=audit.issues.map(function(issue){return issue.code;});
       var sheet=styles();
-      // The merge path matters as much as the insert path: a frame that already carries the default
-      // 120px floor must still yield it when a later edit (the panel or set_styles) sizes it.
+      // A placeholder footprint is editor chrome, never stored data: a fresh Frame must not carry a
+      // phantom 120x80 minimum, while the canvas still hands an empty Frame a footprint to grab. A
+      // page saved before the floor rule learned to hug still stores one, and the merge path heals it.
       var merge=r.insert('frame', {});
-      var floorBefore=r.document.get(merge.id).styles.desktop.base['min-width'];
+      var mergeNode=r.document.get(merge.id);
+      var mergeEl=canvas.querySelector('[data-ink-element-id="'+merge.id+'"]');
+      var mergeStyle=canvas.defaultView.getComputedStyle(mergeEl);
+      var frameFootprint=mergeEl.classList.contains('ink-is-empty-w') && mergeEl.classList.contains('ink-is-empty-h') && mergeEl.getBoundingClientRect().height>0 && parseFloat(mergeStyle.minHeight)===80 && parseFloat(mergeStyle.minWidth)===120 && dotEl.className.indexOf('ink-is-empty-w')<0;
+      var floorBefore=mergeNode.styles.desktop.base['min-width'];
+      var floorUnstored=floorBefore===undefined && !('min-height' in mergeNode.styles.desktop.base);
+      mergeNode.styles.desktop.base['min-width']={size:120,unit:'px'};
+      mergeNode.styles.desktop.base['min-height']={size:80,unit:'px'};
+      b.copilotTools.execute('set_styles', {id:merge.id, styles:{desktop:{base:{background:'#111111'}}}});
+      var floorAfter=mergeNode.styles.desktop.base['min-width'];
       b.copilotTools.execute('set_styles', {id:merge.id, styles:{desktop:{base:{width:{size:9,unit:'px'}}}}});
-      var floorAfter=r.document.get(merge.id).styles.desktop.base['min-width'];
+      var sizedAfter=mergeNode.styles.desktop.base['min-width'];
       b.copilotTools.execute('set_design_tokens', { tokens:{ colors:{ accent:'#B4451F', background:'#F7F4EE' }, typography:{ baseSize:17 } } });
       var cssAfter=b.customCode.getCss();
       var guard=0;
@@ -697,7 +708,9 @@ async function main() {
         dotCompiled: dotCss.indexOf('width:7px')>=0 && dotCss.indexOf('height:7px')>=0,
         dotSize: dotSize,
         dotFloorYielded: !('min-width' in stored) && !('min-height' in stored),
-        mergeFloorYielded: floorBefore !== undefined && floorAfter === undefined,
+        floorUnstored: floorUnstored,
+        frameFootprint: frameFootprint,
+        mergeFloorYielded: floorAfter === undefined && sizedAfter === undefined,
         noObjectObject: sheet.indexOf('[object Object]')<0,
         rogueDropped: rogueRule==='',
         warned: (setStyles.warnings||[]).length>0,
@@ -707,10 +720,32 @@ async function main() {
       };
     })()`);
     check("a { value, unit } size is stored, published, and rendered as a size", state.sizeRepaired && state.dotCompiled && state.dotSize === '7x7' && state.dotFloorYielded && state.mergeFloorYielded && state.historyRestored, JSON.stringify(state));
+    check("a placeholder size floor is editor chrome, never stored design data", state.floorUnstored && state.frameFootprint, JSON.stringify(state));
+
     check("the compiler never publishes an object as a declaration", state.noObjectObject && state.rogueDropped, JSON.stringify(state));
     check("an uncompilable value is reported back to the caller", state.warned, JSON.stringify(state));
     check("audit_design reports dropped values and inert class hooks", state.auditCodes.indexOf('uncompilable-styles')>=0 && state.auditCodes.indexOf('inert-class-hooks')>=0, JSON.stringify(state));
     check("set_design_tokens installs the stylesheet that consumes the tokens", state.tokensConsumed && state.tokensRestored, JSON.stringify(state));
+
+    // The frame height follows the design. A page that grows past the frame must reveal the new
+    // content without the author dragging the frame grip, while a height the author typed stays
+    // pinned until Fit to content (the bar button, or a double-click on the S grip) re-arms it.
+    state = await client.evaluate(`(async function(){
+      var b=builder,v=b.viewport,r=b.runtime,startH=v.sizes.desktop.height;
+      var tall=r.insert('frame',{}, {styles:{desktop:{base:{width:{size:400,unit:'px'},height:{size:startH+800,unit:'px'}}}}});
+      await new Promise(function(res){setTimeout(res,140);});
+      var followed=v.sizes.desktop.height;
+      v.setSize(1440,600);
+      var pinned=v.sizes.desktop.height;
+      var other=r.insert('frame',{}, {styles:{desktop:{base:{width:{size:400,unit:'px'},height:{size:2600,unit:'px'}}}}});
+      await new Promise(function(res){setTimeout(res,140);});
+      var stayed=v.sizes.desktop.height;
+      v.bar.querySelector('[data-fit-content]').click();
+      var refit=v.sizes.desktop.height;
+      r.remove(tall.id); r.remove(other.id); v.fitContentHeight();
+      return {startH:startH,followed:followed,pinned:pinned,stayed:stayed,refit:refit,auto:v.followsContent(),affordance:v.fitButton.classList.contains('is-active')};
+    })()`);
+    check("the frame height follows the design until the author pins it", state.followed >= state.startH + 700 && state.pinned === 600 && state.stayed === 600 && state.refit >= 2500 && state.auto === true && state.affordance === true, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var r=builder.runtime, canvas=builder.iframeDoc;

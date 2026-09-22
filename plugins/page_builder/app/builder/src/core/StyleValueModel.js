@@ -19,7 +19,7 @@
 // Copilot, the importer, drag & drop -- stores canonical `{ size, unit }` sizing records.
 
 import { isComponentStateKey, normalizeStateName } from './states.js';
-import { isRecord, normalizeStyleValue, normalizeStyleValues } from './styleValues.js';
+import { isHugSize, isRecord, normalizeStyleValue, normalizeStyleValues } from './styleValues.js';
 
 export const DEVICES = ['desktop', 'tablet', 'mobile'];
 export const STATES = ['base', 'hover', 'focus', 'active'];
@@ -73,10 +73,15 @@ const sameValue = (a, b) => {
 
 // A size floor (`min-width`/`min-height`) that is exactly the element type's own placeholder is a
 // placeholder, not a decision: it exists so a freshly inserted element is visible and selectable.
-// It has to yield the moment a size is set on that axis, or an explicit `width: 7px` silently
-// renders at the 120px default -- which is how a designed 7px accent dot ended up as a 120x80 slab.
-// A floor with any other value was authored on purpose (a card can want `width: 100%` above
-// `min-width: 240px`) and is always kept.
+// It has to yield whenever the element decides its own size on that axis, or the placeholder
+// silently wins -- which is how a designed 7px accent dot became a 120x80 slab, and how a padding-
+// sized pill ("Your shortlist · 4 tools") stayed a 120x80 black box around one line of text.
+//
+// An axis decides its own size when the write (or the stored value) sets it explicitly, and also
+// when it hugs its content: `fit-content` means "as big as my content", so a 120px placeholder
+// minimum cannot be part of that intent. A floor with any other value was authored on purpose (a
+// card can want `width: 100%` above `min-width: 240px`), and a floor the same write states is a
+// decision, so it is always kept.
 //
 // `authored` names the buckets a write is actively setting, so a merged patch is judged only on what
 // it says. Passing null instead judges the stored values, which is what heals a page saved by an
@@ -90,7 +95,13 @@ export function yieldSizeFloors(styles, { authored = null, defaults = null } = {
             const set = authored?.[device]?.[state] || null;
             for (const [axis, property] of Object.entries(axes)) {
                 if (floor[property] === undefined || !sameValue(target[property], floor[property])) continue;
-                const sized = set ? axis in set : target[axis] !== undefined && !sameValue(target[axis], floor[axis]);
+                // A floor this write states itself is a decision, even when it matches the placeholder.
+                if (set && property in set) continue;
+                // What the element says about this axis: the value this write sets, else the stored
+                // value. `undefined` means the element never sized the axis at all, so a placeholder
+                // floor is the only thing keeping it on the canvas and must stay.
+                const intent = set && axis in set ? set[axis] : target[axis];
+                const sized = intent !== undefined && (!sameValue(intent, floor[axis]) || isHugSize(intent));
                 if (sized) delete target[property];
             }
         }

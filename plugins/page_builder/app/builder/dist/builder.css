@@ -5322,6 +5322,11 @@ body.ink-is-scrubbing {
   color: var(--ink-editor-text);
 }
 
+.ink-v2-responsive-bar button[data-fit-content].is-active {
+  background: var(--ink-editor-accent-soft);
+  color: var(--ink-editor-accent-bright);
+}
+
 .ink-v2-viewport-scale span {
   min-width: 42px;
   text-align: center;

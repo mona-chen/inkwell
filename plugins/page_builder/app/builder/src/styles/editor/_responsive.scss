@@ -19,6 +19,9 @@
 
 .ink-v2-responsive-bar button { display: flex; width: 26px; height: 26px; align-items: center; justify-content: center; border: 0; border-radius: 3px; background: transparent; color: var(--ink-editor-muted); cursor: pointer; }
 .ink-v2-responsive-bar button:hover, .ink-v2-responsive-bar button.is-active { background: var(--ink-editor-border); color: var(--ink-editor-text); }
+// The frame-height control reads as engaged while the frame follows the design, and neutral once
+// the height is pinned to a value the author typed or dragged.
+.ink-v2-responsive-bar button[data-fit-content].is-active { background: var(--ink-editor-accent-soft); color: var(--ink-editor-accent-bright); }
 .ink-v2-viewport-scale span { min-width: 42px; text-align: center; }
 .ink-v2-viewport-size label { display: flex; gap: 4px; align-items: center; margin-left: 8px; }
 .ink-v2-viewport-size input { width: 56px; height: 22px; padding: 2px 4px; border: 1px solid var(--ink-editor-border); background: var(--ink-editor-panel); color: var(--ink-editor-text); text-align: center; }

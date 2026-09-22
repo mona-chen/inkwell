@@ -87,3 +87,9 @@ export function previewValue(value) {
     if (Array.isArray(value)) return `[${value.length} items]`;
     return `{${Object.keys(value).slice(0, 6).join(', ')}}`;
 }
+
+// A size the content decides rather than a magnitude the author typed. `fit-content` is the
+// builder's own Frame default, so a stored minimum sitting next to it is placeholder chrome --
+// "as wide as my content" and "never narrower than 120px" cannot both be a design decision.
+export const HUG_SIZES = new Set(['fit-content', 'max-content', 'min-content', 'auto']);
+export const isHugSize = (value) => typeof value === 'string' && HUG_SIZES.has(value.trim().toLowerCase());

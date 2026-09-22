@@ -265,6 +265,14 @@ export default class BuilderV2 {
         this.runtime.events.on('canvas:render', () => {
             this.runtime.selection.selectedIds.forEach((id) => this.canvasRoot.querySelector(`[data-ink-element-id="${CSS.escape(id)}"]`)?.classList.add('ink-is-selected'));
         });
+        // The frame height follows the design, so a section added below the fold is visible without
+        // dragging the frame grip. Structural edits sync after the render; style edits are debounced
+        // so live typing never resizes the frame mid-keystroke. A pinned frame is left alone.
+        const syncFrameHeight = () => this.viewport?.syncHeightToContent();
+        this.runtime.events.on('canvas:render', () => requestAnimationFrame(syncFrameHeight));
+        ['document:insert', 'document:remove', 'document:move', 'document:replace'].forEach((event) => this.runtime.events.on(event, () => requestAnimationFrame(syncFrameHeight)));
+        let frameHeightTimer = null;
+        this.runtime.events.on('document:update', () => { clearTimeout(frameHeightTimer); frameHeightTimer = setTimeout(syncFrameHeight, 240); });
     }
 
     // Top-bar entry points: route the main left panel and bring it to the front.
@@ -614,7 +622,7 @@ export default class BuilderV2 {
         clone.querySelectorAll('[data-ink-hidden]').forEach((element) => element.remove());
         clone.querySelectorAll('[data-ink-element-id],[data-ink-element-type],[data-ink-children],[data-ink-drop-position]').forEach((element) => {
             element.removeAttribute('data-ink-element-id'); element.removeAttribute('data-ink-element-type'); element.removeAttribute('data-ink-children'); element.removeAttribute('data-ink-drop-position');
-            element.removeAttribute('data-ink-layout'); element.removeAttribute('data-ink-structure'); element.removeAttribute('draggable'); element.removeAttribute('contenteditable'); element.removeAttribute('data-ink-inline-editing'); element.classList.remove('ink-is-selected');
+            element.removeAttribute('data-ink-layout'); element.removeAttribute('data-ink-structure'); element.removeAttribute('draggable'); element.removeAttribute('contenteditable'); element.removeAttribute('data-ink-inline-editing'); element.classList.remove('ink-is-selected', 'ink-is-empty-w', 'ink-is-empty-h');
         });
         clone.querySelector('[data-ink-canvas-root]')?.removeAttribute('data-ink-canvas-root');
         clone.querySelector('body')?.classList.remove('ink-builder-design');

@@ -511,6 +511,26 @@ var BuilderV2 = /*#__PURE__*/function () {
           return (_this3$canvasRoot$que2 = _this3.canvasRoot.querySelector("[data-ink-element-id=\"".concat(CSS.escape(id), "\"]"))) === null || _this3$canvasRoot$que2 === void 0 ? void 0 : _this3$canvasRoot$que2.classList.add('ink-is-selected');
         });
       });
+      // The frame height follows the design, so a section added below the fold is visible without
+      // dragging the frame grip. Structural edits sync after the render; style edits are debounced
+      // so live typing never resizes the frame mid-keystroke. A pinned frame is left alone.
+      var syncFrameHeight = function syncFrameHeight() {
+        var _this3$viewport;
+        return (_this3$viewport = _this3.viewport) === null || _this3$viewport === void 0 ? void 0 : _this3$viewport.syncHeightToContent();
+      };
+      this.runtime.events.on('canvas:render', function () {
+        return requestAnimationFrame(syncFrameHeight);
+      });
+      ['document:insert', 'document:remove', 'document:move', 'document:replace'].forEach(function (event) {
+        return _this3.runtime.events.on(event, function () {
+          return requestAnimationFrame(syncFrameHeight);
+        });
+      });
+      var frameHeightTimer = null;
+      this.runtime.events.on('document:update', function () {
+        clearTimeout(frameHeightTimer);
+        frameHeightTimer = setTimeout(syncFrameHeight, 240);
+      });
     }
 
     // Top-bar entry points: route the main left panel and bring it to the front.
@@ -1103,7 +1123,7 @@ var BuilderV2 = /*#__PURE__*/function () {
         element.removeAttribute('draggable');
         element.removeAttribute('contenteditable');
         element.removeAttribute('data-ink-inline-editing');
-        element.classList.remove('ink-is-selected');
+        element.classList.remove('ink-is-selected', 'ink-is-empty-w', 'ink-is-empty-h');
       });
       (_clone$querySelector2 = clone.querySelector('[data-ink-canvas-root]')) === null || _clone$querySelector2 === void 0 || _clone$querySelector2.removeAttribute('data-ink-canvas-root');
       (_clone$querySelector3 = clone.querySelector('body')) === null || _clone$querySelector3 === void 0 || _clone$querySelector3.classList.remove('ink-builder-design');
@@ -13420,10 +13440,15 @@ var _sameValue = function sameValue(a, b) {
 
 // A size floor (`min-width`/`min-height`) that is exactly the element type's own placeholder is a
 // placeholder, not a decision: it exists so a freshly inserted element is visible and selectable.
-// It has to yield the moment a size is set on that axis, or an explicit `width: 7px` silently
-// renders at the 120px default -- which is how a designed 7px accent dot ended up as a 120x80 slab.
-// A floor with any other value was authored on purpose (a card can want `width: 100%` above
-// `min-width: 240px`) and is always kept.
+// It has to yield whenever the element decides its own size on that axis, or the placeholder
+// silently wins -- which is how a designed 7px accent dot became a 120x80 slab, and how a padding-
+// sized pill ("Your shortlist · 4 tools") stayed a 120x80 black box around one line of text.
+//
+// An axis decides its own size when the write (or the stored value) sets it explicitly, and also
+// when it hugs its content: `fit-content` means "as big as my content", so a 120px placeholder
+// minimum cannot be part of that intent. A floor with any other value was authored on purpose (a
+// card can want `width: 100%` above `min-width: 240px`), and a floor the same write states is a
+// decision, so it is always kept.
 //
 // `authored` names the buckets a write is actively setting, so a merged patch is judged only on what
 // it says. Passing null instead judges the stored values, which is what heals a page saved by an
@@ -13455,7 +13480,13 @@ function yieldSizeFloors(styles) {
           axis = _Object$entries5$_i[0],
           property = _Object$entries5$_i[1];
         if (floor[property] === undefined || !_sameValue(target[property], floor[property])) continue;
-        var sized = set ? axis in set : target[axis] !== undefined && !_sameValue(target[axis], floor[axis]);
+        // A floor this write states itself is a decision, even when it matches the placeholder.
+        if (set && property in set) continue;
+        // What the element says about this axis: the value this write sets, else the stored
+        // value. `undefined` means the element never sized the axis at all, so a placeholder
+        // floor is the only thing keeping it on the canvas and must stay.
+        var intent = set && axis in set ? set[axis] : target[axis];
+        var sized = intent !== undefined && (!_sameValue(intent, floor[axis]) || (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.isHugSize)(intent));
         if (sized) delete target[property];
       }
     }
@@ -13553,6 +13584,13 @@ var ViewportManager = /*#__PURE__*/function () {
     this.x = 0;
     this.y = 56;
     this.sizes = structuredClone(DEFAULTS);
+    // The frame height follows the design until the author pins it. A page that grows past the
+    // frame must never hide its own content behind a resize the author has to remember to drag.
+    this.autoHeight = {
+      desktop: true,
+      tablet: true,
+      mobile: true
+    };
   }
   return _createClass(ViewportManager, [{
     key: "mount",
@@ -13591,6 +13629,16 @@ var ViewportManager = /*#__PURE__*/function () {
         if (_this.fitted) _this.fitScale();
       });
       this.resizeObserver.observe(this.stage);
+      // Fonts, images and reflow settle after the last document event, so the frame also follows
+      // the design's own box. The observer re-measures the content (never the frame, which it is
+      // about to change), so it settles instead of chasing itself.
+      var canvasRoot = this.builder.iframeDoc.querySelector('.ink-canvas-root');
+      if (canvasRoot) {
+        this.contentObserver = new ResizeObserver(function () {
+          return _this.syncHeightToContent();
+        });
+        this.contentObserver.observe(canvasRoot);
+      }
       return this;
     }
   }, {
@@ -13602,13 +13650,22 @@ var ViewportManager = /*#__PURE__*/function () {
       this.bar.innerHTML = "<strong data-device-label>Desktop</strong><span class=\"ink-viewport-primary\">Breakpoint</span><div class=\"ink-v2-viewport-size\"><label>W <input aria-label=\"Viewport width\" type=\"number\" min=\"240\" max=\"3840\" data-width></label><label>H <input aria-label=\"Viewport height\" title=\"Frame height \u2014 extend to reveal more of the page\" type=\"number\" min=\"320\" max=\"20000\" data-height></label><button type=\"button\" data-fit-content aria-label=\"Fit frame height to content\" title=\"Fit height to content\">\u2195</button></div>";
       this.widthInput = this.bar.querySelector('[data-width]');
       this.heightInput = this.bar.querySelector('[data-height]');
-      [this.widthInput, this.heightInput].forEach(function (input) {
-        return input.addEventListener('change', function () {
-          _this2.setSize(Number(_this2.widthInput.value), Number(_this2.heightInput.value));
-          if (_this2.fitted) _this2.fitScale();
+      // Typing a width re-crops the frame and keeps following the content; typing a height is a
+      // decision about the page frame, so it pins that device until Fit to content re-arms it.
+      var applySize = function applySize(manual) {
+        _this2.setSize(Number(_this2.widthInput.value), Number(_this2.heightInput.value), {
+          manual: manual
         });
+        if (_this2.fitted) _this2.fitScale();
+      };
+      this.widthInput.addEventListener('change', function () {
+        return applySize(false);
       });
-      this.bar.querySelector('[data-fit-content]').addEventListener('click', function () {
+      this.heightInput.addEventListener('change', function () {
+        return applySize(true);
+      });
+      this.fitButton = this.bar.querySelector('[data-fit-content]');
+      this.fitButton.addEventListener('click', function () {
         return _this2.fitContentHeight();
       });
       this.container.prepend(this.bar);
@@ -13647,27 +13704,72 @@ var ViewportManager = /*#__PURE__*/function () {
             width = _this3$sizes$_this3$d.width,
             height = _this3$sizes$_this3$d.height,
             delta = direction[event.key] * (event.shiftKey ? 10 : 1);
-          _this3.setSize(width + (edge === 's' ? 0 : delta), height + (edge === 's' ? delta : 0));
+          _this3.setSize(width + (edge === 's' ? 0 : delta), height + (edge === 's' ? delta : 0), {
+            manual: edge === 's'
+          });
           _this3.applyCamera();
         });
         _this3.container.appendChild(handle);
         return handle;
       });
     }
+    // The design's own bottom edge, measured from the elements rather than documentElement
+    // .scrollHeight (which is never smaller than the frame, so it can only ever agree).
   }, {
-    key: "fitContentHeight",
-    value: function fitContentHeight() {
-      var root = this.builder.iframeDoc.querySelector('.ink-canvas-root');
-      if (!root) return;
-      // Measure actual content, not the document scrollHeight (which is at least the frame height).
+    key: "contentBottom",
+    value: function contentBottom() {
+      var _this$builder$iframeD, _this$builder$iframeD2;
+      var root = (_this$builder$iframeD = this.builder.iframeDoc) === null || _this$builder$iframeD === void 0 || (_this$builder$iframeD2 = _this$builder$iframeD.querySelector) === null || _this$builder$iframeD2 === void 0 ? void 0 : _this$builder$iframeD2.call(_this$builder$iframeD, '.ink-canvas-root');
+      if (!root) return null;
       var elements = _toConsumableArray(root.children).filter(function (node) {
         return node.matches('.ink-element');
       });
-      var bottom = Math.max.apply(Math, [320].concat(_toConsumableArray(elements.map(function (node) {
+      if (!elements.length) return null;
+      return Math.max(320, Math.ceil(Math.max.apply(Math, _toConsumableArray(elements.map(function (node) {
         return node.getBoundingClientRect().bottom;
-      }))));
-      this.setSize(this.sizes[this.device].width, Math.ceil(bottom));
+      })))));
+    }
+  }, {
+    key: "followsContent",
+    value: function followsContent() {
+      var device = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : this.device;
+      return this.autoHeight[device] !== false;
+    }
+    // Called after the design changes. Only ever moves the frame edge: the camera, the page data,
+    // and the authored heights of elements are untouched, so this can never fight an edit.
+  }, {
+    key: "syncHeightToContent",
+    value: function syncHeightToContent() {
+      if (!this.followsContent()) return false;
+      var bottom = this.contentBottom();
+      if (bottom === null || Math.abs(bottom - this.sizes[this.device].height) < 2) return false;
+      this.setSize(this.sizes[this.device].width, bottom, {
+        manual: false
+      });
+      return true;
+    }
+  }, {
+    key: "fitContentHeight",
+    value: function fitContentHeight() {
+      var bottom = this.contentBottom();
+      if (bottom === null) return;
+      this.autoHeight[this.device] = true;
+      this.setSize(this.sizes[this.device].width, bottom, {
+        manual: false
+      });
       this.applyCamera();
+      this.syncAffordance();
+    }
+    // The fit control shows whether the frame is following the design or pinned to a typed height.
+  }, {
+    key: "syncAffordance",
+    value: function syncAffordance() {
+      if (!this.fitButton) return;
+      var auto = this.followsContent();
+      this.fitButton.classList.toggle('is-active', auto);
+      this.fitButton.setAttribute('aria-pressed', String(auto));
+      this.fitButton.title = auto ? 'Following content — the frame grows with the design. Click to re-fit.' : 'Fit height to content';
+      if (this.heightInput) this.heightInput.title = auto ? 'Frame height — follows the content' : 'Frame height — pinned to the height you set';
     }
   }, {
     key: "setDevice",
@@ -13683,20 +13785,30 @@ var ViewportManager = /*#__PURE__*/function () {
         button === null || button === void 0 || button.setAttribute('aria-pressed', String(name === device));
       });
       var dimensions = this.sizes[device];
-      this.setSize(dimensions.width, dimensions.height);
+      this.setSize(dimensions.width, dimensions.height, {
+        manual: false
+      });
       this.fitScale();
       (_this$builder$breakpo = this.builder.breakpoints) === null || _this$builder$breakpo === void 0 || _this$builder$breakpo.refresh();
+      this.syncHeightToContent();
     }
+    // `manual` marks a deliberate height change -- the H field, the S grip, the arrow keys, or a
+    // programmatic SetSize call -- which pins this device's frame until Fit to content re-arms it.
   }, {
     key: "setSize",
     value: function setSize(width, height) {
       var _this$handles, _this$builder$breakpo2;
+      var _ref = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {},
+        _ref$manual = _ref.manual,
+        manual = _ref$manual === void 0 ? true : _ref$manual;
       width = Math.round(Math.max(240, Math.min(3840, Number.isFinite(width) && width > 0 ? width : DEFAULTS[this.device].width)));
       height = Math.round(Math.max(320, Math.min(20000, Number.isFinite(height) && height > 0 ? height : DEFAULTS[this.device].height)));
+      if (manual) this.autoHeight[this.device] = false;
       this.sizes[this.device] = {
         width: width,
         height: height
       };
+      this.syncAffordance();
       this.container.style.width = "".concat(width, "px");
       this.container.style.height = "".concat(height, "px");
       this.builder.iframe.style.width = '100%';
@@ -13871,7 +13983,9 @@ var ViewportManager = /*#__PURE__*/function () {
       var move = function move(pointer) {
         var dx = (pointer.clientX - startX) / scale,
           dy = (pointer.clientY - startY) / scale;
-        _this6.setSize(edge === 'e' ? width + dx : edge === 'w' ? width - dx : width, edge === 's' ? height + dy : height);
+        _this6.setSize(edge === 'e' ? width + dx : edge === 'w' ? width - dx : width, edge === 's' ? height + dy : height, {
+          manual: edge === 's'
+        });
         if (edge === 'w') _this6.x = startCameraX + (width - Number(_this6.widthInput.value)) * scale;
         _this6.fitted = false;
         _this6.applyCamera();
@@ -24615,7 +24729,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (/* binding */ registerInkFoundationElements)
 /* harmony export */ });
 /* harmony import */ var _elementorShapes_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./elementorShapes.js */ "./src/core/elementorShapes.js");
-/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
+/* harmony import */ var _styleValues_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./styleValues.js */ "./src/core/styleValues.js");
+/* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -24628,6 +24743,7 @@ function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Sym
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+
 
 var text = function text(domDocument, tag, className, value) {
   var element = domDocument.createElement(tag);
@@ -24778,7 +24894,7 @@ function renderShell(domDocument, node, rootClass) {
 // a page-width contract, but they do own a surface, an optional overlay, and a child-layout
 // root so Freeform, Stack, and Grid remain interchangeable without changing the tree.
 function renderFrame(domDocument, node) {
-  var _node$settings, _node$settings2;
+  var _node$settings, _node$settings2, _node$children;
   var link = _typeof((_node$settings = node.settings) === null || _node$settings === void 0 ? void 0 : _node$settings.link) === 'object' ? node.settings.link : {
     url: (_node$settings2 = node.settings) === null || _node$settings2 === void 0 ? void 0 : _node$settings2.link
   };
@@ -24796,6 +24912,16 @@ function renderFrame(domDocument, node) {
   inner.className = 'ink-el-frame-inner';
   inner.dataset.inkChildren = '';
   root.append(overlay, inner);
+  // An empty Frame keeps a discoverable footprint in the editor, per axis, exactly where the
+  // content decides the size. It is chrome (see canvas-editor.scss), never a stored style: a
+  // persisted 120x80 minimum would publish, and would pin a Frame that hugs, or that the author
+  // sized by hand (a drawn 7px dot is an empty Frame too).
+  if (!((_node$children = node.children) !== null && _node$children !== void 0 && _node$children.length)) {
+    var _node$styles3;
+    var base = ((_node$styles3 = node.styles) === null || _node$styles3 === void 0 || (_node$styles3 = _node$styles3.desktop) === null || _node$styles3 === void 0 ? void 0 : _node$styles3.base) || {};
+    if (base.width === undefined || (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.isHugSize)(base.width)) root.classList.add('ink-is-empty-w');
+    if (base.height === undefined || (0,_styleValues_js__WEBPACK_IMPORTED_MODULE_1__.isHugSize)(base.height)) root.classList.add('ink-is-empty-h');
+  }
   return root;
 }
 var layoutControls = [{
@@ -26409,7 +26535,7 @@ function registerInkFoundationElements(registry) {
       if (!(node.children || []).length && node.settings.icon) {
         var iconEl = domDocument.createElement('span');
         iconEl.className = 'ink-el-button-icon';
-        iconEl.appendChild((0,_icons_js__WEBPACK_IMPORTED_MODULE_1__.renderIcon)(domDocument, node.settings.icon));
+        iconEl.appendChild((0,_icons_js__WEBPACK_IMPORTED_MODULE_2__.renderIcon)(domDocument, node.settings.icon));
         if (node.settings.iconPosition === 'after') {
           iconEl.classList.add('is-after');
           surface.append(label, iconEl);
@@ -29042,9 +29168,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   BOX_KEYS: () => (/* binding */ BOX_KEYS),
 /* harmony export */   FILTER_KEYS: () => (/* binding */ FILTER_KEYS),
 /* harmony export */   GAP_KEYS: () => (/* binding */ GAP_KEYS),
+/* harmony export */   HUG_SIZES: () => (/* binding */ HUG_SIZES),
 /* harmony export */   SHADOW_KEYS: () => (/* binding */ SHADOW_KEYS),
 /* harmony export */   SIZE_KEYS: () => (/* binding */ SIZE_KEYS),
 /* harmony export */   STROKE_KEYS: () => (/* binding */ STROKE_KEYS),
+/* harmony export */   isHugSize: () => (/* binding */ isHugSize),
 /* harmony export */   isRecord: () => (/* binding */ isRecord),
 /* harmony export */   isUnsupportedValue: () => (/* binding */ isUnsupportedValue),
 /* harmony export */   normalizeStyleValue: () => (/* binding */ normalizeStyleValue),
@@ -29171,6 +29299,14 @@ function previewValue(value) {
   if (Array.isArray(value)) return "[".concat(value.length, " items]");
   return "{".concat(Object.keys(value).slice(0, 6).join(', '), "}");
 }
+
+// A size the content decides rather than a magnitude the author typed. `fit-content` is the
+// builder's own Frame default, so a stored minimum sitting next to it is placeholder chrome --
+// "as wide as my content" and "never narrower than 120px" cannot both be a design decision.
+var HUG_SIZES = new Set(['fit-content', 'max-content', 'min-content', 'auto']);
+var isHugSize = function isHugSize(value) {
+  return typeof value === 'string' && HUG_SIZES.has(value.trim().toLowerCase());
+};
 
 /***/ }),
 
@@ -29723,7 +29859,7 @@ var TabsManager = /*#__PURE__*/function () {
 /***/ ((module) => {
 
 "use strict";
-module.exports = "html:has(> body.ink-builder-design), body.ink-builder-design {\n  overflow: clip !important;\n  overscroll-behavior: none;\n}\n\nbody.ink-builder-design {\n  --ink-editor-accent: #0099ff;\n  --ink-handle-scale: calc(1 / var(--ink-editor-canvas-scale, 1));\n}\nbody.ink-builder-design .ink-canvas-root:has(> .ink-element) {\n  padding-top: 0;\n}\nbody.ink-builder-design .ink-element[data-ink-kind=container] > .ink-editor-overlay {\n  box-shadow: none;\n}\nbody.ink-builder-design .ink-element:hover > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent);\n}\nbody.ink-builder-design .ink-element.ink-is-selected > .ink-editor-overlay,\nbody.ink-builder-design .ink-element.ink-is-selected[data-ink-kind=container] > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent);\n}\nbody.ink-builder-design .ink-editor-toolbar {\n  display: none;\n}\nbody.ink-builder-design .ink-resize-handle.is-corner {\n  width: calc(7px * var(--ink-handle-scale));\n  height: calc(7px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=nw] {\n  top: calc(-3.5px * var(--ink-handle-scale));\n  left: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=ne] {\n  top: calc(-3.5px * var(--ink-handle-scale));\n  right: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=sw] {\n  bottom: calc(-3.5px * var(--ink-handle-scale));\n  left: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=se] {\n  bottom: calc(-3.5px * var(--ink-handle-scale));\n  right: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-edge {\n  background: transparent;\n}\nbody.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=n], body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=s] {\n  height: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=e], body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=w] {\n  width: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=nw], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=se] {\n  cursor: nwse-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=ne], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=sw] {\n  cursor: nesw-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=n], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=s] {\n  cursor: ns-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=e], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=w] {\n  cursor: ew-resize;\n}\nbody.ink-builder-design .ink-rotate-handle {\n  top: calc(-24px * var(--ink-handle-scale));\n  width: calc(9px * var(--ink-handle-scale));\n  height: calc(9px * var(--ink-handle-scale));\n  margin-left: calc(-4.5px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-rotate-handle::before {\n  bottom: calc(-15px * var(--ink-handle-scale));\n  height: calc(15px * var(--ink-handle-scale));\n  width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-radius-handle {\n  top: calc(13px * var(--ink-handle-scale));\n  right: calc(13px * var(--ink-handle-scale));\n  width: calc(7px * var(--ink-handle-scale));\n  height: calc(7px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty {\n  min-height: calc(180px * var(--ink-handle-scale));\n  max-width: calc(100% - 80px * var(--ink-handle-scale));\n  margin: calc(40px * var(--ink-handle-scale)) auto;\n  border: calc(1px * var(--ink-handle-scale)) dashed #cbd0d7;\n  border-radius: calc(10px * var(--ink-handle-scale));\n  gap: calc(14px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-actions {\n  gap: calc(10px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-action {\n  width: calc(36px * var(--ink-handle-scale));\n  height: calc(36px * var(--ink-handle-scale));\n  box-shadow: none;\n  background: #f0f3f7;\n  color: #4a5665;\n  border-radius: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-action .material-symbols-rounded {\n  font-size: calc(18px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-caption {\n  font: calc(12px * var(--ink-handle-scale))/1.5 Inter, sans-serif;\n  color: #798390;\n}\nbody.ink-builder-design .ink-resize-tooltip, body.ink-builder-design .ink-radius-tooltip, body.ink-builder-design .ink-rotate-tooltip {\n  font-size: calc(11px * var(--ink-handle-scale));\n  line-height: 1.4;\n  padding: calc(3px * var(--ink-handle-scale)) calc(6px * var(--ink-handle-scale));\n}\n\nbody.ink-comment-mode, body.ink-comment-mode * {\n  cursor: crosshair !important;\n}\n\nbody.ink-builder-design.ink-comment-mode, body.ink-builder-design.ink-comment-mode * {\n  cursor: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M5 3h16a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H10l-7 5V7a4 4 0 0 1 2-4Z' fill='%23eeb643' stroke='%23171717' stroke-width='1.5'/%3E%3Cpath d='M10 12h8m-4-4v8' stroke='%23171717' stroke-width='2'/%3E%3C/svg%3E\") 3 26, crosshair !important;\n}\nbody.ink-builder-design.ink-comment-mode .ink-resize-handle, body.ink-builder-design.ink-comment-mode .ink-rotate-handle, body.ink-builder-design.ink-comment-mode .ink-radius-handle {\n  display: none !important;\n}\nbody.ink-builder-design.ink-comment-mode .ink-element.ink-is-selected > .ink-editor-overlay {\n  box-shadow: none;\n}\nbody.ink-builder-design.ink-comment-mode .ink-element:hover > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) #eeb643;\n}";
+module.exports = "html:has(> body.ink-builder-design), body.ink-builder-design {\n  overflow: clip !important;\n  overscroll-behavior: none;\n}\n\n.ink-el-frame.ink-is-empty-w {\n  min-width: 120px;\n}\n\n.ink-el-frame.ink-is-empty-h {\n  min-height: 80px;\n}\n\nbody.ink-builder-design {\n  --ink-editor-accent: #0099ff;\n  --ink-handle-scale: calc(1 / var(--ink-editor-canvas-scale, 1));\n}\nbody.ink-builder-design .ink-canvas-root:has(> .ink-element) {\n  padding-top: 0;\n}\nbody.ink-builder-design .ink-element[data-ink-kind=container] > .ink-editor-overlay {\n  box-shadow: none;\n}\nbody.ink-builder-design .ink-element:hover > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent);\n}\nbody.ink-builder-design .ink-element.ink-is-selected > .ink-editor-overlay,\nbody.ink-builder-design .ink-element.ink-is-selected[data-ink-kind=container] > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) var(--ink-editor-accent);\n}\nbody.ink-builder-design .ink-editor-toolbar {\n  display: none;\n}\nbody.ink-builder-design .ink-resize-handle.is-corner {\n  width: calc(7px * var(--ink-handle-scale));\n  height: calc(7px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=nw] {\n  top: calc(-3.5px * var(--ink-handle-scale));\n  left: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=ne] {\n  top: calc(-3.5px * var(--ink-handle-scale));\n  right: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=sw] {\n  bottom: calc(-3.5px * var(--ink-handle-scale));\n  left: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-corner[data-ink-resize-handle=se] {\n  bottom: calc(-3.5px * var(--ink-handle-scale));\n  right: calc(-3.5px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-edge {\n  background: transparent;\n}\nbody.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=n], body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=s] {\n  height: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=e], body.ink-builder-design .ink-resize-handle.is-edge[data-ink-resize-handle=w] {\n  width: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=nw], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=se] {\n  cursor: nwse-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=ne], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=sw] {\n  cursor: nesw-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=n], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=s] {\n  cursor: ns-resize;\n}\nbody.ink-builder-design .ink-resize-handle[data-ink-resize-handle=e], body.ink-builder-design .ink-resize-handle[data-ink-resize-handle=w] {\n  cursor: ew-resize;\n}\nbody.ink-builder-design .ink-rotate-handle {\n  top: calc(-24px * var(--ink-handle-scale));\n  width: calc(9px * var(--ink-handle-scale));\n  height: calc(9px * var(--ink-handle-scale));\n  margin-left: calc(-4.5px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-rotate-handle::before {\n  bottom: calc(-15px * var(--ink-handle-scale));\n  height: calc(15px * var(--ink-handle-scale));\n  width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-radius-handle {\n  top: calc(13px * var(--ink-handle-scale));\n  right: calc(13px * var(--ink-handle-scale));\n  width: calc(7px * var(--ink-handle-scale));\n  height: calc(7px * var(--ink-handle-scale));\n  border-width: calc(1px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty {\n  min-height: calc(180px * var(--ink-handle-scale));\n  max-width: calc(100% - 80px * var(--ink-handle-scale));\n  margin: calc(40px * var(--ink-handle-scale)) auto;\n  border: calc(1px * var(--ink-handle-scale)) dashed #cbd0d7;\n  border-radius: calc(10px * var(--ink-handle-scale));\n  gap: calc(14px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-actions {\n  gap: calc(10px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-action {\n  width: calc(36px * var(--ink-handle-scale));\n  height: calc(36px * var(--ink-handle-scale));\n  box-shadow: none;\n  background: #f0f3f7;\n  color: #4a5665;\n  border-radius: calc(8px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-action .material-symbols-rounded {\n  font-size: calc(18px * var(--ink-handle-scale));\n}\nbody.ink-builder-design .ink-editor-root-empty .ink-empty-caption {\n  font: calc(12px * var(--ink-handle-scale))/1.5 Inter, sans-serif;\n  color: #798390;\n}\nbody.ink-builder-design .ink-resize-tooltip, body.ink-builder-design .ink-radius-tooltip, body.ink-builder-design .ink-rotate-tooltip {\n  font-size: calc(11px * var(--ink-handle-scale));\n  line-height: 1.4;\n  padding: calc(3px * var(--ink-handle-scale)) calc(6px * var(--ink-handle-scale));\n}\n\nbody.ink-comment-mode, body.ink-comment-mode * {\n  cursor: crosshair !important;\n}\n\nbody.ink-builder-design.ink-comment-mode, body.ink-builder-design.ink-comment-mode * {\n  cursor: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M5 3h16a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H10l-7 5V7a4 4 0 0 1 2-4Z' fill='%23eeb643' stroke='%23171717' stroke-width='1.5'/%3E%3Cpath d='M10 12h8m-4-4v8' stroke='%23171717' stroke-width='2'/%3E%3C/svg%3E\") 3 26, crosshair !important;\n}\nbody.ink-builder-design.ink-comment-mode .ink-resize-handle, body.ink-builder-design.ink-comment-mode .ink-rotate-handle, body.ink-builder-design.ink-comment-mode .ink-radius-handle {\n  display: none !important;\n}\nbody.ink-builder-design.ink-comment-mode .ink-element.ink-is-selected > .ink-editor-overlay {\n  box-shadow: none;\n}\nbody.ink-builder-design.ink-comment-mode .ink-element:hover > .ink-editor-overlay {\n  box-shadow: 0 0 0 calc(1px * var(--ink-handle-scale)) #eeb643;\n}";
 
 /***/ }),
 
