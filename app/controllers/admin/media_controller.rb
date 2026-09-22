@@ -70,19 +70,10 @@ module Admin
     end
 
     def media_library_json(items)
-      items.map do |item|
-        blob = item.file.blob
-        {
-          id: item.id,
-          url: item.url,
-          alt: item.alt_text.presence,
-          caption: item.caption.presence,
-          filename: blob.filename.to_s,
-          kind: item.kind,
-          width: blob.metadata["width"],
-          height: blob.metadata["height"]
-        }.compact
-      end
+      # MediaItem#library_json is the single shape for the admin grid, the Copilot's list_media
+      # tool, and the image-search results — so a picture acquired from an outside library is
+      # placed with the same fields as an upload, provenance included.
+      items.map(&:library_json)
     end
 
     def render_media_index

@@ -16,12 +16,26 @@ module Admin
         class: "group relative aspect-square overflow-hidden rounded-xl border border-border bg-muted shadow-sm transition-all hover:shadow-md"
       ) do
         render_preview
+        render_provenance_badge
         render_hover_overlay
         render_details_dialog
       end
     end
 
     private
+
+    # A picture fetched from an outside library keeps a visible mark of where it came from, so
+    # a licence's attribution requirement is not something you only discover after publishing.
+    def render_provenance_badge
+      return unless @item.external?
+
+      div(
+        class: "pointer-events-none absolute left-1.5 top-1.5 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur-sm"
+      ) do
+        render Icon.new(:globe, size: :sm)
+        span { @item.provider.to_s.titleize }
+      end
+    end
 
     def render_preview
       if @item.image?
@@ -88,6 +102,19 @@ module Admin
               div(class: "mb-4 flex items-center gap-3 rounded-lg bg-muted p-4") do
                 render Icon.new(:file, size: :md)
                 span(class: "break-all text-sm text-muted-foreground") { @item.file.filename }
+              end
+            end
+
+            if @item.external?
+              div(class: "mb-4 rounded-lg border border-border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground") do
+                div(class: "mb-1 font-medium text-foreground") { "Credit" }
+                div { @item.credit.presence || "Unknown creator" }
+                if @item.license.present?
+                  div { @item.license }
+                end
+                if @item.credit_url.present?
+                  a(href: @item.credit_url, target: "_blank", rel: "noopener", class: "mt-1 inline-block font-medium text-primary hover:underline") { "View source" }
+                end
               end
             end
 

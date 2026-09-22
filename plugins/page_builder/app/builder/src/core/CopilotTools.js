@@ -12,7 +12,7 @@ import { materializeSpec, specNodeCount } from './elementSpec.js';
 import { auditStore } from './designAudit.js';
 import { isUnsupportedValue, previewValue, shapeOf } from './styleValues.js';
 import { iconCount, libraryTitle, searchIcons } from './icons.js';
-import { availableMediaTools, generateImage, listMedia, mediaLibraryUrl } from './mediaTools.js';
+import { availableMediaTools, generateImage, imageProviders, imageSearchUrl, listMedia, mediaLibraryUrl, searchImages } from './mediaTools.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -154,10 +154,10 @@ export function createCopilotTools(runtime, builder) {
             media: {
                 listTool: 'list_media',
                 listUrl: mediaLibraryUrl(),
+                searchTool: canSearchImages() ? 'search_images' : null,
+                searchKinds: canSearchImages() ? imageProviders() : [],
                 generateTool: canGenerateImages() ? 'generate_image' : null,
-                guidance: canGenerateImages()
-                    ? 'Pictures are real files in the site media library. Call list_media first and place a returned url in an Image element settings.src with its alt text; when the library has nothing suitable, generate_image creates a picture and files it in that same library. Always set alt. Never hotlink an outside image and never invent a url.'
-                    : 'Pictures are real files in the site media library. Call list_media and place a returned url in an Image element settings.src with its alt text. This site cannot generate pictures: when the library has nothing suitable, leave the media empty and let type and layout carry the design — never invent a url.',
+                guidance: mediaGuidance(),
             },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },
             shaderFills: { presets: SHADER_PRESETS.map(([id]) => id), setting: 'shaderFill', example: { enabled: true, preset: 'mesh-gradient', speed: .5, intensity: .7 }, customShader: CUSTOM_SHADER_EXAMPLE, guidance: 'Apply shader fills to existing layers with set_shader_fill. Custom GLSL compiles before applying and stays editable in Fill.' },
@@ -178,6 +178,27 @@ export function createCopilotTools(runtime, builder) {
     // Image generation is a configured capability, not a promise: it is advertised (and
     // offered to the model) only while the site names an image model.
     const canGenerateImages = () => availableMediaTools().some((tool) => tool.name === 'generate_image');
+    const canSearchImages = () => availableMediaTools().some((tool) => tool.name === 'search_images');
+
+    // The picture rules are assembled from what this site can actually do, so the model is never
+    // told to reach for a source the server cannot serve.
+    const mediaGuidance = () => {
+        const parts = [
+            'Pictures are real files in the site media library. Call list_media first and place a returned url in an Image element settings.src with its alt text; the owner\'s own pictures win.',
+            'Always set alt. Never hotlink an outside image and never invent a url.',
+        ];
+        if (canSearchImages()) {
+            const kinds = [ ...new Set(imageProviders().map((entry) => entry.kind)) ].join(', ');
+            parts.push(`When the library has nothing suitable, search_images reaches libraries outside the site (${kinds}) and files what it finds into that same library, so the returned url is an ordinary media file; carry any credit the result names.`);
+        }
+        if (canGenerateImages()) {
+            parts.push('generate_image then creates a picture that does not exist anywhere and files it the same way.');
+        }
+        if (!canSearchImages() && !canGenerateImages()) {
+            parts.push('This site can neither search nor generate pictures: when the library has nothing suitable, leave the media empty and let type and layout carry the design.');
+        }
+        return parts.join(' ');
+    };
 
     const countSpec = specNodeCount;
     const materialize = (spec, parent = null) => materializeSpec(runtime, spec, parent);
@@ -492,6 +513,7 @@ export function createCopilotTools(runtime, builder) {
                 case 'audit_design': return asJson(auditDesign());
                 case 'search_icons': return asJson({ query: args.query, results: searchIcons(args.query, Number(args.limit) || 24) });
                 case 'list_media': return settle(listMedia(args));
+                case 'search_images': return settle(searchImages(args));
                 case 'generate_image': return settle(generateImage(args));
                 case 'compose_landing_page': return asJson(composeLandingPage(args));
                 case 'compose_page': return asJson(composeArchetypePage(args));

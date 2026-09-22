@@ -29,6 +29,44 @@ class MediaItem < ApplicationRecord
     kind == "image"
   end
 
+  # True when this picture was acquired from an outside source rather than uploaded here. The
+  # provenance columns are set by whoever fetched it (e.g. the Image Sources plugin) and stay
+  # on the file afterwards, so a credit survives plugin removal.
+  def external?
+    provider.present?
+  end
+
+  # The line a page can show to satisfy a licence's attribution requirement, or nil when the
+  # file was uploaded locally (no obligation). Unknown-creator items keep the provider name so
+  # attribution is never silently dropped.
+  def credit_line
+    return unless external?
+
+    [ credit.presence || provider, license.presence ].compact.join(" · ")
+  end
+
+  # One shape for the admin grid and the Copilot's media tools, so an acquired picture is
+  # placed with the same fields as an uploaded one — plus the provenance the model should carry
+  # onto the page.
+  def library_json
+    blob = file.blob
+    {
+      id: id,
+      url: url,
+      alt: alt_text.presence,
+      caption: caption.presence,
+      filename: blob&.filename&.to_s,
+      kind: kind,
+      width: blob&.metadata&.dig("width"),
+      height: blob&.metadata&.dig("height"),
+      provider: provider.presence,
+      credit: credit.presence,
+      credit_url: credit_url.presence,
+      license: license.presence,
+      source_url: source_url.presence
+    }.compact
+  end
+
   def thumbnail_url
     return unless file.attached? && file.representable?
 

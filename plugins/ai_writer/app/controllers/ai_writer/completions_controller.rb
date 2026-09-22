@@ -714,24 +714,35 @@ module AiWriter
     # an otherwise valid run; hiding a tool the client did send leaves every frame empty.
     def images_rule
       names = Array(@client_tool_names)
-      lists, generates = names.include?("list_media"), names.include?("generate_image")
+      lists = names.include?("list_media")
+      searches = names.include?("search_images")
+      generates = names.include?("generate_image")
 
-      if lists && generates
-        "the site's own media library and an image generator are both available — call list_media " \
-        "to see the pictures the owner already has and put a returned url in an Image element's src " \
-        "with its alt text, and when nothing there suits the concept call generate_image with a " \
-        "detailed written description, then place its url the same way. Never hotlink an outside " \
-        "image or invent a url; if both come up empty an empty media slot beats a broken one."
-      elsif lists
-        "the site has a real media library — call list_media and put a returned url in an Image " \
-        "element's src with its alt text. This site cannot generate pictures, so when nothing in " \
-        "the library suits the concept, leave the media empty and shape the layout with type and " \
-        "colour. Never hotlink an outside image or invent a url."
-      else
-        "the page has no image search or generation tool, so an empty media slot is better than a " \
-        "broken one. Leave the media empty and shape the layout with type and colour, or reference " \
-        "a URL the user already gave you; never point at a stock or placeholder host you cannot verify."
+      if !lists && !searches && !generates
+        return "the page has no image search or generation tool, so an empty media slot is better " \
+               "than a broken one. Leave the media empty and shape the layout with type and colour, " \
+               "or reference a URL the user already gave you; never point at a stock or placeholder " \
+               "host you cannot verify."
       end
+
+      # The order is the order a designer would try them — what the site owns, what it can find,
+      # what it can invent — and only the steps this client actually published appear, so the
+      # model is never sent to a tool it does not have.
+      steps = []
+      steps << "call list_media to see the pictures the owner already has" if lists
+      if searches
+        steps << "call search_images to find a free photo, logo, avatar, mascot or screenshot in an " \
+                 "outside library (it is filed into this site's media library for you, and each result " \
+                 "names its licence and credit — keep any credit it names somewhere on the page)"
+      end
+      if generates
+        steps << "call generate_image to make a picture from a detailed written description when " \
+                 "nothing that already exists will do"
+      end
+
+      "the site's media library is the source of pictures — #{steps.join('; ')}, then place the url " \
+      "you get in an Image element's src with its alt text. Never hotlink an outside image or invent " \
+      "a url; if the tools come up empty, an empty media slot beats a broken one."
     end
 
     def parse_client_tools

@@ -1088,6 +1088,36 @@ async function main() {
       state.library && state.hidden && state.offered && state.advertised && state.listed &&
       state.total>=state.count && state.shaped && state.guidance, JSON.stringify(state));
 
+    // Image search is contributed by a plugin, so the tool surface must follow what the page
+    // actually published: kinds only when a source can serve them, and the route must answer
+    // (422 for a kind nobody provides) rather than 500 when the plugin is installed.
+    state = await client.evaluate(`(async function(){
+      var tools=builder.copilotTools, config=window.inkCopilot;
+      var names=function(){return tools.TOOLS.map(function(tool){return tool.name;});};
+      var published=!!(config&&config.imageSearchUrl);
+      window.inkCopilot={imageSearchUrl:'/plugins/image_sources/search',imageProviders:[{kind:'photo',label:'Openverse',provider:'openverse'}]};
+      var withSearch=names();
+      var tool=tools.TOOLS.filter(function(entry){return entry.name==='search_images';})[0];
+      var advertised=JSON.parse(tools.apply('get_capabilities')).media.searchTool;
+      window.inkCopilot={imageUrl:null};
+      var blind=names();
+      window.inkCopilot={imageSearchUrl:'/plugins/image_sources/search',imageProviders:[]};
+      var noKinds=names();
+      window.inkCopilot=config;
+      var restored=names();
+      var status=0;
+      try { status=(await fetch('/plugins/image_sources/search?q=x&kind=__smoke__',{headers:{Accept:'application/json'}})).status; }
+      catch (error) { status=-1; }
+      return {published:published, offered:withSearch.indexOf('search_images')!==-1,
+              blind:blind.indexOf('search_images')===-1, noKinds:noKinds.indexOf('search_images')===-1,
+              restored:restored.indexOf('search_images')!==-1,
+              enum:tool?tool.parameters.properties.kind.enum:null, advertised:advertised, status:status};
+    })()`);
+    check("Copilot image search appears only for the kinds the site can serve, and its route answers",
+      state.offered && state.blind && state.noKinds && state.restored === state.published && state.advertised === 'search_images' &&
+      JSON.stringify(state.enum) === JSON.stringify([ 'photo' ]) &&
+      (state.status === 422 || state.status === 404 || state.status === 0), JSON.stringify(state));
+
 
     state = await client.evaluate(`(function(){
       var r=builder.runtime;

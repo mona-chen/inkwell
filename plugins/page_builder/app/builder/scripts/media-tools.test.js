@@ -1,11 +1,11 @@
 "use strict";
 
-// The image gap: an AI design had no way to see the site's media library and no way to make a
-// picture, so every image slot came out empty or held an invented URL. Two rules are load-bearing
-// here. The library list is always offered, because reading it needs no configuration; the
-// generator is offered only while the site names an image model, because a tool the server cannot
-// fulfil is worse than a missing one — the model calls it and stalls the run. Both tools hand back
-// the { id, url, alt } shape an Image element's settings.src wants.
+// The image gap: an AI design had no way to see the site's media library and no way to get a
+// picture, so every image slot came out empty or held an invented URL. One rule is load-bearing:
+// a tool is offered only while the server can actually fulfil it, because a tool the server
+// cannot serve is worse than a missing one — the model calls it and stalls the run. Listing the
+// library always qualifies; generating needs an image model; searching needs a source plugin.
+// Every tool hands back the { id, url, alt } shape an Image element's settings.src wants.
 
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -34,7 +34,7 @@ const jsonResponse = (payload, ok = true, status = 200) => ({
     ok, status, json: async () => payload,
 });
 
-test('the library is always listable, and generation follows the site configuration', async () => {
+test('the library is always listable, and search and generation follow the site configuration', async () => {
     const { availableMediaTools } = await load();
     const names = () => availableMediaTools().map((tool) => tool.name);
 
@@ -44,6 +44,78 @@ test('the library is always listable, and generation follows the site configurat
     assert.deepEqual(names(), [ 'list_media' ]);
     withGlobals({ imageUrl: '/plugins/ai_writer/images' });
     assert.deepEqual(names(), [ 'list_media', 'generate_image' ]);
+
+    // Image search is contributed by whichever plugin can serve it, and the kinds it advertises
+    // are the kinds that server can actually answer.
+    withGlobals({
+        imageUrl: null,
+        imageSearchUrl: '/plugins/image_sources/search',
+        imageProviders: [ { kind: 'photo', label: 'Openverse', provider: 'openverse' }, { kind: 'logo', label: 'Simple Icons', provider: 'simple_icons' } ],
+    });
+    assert.deepEqual(names(), [ 'list_media', 'search_images' ]);
+    const tool = availableMediaTools().find((entry) => entry.name === 'search_images');
+    assert.deepEqual(tool.parameters.properties.kind.enum, [ 'photo', 'logo' ]);
+
+    // An endpoint with no usable source is not a capability, and neither is a source with no
+    // endpoint to reach it through.
+    withGlobals({ imageSearchUrl: '/plugins/image_sources/search', imageProviders: [] });
+    assert.deepEqual(names(), [ 'list_media' ]);
+    withGlobals({ imageSearchUrl: null, imageProviders: [ { kind: 'photo' } ] });
+    assert.deepEqual(names(), [ 'list_media' ]);
+});
+
+test('search_images asks the configured source and returns placeable media with its provenance', async () => {
+    const { searchImages } = await load();
+    const calls = withGlobals({
+        imageUrl: null,
+        imageSearchUrl: '/plugins/image_sources/search',
+        imageProviders: [ { kind: 'photo', label: 'Openverse', provider: 'openverse' } ],
+    }, [ jsonResponse({
+        query: 'misty pine forest', kind: 'photo', total: 1,
+        results: [ { id: 31, url: '/media/31/file', alt: 'Pine forest in fog', kind: 'image', provider: 'openverse', credit: 'A. Photographer', license: 'CC BY 4.0' } ],
+        guidance: 'server-side copy is deliberately ignored',
+    }) ]);
+
+    const result = await searchImages({ query: 'misty pine forest', kind: 'photo', limit: 99 });
+
+    assert.match(calls[0].url, /^https:\/\/example\.test\/plugins\/image_sources\/search\?/);
+    assert.match(calls[0].url, /q=misty\+pine\+forest/);
+    assert.match(calls[0].url, /kind=photo/);
+    // A page of candidates, never a crawl of the library.
+    assert.match(calls[0].url, /limit=8/);
+    assert.equal(result.total, 1);
+    assert.equal(result.results[0].url, '/media/31/file');
+    assert.match(result.guidance, /settings\.src/);
+});
+
+test('search_images passes a logo colour through and reports a source that failed', async () => {
+    const { searchImages } = await load();
+    const calls = withGlobals({ imageSearchUrl: '/plugins/image_sources/search', imageProviders: [ { kind: 'logo' } ] }, [
+        jsonResponse({ query: 'stripe', kind: 'logo', total: 0, results: [], errors: [ 'Microlink: the image provider answered with 429.' ] }),
+    ]);
+
+    const result = await searchImages({ query: 'stripe', kind: 'logo', color: '#ffffff' });
+
+    assert.match(calls[0].url, /color=%23ffffff/);
+    assert.equal(result.total, 0);
+    assert.deepEqual(result.errors, [ 'Microlink: the image provider answered with 429.' ]);
+    assert.match(result.guidance, /429/);
+});
+
+test('search_images refuses locally without a source or a query, and surfaces a server refusal', async () => {
+    const { searchImages } = await load();
+
+    const calls = withGlobals({ imageSearchUrl: null }, []);
+    await assert.rejects(() => searchImages({ query: 'anything' }), /no image source/);
+    assert.equal(calls.length, 0);
+
+    withGlobals({ imageSearchUrl: '/plugins/image_sources/search', imageProviders: [ { kind: 'photo' } ] }, []);
+    await assert.rejects(() => searchImages({ query: '   ' }), /needs a query/);
+
+    withGlobals({ imageSearchUrl: '/plugins/image_sources/search', imageProviders: [ { kind: 'photo' } ] }, [
+        jsonResponse({ error: 'No image source on this site provides “screenshot”.' }, false, 422),
+    ]);
+    await assert.rejects(() => searchImages({ query: 'x', kind: 'screenshot' }), /screenshot/);
 });
 
 test('list_media reads the site library and returns placeable media', async () => {
@@ -92,13 +164,25 @@ test('list_media tells the model what to do when the library is empty', async ()
     assert.doesNotMatch(result.guidance, /generate_image/);
 });
 
-test('list_media points an empty result at the generator only when the site has one', async () => {
+test('list_media points an empty result at search and generation only when the site has them', async () => {
     const { listMedia } = await load();
     withGlobals({ imageUrl: '/plugins/ai_writer/images' }, [ jsonResponse({ total: 0, media: [] }) ]);
 
-    const result = await listMedia({});
+    assert.match((await listMedia({})).guidance, /call generate_image/);
 
-    assert.match(result.guidance, /Call generate_image/);
+    // With a search source too, the empty library points at both.
+    withGlobals({
+        imageUrl: '/plugins/ai_writer/images',
+        imageSearchUrl: '/plugins/image_sources/search',
+        imageProviders: [ { kind: 'photo' } ],
+    }, [ jsonResponse({ total: 0, media: [] }) ]);
+    const both = (await listMedia({})).guidance;
+    assert.match(both, /call search_images/);
+    assert.match(both, /call generate_image/);
+
+    // With neither, the model is told to build without a picture rather than to invent one.
+    withGlobals({ imageUrl: null }, [ jsonResponse({ total: 0, media: [] }) ]);
+    assert.match((await listMedia({})).guidance, /neither search nor generate/);
 });
 
 test('list_media surfaces a refused library read instead of inventing media', async () => {
