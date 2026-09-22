@@ -1170,6 +1170,40 @@ async function main() {
       state.hasUrl && state.hasQuery && state.guard && state.search, JSON.stringify(state));
 
 
+    // A rejected tree must not cost the whole page. replace_page is atomic, so the rejection IS the
+    // only feedback the composer gets: it has to name where the tree broke and say that nothing
+    // changed. A bare "Every tree node requires a type." left a model retrying the same payload until
+    // its round budget ran out — which is how "rebuild the entire page" produced a lone header.
+    state = await client.evaluate(`(function(){
+      var tools=builder.copilotTools, r=builder.runtime;
+      var before=JSON.stringify(r.serialize());
+      var tree={type:'container', settings:{tag:'section'}, children:[
+        {type:'heading', settings:{text:'Kept'}},
+        {settings:{text:'lost its type'}},
+        {type:'container', children:[{type:'hologram'}]}
+      ]};
+      var rejected=JSON.parse(tools.apply('append_tree', {tree:tree}));
+      var unchanged=JSON.stringify(r.serialize())===before;
+      var replaced=JSON.parse(tools.apply('replace_page', {children:[{type:'container', children:[{settings:{}}]}]}));
+      var stillUnchanged=JSON.stringify(r.serialize())===before;
+      var good=JSON.parse(tools.apply('append_tree', {tree:{type:'container', settings:{tag:'section'}, children:[{type:'heading', settings:{text:'Real'}}]}}));
+      var inserted=good.ok===true && JSON.stringify(r.serialize())!==before;
+      tools.apply('undo');
+      var restored=JSON.stringify(r.serialize())===before;
+      var error=String(rejected.error||''), replaceError=String(replaced.error||'');
+      return {rejected:rejected.ok===false,
+              missing:error.indexOf('tree[0].children[1] has no "type"')!==-1,
+              unknown:error.indexOf('tree[0].children[2].children[0] uses "hologram"')!==-1,
+              nothing:error.indexOf('NOTHING changed')!==-1, counted:error.indexOf('2 problems')!==-1,
+              unchanged:unchanged,
+              replacePath:replaceError.indexOf('children[0].children[0] has no "type"')!==-1,
+              stillUnchanged:stillUnchanged, inserted:inserted, restored:restored};
+    })()`);
+    check("a rejected tree names every offending path and changes nothing, and a valid one still inserts",
+      state.rejected && state.missing && state.unknown && state.nothing && state.counted && state.unchanged &&
+      state.replacePath && state.stillUnchanged && state.inserted && state.restored, JSON.stringify(state));
+
+
     state = await client.evaluate(`(function(){
       var r=builder.runtime;
       return { baseline: window.__registryBaseline, count: r.elements.list().length, hasLab: r.elements.has('control-lab') };

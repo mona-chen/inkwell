@@ -8,7 +8,7 @@ import {
     DEFAULT_TOKENS, applyDesignTokens, describeTokens, ensureDesignCss, normalizeTokens, presetNames, presetTokens, tokenVariables, tokensFromPageSettings,
 } from './designTokens.js';
 import { archetype, buildSection, composePage, listArchetypes } from './sectionArchetypes.js';
-import { materializeSpec, specNodeCount } from './elementSpec.js';
+import { materializeSpec, specNodeCount, specProblems } from './elementSpec.js';
 import { auditStore } from './designAudit.js';
 import { isUnsupportedValue, previewValue, shapeOf } from './styleValues.js';
 import { iconCount, libraryTitle, searchIcons } from './icons.js';
@@ -231,6 +231,25 @@ export function createCopilotTools(runtime, builder) {
     const countSpec = specNodeCount;
     const materialize = (spec, parent = null) => materializeSpec(runtime, spec, parent);
 
+    // A whole tree is rejected as one unit — that is what keeps the page atomic — so the rejection
+    // has to carry everything needed to fix it in ONE retry. Naming only the first problem, or only
+    // "a type is missing" without saying where in a 300-node payload, leaves the composer guessing
+    // until its round budget is gone: the page then keeps whatever it had, and the user sees a
+    // single leftover section with no explanation.
+    const specRejection = (specs, label) => {
+        const problems = [];
+        specs.forEach((spec, index) => specProblems(runtime, spec, `${label === 'replace_page' ? 'children' : 'tree'}[${index}]`, null, problems));
+        if (!problems.length) return null;
+
+        const shown = problems.slice(0, 8);
+        const remaining = problems.length - shown.length;
+        return `${label} was rejected and NOTHING changed — ${problems.length} problem${problems.length === 1 ? '' : 's'}: ` +
+            `${shown.join('; ')}${remaining > 0 ? `; and ${remaining} more` : ''}. ` +
+            'Every node at EVERY level needs "type" set to an exact element type from get_capabilities ' +
+            '("frame", "container", "heading", "paragraph", "button", "image", …), plus optional settings, ' +
+            'styles and children. Types are case-sensitive and nested nodes are not exempt.';
+    };
+
     // The write half of the style contract. Storage is always repaired to the canonical shape, and
     // a value the compiler will have to drop is reported back in the tool result so the next call
     // can correct it. A silently dropped value is how a page ends up styled in the tree and
@@ -287,6 +306,8 @@ export function createCopilotTools(runtime, builder) {
     const replacePage = (args) => {
         if (!Array.isArray(args.children) || !args.children.length) throw new TypeError('replace_page requires a non-empty children array; the existing page was preserved. Send the complete tree in one call, or build the page section by section with append_tree when it is too large for one payload.');
         const specs = args.children;
+        const broken = specRejection(specs, 'replace_page');
+        if (broken) throw new TypeError(broken);
         const nodeCount = specs.reduce((sum, spec) => sum + countSpec(spec), 0);
         if (nodeCount > MAX_TREE_NODES) throw new RangeError(`Page has ${nodeCount} nodes; maximum is ${MAX_TREE_NODES}.`);
         const children = specs.map((spec) => materialize(spec));
@@ -310,6 +331,8 @@ export function createCopilotTools(runtime, builder) {
     };
 
     const appendTree = (args) => {
+        const broken = specRejection([ args.tree ], 'append_tree');
+        if (broken) throw new TypeError(broken);
         const total = countSpec(args.tree);
         if (total > MAX_TREE_NODES) throw new RangeError(`Tree has ${total} nodes; maximum is ${MAX_TREE_NODES}.`);
         const target = resolve(args.path || args.id);
@@ -631,7 +654,7 @@ export function createCopilotTools(runtime, builder) {
         }
     };
 
-    const treeNodeSchema = { type: 'object', properties: { type: { type: 'string' }, settings: { type: 'object', additionalProperties: true }, styles: { type: 'object', additionalProperties: true }, children: { type: 'array', items: { type: 'object', additionalProperties: true, description: 'Another native node with type, settings, styles, and optional children.' } } }, required: ['type'], description: 'Recursive native builder node. Use exact element types and setting names from capabilities.' };
+    const treeNodeSchema = { type: 'object', properties: { type: { type: 'string' }, settings: { type: 'object', additionalProperties: true }, styles: { type: 'object', additionalProperties: true }, children: { type: 'array', items: { type: 'object', required: ['type'], properties: { type: { type: 'string', description: 'Required at every level: an exact element type from get_capabilities.' }, settings: { type: 'object', additionalProperties: true }, styles: { type: 'object', additionalProperties: true }, children: { type: 'array', items: { type: 'object', additionalProperties: true, description: 'Deeper native node — { type, settings, styles, children }. "type" is required here too.' } } }, description: 'Another native node: { type (required), settings, styles, children }. "type" is required at EVERY level.' } } }, required: ['type'], description: 'Recursive native builder node. Every node at every level requires "type" (an exact element type from get_capabilities) plus optional settings/styles/children.' };
     const TOOLS = [
         { name: 'set_shader_fill', description: 'Apply a preset or custom GLSL shader fill to an existing layer. fill accepts enabled, preset, colorA/colorB/colorC hex colors, animate, speed (0–2), intensity (0–1), grain (0–0.3), and customCode. For custom GLSL set preset custom and define vec4 inkShader(vec2 uv,float time,vec2 resolution); uniforms a,b,c and intensity are available. Code is compiled before mutation.', parameters: { type: 'object', properties: { id: { type: 'string' }, fill: { type: 'object', additionalProperties: true } }, required: ['id','fill'] } },
         { name: 'get_capabilities', description: 'Return every available builder element grouped by category, its editable setting names/defaults, the responsive style shape, and custom-code support. Call this before composing a page.', parameters: { type: 'object', properties: {} } },

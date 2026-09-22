@@ -1099,6 +1099,7 @@
             for (const call of streamed.tools.calls) {
               const execution = await this.executeTool(call.name, call.arguments)
               if (execution.mutated) changed = true
+              else this.noteToolRejection(call.name, execution.content)
               results.push({ id: call.id, content: execution.content })
             }
             this.requestStartedAt = Date.now()
@@ -1121,6 +1122,18 @@
           this.appendToolTurn(name, args)
           return execution
         } catch (e) { return { content: "tool error: " + e.message, mutated: false } }
+      }
+
+      // A refused tool is the model's problem to fix, but saying nothing leaves the user watching an
+      // unchanged canvas — "nothing happened" is the worst possible report when the page is fine and
+      // only the model's payload was wrong. One quiet log line names what the builder refused.
+      noteToolRejection(name, content) {
+        if (typeof content !== "string" || content[0] !== "{") return
+        let payload = null
+        try { payload = JSON.parse(content) } catch (e) { return }
+        if (!payload || payload.ok !== false || !payload.error) return
+        const detail = String(payload.error)
+        this.logAction("The builder refused " + name + " — " + (detail.length > 200 ? detail.slice(0, 197) + "…" : detail))
       }
 
       // Client-tools path: edits already morphed the canvas live; checkpoint the v2 store only
@@ -1732,6 +1745,8 @@
           list_media: "Looking through the media library",
           search_images: "Searching free photo, logo and avatar libraries",
           generate_image: "Generating an image",
+          fetch_web_page: "Reading a web page",
+          web_search: "Searching the web",
           css_edit: "Polishing visual details"
         }
         body.textContent = labels[name] || (name.startsWith("get_") ? "Reading element options" : "Updating the page")

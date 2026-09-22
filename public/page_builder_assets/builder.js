@@ -4447,6 +4447,22 @@ function createCopilotTools(runtime, builder) {
     return (0,_elementSpec_js__WEBPACK_IMPORTED_MODULE_5__.materializeSpec)(runtime, spec, parent);
   };
 
+  // A whole tree is rejected as one unit — that is what keeps the page atomic — so the rejection
+  // has to carry everything needed to fix it in ONE retry. Naming only the first problem, or only
+  // "a type is missing" without saying where in a 300-node payload, leaves the composer guessing
+  // until its round budget is gone: the page then keeps whatever it had, and the user sees a
+  // single leftover section with no explanation.
+  var specRejection = function specRejection(specs, label) {
+    var problems = [];
+    specs.forEach(function (spec, index) {
+      return (0,_elementSpec_js__WEBPACK_IMPORTED_MODULE_5__.specProblems)(runtime, spec, "".concat(label === 'replace_page' ? 'children' : 'tree', "[").concat(index, "]"), null, problems);
+    });
+    if (!problems.length) return null;
+    var shown = problems.slice(0, 8);
+    var remaining = problems.length - shown.length;
+    return "".concat(label, " was rejected and NOTHING changed \u2014 ").concat(problems.length, " problem").concat(problems.length === 1 ? '' : 's', ": ") + "".concat(shown.join('; ')).concat(remaining > 0 ? "; and ".concat(remaining, " more") : '', ". ") + 'Every node at EVERY level needs "type" set to an exact element type from get_capabilities ' + '("frame", "container", "heading", "paragraph", "button", "image", …), plus optional settings, ' + 'styles and children. Types are case-sensitive and nested nodes are not exempt.';
+  };
+
   // The write half of the style contract. Storage is always repaired to the canonical shape, and
   // a value the compiler will have to drop is reported back in the tool result so the next call
   // can correct it. A silently dropped value is how a page ends up styled in the tree and
@@ -4535,6 +4551,8 @@ function createCopilotTools(runtime, builder) {
   var replacePage = function replacePage(args) {
     if (!Array.isArray(args.children) || !args.children.length) throw new TypeError('replace_page requires a non-empty children array; the existing page was preserved. Send the complete tree in one call, or build the page section by section with append_tree when it is too large for one payload.');
     var specs = args.children;
+    var broken = specRejection(specs, 'replace_page');
+    if (broken) throw new TypeError(broken);
     var nodeCount = specs.reduce(function (sum, spec) {
       return sum + countSpec(spec);
     }, 0);
@@ -4581,6 +4599,8 @@ function createCopilotTools(runtime, builder) {
   };
   var appendTree = function appendTree(args) {
     var _parent$children;
+    var broken = specRejection([args.tree], 'append_tree');
+    if (broken) throw new TypeError(broken);
     var total = countSpec(args.tree);
     if (total > MAX_TREE_NODES) throw new RangeError("Tree has ".concat(total, " nodes; maximum is ").concat(MAX_TREE_NODES, "."));
     var target = resolve(args.path || args.id);
@@ -5269,13 +5289,35 @@ function createCopilotTools(runtime, builder) {
         type: 'array',
         items: {
           type: 'object',
-          additionalProperties: true,
-          description: 'Another native node with type, settings, styles, and optional children.'
+          required: ['type'],
+          properties: {
+            type: {
+              type: 'string',
+              description: 'Required at every level: an exact element type from get_capabilities.'
+            },
+            settings: {
+              type: 'object',
+              additionalProperties: true
+            },
+            styles: {
+              type: 'object',
+              additionalProperties: true
+            },
+            children: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: true,
+                description: 'Deeper native node — { type, settings, styles, children }. "type" is required here too.'
+              }
+            }
+          },
+          description: 'Another native node: { type (required), settings, styles, children }. "type" is required at EVERY level.'
         }
       }
     },
     required: ['type'],
-    description: 'Recursive native builder node. Use exact element types and setting names from capabilities.'
+    description: 'Recursive native builder node. Every node at every level requires "type" (an exact element type from get_capabilities) plus optional settings/styles/children.'
   };
   var TOOLS = [{
     name: 'set_shader_fill',
@@ -20961,7 +21003,8 @@ function installLucideIcons() {
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   materializeSpec: () => (/* binding */ materializeSpec),
-/* harmony export */   specNodeCount: () => (/* binding */ _specNodeCount)
+/* harmony export */   specNodeCount: () => (/* binding */ _specNodeCount),
+/* harmony export */   specProblems: () => (/* binding */ specProblems)
 /* harmony export */ });
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 // Turning a plain spec (`{ type, settings, styles, children }`) into live store nodes is shared by
@@ -20975,21 +21018,74 @@ var _specNodeCount = function specNodeCount(spec) {
   }, 0) : 0);
 };
 
+// Two tools hand a model a tree-shaped payload with different keys — compose_page/compose_section
+// take { name, variant } for archetype sections, while replace_page/append_tree take native nodes
+// keyed by { type }. Mixing them is the single most likely way a composed tree is rejected, so the
+// missing-key message says which one this is.
+
+var missingTypeMessage = function missingTypeMessage(path, spec) {
+  var keys = Object.keys(spec);
+  var named = typeof spec.name === 'string' && spec.name.trim() ? " \u2014 \"name\" is for compose_page/compose_section archetype sections; a native tree node uses \"type\"" : '';
+  return "".concat(path, " has no \"type\"").concat(keys.length ? " (it has: ".concat(keys.join(', '), ")") : ' and is empty').concat(named);
+};
+var describeValue = function describeValue(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'an array, not a node object';
+  if (_typeof(value) !== 'object') return "".concat(_typeof(value), ", not a node object");
+  return null;
+};
+
+// Where a tree is wrong, and how. The path matters more than the count: a page tree is hundreds of
+// nodes, and "Every tree node requires a type" leaves a composer to guess which one — which is how a
+// model ends up retrying the same rejected payload until its round budget runs out.
+function specProblems(runtime, spec) {
+  var path = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'root';
+  var parentType = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
+  var out = arguments.length > 4 && arguments[4] !== undefined ? arguments[4] : [];
+  var shape = describeValue(spec);
+  if (shape) {
+    out.push("".concat(path, " is ").concat(shape));
+    return out;
+  }
+  if (!spec.type) {
+    out.push(missingTypeMessage(path, spec));
+    return out;
+  }
+  var known = runtime.elements.has(spec.type);
+  var definition = known ? runtime.elements.get(spec.type) : null;
+  if (!known) out.push("".concat(path, " uses \"").concat(spec.type, "\", which is not an element type"));else if (definition.internal) out.push("".concat(path, " uses \"").concat(spec.type, "\", an editor-only organizational layer \u2014 compose visual layouts with Frames instead"));
+  if (spec.children !== undefined && !Array.isArray(spec.children)) {
+    out.push("".concat(path, ".children must be an array of nodes"));
+    return out;
+  }
+  if (Array.isArray(spec.children) && spec.children.length) {
+    if (definition && !definition.acceptsChildren) out.push("".concat(path, " (\"").concat(spec.type, "\") cannot contain children"));
+    spec.children.forEach(function (child, index) {
+      return specProblems(runtime, child, "".concat(path, ".children[").concat(index, "]"), spec.type, out);
+    });
+  }
+  return out;
+}
 function materializeSpec(runtime, spec) {
   var _spec$children;
   var parent = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
-  if (!spec || _typeof(spec) !== 'object' || !spec.type) throw new TypeError('Every tree node requires a type.');
-  if (!runtime.elements.has(spec.type)) throw new TypeError("Unknown element type: ".concat(spec.type));
+  var path = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 'root';
+  var shape = describeValue(spec);
+  if (shape) throw new TypeError("".concat(path, " is ").concat(shape, "; every tree node must be a node object."));
+  if (!spec.type) {
+    throw new TypeError("".concat(missingTypeMessage(path, spec), "; every tree node requires a type at every level \u2014 use an exact element type from get_capabilities."));
+  }
+  if (!runtime.elements.has(spec.type)) throw new TypeError("".concat(path, " uses \"").concat(spec.type, "\", which is not an element type (see get_capabilities)."));
   if (runtime.elements.get(spec.type).internal) throw new TypeError("".concat(spec.type, " is an editor-only organizational layer; compose visual layouts with Frames instead."));
   var definition = runtime.elements.get(spec.type);
-  if ((_spec$children = spec.children) !== null && _spec$children !== void 0 && _spec$children.length && !definition.acceptsChildren) throw new TypeError("".concat(spec.type, " cannot contain children."));
+  if ((_spec$children = spec.children) !== null && _spec$children !== void 0 && _spec$children.length && !definition.acceptsChildren) throw new TypeError("".concat(path, " (\"").concat(spec.type, "\") cannot contain children."));
   var node = runtime.create(spec.type, {
     settings: spec.settings || {},
     styles: spec.styles || {}
   });
   if (parent && !runtime.elements.accepts(parent, node)) throw new TypeError("".concat(parent.type, " cannot contain ").concat(node.type, "."));
-  if (definition.acceptsChildren) node.children = (spec.children || []).map(function (child) {
-    return materializeSpec(runtime, child, node);
+  if (definition.acceptsChildren) node.children = (spec.children || []).map(function (child, index) {
+    return materializeSpec(runtime, child, node, "".concat(path, ".children[").concat(index, "]"));
   });
   return node;
 }
