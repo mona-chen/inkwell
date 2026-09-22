@@ -4045,6 +4045,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _designAudit_js__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./designAudit.js */ "./src/core/designAudit.js");
 /* harmony import */ var _styleValues_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./styleValues.js */ "./src/core/styleValues.js");
 /* harmony import */ var _icons_js__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./icons.js */ "./src/core/icons.js");
+/* harmony import */ var _mediaTools_js__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./mediaTools.js */ "./src/core/mediaTools.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
@@ -4062,6 +4063,7 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+
 
 
 
@@ -4327,6 +4329,12 @@ function createCopilotTools(runtime, builder) {
         },
         rules: ['Sizes are always { size, unit }. { value, unit } is accepted and normalized to it, but the inspector writes { size, unit } — prefer that spelling.', 'Use the control name the element actually declares. Frames, containers, text and inputs carry `background`; a Button carries `background-color` (its surface) — call get_element_schema when unsure.', 'A record the compiler does not recognize is dropped from the stylesheet rather than published, and audit_design reports it. Never invent a record shape; use a plain CSS string instead.', 'Element styles are authoritative over custom CSS: write layout, type, colour and spacing as node styles and keep custom CSS for what nodes cannot express.', 'A Frame or Container declares no size of its own, so it fills its parent -- a card fills its grid column. Set width/height only to change that: { size, unit } for a fixed size, "fit-content" to hug its content (a pill, chip, badge, button), "100%" to fill explicitly.']
       },
+      media: {
+        listTool: 'list_media',
+        listUrl: (0,_mediaTools_js__WEBPACK_IMPORTED_MODULE_9__.mediaLibraryUrl)(),
+        generateTool: canGenerateImages() ? 'generate_image' : null,
+        guidance: canGenerateImages() ? 'Pictures are real files in the site media library. Call list_media first and place a returned url in an Image element settings.src with its alt text; when the library has nothing suitable, generate_image creates a picture and files it in that same library. Always set alt. Never hotlink an outside image and never invent a url.' : 'Pictures are real files in the site media library. Call list_media and place a returned url in an Image element settings.src with its alt text. This site cannot generate pictures: when the library has nothing suitable, leave the media empty and let type and layout carry the design — never invent a url.'
+      },
       customCode: {
         css: true,
         javascript: true,
@@ -4363,6 +4371,13 @@ function createCopilotTools(runtime, builder) {
 
   // Trees are materialized by the shared element-spec helper, so the Copilot, the Sections library
   // and drag & drop all accept exactly the same shapes.
+  // Image generation is a configured capability, not a promise: it is advertised (and
+  // offered to the model) only while the site names an image model.
+  var canGenerateImages = function canGenerateImages() {
+    return (0,_mediaTools_js__WEBPACK_IMPORTED_MODULE_9__.availableMediaTools)().some(function (tool) {
+      return tool.name === 'generate_image';
+    });
+  };
   var countSpec = _elementSpec_js__WEBPACK_IMPORTED_MODULE_5__.specNodeCount;
   var materialize = function materialize(spec) {
     var parent = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
@@ -4904,6 +4919,17 @@ function createCopilotTools(runtime, builder) {
       instruction: issues.length ? 'Fix the errors first, then warnings, and run audit_design again.' : 'The structural and rendered checks pass. Finish with a concise user-facing summary.'
     };
   };
+
+  // The media tools answer over the network, so their result is a Promise where every other
+  // tool answers synchronously. settle() gives both the same shape: one JSON string.
+  var settle = function settle(promise) {
+    return promise.then(asJson)["catch"](function (error) {
+      return asJson({
+        ok: false,
+        error: error.message
+      });
+    });
+  };
   var apply = function apply(name) {
     var args = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
     try {
@@ -4960,6 +4986,10 @@ function createCopilotTools(runtime, builder) {
             query: args.query,
             results: (0,_icons_js__WEBPACK_IMPORTED_MODULE_8__.searchIcons)(args.query, Number(args.limit) || 24)
           });
+        case 'list_media':
+          return settle((0,_mediaTools_js__WEBPACK_IMPORTED_MODULE_9__.listMedia)(args));
+        case 'generate_image':
+          return settle((0,_mediaTools_js__WEBPACK_IMPORTED_MODULE_9__.generateImage)(args));
         case 'compose_landing_page':
           return asJson(composeLandingPage(args));
         case 'compose_page':
@@ -5885,23 +5915,29 @@ function createCopilotTools(runtime, builder) {
     var off = runtime.events.on('history:change', function () {
       mutated = true;
     });
-    try {
+    var settleExecution = function settleExecution(content) {
+      off();
       return {
-        content: String(apply(name, args)),
+        content: String(content),
         mutated: mutated
       };
-    } finally {
-      off();
-    }
+    };
+    var content = apply(name, args);
+    return content instanceof Promise ? content.then(settleExecution) : settleExecution(content);
   };
+  // TOOLS is read when a Copilot request is sent, so the media tools appear exactly when the
+  // site can serve them: the library list always, generate_image only once an image model is
+  // configured. Advertising a tool the server cannot fulfil stalls a design run.
   return {
     apply: apply,
     execute: execute,
     context: context,
     index: index,
     resolve: resolve,
-    TOOLS: TOOLS,
     MUTATING_TOOLS: MUTATING_TOOLS,
+    get TOOLS() {
+      return TOOLS.concat((0,_mediaTools_js__WEBPACK_IMPORTED_MODULE_9__.availableMediaTools)());
+    },
     isMutation: function isMutation(name) {
       return MUTATING_TOOLS.has(name);
     }
@@ -27983,6 +28019,265 @@ function _taggedTemplateLiteral(e, t) { return t || (t = e.slice(0)), Object.fre
 // Keep this string free of ERB-sensitive tokens ({{ }}, <% %>): the saved page HTML is later
 // rendered as a live template.
 var INTERACTION_RUNTIME = String.raw(_templateObject || (_templateObject = _taggedTemplateLiteral(["(function () {\n  if (window.__inkInteractions) return;\n  window.__inkInteractions = true;\n\n  function closest(el, sel) {\n    while (el && el.nodeType === 1) { if (el.matches(sel)) return el; el = el.parentNode; }\n    return null;\n  }\n  function hostOf(el) { return closest(el, '[data-ink-interactions]'); }\n  function paused() { return document.body.classList.contains('ink-builder-design'); }\n  function records(host) {\n    try {\n      var parsed = JSON.parse(host.getAttribute('data-ink-interactions') || '[]');\n      return Array.isArray(parsed) ? parsed : [];\n    } catch (error) { return []; }\n  }\n  function resolveTarget(host, record) {\n    switch (record.target) {\n      case 'parent': return closest(host.parentElement, '.ink-element, .ink-imported-element') || host.parentElement;\n      case 'next': return host.nextElementSibling;\n      case 'previous': return host.previousElementSibling;\n      case 'query': try { return host.ownerDocument.querySelector(record.selector); } catch (error) { return null; }\n      case 'children': return host.firstElementChild;\n      default: return host;\n    }\n  }\n\n  // A state group is the set of elements that share one state vocabulary (data-ink-state-group).\n  // Exclusive groups behave like an accordion: only one member may carry the state at a time.\n  function members(host) {\n    var group = host.getAttribute('data-ink-state-group');\n    if (!group) return [host];\n    return Array.prototype.slice.call(host.ownerDocument.querySelectorAll('[data-ink-state-group=\"' + CSS.escape(group) + '\"]'));\n  }\n  function applyState(host, state, toggle, exclusive) {\n    var current = host.getAttribute('data-ink-state');\n    var next = toggle && current === state ? null : state;\n    if (exclusive) members(host).forEach(function (member) { if (member !== host) member.removeAttribute('data-ink-state'); });\n    if (next) host.setAttribute('data-ink-state', next); else host.removeAttribute('data-ink-state');\n    host.dispatchEvent(new CustomEvent('ink:statechange', { bubbles: true, detail: { state: host.getAttribute('data-ink-state') } }));\n  }\n  function setHidden(target, hidden) {\n    if (!target) return;\n    target.hidden = hidden;\n    if (hidden) target.setAttribute('data-ink-hidden-by-interaction', ''); else target.removeAttribute('data-ink-hidden-by-interaction');\n  }\n  function playMotion(target) {\n    if (!target) return;\n    target.style.animation = 'none';\n    void target.offsetWidth;\n    target.style.animation = '';\n  }\n\n  function run(host, record) {\n    var target = resolveTarget(host, record);\n    if (!target) return;\n    var fire = function () {\n      if (record.action === 'toggleState' || record.action === 'setState') {\n        applyState(target, record.state, record.action === 'toggleState', record.exclusive === true);\n      } else if (record.action === 'toggleClass') {\n        target.classList.toggle(record.className);\n      } else if (record.action === 'show') {\n        setHidden(target, false);\n      } else if (record.action === 'hide') {\n        setHidden(target, true);\n      } else if (record.action === 'scrollTo') {\n        target.scrollIntoView({ behavior: 'smooth', block: 'start' });\n      } else if (record.action === 'playMotion') {\n        playMotion(target);\n      }\n    };\n    if (record.delay) setTimeout(fire, record.delay); else fire();\n  }\n\n  function handle(event, name) {\n    if (paused()) return;\n    var host = hostOf(event.target);\n    if (!host) return;\n    records(host).forEach(function (record) { if (record.on === name) run(host, record); });\n  }\n\n  document.addEventListener('click', function (event) { handle(event, 'click'); }, true);\n  document.addEventListener('keydown', function (event) {\n    if (event.key !== 'Enter' && event.key !== ' ') return;\n    if (event.target && event.target.tagName === 'BUTTON') return;\n    handle(event, 'click');\n  }, true);\n  document.addEventListener('mouseover', function (event) {\n    if (event.relatedTarget && event.target.contains(event.relatedTarget)) return;\n    handle(event, 'hover');\n  }, true);\n\n  // The enter event fires once when the host first crosses into the viewport.\n  function observe() {\n    if (paused() || typeof IntersectionObserver !== 'function') return;\n    var observer = new IntersectionObserver(function (entries) {\n      entries.forEach(function (entry) {\n        if (!entry.isIntersecting) return;\n        observer.unobserve(entry.target);\n        records(entry.target).forEach(function (record) { if (record.on === 'enter') run(entry.target, record); });\n      });\n    }, { threshold: 0.25 });\n    return observer;\n  }\n  var observer = observe();\n  function scan() {\n    if (!observer || paused()) return;\n    document.querySelectorAll('[data-ink-interactions]').forEach(function (host) {\n      if (host.dataset.inkInteractionObserved) return;\n      var needsEnter = records(host).some(function (record) { return record.on === 'enter'; });\n      if (!needsEnter) return;\n      host.dataset.inkInteractionObserved = '1';\n      observer.observe(host);\n    });\n  }\n  scan();\n  new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });\n\n  function fireLoad() {\n    if (paused()) return;\n    document.querySelectorAll('[data-ink-interactions]').forEach(function (host) {\n      records(host).forEach(function (record) { if (record.on === 'load') run(host, record); });\n    });\n  }\n  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fireLoad);\n  else fireLoad();\n})();"])));
+
+/***/ }),
+
+/***/ "./src/core/mediaTools.js":
+/*!********************************!*\
+  !*** ./src/core/mediaTools.js ***!
+  \********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   GENERATE_IMAGE_TOOL: () => (/* binding */ GENERATE_IMAGE_TOOL),
+/* harmony export */   LIST_MEDIA_TOOL: () => (/* binding */ LIST_MEDIA_TOOL),
+/* harmony export */   availableMediaTools: () => (/* binding */ availableMediaTools),
+/* harmony export */   generateImage: () => (/* binding */ generateImage),
+/* harmony export */   imageGenerationUrl: () => (/* binding */ imageGenerationUrl),
+/* harmony export */   listMedia: () => (/* binding */ listMedia),
+/* harmony export */   mediaLibraryUrl: () => (/* binding */ mediaLibraryUrl)
+/* harmony export */ });
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _regeneratorRuntime() { "use strict"; /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/facebook/regenerator/blob/main/LICENSE */ _regeneratorRuntime = function _regeneratorRuntime() { return e; }; var t, e = {}, r = Object.prototype, n = r.hasOwnProperty, o = Object.defineProperty || function (t, e, r) { t[e] = r.value; }, i = "function" == typeof Symbol ? Symbol : {}, a = i.iterator || "@@iterator", c = i.asyncIterator || "@@asyncIterator", u = i.toStringTag || "@@toStringTag"; function define(t, e, r) { return Object.defineProperty(t, e, { value: r, enumerable: !0, configurable: !0, writable: !0 }), t[e]; } try { define({}, ""); } catch (t) { define = function define(t, e, r) { return t[e] = r; }; } function wrap(t, e, r, n) { var i = e && e.prototype instanceof Generator ? e : Generator, a = Object.create(i.prototype), c = new Context(n || []); return o(a, "_invoke", { value: makeInvokeMethod(t, r, c) }), a; } function tryCatch(t, e, r) { try { return { type: "normal", arg: t.call(e, r) }; } catch (t) { return { type: "throw", arg: t }; } } e.wrap = wrap; var h = "suspendedStart", l = "suspendedYield", f = "executing", s = "completed", y = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} var p = {}; define(p, a, function () { return this; }); var d = Object.getPrototypeOf, v = d && d(d(values([]))); v && v !== r && n.call(v, a) && (p = v); var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p); function defineIteratorMethods(t) { ["next", "throw", "return"].forEach(function (e) { define(t, e, function (t) { return this._invoke(e, t); }); }); } function AsyncIterator(t, e) { function invoke(r, o, i, a) { var c = tryCatch(t[r], t, o); if ("throw" !== c.type) { var u = c.arg, h = u.value; return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) { invoke("next", t, i, a); }, function (t) { invoke("throw", t, i, a); }) : e.resolve(h).then(function (t) { u.value = t, i(u); }, function (t) { return invoke("throw", t, i, a); }); } a(c.arg); } var r; o(this, "_invoke", { value: function value(t, n) { function callInvokeWithMethodAndArg() { return new e(function (e, r) { invoke(t, n, e, r); }); } return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg(); } }); } function makeInvokeMethod(e, r, n) { var o = h; return function (i, a) { if (o === f) throw Error("Generator is already running"); if (o === s) { if ("throw" === i) throw a; return { value: t, done: !0 }; } for (n.method = i, n.arg = a;;) { var c = n.delegate; if (c) { var u = maybeInvokeDelegate(c, n); if (u) { if (u === y) continue; return u; } } if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) { if (o === h) throw o = s, n.arg; n.dispatchException(n.arg); } else "return" === n.method && n.abrupt("return", n.arg); o = f; var p = tryCatch(e, r, n); if ("normal" === p.type) { if (o = n.done ? s : l, p.arg === y) continue; return { value: p.arg, done: n.done }; } "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg); } }; } function maybeInvokeDelegate(e, r) { var n = r.method, o = e.iterator[n]; if (o === t) return r.delegate = null, "throw" === n && e.iterator["return"] && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y; var i = tryCatch(o, e.iterator, r.arg); if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y; var a = i.arg; return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y); } function pushTryEntry(t) { var e = { tryLoc: t[0] }; 1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e); } function resetTryEntry(t) { var e = t.completion || {}; e.type = "normal", delete e.arg, t.completion = e; } function Context(t) { this.tryEntries = [{ tryLoc: "root" }], t.forEach(pushTryEntry, this), this.reset(!0); } function values(e) { if (e || "" === e) { var r = e[a]; if (r) return r.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) { var o = -1, i = function next() { for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next; return next.value = t, next.done = !0, next; }; return i.next = i; } } throw new TypeError(_typeof(e) + " is not iterable"); } return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", { value: GeneratorFunctionPrototype, configurable: !0 }), o(GeneratorFunctionPrototype, "constructor", { value: GeneratorFunction, configurable: !0 }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) { var e = "function" == typeof t && t.constructor; return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name)); }, e.mark = function (t) { return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t; }, e.awrap = function (t) { return { __await: t }; }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () { return this; }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) { void 0 === i && (i = Promise); var a = new AsyncIterator(wrap(t, r, n, o), i); return e.isGeneratorFunction(r) ? a : a.next().then(function (t) { return t.done ? t.value : a.next(); }); }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () { return this; }), define(g, "toString", function () { return "[object Generator]"; }), e.keys = function (t) { var e = Object(t), r = []; for (var n in e) r.push(n); return r.reverse(), function next() { for (; r.length;) { var t = r.pop(); if (t in e) return next.value = t, next.done = !1, next; } return next.done = !0, next; }; }, e.values = values, Context.prototype = { constructor: Context, reset: function reset(e) { if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t); }, stop: function stop() { this.done = !0; var t = this.tryEntries[0].completion; if ("throw" === t.type) throw t.arg; return this.rval; }, dispatchException: function dispatchException(e) { if (this.done) throw e; var r = this; function handle(n, o) { return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o; } for (var o = this.tryEntries.length - 1; o >= 0; --o) { var i = this.tryEntries[o], a = i.completion; if ("root" === i.tryLoc) return handle("end"); if (i.tryLoc <= this.prev) { var c = n.call(i, "catchLoc"), u = n.call(i, "finallyLoc"); if (c && u) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } else if (c) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); } else { if (!u) throw Error("try statement without catch or finally"); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } } } }, abrupt: function abrupt(t, e) { for (var r = this.tryEntries.length - 1; r >= 0; --r) { var o = this.tryEntries[r]; if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) { var i = o; break; } } i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null); var a = i ? i.completion : {}; return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a); }, complete: function complete(t, e) { if ("throw" === t.type) throw t.arg; return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y; }, finish: function finish(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y; } }, "catch": function _catch(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.tryLoc === t) { var n = r.completion; if ("throw" === n.type) { var o = n.arg; resetTryEntry(r); } return o; } } throw Error("illegal catch attempt"); }, delegateYield: function delegateYield(e, r, n) { return this.delegate = { iterator: values(e), resultName: r, nextLoc: n }, "next" === this.method && (this.arg = t), y; } }, e; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
+function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+// Media tools for the Copilot: the pictures a page needs, and the two ways to get them.
+//
+// Until now the AI could not see the site's media library and could not make a picture, so
+// every image slot in an AI design came out empty (or worse, filled with an invented URL).
+// These tools close that gap: list_media reads the library the owner already has, and
+// generate_image — offered only once the site names an image model — creates a new picture and
+// files it in that same library. Both are plain same-origin fetches against endpoints the
+// server owns, and both return the { id, url, alt } shape an Image element's settings.src wants.
+//
+// This module deliberately imports nothing: the runtime wires it into the tool surface, and the
+// node test imports it on its own.
+
+var MEDIA_LIBRARY_URL = '/admin/media';
+var MAX_LIST = 60;
+var config = function config() {
+  return typeof window !== 'undefined' && window.inkCopilot || {};
+};
+
+// The builder page publishes where its own media library lives; the Copilot's settings publish
+// the image endpoint, and its absence is what keeps generate_image out of the tool surface.
+var mediaLibraryUrl = function mediaLibraryUrl() {
+  return config().mediaUrl || MEDIA_LIBRARY_URL;
+};
+var imageGenerationUrl = function imageGenerationUrl() {
+  return config().imageUrl || null;
+};
+var csrfToken = function csrfToken() {
+  var _document$querySelect;
+  return typeof document === 'undefined' ? null : (_document$querySelect = document.querySelector('meta[name="csrf-token"]')) === null || _document$querySelect === void 0 ? void 0 : _document$querySelect.content;
+};
+var guidance = function guidance(media) {
+  if (media.length) {
+    return 'Place a picture by setting an Image element\'s settings.src to one of these urls and its settings.alt to that item\'s alt text (or your own accurate description). These are the site\'s own files; never hotlink an image that is not in this list.';
+  }
+  // Never point the model at a tool this site cannot serve.
+  return imageGenerationUrl() ? 'The library has nothing matching. Call generate_image to make the picture this layout needs, then place its url the same way — never invent an image url.' : 'The library has nothing matching, and this site cannot generate pictures: leave the media empty and let type and layout carry the design — never invent an image url.';
+};
+var LIST_MEDIA_TOOL = {
+  name: 'list_media',
+  description: "Search the site's own media library — the pictures the owner has already uploaded (pass kind: 'document' for files). Returns each item's id, url, alt text, file name and pixel size. Call this before placing a picture: reusing a real library image (via an Image element's settings.src) is almost always better than an empty frame. An empty result means the library has nothing suitable for that search.",
+  parameters: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'Words matched against the file name and alt text, e.g. "team" or "hero". Omit to list the newest items.'
+      },
+      kind: {
+        type: 'string',
+        "enum": ['image', 'document', 'all'],
+        description: "Defaults to 'image', because pictures are what a page needs. Use 'document' for PDFs and other files, or 'all' for everything."
+      },
+      limit: {
+        type: 'number',
+        description: "How many items to return; default 24, maximum ".concat(MAX_LIST, ".")
+      }
+    }
+  }
+};
+var GENERATE_IMAGE_TOOL = {
+  name: 'generate_image',
+  description: "Generate a new picture from a written description and save it to the site's media library, returning its url, id, alt text and size. Use it when a page needs a photograph, illustration, texture or abstract background that the library does not already have, then place the returned url in an Image element's settings.src with alt text. Describe subject, medium, lighting, palette and framing in one detailed prompt. Never ask for words inside the picture, a real person, or a trademarked character.",
+  parameters: {
+    type: 'object',
+    properties: {
+      prompt: {
+        type: 'string',
+        description: 'A detailed visual description of the picture to create: subject, setting, medium, lighting, palette, composition.'
+      },
+      alt: {
+        type: 'string',
+        description: 'Short alt text describing what the picture shows, for screen readers and search engines. Always supply it.'
+      },
+      size: {
+        type: 'string',
+        description: 'Optional pixel size such as "1536x1024" for landscape or "1024x1536" for portrait. Providers usually accept 1024x1024, 1536x1024 and 1024x1536.'
+      }
+    },
+    required: ['prompt']
+  }
+};
+
+// The tool surface is whatever the site is actually configured to do: listing the library needs
+// no configuration, generating a picture needs an image model.
+var availableMediaTools = function availableMediaTools() {
+  return imageGenerationUrl() ? [LIST_MEDIA_TOOL, GENERATE_IMAGE_TOOL] : [LIST_MEDIA_TOOL];
+};
+var listMedia = /*#__PURE__*/function () {
+  var _ref = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee() {
+    var _window$location, _payload$total;
+    var _ref2,
+      _ref2$query,
+      query,
+      _ref2$kind,
+      kind,
+      _ref2$limit,
+      limit,
+      url,
+      response,
+      payload,
+      media,
+      _args = arguments;
+    return _regeneratorRuntime().wrap(function _callee$(_context) {
+      while (1) switch (_context.prev = _context.next) {
+        case 0:
+          _ref2 = _args.length > 0 && _args[0] !== undefined ? _args[0] : {}, _ref2$query = _ref2.query, query = _ref2$query === void 0 ? '' : _ref2$query, _ref2$kind = _ref2.kind, kind = _ref2$kind === void 0 ? 'image' : _ref2$kind, _ref2$limit = _ref2.limit, limit = _ref2$limit === void 0 ? 24 : _ref2$limit;
+          url = new URL(mediaLibraryUrl(), typeof window !== 'undefined' && ((_window$location = window.location) === null || _window$location === void 0 ? void 0 : _window$location.origin) || 'http://localhost');
+          url.searchParams.set('limit', String(Math.min(Math.max(Number(limit) || 24, 1), MAX_LIST)));
+          if (query) url.searchParams.set('q', String(query));
+          // Pictures by default: a document in an <img> is a broken picture, and "find me a photo"
+          // is the request this tool exists to serve.
+          if (kind === 'document') url.searchParams.set('type', 'document');else if (kind !== 'all') url.searchParams.set('type', 'image');
+          _context.next = 7;
+          return fetch(url.toString(), {
+            headers: {
+              Accept: 'application/json'
+            },
+            credentials: 'same-origin'
+          });
+        case 7:
+          response = _context.sent;
+          if (response.ok) {
+            _context.next = 10;
+            break;
+          }
+          throw new Error("The media library could not be read (".concat(response.status, ")."));
+        case 10:
+          _context.next = 12;
+          return response.json();
+        case 12:
+          payload = _context.sent;
+          media = (payload.media || []).map(function (item) {
+            return _objectSpread({
+              id: item.id,
+              url: item.url,
+              alt: item.alt || '',
+              filename: item.filename,
+              kind: item.kind
+            }, item.width ? {
+              width: item.width,
+              height: item.height
+            } : {});
+          });
+          return _context.abrupt("return", {
+            total: (_payload$total = payload.total) !== null && _payload$total !== void 0 ? _payload$total : media.length,
+            returned: media.length,
+            media: media,
+            guidance: guidance(media)
+          });
+        case 15:
+        case "end":
+          return _context.stop();
+      }
+    }, _callee);
+  }));
+  return function listMedia() {
+    return _ref.apply(this, arguments);
+  };
+}();
+var generateImage = /*#__PURE__*/function () {
+  var _ref3 = _asyncToGenerator(/*#__PURE__*/_regeneratorRuntime().mark(function _callee2() {
+    var _ref4,
+      prompt,
+      _ref4$alt,
+      alt,
+      _ref4$size,
+      size,
+      endpoint,
+      response,
+      payload,
+      _args2 = arguments;
+    return _regeneratorRuntime().wrap(function _callee2$(_context2) {
+      while (1) switch (_context2.prev = _context2.next) {
+        case 0:
+          _ref4 = _args2.length > 0 && _args2[0] !== undefined ? _args2[0] : {}, prompt = _ref4.prompt, _ref4$alt = _ref4.alt, alt = _ref4$alt === void 0 ? '' : _ref4$alt, _ref4$size = _ref4.size, size = _ref4$size === void 0 ? '' : _ref4$size;
+          endpoint = imageGenerationUrl();
+          if (endpoint) {
+            _context2.next = 4;
+            break;
+          }
+          throw new Error('Image generation is not configured for this site, so no picture can be generated. Build the layout without an image and tell the user that naming an image model in Settings → Copilot enables generated pictures.');
+        case 4:
+          if (String(prompt || '').trim()) {
+            _context2.next = 6;
+            break;
+          }
+          throw new Error('generate_image needs a prompt describing the picture.');
+        case 6:
+          _context2.next = 8;
+          return fetch(endpoint, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-Token': csrfToken()
+            },
+            body: JSON.stringify({
+              prompt: prompt,
+              alt: alt,
+              size: size
+            })
+          });
+        case 8:
+          response = _context2.sent;
+          _context2.next = 11;
+          return response.json()["catch"](function () {
+            return {};
+          });
+        case 11:
+          payload = _context2.sent;
+          if (!(!response.ok || payload.error)) {
+            _context2.next = 14;
+            break;
+          }
+          throw new Error(payload.error || "Image generation failed (".concat(response.status, ")."));
+        case 14:
+          return _context2.abrupt("return", _objectSpread(_objectSpread({}, payload), {}, {
+            guidance: "One picture is now in the media library. Place it by setting an Image element's settings.src to this url and settings.alt to the alt text above."
+          }));
+        case 15:
+        case "end":
+          return _context2.stop();
+      }
+    }, _callee2);
+  }));
+  return function generateImage() {
+    return _ref3.apply(this, arguments);
+  };
+}();
 
 /***/ }),
 

@@ -1,5 +1,6 @@
 AiWriter::Engine.routes.draw do
   post "write" => "completions#create"
+  post "images" => "images#create"
   post "chat" => "completions#chat"
   post "tool_result" => "completions#tool_result"
   get "settings" => "settings#show"

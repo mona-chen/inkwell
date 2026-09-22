@@ -452,4 +452,115 @@ RSpec.describe "AI Writer plugin", type: :request do
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("not configured")
   end
+  describe AiWriter::ImageClient do
+    def fake_post(body, code: "200", success: true)
+      response = Object.new
+      response.define_singleton_method(:is_a?) { |klass| success && klass == Net::HTTPSuccess }
+      response.define_singleton_method(:body) { body }
+      response.define_singleton_method(:code) { code }
+      http = Object.new
+      http.define_singleton_method(:post) { |_path, _body, _headers| response }
+      http
+    end
+
+    before do
+      site.set_setting!("ai_image_model", "gpt-image-1")
+      site.set_setting!("ai_image_api_key", "k")
+    end
+
+    it "is configured only once an image model is named" do
+      bare = Site.create!(name: "Bare", domain: "bare.test")
+      bare.set_setting!("ai_api_key", "chat-key")
+      expect(AiWriter::ImageClient.new(site: bare).configured?).to be false
+
+      bare.set_setting!("ai_image_model", "gpt-image-1")
+      expect(AiWriter::ImageClient.new(site: bare).configured?).to be true
+    end
+
+    it "keeps an inline base64 answer as image bytes" do
+      client = AiWriter::ImageClient.new(site: site)
+      allow(client).to receive(:http).and_return(fake_post(%({"data":[{"b64_json":"#{Base64.strict_encode64("png-bytes")}"}]})))
+
+      result = client.generate(prompt: "a lighthouse at dusk")
+
+      expect(result[:bytes]).to eq("png-bytes")
+      expect(result[:content_type]).to eq("image/png")
+      expect(result[:filename]).to end_with(".png")
+    end
+
+    it "fetches the picture when the provider answers with a temporary URL" do
+      client = AiWriter::ImageClient.new(site: site)
+      allow(client).to receive(:http).and_return(fake_post(%({"data":[{"url":"https://cdn.example.test/a.png"}]})))
+
+      picture = Object.new
+      picture.define_singleton_method(:is_a?) { |klass| klass == Net::HTTPSuccess }
+      picture.define_singleton_method(:body) { Rails.root.join("spec/fixtures/files/test.png").binread }
+      picture.define_singleton_method(:[]) { |key| key == "content-type" ? "image/png" : nil }
+      picture.define_singleton_method(:code) { "200" }
+      net = Object.new
+      net.define_singleton_method(:get) { |_path| picture }
+      allow(Net::HTTP).to receive(:start) { |*_args, **_kwargs, &block| block.call(net) }
+
+      result = client.generate(prompt: "a lighthouse at dusk")
+
+      expect(result[:content_type]).to eq("image/png")
+      expect(result[:bytes]).to eq(Rails.root.join("spec/fixtures/files/test.png").binread)
+    end
+
+    it "raises the provider's message instead of storing a failure" do
+      client = AiWriter::ImageClient.new(site: site)
+      allow(client).to receive(:http).and_return(fake_post('{"error":{"message":"rate limited"}}', code: "429", success: false))
+
+      expect { client.generate(prompt: "a lighthouse") }.to raise_error(AiWriter::ImageClient::Error, /429.*rate limited/)
+    end
+
+    it "refuses to spend a request without a description" do
+      client = AiWriter::ImageClient.new(site: site)
+      expect { client.generate(prompt: "  ") }.to raise_error(AiWriter::ImageClient::Error, /Describe the image/)
+    end
+  end
+
+  describe "POST /plugins/ai_writer/images" do
+    it "names the setting when the site has no image model" do
+      post "/plugins/ai_writer/images", params: { prompt: "a lighthouse at dusk" }
+
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(JSON.parse(response.body)["error"]).to match(/Image generation is not configured/)
+      expect(site.media_items.count).to eq(0)
+    end
+
+    it "files the generated picture in the media library and returns its media url" do
+      site.set_setting!("ai_image_model", "gpt-image-1")
+      site.set_setting!("ai_image_api_key", "k")
+      client = AiWriter::ImageClient.new(site: site)
+      allow(AiWriter::ImageClient).to receive(:new).with(site: site).and_return(client)
+      allow(client).to receive(:generate).and_return(
+        bytes: Rails.root.join("spec/fixtures/files/test.png").binread, content_type: "image/png", filename: "ai-image-1.png"
+      )
+
+      expect {
+        post "/plugins/ai_writer/images", params: { prompt: "A lighthouse at dusk, muted linen palette", alt: "Lighthouse at dusk" }
+      }.to change { site.media_items.count }.by(1)
+
+      item = site.media_items.last
+      expect(item.file).to be_attached
+      expect(item.kind).to eq("image")
+      expect(item.alt_text).to eq("Lighthouse at dusk")
+      expect(JSON.parse(response.body)).to include("id" => item.id, "url" => "/media/#{item.id}/file", "alt" => "Lighthouse at dusk")
+    end
+
+    it "falls back to the prompt for alt text so a generated picture is never unlabelled" do
+      site.set_setting!("ai_image_model", "gpt-image-1")
+      site.set_setting!("ai_image_api_key", "k")
+      client = AiWriter::ImageClient.new(site: site)
+      allow(AiWriter::ImageClient).to receive(:new).with(site: site).and_return(client)
+      allow(client).to receive(:generate).and_return(
+        bytes: Rails.root.join("spec/fixtures/files/test.png").binread, content_type: "image/png", filename: "ai-image-2.png"
+      )
+
+      post "/plugins/ai_writer/images", params: { prompt: "A lighthouse at dusk" }
+
+      expect(site.media_items.last.alt_text).to eq("A lighthouse at dusk")
+    end
+  end
 end

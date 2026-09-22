@@ -12,6 +12,7 @@ import { materializeSpec, specNodeCount } from './elementSpec.js';
 import { auditStore } from './designAudit.js';
 import { isUnsupportedValue, previewValue, shapeOf } from './styleValues.js';
 import { iconCount, libraryTitle, searchIcons } from './icons.js';
+import { availableMediaTools, generateImage, listMedia, mediaLibraryUrl } from './mediaTools.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -150,6 +151,14 @@ export function createCopilotTools(runtime, builder) {
                     'A Frame or Container declares no size of its own, so it fills its parent -- a card fills its grid column. Set width/height only to change that: { size, unit } for a fixed size, "fit-content" to hug its content (a pill, chip, badge, button), "100%" to fill explicitly.',
                 ],
             },
+            media: {
+                listTool: 'list_media',
+                listUrl: mediaLibraryUrl(),
+                generateTool: canGenerateImages() ? 'generate_image' : null,
+                guidance: canGenerateImages()
+                    ? 'Pictures are real files in the site media library. Call list_media first and place a returned url in an Image element settings.src with its alt text; when the library has nothing suitable, generate_image creates a picture and files it in that same library. Always set alt. Never hotlink an outside image and never invent a url.'
+                    : 'Pictures are real files in the site media library. Call list_media and place a returned url in an Image element settings.src with its alt text. This site cannot generate pictures: when the library has nothing suitable, leave the media empty and let type and layout carry the design — never invent a url.',
+            },
             customCode: { css: true, javascript: true, designKitClasses: true, maximumCharactersEach: MAX_CUSTOM_CODE_LENGTH },
             shaderFills: { presets: SHADER_PRESETS.map(([id]) => id), setting: 'shaderFill', example: { enabled: true, preset: 'mesh-gradient', speed: .5, intensity: .7 }, customShader: CUSTOM_SHADER_EXAMPLE, guidance: 'Apply shader fills to existing layers with set_shader_fill. Custom GLSL compiles before applying and stays editable in Fill.' },
             composition: {
@@ -166,6 +175,10 @@ export function createCopilotTools(runtime, builder) {
 
     // Trees are materialized by the shared element-spec helper, so the Copilot, the Sections library
     // and drag & drop all accept exactly the same shapes.
+    // Image generation is a configured capability, not a promise: it is advertised (and
+    // offered to the model) only while the site names an image model.
+    const canGenerateImages = () => availableMediaTools().some((tool) => tool.name === 'generate_image');
+
     const countSpec = specNodeCount;
     const materialize = (spec, parent = null) => materializeSpec(runtime, spec, parent);
 
@@ -457,6 +470,10 @@ export function createCopilotTools(runtime, builder) {
         };
     };
 
+    // The media tools answer over the network, so their result is a Promise where every other
+    // tool answers synchronously. settle() gives both the same shape: one JSON string.
+    const settle = (promise) => promise.then(asJson).catch((error) => asJson({ ok: false, error: error.message }));
+
     const apply = (name, args = {}) => {
         try {
             const target = resolve(args.path || args.id);
@@ -474,6 +491,8 @@ export function createCopilotTools(runtime, builder) {
                 case 'read_custom_code': return asJson({ css: builder.customCode.getCss(), js: builder.customCode.getJs() });
                 case 'audit_design': return asJson(auditDesign());
                 case 'search_icons': return asJson({ query: args.query, results: searchIcons(args.query, Number(args.limit) || 24) });
+                case 'list_media': return settle(listMedia(args));
+                case 'generate_image': return settle(generateImage(args));
                 case 'compose_landing_page': return asJson(composeLandingPage(args));
                 case 'compose_page': return asJson(composeArchetypePage(args));
                 case 'compose_section': return composeSection(args);
@@ -615,8 +634,16 @@ export function createCopilotTools(runtime, builder) {
     const execute = (name, args = {}) => {
         let mutated = false;
         const off = runtime.events.on('history:change', () => { mutated = true; });
-        try { return { content: String(apply(name, args)), mutated }; }
-        finally { off(); }
+        const settleExecution = (content) => { off(); return { content: String(content), mutated }; };
+        const content = apply(name, args);
+        return content instanceof Promise ? content.then(settleExecution) : settleExecution(content);
     };
-    return { apply, execute, context, index, resolve, TOOLS, MUTATING_TOOLS, isMutation: (name) => MUTATING_TOOLS.has(name) };
+    // TOOLS is read when a Copilot request is sent, so the media tools appear exactly when the
+    // site can serve them: the library list always, generate_image only once an image model is
+    // configured. Advertising a tool the server cannot fulfil stalls a design run.
+    return {
+        apply, execute, context, index, resolve, MUTATING_TOOLS,
+        get TOOLS() { return TOOLS.concat(availableMediaTools()); },
+        isMutation: (name) => MUTATING_TOOLS.has(name),
+    };
 }

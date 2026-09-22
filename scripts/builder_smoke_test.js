@@ -1065,6 +1065,30 @@ async function main() {
     check("Copilot client tools compose and audit the live v2 store through history", state.exposed && state.inserted && state.headingExists && state.styled && state.remove && state.undoRestores && state.cssEdit && state.readback && state.canvasShows && state.composed && state.audit && state.atomicUndo && state.landing && state.landingAudit && state.landingHooks && state.landingUndo && state.clean, JSON.stringify(state));
 
 
+    // The image gap: the Copilot can read the site's own media library, and it is offered an
+    // image generator only while the site names an image model. Verified against the live
+    // endpoint, so a missing route or an unscoped query fails here rather than mid-design.
+    state = await client.evaluate(`(async function(){
+      var tools=builder.copilotTools, config=window.inkCopilot;
+      var names=function(){return tools.TOOLS.map(function(tool){return tool.name;});};
+      window.inkCopilot=null;
+      var offered=names();
+      var listed=JSON.parse((await tools.execute('list_media',{limit:5})).content);
+      var first=listed.media[0];
+      window.inkCopilot=Object.assign({},config,{imageUrl:'/plugins/ai_writer/images'});
+      var generated=names();
+      var advertised=JSON.parse(tools.apply('get_capabilities')).media.generateTool;
+      window.inkCopilot=config;
+      return {library:offered.indexOf('list_media')!==-1, hidden:offered.indexOf('generate_image')===-1,
+              offered:generated.indexOf('generate_image')!==-1, advertised:advertised,
+              listed:listed.ok!==false, count:listed.media.length, total:listed.total, guidance:!!listed.guidance,
+              shaped:!first||(first.id>0&&String(first.url).indexOf('/media/')===0)};
+    })()`);
+    check("Copilot media tools read the site library and follow the image configuration",
+      state.library && state.hidden && state.offered && state.advertised && state.listed &&
+      state.total>=state.count && state.shaped && state.guidance, JSON.stringify(state));
+
+
     state = await client.evaluate(`(function(){
       var r=builder.runtime;
       return { baseline: window.__registryBaseline, count: r.elements.list().length, hasLab: r.elements.has('control-lab') };

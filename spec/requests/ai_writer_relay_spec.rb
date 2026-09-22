@@ -33,6 +33,33 @@ RSpec.describe "AiWriter client-driven Copilot relay", type: :request do
     expect(body).to include("data: [DONE]")
   end
 
+  # The prompt may promise only what the browser actually published. A picture tool the client
+  # never sent makes the model call something the server cannot fulfil and stalls the run.
+  it "describes picture tools only when the browser published them" do
+    prompts = []
+    allow_any_instance_of(AiWriter::Client).to receive(:stream_round) do |_client, *_args, **kwargs, &blk|
+      prompts << kwargs[:system]
+      blk&.call({ content: "ok" })
+      { role: "assistant", content: "ok" }
+    end
+
+    post "/plugins/ai_writer/chat", params: {
+      clientTools: true, prompt: "design a page", mode: "design", designIndex: "(empty page)",
+      tools: [ { name: "list_media", description: "library" }, { name: "generate_image", description: "maker" } ].to_json
+    }, as: :json
+
+    post "/plugins/ai_writer/chat", params: {
+      clientTools: true, prompt: "design a page", mode: "design", designIndex: "(empty page)",
+      tools: [ { name: "read_design", description: "read" } ].to_json
+    }, as: :json
+
+    expect(response).to have_http_status(:ok)
+    with_tools, without_tools = prompts
+    expect(with_tools).to include("- IMAGES", "list_media", "generate_image", "media library")
+    expect(without_tools).to include("no image search or generation tool")
+    expect(without_tools).not_to include("generate_image")
+  end
+
   it "tool_result resumes the session and completes when the model stops calling tools" do
     # Seed a session as the first round would.
     session_id = "relay_test_session"

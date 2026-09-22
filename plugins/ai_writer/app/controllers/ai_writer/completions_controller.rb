@@ -81,10 +81,13 @@ module AiWriter
       if params[:clientTools]
         self.class.prune_sessions
         session_id = SecureRandom.hex(24)
+        # The tool list is parsed once: it is both what the provider may call and what the
+        # prompt is allowed to promise (see #images_rule).
+        client_tools = parse_client_tools
         CLIENT_SESSIONS[session_id] = {
           messages: [ { role: "user", content: client_build_prompt } ],
-          system: client_system_prompt,
-          tools: parse_client_tools,
+          system: client_system_prompt(client_tools),
+          tools: client_tools,
           rounds: 0,
           user_id: current_user.id,
           site_id: Current.site.id,
@@ -584,7 +587,8 @@ module AiWriter
       parts.join("\n\n")
     end
 
-    def client_system_prompt
+    def client_system_prompt(client_tools = [])
+      @client_tool_names = Array(client_tools).map { |tool| tool.dig(:function, :name) || tool.dig("function", "name") }.compact
       prompt = <<~PROMPT
         You are Inkwell Copilot: an expert product designer, art director, conversion copywriter,
         interaction designer, and front-end engineer embedded in a professional visual page
@@ -679,10 +683,7 @@ module AiWriter
           "phosphor:eye-slash". Lucide and Phosphor are vendored inline SVGs, so prefer them when
           you want an icon that renders identically in the canvas and on the published page. An
           unresolved name renders as its literal text on the page.
-        - IMAGES — the page has no image search or generation tool, so an empty media slot is
-          better than a broken one. Leave the media empty and shape the layout with type and
-          colour, or reference a URL the user already gave you; never point at a stock or
-          placeholder host you cannot verify.
+        - IMAGES — #{images_rule}
 
         CUSTOM CSS / JS
         - Give important nodes memorable CSS classes through their cssClasses setting and scope
@@ -706,6 +707,31 @@ module AiWriter
       # tools execute only in the server-owned agent path; advertising them here makes the
       # model issue calls the browser cannot fulfil and stalls an otherwise valid design run.
       prompt
+    end
+
+    # The IMAGES rule is derived from the tools the browser actually published. Selling the model
+    # a tool the client did not send makes it call something that cannot be fulfilled and stalls
+    # an otherwise valid run; hiding a tool the client did send leaves every frame empty.
+    def images_rule
+      names = Array(@client_tool_names)
+      lists, generates = names.include?("list_media"), names.include?("generate_image")
+
+      if lists && generates
+        "the site's own media library and an image generator are both available — call list_media " \
+        "to see the pictures the owner already has and put a returned url in an Image element's src " \
+        "with its alt text, and when nothing there suits the concept call generate_image with a " \
+        "detailed written description, then place its url the same way. Never hotlink an outside " \
+        "image or invent a url; if both come up empty an empty media slot beats a broken one."
+      elsif lists
+        "the site has a real media library — call list_media and put a returned url in an Image " \
+        "element's src with its alt text. This site cannot generate pictures, so when nothing in " \
+        "the library suits the concept, leave the media empty and shape the layout with type and " \
+        "colour. Never hotlink an outside image or invent a url."
+      else
+        "the page has no image search or generation tool, so an empty media slot is better than a " \
+        "broken one. Leave the media empty and shape the layout with type and colour, or reference " \
+        "a URL the user already gave you; never point at a stock or placeholder host you cannot verify."
+      end
     end
 
     def parse_client_tools

@@ -73,4 +73,54 @@ RSpec.describe "Media library", type: :request do
     expect(body["id"]).to be_present
     expect(site.media_items.count).to eq(1)
   end
+  # The Copilot's list_media tool reads this endpoint, so the AI browses the same library the
+  # owner sees: the search has to match what a person would type (a description, not a file
+  # name) and the list has to be a page, never the whole library.
+  describe "GET /admin/media.json" do
+    def upload(filename, content_type, alt)
+      site.media_items.create!(uploaded_by: user, alt_text: alt,
+                               file: { io: StringIO.new("x"), filename: filename, content_type: content_type })
+    end
+
+    it "lists the library with the url, alt text, kind and file name of each item" do
+      upload("8431-hero-2.png", "image/png", "A lighthouse at dusk")
+      upload("rate-card.pdf", "application/pdf", "Rate card")
+
+      get "/admin/media.json"
+
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["total"]).to eq(2)
+      image = body["media"].find { |item| item["kind"] == "image" }
+      expect(image["url"]).to eq("/media/#{image["id"]}/file")
+      expect(image["alt"]).to eq("A lighthouse at dusk")
+      expect(image["filename"]).to eq("8431-hero-2.png")
+      expect(body["media"].map { |item| item["kind"] }).to include("document")
+    end
+
+    it "searches by alt text as well as file name, and returns a page of the library" do
+      upload("8431-hero-2.png", "image/png", "A lighthouse at dusk")
+      upload("team.png", "image/png", "Team at work")
+
+      get "/admin/media.json", params: { q: "lighthouse" }
+
+      body = JSON.parse(response.body)
+      expect(body["total"]).to eq(1)
+      expect(body["media"].map { |item| item["filename"] }).to eq([ "8431-hero-2.png" ])
+
+      get "/admin/media.json", params: { limit: 1 }
+      expect(JSON.parse(response.body)["media"].length).to eq(1)
+    end
+
+    it "filters the list to pictures or documents" do
+      upload("8431-hero-2.png", "image/png", "A lighthouse at dusk")
+      upload("rate-card.pdf", "application/pdf", "Rate card")
+
+      get "/admin/media.json", params: { type: "document" }
+
+      body = JSON.parse(response.body)
+      expect(body["total"]).to eq(1)
+      expect(body["media"].first["kind"]).to eq("document")
+    end
+  end
 end

@@ -8,7 +8,12 @@
      data-builder-copilot-context-value="<%= @record&.title %>"
      data-builder-copilot-site-value="<%= Current.site.name %>"
      data-builder-copilot-record-id-value="<%= @record&.id %>"
-     data-builder-copilot-record-type-value="<%= @record.is_a?(Page) ? "page" : "post" %>">
+     data-builder-copilot-record-type-value="<%= @record.is_a?(Page) ? "page" : "post" %>"
+     <%# The image endpoint is published only while an image model is configured: the tool
+         surface reads this, and an absent endpoint is what keeps generate_image out of the
+         model's tool list instead of advertising a tool the server cannot fulfil. %>
+     data-builder-copilot-media-url-value="<%= main_app.admin_media_path %>"
+     data-builder-copilot-image-url-value="<%= AiWriter::Engine.routes.url_helpers.images_path if AiWriter::ImageClient.new(site: Current.site).configured? %>">
   <button type="button" data-builder-copilot-target="fab" data-action="builder-copilot#open" aria-label="Open Copilot" class="bc-fab">
     <span class="bc-fab-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l1.9 5.7L19.6 9.6l-5.7 1.9L12 17.2l-1.9-5.7L4.4 9.6l5.7-1.9z"/><circle cx="19" cy="5" r="1.6"/><circle cx="5.5" cy="17.5" r="1.2"/></svg>
@@ -757,7 +762,7 @@
 
     class BuilderCopilotController extends Controller {
       static targets = ["fab", "window", "transcript", "prompt", "send", "status", "statusDot", "mode", "designView", "apply", "undoCheckpoint", "checkpoints", "brand", "scope"]
-      static values = { context: String, site: String, recordId: String, recordType: String }
+      static values = { context: String, site: String, recordId: String, recordType: String, mediaUrl: String, imageUrl: String }
 
       connect() {
         // Right-side dock (part of the builder workspace): fill it and hide the floating FAB.
@@ -777,6 +782,10 @@
           this._copilotToggle = () => this.toggle()
           this.copilotButton.addEventListener("click", this._copilotToggle)
         }
+        // The design tools read this: the media library is always listable, and the image
+        // endpoint exists only when the site has an image model — so generate_image is offered
+        // to the model exactly when the server can make a picture.
+        window.inkCopilot = { mediaUrl: this.mediaUrlValue || "/admin/media", imageUrl: this.imageUrlValue || null }
         this._selectionChanged = window.builder?.runtime?.events.on("selection:change", () => this.updateScope())
         this.updateScope()
         this.mode = "auto"
@@ -1068,11 +1077,17 @@
               finalContent = streamed.content || lastContent
               break
             }
-            const results = streamed.tools.calls.map((call) => {
-              const execution = this.executeTool(call.name, call.arguments)
+            // Tools run in order, and a media tool may take a while (a generated picture is a
+            // real provider round-trip), so the provider timeout is paused while they work.
+            clearTimeout(this.requestTimer)
+            const results = []
+            for (const call of streamed.tools.calls) {
+              const execution = await this.executeTool(call.name, call.arguments)
               if (execution.mutated) changed = true
-              return { id: call.id, content: execution.content }
-            })
+              results.push({ id: call.id, content: execution.content })
+            }
+            this.requestStartedAt = Date.now()
+            this.armRequestTimeout()
             url = "/plugins/ai_writer/tool_result"
             body = { session_id: streamed.tools.session_id, results }
           }
@@ -1083,9 +1098,11 @@
         }
       }
 
-      executeTool(name, args) {
+      async executeTool(name, args) {
         try {
-          const execution = window.builder.copilotTools.execute(name, args || {})
+          // In-memory tools answer with { content, mutated }; the media tools answer with a
+          // promise for the same shape because they cross the network. Awaited for both.
+          const execution = await window.builder.copilotTools.execute(name, args || {})
           this.appendToolTurn(name, args)
           return execution
         } catch (e) { return { content: "tool error: " + e.message, mutated: false } }
@@ -1697,6 +1714,8 @@
           update_element: "Refining content",
           set_custom_css: "Applying the art direction",
           set_custom_js: "Adding progressive interaction",
+          list_media: "Looking through the media library",
+          generate_image: "Generating an image",
           css_edit: "Polishing visual details"
         }
         body.textContent = labels[name] || (name.startsWith("get_") ? "Reading element options" : "Updating the page")
