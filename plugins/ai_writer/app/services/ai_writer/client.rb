@@ -36,7 +36,7 @@ module AiWriter
 
       response = http.post("/chat/completions", body.to_json, "Content-Type" => "application/json", "Authorization" => "Bearer #{api_key}")
       unless response.is_a?(Net::HTTPSuccess)
-        raise Error, "AI request failed (#{response.code}): #{response.body.to_s[0, 200]}"
+        raise Error, failure_message(response)
       end
 
       JSON.parse(response.body).dig("choices", 0, "message", "content").to_s.strip
@@ -76,7 +76,7 @@ module AiWriter
 
       http.request(request) do |response|
         unless response.is_a?(Net::HTTPSuccess)
-          raise Error, "AI request failed (#{response.code}): #{response.body.to_s[0, 200]}"
+          raise Error, failure_message(response)
         end
 
         # Some OpenAI-compatible providers ignore `stream: true` and return a normal JSON
@@ -130,7 +130,7 @@ module AiWriter
         content = +""
         http.request(request) do |response|
           unless response.is_a?(Net::HTTPSuccess)
-            raise Error, "AI request failed (#{response.code}): #{response.body.to_s[0, 200]}"
+            raise Error, failure_message(response)
           end
 
           raw = +""
@@ -239,7 +239,7 @@ module AiWriter
       content = +""
       http.request(request) do |response|
         unless response.is_a?(Net::HTTPSuccess)
-          raise Error, "AI request failed (#{response.code}): #{response.body.to_s[0, 200]}"
+          raise Error, failure_message(response)
         end
 
         raw = +""
@@ -321,6 +321,29 @@ module AiWriter
     end
 
     private
+
+    # A provider's refusal always says what is actually wrong — "The supported API model names
+    # are … but you passed …", "Incorrect API key provided", "maximum context length is …" — and
+    # that one sentence is the only useful thing in the body. Embedding the raw JSON instead
+    # buries it: the editor sees an error blob and can only advise "try again", which is exactly
+    # the wrong advice when the fix is a setting. So the provider's own words are lifted out and
+    # whatever is left is trimmed to something a person can read in a chat bubble.
+    def failure_message(response)
+      body = response.body.to_s
+      parsed = begin
+        JSON.parse(body)
+      rescue JSON::ParserError
+        nil
+      end
+      # OpenAI-compatible providers disagree on the shape: { error: { message } }, { error: "…" },
+      # or { message: "…" }.
+      detail = if parsed.is_a?(Hash)
+        error = parsed["error"]
+        (error.is_a?(Hash) ? error["message"] : error).presence || parsed["message"].presence
+      end
+      detail = body.strip[0, 300].presence unless detail.is_a?(String) && detail.present?
+      "AI request failed (#{response.code}): #{detail.presence || 'the provider gave no reason.'}"
+    end
 
     def safe_parse(string)
       JSON.parse(string.to_s)

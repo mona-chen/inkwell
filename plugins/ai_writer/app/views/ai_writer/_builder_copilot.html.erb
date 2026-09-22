@@ -1750,7 +1750,11 @@
         let message = String(text || "Copilot could not complete the request.")
         if (/deserialize|tools\[\d+\]|missing field [`']type/i.test(message)) {
           message = "The AI provider rejected the design-tool connection. Please retry; if it continues, check that the configured provider supports OpenAI-compatible function tools."
-        } else if (message.length > 280 || /\{\s*["']error/i.test(message)) {
+        } else if (message.length > 280 || /^\s*[\{\[]/.test(message)) {
+          // Only flatten what a reader cannot act on: a raw payload, or something too long to be
+          // a sentence. A provider's own refusal ("The supported API model names are …", "Incorrect
+          // API key provided") is short and names the fix, so it is shown verbatim — replacing it
+          // with "try again" is worse than useless when trying again cannot possibly help.
           message = "Copilot could not complete this design request. Please retry, or use a more focused prompt if the provider continues to fail."
         }
         this.transcriptTarget.insertAdjacentHTML("beforeend",

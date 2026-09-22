@@ -56,6 +56,28 @@ RSpec.describe "AI Writer plugin", type: :request do
         .to raise_error(AiWriter::Client::Error, /401/)
     end
 
+    # A provider's refusal names the fix ("The supported API model names are …", "Incorrect API
+    # key provided"). Relaying the raw body instead buries that sentence in JSON, and the editor
+    # then has nothing to say but "try again" — the wrong advice when the cure is a setting.
+    it "surfaces the provider's own explanation instead of the raw error payload" do
+      site.set_setting!("ai_api_key", "k")
+      client = AiWriter::Client.new(site: site)
+      body = %({"error":{"message":"The supported API model names are deepseek-flash, deepseek-v4-pro, but you passed deepseek-v4-1-flash.","type":"invalid_request_error"}})
+      response = Object.new
+      response.define_singleton_method(:is_a?) { |_klass| false }
+      response.define_singleton_method(:code) { "400" }
+      response.define_singleton_method(:body) { body }
+      http = Object.new
+      http.define_singleton_method(:post) { |*_args| response }
+      http.define_singleton_method(:request) { |_req, &b| b.call(response) }
+      allow(client).to receive(:http).and_return(http)
+
+      expect { client.generate("hi") }
+        .to raise_error(AiWriter::Client::Error, /The supported API model names are deepseek-flash/)
+      expect { client.stream_round([ { role: "user", content: "hi" } ]) { } }
+        .to raise_error(AiWriter::Client::Error) { |error| expect(error.message).not_to include('{"error"') }
+    end
+
     def tool_fake_http(sse_bodies)
       http = Object.new
       http.define_singleton_method(:request) do |_req, &block|
