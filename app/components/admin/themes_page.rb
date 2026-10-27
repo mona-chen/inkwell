@@ -124,7 +124,7 @@ module Admin
         toolbar.leading do
           div do
             h1(class: "text-2xl font-bold tracking-tight") { "Theme preview" }
-            p(class: "text-sm text-muted-foreground mt-1") { @slug }
+            p(class: "text-sm text-muted-foreground mt-1") { "#{@slug.titleize} · Theme defaults preview. Your published template assignments stay unchanged." }
           end
         end
         toolbar.trailing do
@@ -134,7 +134,7 @@ module Admin
 
       render Card.new do |card|
         card.body do
-          iframe(src: root_path(preview_theme: @slug), class: "w-full h-[80vh]")
+          iframe(src: root_path(preview_theme: @slug, theme_home: "1"), title: "#{@slug.titleize} theme preview", class: "w-full h-[80vh]")
         end
       end
     end

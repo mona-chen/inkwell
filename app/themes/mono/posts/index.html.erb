@@ -1,47 +1,9 @@
-<% content_for :title, (@tag || @category) ? (@tag || @category).name : "Archive" %>
-<div>
-  <p class="text-xs text-green-700 mb-1">
-    $ ls posts<% if @tag %> --tag=<%= @tag.slug %><% elsif @category %> --category=<%= @category.slug %><% end %>
-  </p>
-  <h1 class="text-lg font-bold mb-8">
-    <%= @tag ? "## #{@tag.name}" : @category ? "## #{@category.name}" : "# all posts" %>
-  </h1>
-
-  <% if @posts.empty? %>
-    <p class="text-green-700">// nothing published yet</p>
-  <% else %>
-    <div class="space-y-8">
-      <% @posts.each do |post| %>
-        <article class="border-b border-green-900 pb-6">
-          <h2 class="text-base font-bold">
-            <%= link_to "> #{post.title}", post_path(post), class: "hover:text-green-200" %>
-          </h2>
-          <p class="text-xs text-green-700 mt-1">
-            <%= post.published_at&.strftime("%Y-%m-%d") %>
-            <% if post.categories.any? %> · <%= post.categories.map(&:name).join(", ") %><% end %>
-            · <%= post.author.name %>
-          </p>
-          <p class="text-green-400 mt-2">
-            <%= post.excerpt.presence || truncate(post.content_blocks.find { |b| b["type"] == "paragraph" }&.dig("data", "text").to_s, length: 140) %>
-          </p>
-        </article>
-      <% end %>
-    </div>
-
-    <% if @posts.total_pages > 1 %>
-      <nav class="mt-10 flex items-center justify-between text-xs text-green-700" aria-label="Pagination">
-        <% if @posts.prev_page %>
-          <%= link_to "← newer", url_for(page: @posts.prev_page), class: "hover:text-green-300" %>
-        <% else %>
-          <span></span>
-        <% end %>
-        <span><%= @posts.current_page %>/<%= @posts.total_pages %></span>
-        <% if @posts.next_page %>
-          <%= link_to "older →", url_for(page: @posts.next_page), class: "hover:text-green-300" %>
-        <% else %>
-          <span></span>
-        <% end %>
-      </nav>
-    <% end %>
-  <% end %>
-</div>
+<% heading = (@category || @tag)&.name.presence || (params[:q].present? ? "Search results" : "Journal") %>
+<% content_for :title, "#{heading} — #{Current.site.name}" %>
+<header class="publication-archive-head"><span class="publication-eyebrow">The archive</span><h1 class="publication-title"><%= heading %></h1><p><%= params[:q].present? ? "Results for “#{params[:q]}”" : "All the writing, in one place." %></p></header>
+<%= form_with url: main_app.posts_path, method: :get, class: "publication-search" do |form| %>
+  <%= form.label :q, "Search the journal", class: "publication-eyebrow" %>
+  <div><%= form.search_field :q, value: params[:q], placeholder: "Search articles…" %><%= form.submit "Search" %></div>
+<% end %>
+<%= render "public_theme/post_list", posts: @posts %>
+<%= render "public_theme/pagination", posts: @posts %>

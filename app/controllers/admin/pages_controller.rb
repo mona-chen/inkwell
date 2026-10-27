@@ -1,10 +1,12 @@
 module Admin
   class PagesController < BaseController
+    include BulkContentActions
     before_action :set_page, only: %i[edit update destroy publish publish_original_import]
 
     def index
       @pages = Current.site.pages.where(template_for: nil).includes(:author)
-      @pages = @pages.where(status: params[:status]) if params[:status].present? && %w[draft published].include?(params[:status])
+      @pages = @pages.where.not(status: "trashed") unless params[:status] == "trashed"
+      @pages = @pages.where(status: params[:status]) if params[:status].present? && %w[draft published trashed].include?(params[:status])
       @pages = @pages.where("title ILIKE ?", "%#{params[:q]}%") if params[:q].present?
       @pages = @pages.order(:menu_order).page(params[:page])
       render Admin::PagesPage.new(pages: @pages, status: params[:status], q: params[:q])
@@ -56,8 +58,8 @@ module Admin
 
     def destroy
       authorize @page
-      @page.destroy
-      redirect_to admin_pages_path, notice: "Page deleted."
+      @page.update!(status: "trashed")
+      redirect_to admin_pages_path, notice: "Page moved to trash."
     end
 
     def publish

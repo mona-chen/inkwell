@@ -9,6 +9,11 @@ class SiteController < ApplicationController
     runtime = ThemePackages::Runtime.for(@current_theme)
     return if runtime&.render(self, "/")
 
+    if @theme_preview && params[:theme_home] == "1"
+      @posts = Current.site.posts.published.recent.includes(:author, :terms).limit(10)
+      return render "site/home"
+    end
+
     # If a static front page is configured (Settings → Reading → Homepage), render that
     # page's template — same as PagesController — instead of the posts archive.
     if Current.site.front_page?

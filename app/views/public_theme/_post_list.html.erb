@@ -1,0 +1,18 @@
+<% if posts.empty? %>
+  <section class="publication-empty"><h2>No articles yet.</h2><p>Try another search, or return to the journal.</p><%= link_to "All articles ↗", main_app.posts_path, class: "publication-text-link" %></section>
+<% else %>
+  <div class="publication-story-list">
+    <% posts.each_with_index do |post, index| %>
+      <article class="publication-story-row">
+        <span class="publication-story-number" aria-hidden="true"><%= format('%02d', index + 1) %></span>
+        <div class="publication-story-copy">
+          <div class="publication-eyebrow"><%= post.categories.first&.name || "Journal" %></div>
+          <h2><%= link_to post.title, main_app.post_path(post) %></h2>
+          <% if (summary = post.excerpt.presence || post.auto_meta_description).present? %><p><%= truncate(strip_tags(summary), length: 170) %></p><% end %>
+          <div class="publication-byline"><%= link_to post.author.name, main_app.author_path(post.author) %><span>·</span><span><%= post.reading_time %> min read</span></div>
+        </div>
+        <div class="publication-story-end"><time datetime="<%= post.published_at&.iso8601 %>"><%= post.published_at&.strftime("%b %-d, %Y") %></time><%= link_to "↗", main_app.post_path(post), aria: { label: "Read #{post.title}" } %></div>
+      </article>
+    <% end %>
+  </div>
+<% end %>

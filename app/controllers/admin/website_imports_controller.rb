@@ -25,8 +25,12 @@ module Admin
 
     def destroy
       website_import = Current.site.website_imports.find(params[:id])
-      website_import.destroy
-      redirect_to admin_website_imports_path, notice: "Import removed."
+      trash_pages = params[:disposition] == "trash_pages"
+      website_import.imported_pages.each { |page| authorize page, :destroy? } if trash_pages
+      website_import.remove!(trash_pages: trash_pages)
+      redirect_to admin_website_imports_path, status: :see_other, notice: trash_pages ? "Import removed. Its pages were moved to trash; you can restore them from Pages." : "Import removed. Pages and their assets were kept."
+    rescue ActiveRecord::RecordInvalid => error
+      redirect_to admin_website_import_path(website_import), status: :see_other, alert: error.record.errors.full_messages.to_sentence
     end
 
     private

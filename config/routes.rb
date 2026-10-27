@@ -32,6 +32,7 @@ Rails.application.routes.draw do
     root to: "dashboard#show"
 
     resources :posts, except: [:show] do
+      collection { post :bulk }
       member { post :publish }
       resources :revisions, controller: "post_revisions", only: %i[index show] do
         member { post :restore }
@@ -39,10 +40,11 @@ Rails.application.routes.draw do
     end
     resources :taxonomies, only: [:index, :create, :update, :destroy]
     resources :pages, except: :show do
+      collection { post :bulk }
       member { post :publish }
       member { post :publish_original_import }
     end
-    resources :website_imports, only: %i[index new create show] do
+    resources :website_imports, only: %i[index new create show destroy] do
       resource :application, only: :create, module: :website_imports
     end
     resources :media, only: [:index, :create, :update, :destroy]

@@ -15,6 +15,7 @@ class PagesController < ApplicationController
   private
 
   def activate_theme
-    ThemeManager.activate_for_request!(self, Current.site.active_theme)
+    preview_theme = params[:preview_theme] if current_user&.admin?
+    ThemeManager.activate_for_request!(self, preview_theme || Current.site.active_theme, preview: preview_theme.present?)
   end
 end

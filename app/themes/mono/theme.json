@@ -1,7 +1,13 @@
 {
   "name": "Mono",
-  "description": "High-contrast, monospace-forward theme for technical blogs.",
+  "description": "A precise contemporary journal with ink-blue typography, a graphic index, and monospace details.",
   "author": "Inkwell Core",
-  "version": "1.0.0",
-  "templates": { "page": ["default"] }
+  "version": "2.0.0",
+  "templates": {
+    "page": [
+      "default",
+      "full-width",
+      "landing"
+    ]
+  }
 }

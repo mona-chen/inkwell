@@ -1,0 +1,4 @@
+<% content_for :title, page.title %>
+<% content_for :full_bleed, true %>
+<% content_for :hide_chrome, true %>
+<%= BlockRenderer.render(page.content_blocks, self) %>

@@ -1,7 +1,13 @@
 {
   "name": "Default",
-  "description": "Inkwell's clean, editorial ship theme. Warm neutrals, generous whitespace.",
+  "description": "A warm editorial publication with a serif masthead, generous reading measure, and a structured journal archive.",
   "author": "Inkwell Core",
-  "version": "1.0.0",
-  "templates": { "page": ["default", "full-width", "landing"] }
+  "version": "2.0.0",
+  "templates": {
+    "page": [
+      "default",
+      "full-width",
+      "landing"
+    ]
+  }
 }

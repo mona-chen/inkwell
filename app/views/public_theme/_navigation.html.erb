@@ -1,0 +1,11 @@
+<% menu = Current.site.menus.find_by(location: location) %>
+<nav aria-label="<%= location == 'header' ? 'Main' : 'Footer' %>" class="publication-nav">
+  <% if menu&.menu_items&.any? %>
+    <% menu.menu_items.each do |item| %>
+      <%= link_to item.label, public_theme_navigation_url(item.resolved_url), aria: current_page?(item.resolved_url) ? { current: "page" } : {} %>
+    <% end %>
+  <% else %>
+    <%= link_to "Journal", main_app.posts_path %>
+    <%= link_to "RSS", "/feed.xml" %>
+  <% end %>
+</nav>

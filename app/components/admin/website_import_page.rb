@@ -58,10 +58,29 @@ module Admin
           end
         end
         import_review
+        removal_controls
       end
     end
 
     private
+
+    def removal_controls
+      section(class: "mt-8 border-t border-border pt-6") do
+        h2(class: "text-sm font-semibold") { "Remove imported site" }
+        if @website_import.active?
+          p(class: "mt-2 text-sm text-muted-foreground") { "Wait for this capture or import to finish before removing it." }
+          return
+        end
+        count = @website_import.imported_pages.where.not(status: "trashed").count
+        p(class: "mt-2 text-sm text-muted-foreground") { "Remove the import record, or also move its #{count} linked pages to trash. Pages claimed by another import are kept. Assets are retained so pages can be restored." }
+        div(class: "mt-4 flex flex-wrap gap-3") do
+          render ButtonTo.new("Remove import, keep pages", href: admin_website_import_path(@website_import), method: :delete, variant: :outline, size: :sm, data: { turbo_confirm: "Remove this import record? Its pages and assets will be kept." })
+          if count.positive?
+            render ButtonTo.new("Remove import & trash pages", href: admin_website_import_path(@website_import, disposition: "trash_pages"), method: :delete, variant: :danger, size: :sm, data: { turbo_confirm: "Remove this import and move #{count} linked pages to trash? You can restore the pages later." })
+          end
+        end
+      end
+    end
 
     def import_review
       report = @website_import.report || {}

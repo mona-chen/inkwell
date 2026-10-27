@@ -2,7 +2,7 @@
     Theme-agnostic so it works for posts, pages, tags, authors. %>
 <% if crumbs&.any? %>
   <nav class="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-gray-400" aria-label="Breadcrumb">
-    <%= link_to "Home", root_path, class: "transition-colors hover:text-gray-700" %>
+    <%= link_to "Home", main_app.root_path, class: "transition-colors hover:text-gray-700" %>
     <% crumbs.each do |crumb| %>
       <span class="text-gray-300" aria-hidden="true">/</span>
       <% if crumb[:path] %>

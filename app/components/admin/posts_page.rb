@@ -12,7 +12,7 @@ module Admin
     end
 
     def view_template
-      div(class: "workspace-list") do
+      div(class: "workspace-list", data: { controller: "bulk-selection" }) do
         render_header
         render_filters
         if @posts.empty?
@@ -52,6 +52,7 @@ module Admin
         end
 
         form_with(url: admin_posts_path, method: :get, class: "sm:w-64") do |f|
+          f.hidden_field :status, value: @status if @status.present?
           div(class: "relative") do
             span(class: "pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground") do
               render Icon.new(:search, size: :sm)
@@ -66,22 +67,21 @@ module Admin
     end
 
     def render_post_list
+      render BulkActions.new(kind: "posts", status: @status, q: @q)
       div(class: "overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border/60") do
         @posts.each { |post| render_post_row(post) }
       end
-      render Pagination.new(pagy: @pagy) if @pagy
+      render ContentPagination.new(collection: @posts, kind: "posts", status: @status, q: @q)
     end
 
     def render_post_row(post)
-      a(
-        href: edit_admin_post_path(post),
-        class: "group flex items-center gap-4 border-b border-border/60 px-5 py-3.5 last:border-b-0 transition-colors hover:bg-muted/40"
-      ) do
+      div(class: "group flex items-center gap-4 border-b border-border/60 px-5 py-3.5 last:border-b-0 transition-colors hover:bg-muted/40", data: { content_row: true }) do
+        input(type: "checkbox", name: "ids[]", value: post.id, form: "bulk-content-form", aria: { label: "Select #{post.title}" }, data: { bulk_selection_target: "item", action: "change->bulk-selection#refresh" })
         div(class: "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-colors") do
           render Icon.new(:file_text, size: :sm)
         end
         div(class: "min-w-0 flex-1") do
-          div(class: "truncate text-sm font-medium text-foreground group-hover:text-primary transition-colors") { post.title }
+          a(href: edit_admin_post_path(post), class: "block truncate text-sm font-medium text-foreground hover:text-primary") { post.title }
           div(class: "mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground") do
             span { "by #{post.author&.name || "unknown"}" }
             span(class: "opacity-30") { "·" }

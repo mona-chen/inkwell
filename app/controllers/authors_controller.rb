@@ -6,7 +6,7 @@ class AuthorsController < ApplicationController
     raise ActiveRecord::RecordNotFound unless @author
 
     @posts = @author.posts.published.order(published_at: :desc).page(params[:page]).per(9)
-    if (template = Page.template_for(Current.site, "single_author"))
+    if !preview_theme_defaults? && (template = Page.template_for(Current.site, "single_author"))
       @page = template
       @template_body = PageBuilder::TemplateRenderer.render(template, view_context: view_context, locals: { author: @author })
       render template: "authors/template"
@@ -18,6 +18,7 @@ class AuthorsController < ApplicationController
   private
 
   def activate_theme
-    ThemeManager.activate_for_request!(self, Current.site.active_theme)
+    preview_theme = params[:preview_theme] if current_user&.admin?
+    ThemeManager.activate_for_request!(self, preview_theme || Current.site.active_theme, preview: preview_theme.present?)
   end
 end

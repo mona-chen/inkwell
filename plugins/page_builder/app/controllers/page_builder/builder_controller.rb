@@ -67,7 +67,7 @@ module PageBuilder
     private :preview_content_template
 
     def workspace_pages
-      pages = Current.site.pages.ordered.includes(:author).map do |page|
+      pages = Current.site.pages.where.not(status: "trashed").ordered.includes(:author).map do |page|
         block = page.content_blocks.find { |item| item["type"] == "page_builder" }
         {
           id: page.id,
@@ -88,7 +88,9 @@ module PageBuilder
     # slug. The browser never submits an arbitrary filesystem path, and copied scripts are not
     # returned: only the reviewed, native builder payload produced by map-site-capture.js is.
     def workspace_captures
+      removed_captures = Array(Current.site.setting("removed_site_captures", []))
       captures = Dir.children(site_captures_root).filter_map do |capture_id|
+        next if removed_captures.include?(capture_id)
         next unless valid_capture_id?(capture_id)
 
         directory = site_captures_root.join(capture_id)

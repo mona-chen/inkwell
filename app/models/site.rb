@@ -55,7 +55,7 @@ class Site < ApplicationRecord
 
   def front_page
     id = setting("page_on_front")
-    id.present? ? pages.find_by(id: id) : nil
+    id.present? ? pages.published.find_by(id: id) : nil
   end
 
   def front_page?

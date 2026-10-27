@@ -169,6 +169,19 @@ async function main() {
       await client.send('Emulation.setDeviceMetricsOverride', {width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false}); await wait(150);
       const desktopDrawer = await client.evaluate(`({active:!document.getElementById('admin-navigation').inert,unlocked:!document.body.classList.contains('overflow-hidden'),background:!document.getElementById('admin-navigation').nextElementSibling.inert})`);
       check('resizing an open drawer to desktop clears modal state',desktopDrawer.active && desktopDrawer.unlocked && desktopDrawer.background,JSON.stringify(desktopDrawer));
+      await client.send('Page.navigate', {url:BASE_URL+'/admin/pages'}); await wait(700);
+      const bulkSelection = await client.evaluate(`(function(){var items=[...document.querySelectorAll('[data-bulk-selection-target="item"]')];if(items.length<2)return {fixture:false};items[0].click();items[1].click();var all=document.querySelector('[data-bulk-selection-target="all"]');var selected={count:document.querySelector('[data-bulk-selection-target="count"]').textContent,enabled:!document.querySelector('[data-bulk-selection-target="submit"]').disabled,partial:all.indeterminate};all.click();selected.all=items.every(x=>x.checked);all.click();selected.cleared=items.every(x=>!x.checked);return selected;})()`);
+      check('bulk selection tracks partial, all, and cleared states without mutating content',bulkSelection.count?.startsWith('2 selected')&&bulkSelection.enabled&&bulkSelection.partial&&bulkSelection.all&&bulkSelection.cleared,JSON.stringify(bulkSelection));
+      for (const theme of ['default','mono']) {
+        for (const width of [390,768,1440]) {
+          await client.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
+          await client.send('Page.navigate',{url:BASE_URL+'/?preview_theme='+theme+'&theme_home=1&theme_defaults=1'});await wait(700);
+          const publicPage=await client.evaluate(`({theme:document.body.dataset.publicTheme,overflow:document.documentElement.scrollWidth>innerWidth,title:!!document.querySelector('h1'),mobile:getComputedStyle(document.querySelector('.publication-mobile-menu')).display!=='none',menu:!!document.querySelector('.publication-mobile-menu nav a')})`);
+          check(theme+' theme homepage is responsive at '+width,publicPage.theme===theme&&!publicPage.overflow&&publicPage.title&&(width>640||publicPage.mobile&&publicPage.menu),JSON.stringify(publicPage));
+        }
+        const articleUrl=await client.evaluate(`document.querySelector('.publication-feature h2 a')?.href`);
+        if(articleUrl){await client.send('Page.navigate',{url:articleUrl});await wait(700);const reading=await client.evaluate(`({theme:document.body.dataset.publicTheme,prose:!!document.querySelector('.publication-prose'),overflow:document.documentElement.scrollWidth>innerWidth})`);check(theme+' article keeps its preview theme and reading layout',reading.theme===theme&&reading.prose&&!reading.overflow,JSON.stringify(reading));}
+      }
       check('app navigation has no uncaught errors',client.errors.length===0,client.errors.join(' | '));
       client.close();process.exitCode=failures?1:0;return;
     }

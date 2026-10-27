@@ -1,149 +1,38 @@
-<!DOCTYPE html>
+<% page_content = yield %>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title><%= content_for?(:title) ? yield(:title) : Current.site.name %></title>
-  <%= raw @head_meta&.join("\n") %>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
-  <%= javascript_importmap_tags %>
-  <style>
-    :root {
-      --editorial-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-      --editorial-serif: "Playfair Display", Georgia, ui-serif, serif;
-    }
-    body { font-family: var(--editorial-sans); }
-    .font-serif-display { font-family: var(--editorial-serif); }
-    .reading-measure { max-width: 42rem; }
-
-    /* Editorial image treatment for block-rendered content */
-    .prose-content img { border-radius: 0.75rem; }
-    .prose-content a { color: #4f46e5; text-decoration: underline; text-underline-offset: 2px; }
-
-    /* Reusable buttons */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      border-radius: 9999px;
-      font-weight: 500;
-      font-size: 0.875rem;
-      line-height: 1.5;
-      padding: 0.625rem 1.25rem;
-      transition: all 0.15s ease;
-      cursor: pointer;
-      border: 1px solid transparent;
-      white-space: nowrap;
-    }
-    .btn:active { transform: scale(0.98); }
-    .btn-lg { padding: 0.75rem 1.75rem; font-size: 0.9375rem; }
-    .btn-sm { padding: 0.375rem 0.875rem; font-size: 0.8125rem; }
-    .btn-primary {
-      background: #1a1a1a;
-      color: #fff;
-    }
-    .btn-primary:hover { background: #000; }
-    .btn-secondary {
-      background: #fff;
-      color: #333;
-      border-color: #ddd8cf;
-    }
-    .btn-secondary:hover { background: #f6f4ef; border-color: #cfc8bb; }
-    .btn-ghost { background: transparent; color: #4b5563; }
-    .btn-ghost:hover { background: #f3f0ea; color: #1a1a1a; }
-
-    /* Section heading with rule */
-    .section-head {
-      display: flex;
-      align-items: center;
-      gap: 1.25rem;
-      margin-bottom: 2.5rem;
-    }
-    .section-head h2 {
-      font-family: var(--editorial-serif);
-      font-size: 1.75rem;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-      margin: 0;
-      white-space: nowrap;
-    }
-    .section-head .rule { flex: 1; height: 1px; background: #e8e4dc; }
-    .section-head .kicker {
-      font-size: 0.75rem;
-      font-weight: 600;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #9ca3af;
-      margin-bottom: 0.5rem;
-    }
-  </style>
-</head>
-<body class="bg-[#fcfbf9] text-[#1a1a1a] antialiased">
-  <%# Render the page body first so content_for values set by the template (full_bleed,
-      hide_chrome) are populated before we read them. %>
-  <% page_content = yield %>
+<head><%= render "public_theme/head" %></head>
+<body class="publication-body" data-public-theme="default">
   <% full_bleed = content_for?(:full_bleed) %>
   <% hide_chrome = content_for?(:hide_chrome) %>
+  <a href="#publication-main" class="publication-skip">Skip to content</a>
   <%= render "site/admin_bar" unless hide_chrome %>
   <% unless hide_chrome %>
-    <header class="sticky top-0 z-40 border-b border-[#e8e4dc] bg-[#fcfbf9]/90 backdrop-blur">
-      <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-8">
-        <% if (logo = Current.site.logo_item) %>
-          <%= link_to root_path, class: "inline-block" do %>
-            <img src="<%= logo.url %>" alt="<%= Current.site.name %>" class="h-10 w-auto">
-          <% end %>
-        <% else %>
-          <%= link_to Current.site.name, root_path, class: "font-serif-display text-2xl font-bold tracking-tight text-[#1a1a1a] hover:opacity-80 transition-opacity" %>
+    <header class="publication-header">
+      <div class="publication-header-inner">
+        <%= link_to public_theme_navigation_url(main_app.root_path), class: "publication-brand" do %>
+          <% if (logo = Current.site.logo_item) %><img src="<%= logo.url %>" alt="<%= Current.site.name %>"><% else %><%= Current.site.name %><% end %>
         <% end %>
-        <%= render "site/nav", location: "header" %>
+        <div class="publication-desktop-nav"><%= render "public_theme/navigation", location: "header" %></div>
+        <details class="publication-mobile-menu">
+          <summary>Menu <span aria-hidden="true">+</span></summary>
+          <%= render "public_theme/navigation", location: "header" %>
+        </details>
       </div>
     </header>
   <% end %>
-
-  <main class="<%= full_bleed ? "py-0" : "mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16" %>">
-    <%= page_content %>
-  </main>
-
+  <main id="publication-main" tabindex="-1" class="publication-main <%= full_bleed ? 'is-full-bleed py-0' : 'publication-container' %>"><%= page_content %></main>
   <% unless hide_chrome %>
-    <footer class="mt-20 border-t border-[#e8e4dc] bg-[#f6f4ef]">
-      <div class="mx-auto max-w-7xl px-5 py-12 sm:px-8">
-        <div class="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          <div class="lg:col-span-2">
-            <div class="font-serif-display text-2xl font-bold tracking-tight"><%= Current.site.name %></div>
-            <p class="mt-3 max-w-sm text-sm leading-relaxed text-gray-500">
-              <%= Current.site.setting("tagline").presence || "Writing worth reading." %>
-            </p>
-          </div>
-          <div>
-            <%# Widget area footer-1 falls back to the site nav when empty %>
-            <% if (w1 = render_widget_area(:footer_1)) %>
-              <%= w1 %>
-            <% else %>
-              <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Explore</div>
-              <div class="mt-3"><%= render "site/nav", location: "footer" %></div>
-            <% end %>
-          </div>
-          <div>
-            <%# Widget area footer-2 falls back to the static blurb when empty %>
-            <% if (w2 = render_widget_area(:footer_2)) %>
-              <%= w2 %>
-            <% else %>
-              <div class="text-xs font-semibold uppercase tracking-widest text-gray-400">Stay in touch</div>
-              <p class="mt-3 text-sm text-gray-500">Follow along for new writing.</p>
-            <% end %>
-          </div>
-        </div>
-        <div class="mt-12 border-t border-[#e8e4dc] pt-6 text-xs text-gray-400">
-          © <%= Time.current.year %> <%= Current.site.name %>. Published with Inkwell.
-        </div>
+    <footer class="publication-footer publication-container">
+      <div class="publication-footer-top">
+        <div><%= link_to Current.site.name, public_theme_navigation_url(main_app.root_path), class: "publication-brand" %><p><%= Current.site.setting("tagline").presence || "Independent writing. A considered perspective." %></p></div>
+        <%= render "public_theme/navigation", location: "footer" %>
       </div>
+      <% if (widgets = render_widget_area(:footer_1)) %><div class="publication-footer-widgets"><%= widgets %></div><% end %>
+      <% if (widgets = render_widget_area(:footer_2)) %><div class="publication-footer-widgets"><%= widgets %></div><% end %>
+      <div class="publication-colophon"><span>© <%= Time.current.year %> <%= Current.site.name %></span><a href="/feed.xml">Follow via RSS ↗</a></div>
     </footer>
   <% end %>
-
   <%= raw Inkwell::Hooks.filter(:body_scripts, "", site: Current.site) %>
 </body>
 </html>

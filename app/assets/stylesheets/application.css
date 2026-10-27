@@ -724,3 +724,10 @@ body:has(dialog[open]) :is(.composer-formatting,.composer-block-popover,.compose
 .design-style-fields label { display:block; font-size:13px; margin-bottom:7px; color:var(--muted-foreground); }
 .design-style-fields .ink-control { width:100%; min-height:38px; }
 .design-style-fields input[type="color"] { max-width:90px; padding:4px; }
+.content-bulk-bar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:12px; padding:10px 0; }
+.content-select-all { display:flex; align-items:center; gap:10px; font-size:13px; cursor:pointer; }
+.content-bulk-bar select { margin-left:auto; max-width:210px; min-height:34px; }
+[data-content-row].is-selected { background:color-mix(in srgb,var(--primary) 7%,var(--card)); }
+[data-content-row] input[type="checkbox"],.content-select-all input { width:16px; height:16px; accent-color:var(--primary); flex-shrink:0; }
+.content-bulk-bar select { border:1px solid var(--border); background:var(--card); color:var(--foreground); border-radius:6px; padding:6px 10px; }
+@media(max-width:560px) { .content-bulk-bar select { margin-left:0; flex:1; max-width:none; } .content-bulk-bar>[data-bulk-selection-target="count"] { flex:1; } }

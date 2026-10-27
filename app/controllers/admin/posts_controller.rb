@@ -1,5 +1,6 @@
 module Admin
   class PostsController < BaseController
+    include BulkContentActions
     before_action :set_post, only: %i[edit update destroy publish]
 
     def index

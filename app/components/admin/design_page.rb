@@ -88,7 +88,7 @@ module Admin
 
     def render_page_links(title)
       h2(class: "mt-6 mb-2 text-sm font-semibold") { title }
-      pages = @site.pages.where(template_for: nil).order(updated_at: :desc).limit(5)
+      pages = @site.pages.where(template_for: nil).where.not(status: "trashed").order(updated_at: :desc).limit(5)
       if pages.empty?
         render Button.new("Create a page", href: new_admin_page_path, variant: :primary, size: :sm)
       end

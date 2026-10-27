@@ -1,6 +1,4 @@
+<% content_for :title, page.title %>
 <% content_for :full_bleed, true %>
 <% content_for :hide_chrome, true %>
-<% content_for :title, page.title %>
-<article class="min-h-[100dvh]">
-  <%= BlockRenderer.render(page.content_blocks, self) %>
-</article>
+<%= BlockRenderer.render(page.content_blocks, self) %>

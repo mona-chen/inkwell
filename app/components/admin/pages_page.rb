@@ -4,7 +4,7 @@ module Admin
   # Pages index: a content-first list matching the posts index — search, status tabs,
   # and rich rows. Rendered from Admin::PagesController#index.
   class PagesPage < ApplicationComponent
-    STATUSES = [["All", nil], ["Published", "published"], ["Draft", "draft"]].freeze
+    STATUSES = [["All", nil], ["Published", "published"], ["Draft", "draft"], ["Trash", "trashed"]].freeze
 
     def initialize(pages:, status: nil, q: nil, pagy: nil)
       @pages = pages
@@ -14,7 +14,7 @@ module Admin
     end
 
     def view_template
-      div(class: "admin-pages workspace-list") do
+      div(class: "admin-pages workspace-list", data: { controller: "bulk-selection" }) do
       render Toolbar.new do |toolbar|
         toolbar.leading do
           render ToolbarTitle.new(
@@ -52,6 +52,7 @@ module Admin
         end
 
         form_with(url: admin_pages_path, method: :get, class: "sm:w-64") do |f|
+          f.hidden_field :status, value: @status if @status.present?
           div(class: "relative") do
             span(class: "pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground") do
               render Icon.new(:search, size: :sm)
@@ -66,16 +67,18 @@ module Admin
     end
 
     def render_page_list
+      render BulkActions.new(kind: "pages", status: @status, q: @q)
       div(class: "overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border/60") do
         ul(class: "divide-y divide-border") do
           @pages.each { |page| render_page_row(page) }
         end
       end
-      render Pagination.new(pagy: @pagy) if @pagy
+      render ContentPagination.new(collection: @pages, kind: "pages", status: @status, q: @q)
     end
 
     def render_page_row(page)
-      li(class: "group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40") do
+      li(class: "group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40", data: { content_row: true }) do
+        input(type: "checkbox", name: "ids[]", value: page.id, form: "bulk-content-form", aria: { label: "Select #{page.title}" }, data: { bulk_selection_target: "item", action: "change->bulk-selection#refresh" })
         div(class: "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary") do
           render Icon.new(:file_text, size: :sm)
         end
@@ -110,11 +113,11 @@ module Admin
             menu.item("View", href: page_path(page), icon: :external_link, target: "_blank")
             menu.separator
             menu.item(
-              "Delete",
+              "Move to trash",
               href: admin_page_path(page),
               icon: :trash_2,
               variant: :destructive,
-              data: { turbo_method: :delete, turbo_confirm: "Delete #{page.title}?" }
+              data: { turbo_method: :delete, turbo_confirm: "Move #{page.title} to trash?" }
             )
           end
         end

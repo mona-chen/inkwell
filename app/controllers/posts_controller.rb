@@ -12,7 +12,7 @@ class PostsController < ApplicationController
 
     # A page designated as the archive/index template replaces the theme's posts index.
     roles = params.values_at(:category, :slug, :q).any?(&:present?) ? %w[archive index] : %w[index archive]
-    if (template = roles.lazy.map { |role| Page.template_for(Current.site, role) }.find(&:present?))
+    if !preview_theme_defaults? && (template = roles.lazy.map { |role| Page.template_for(Current.site, role) }.find(&:present?))
       @page = template
       @template_body = PageBuilder::TemplateRenderer.render(template, view_context: view_context)
       render template: "posts/template_index"
@@ -30,7 +30,7 @@ class PostsController < ApplicationController
 
     # A page designated as the single-post template replaces the theme's posts/show. `@page`
     # becomes the current post so `{{ page.* }}` bindings resolve; `post:` covers `{{ post.* }}`.
-    if (template = Page.template_for(Current.site, "single_post"))
+    if !preview_theme_defaults? && (template = Page.template_for(Current.site, "single_post"))
       @page = @post
       @template_body = PageBuilder::TemplateRenderer.render(template, view_context: view_context, locals: { post: @post })
       render template: "posts/template"
@@ -40,6 +40,7 @@ class PostsController < ApplicationController
   private
 
   def activate_theme
-    ThemeManager.activate_for_request!(self, Current.site.active_theme)
+    preview_theme = params[:preview_theme] if current_user&.admin?
+    ThemeManager.activate_for_request!(self, preview_theme || Current.site.active_theme, preview: preview_theme.present?)
   end
 end

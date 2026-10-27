@@ -1,0 +1,27 @@
+<header class="publication-masthead">
+  <div class="publication-masthead-line"><span class="publication-eyebrow">Journal & perspectives</span><span class="publication-meta"><%= Time.current.strftime("%B %Y") %></span></div>
+  <h1><%= Current.site.name %><span class="publication-period" aria-hidden="true">.</span></h1>
+  <div class="publication-masthead-bottom"><p><%= Current.site.setting("tagline").presence || "Articles, notes, and ideas from #{Current.site.name}." %></p><%= link_to "Explore the archive ↗", main_app.posts_path %></div>
+</header>
+<% if (featured = posts.first) %>
+  <section class="publication-feature" aria-labelledby="featured-title">
+    <div class="publication-feature-copy">
+      <div class="publication-eyebrow"><span class="publication-accent-dot"></span> Latest article · <%= featured.categories.first&.name || "Journal" %></div>
+      <h2 id="featured-title"><%= link_to featured.title, main_app.post_path(featured) %></h2>
+      <% if (summary = featured.excerpt.presence || featured.auto_meta_description).present? %><p><%= truncate(strip_tags(summary), length: 240) %></p><% end %>
+      <div class="publication-byline"><%= link_to featured.author.name, main_app.author_path(featured.author) %><span>·</span><time datetime="<%= featured.published_at&.iso8601 %>"><%= featured.published_at&.strftime("%B %-d, %Y") %></time><span>·</span><span><%= featured.reading_time %> min read</span></div>
+      <%= link_to "Read article ↗", main_app.post_path(featured), class: "publication-text-link" %>
+    </div>
+    <% if featured.featured_image_url.present? %>
+      <%= link_to main_app.post_path(featured), class: "publication-feature-image", tabindex: "-1", aria: { hidden: true } do %><img src="<%= featured.featured_image_url %>" alt="" fetchpriority="high"><% end %>
+    <% else %>
+      <div class="publication-feature-index" aria-hidden="true"><span>From the journal</span><strong>01</strong><span><%= featured.published_at&.strftime("%d / %m / %Y") %></span></div>
+    <% end %>
+  </section>
+  <% if posts.drop(1).any? %>
+    <div class="publication-section-heading"><h2>More from the journal</h2><%= link_to "All articles ↗", main_app.posts_path %></div>
+    <%= render "public_theme/post_list", posts: posts.drop(1) %>
+  <% end %>
+<% else %>
+  <section class="publication-empty"><h2>The first chapter is still ahead.</h2><p>Published articles will appear here.</p></section>
+<% end %>

@@ -1,28 +1,38 @@
-<!DOCTYPE html>
+<% page_content = yield %>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title><%= content_for?(:title) ? yield(:title) : Current.site.name %></title>
-  <%= raw @head_meta&.join("\n") %>
-  <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
-  <%= javascript_importmap_tags %>
-</head>
-<body class="bg-black text-green-400 font-mono antialiased">
-  <%= render "site/admin_bar" %>
-  <header class="border-b border-green-900 py-4">
-    <div class="max-w-2xl mx-auto px-4 flex items-center justify-between text-sm">
-      <%= link_to "~/#{Current.site.name.parameterize}", root_path, class: "font-bold" %>
-      <%= render "site/nav", location: "header" %>
-    </div>
-  </header>
-
-  <main class="max-w-2xl mx-auto px-4 py-10 text-sm leading-relaxed"><%= yield %></main>
-
-  <footer class="border-t border-green-900 py-6 mt-16 text-xs text-green-700">
-    <div class="max-w-2xl mx-auto px-4">// <%= render "site/nav", location: "footer" %></div>
-  </footer>
-
+<head><%= render "public_theme/head" %></head>
+<body class="publication-body" data-public-theme="mono">
+  <% full_bleed = content_for?(:full_bleed) %>
+  <% hide_chrome = content_for?(:hide_chrome) %>
+  <a href="#publication-main" class="publication-skip">Skip to content</a>
+  <%= render "site/admin_bar" unless hide_chrome %>
+  <% unless hide_chrome %>
+    <header class="publication-header">
+      <div class="publication-header-inner">
+        <%= link_to public_theme_navigation_url(main_app.root_path), class: "publication-brand" do %>
+          <% if (logo = Current.site.logo_item) %><img src="<%= logo.url %>" alt="<%= Current.site.name %>"><% else %><%= Current.site.name %><% end %>
+        <% end %>
+        <div class="publication-desktop-nav"><%= render "public_theme/navigation", location: "header" %></div>
+        <details class="publication-mobile-menu">
+          <summary>Menu <span aria-hidden="true">+</span></summary>
+          <%= render "public_theme/navigation", location: "header" %>
+        </details>
+      </div>
+    </header>
+  <% end %>
+  <main id="publication-main" tabindex="-1" class="publication-main <%= full_bleed ? 'is-full-bleed py-0' : 'publication-container' %>"><%= page_content %></main>
+  <% unless hide_chrome %>
+    <footer class="publication-footer publication-container">
+      <div class="publication-footer-top">
+        <div><%= link_to Current.site.name, public_theme_navigation_url(main_app.root_path), class: "publication-brand" %><p><%= Current.site.setting("tagline").presence || "Independent writing. A considered perspective." %></p></div>
+        <%= render "public_theme/navigation", location: "footer" %>
+      </div>
+      <% if (widgets = render_widget_area(:footer_1)) %><div class="publication-footer-widgets"><%= widgets %></div><% end %>
+      <% if (widgets = render_widget_area(:footer_2)) %><div class="publication-footer-widgets"><%= widgets %></div><% end %>
+      <div class="publication-colophon"><span>© <%= Time.current.year %> <%= Current.site.name %></span><a href="/feed.xml">Follow via RSS ↗</a></div>
+    </footer>
+  <% end %>
   <%= raw Inkwell::Hooks.filter(:body_scripts, "", site: Current.site) %>
 </body>
 </html>

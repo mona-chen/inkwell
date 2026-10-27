@@ -19,6 +19,16 @@ class ApplicationController < ActionController::Base
     new_user_session_path
   end
 
+  def default_url_options
+    options = @theme_preview ? { preview_theme: @current_theme } : {}
+    options[:theme_defaults] = "1" if preview_theme_defaults?
+    super.merge(options)
+  end
+
+  def preview_theme_defaults?
+    @theme_preview && (params[:theme_defaults] == "1" || params[:theme_home] == "1")
+  end
+
   private
 
   # Single-site default: resolve the site from the Multisite middleware when it's installed,

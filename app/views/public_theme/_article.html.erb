@@ -1,0 +1,23 @@
+<article class="publication-article">
+  <header class="publication-article-head">
+    <%= link_to "← Journal", main_app.posts_path, class: "publication-back" %>
+    <div class="publication-eyebrow"><%= post.categories.map(&:name).join(" / ").presence || "Journal" %></div>
+    <h1 class="publication-title"><%= post.title %></h1>
+    <% if post.excerpt.present? %><p class="publication-deck"><%= post.excerpt %></p><% end %>
+    <div class="publication-article-meta"><%= link_to post.author.name, main_app.author_path(post.author) %><time datetime="<%= post.published_at&.iso8601 %>"><%= post.published_at&.strftime("%B %-d, %Y") %></time><span><%= post.reading_time %> min read</span></div>
+  </header>
+  <% if post.featured_image_url.present? %><figure class="publication-article-cover"><img src="<%= post.featured_image_url %>" alt="<%= post.featured_image_alt.presence || '' %>" fetchpriority="high"></figure><% end %>
+  <div class="<%= post.content_blocks.any? { |block| block['type'] == 'page_builder' } ? 'publication-native-reading' : 'publication-reading-layout' %>">
+    <aside class="publication-reading-aside"><span class="publication-eyebrow">Written by</span><%= link_to post.author.name, main_app.author_path(post.author) %><p><%= post.author.bio.presence || "Contributor to #{Current.site.name}." %></p><a href="/feed.xml">Follow via RSS ↗</a></aside>
+    <div class="<%= post.content_blocks.any? { |block| block['type'] == 'page_builder' } ? 'publication-native-builder' : 'publication-prose' %>"><%= BlockRenderer.render(post.content_blocks, self) %></div>
+  </div>
+  <% if post.tags.any? %><div class="publication-tags"><% post.tags.each do |tag| %><%= link_to tag.name, main_app.tag_posts_path(tag.slug) %><% end %></div><% end %>
+  <div class="publication-article-bottom"><%= render "site/comments", post: post %></div>
+</article>
+<% if @prev_post || @next_post %>
+  <nav class="publication-next" aria-label="Post navigation">
+    <div><% if @prev_post %><span class="publication-eyebrow">Previous article</span><%= link_to @prev_post.title, main_app.post_path(@prev_post) %><% end %></div>
+    <div><% if @next_post %><span class="publication-eyebrow">Next article</span><%= link_to @next_post.title, main_app.post_path(@next_post) %><% end %></div>
+  </nav>
+<% end %>
+<% if @related_posts&.any? %><div class="publication-section-heading"><h2>Keep reading</h2></div><%= render "public_theme/post_list", posts: @related_posts %><% end %>

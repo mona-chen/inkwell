@@ -1,0 +1,7 @@
+<% if posts.respond_to?(:total_pages) && posts.total_pages > 1 %>
+  <nav class="publication-pagination" aria-label="Pagination">
+    <div><%= link_to "← Newer articles", url_for(page: posts.prev_page) if posts.prev_page %></div>
+    <span>Page <%= posts.current_page %> of <%= posts.total_pages %></span>
+    <div><%= link_to "Older articles →", url_for(page: posts.next_page) if posts.next_page %></div>
+  </nav>
+<% end %>

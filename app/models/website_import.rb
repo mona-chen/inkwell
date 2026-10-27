@@ -66,6 +66,25 @@ class WebsiteImport < ApplicationRecord
     update!(status: "failed", error_message: message.to_s.truncate(8_000), finished_at: Time.current)
   end
 
+  def imported_pages
+    site.pages.where(id: Array(imported_page_ids)).where("meta ->> 'import_capture' = ?", capture_id)
+  end
+
+  def remove!(trash_pages: false)
+    with_lock do
+      if active?
+        errors.add(:base, "Wait for the capture or import to finish before removing it.")
+        raise ActiveRecord::RecordInvalid, self
+      end
+      imported_pages.each { |page| page.update!(status: "trashed") } if trash_pages
+      site.with_lock do
+        removed = Array(site.setting("removed_site_captures", []))
+        site.set_setting!("removed_site_captures", (removed + [capture_id]).uniq)
+      end
+      destroy!
+    end
+  end
+
   private
 
   def normalize_source_url
