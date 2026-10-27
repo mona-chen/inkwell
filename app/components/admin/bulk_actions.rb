@@ -14,9 +14,10 @@ module Admin
         end
         span(class: "text-xs text-muted-foreground", data: { bulk_selection_target: "count" }, aria: { live: "polite" }) { "Select items to take action" }
         label(class: "sr-only", for: "bulk-action") { "Bulk action" }
-        options = [["Choose action…", ""], ["Publish", "publish"], ["Unpublish", "draft"], ["Move to trash", "trash"]]
-        options = [["Choose action…", ""], ["Restore as drafts", "restore"], ["Delete permanently", "delete"]] if @status == "trashed"
-        form.select :bulk_action, options, {}, id: "bulk-action", required: true, class: "ink-control text-sm", data: { bulk_selection_target: "action" }
+        options = [["Bulk actions…", ""], [@kind == "pages" ? "Publish Builder version" : "Publish", "publish"], ["Unpublish", "draft"], ["Move to trash", "trash"]]
+        options.insert(2, ["Publish original imports", "publish_original"]) if @kind == "pages"
+        options = [["Bulk actions…", ""], ["Restore as drafts", "restore"], ["Delete permanently", "delete"]] if @status == "trashed"
+        form.select :bulk_action, options, {}, id: "bulk-action", required: true, class: "ink-control ink-select-chevron text-sm", data: { bulk_selection_target: "action" }
         render Button.new("Apply", type: :submit, variant: :outline, size: :sm, data: { bulk_selection_target: "submit" })
       end
     end

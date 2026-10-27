@@ -81,7 +81,7 @@
     <div class="admin-editor-sidebar bg-background rounded-lg shadow-sm p-4 space-y-4">
       <div>
         <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Status</label>
-        <%= f.select :status, %w[draft published], {}, class: "mt-1 w-full text-sm border rounded px-2 py-1.5" %>
+        <%= f.select :status, %w[draft published], {}, class: "ink-control ink-select-chevron mt-1 w-full" %>
       </div>
 
       <%# Layout — mirrors Elementor's Page Layout setting %>
@@ -109,7 +109,7 @@
                 [ "Post archive", "archive" ],
                 [ "Blog index", "index" ] ],
               { selected: page.template_for.to_s },
-              class: "mt-1 w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground" %>
+              class: "ink-control ink-select-chevron mt-1 w-full" %>
         <p class="mt-1 text-xs text-muted-foreground">Design this page in the Builder to replace the theme's default rendering for that content type.</p>
       </div>
 
@@ -120,7 +120,7 @@
 
       <div>
         <label class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Menu order</label>
-        <%= f.number_field :menu_order, class: "mt-1 w-full text-sm border border-border rounded px-2 py-1.5 bg-background text-foreground" %>
+        <%= f.number_field :menu_order, class: "ink-control mt-1 w-full" %>
       </div>
 
       <%# Plugin-injected editor panels (e.g. SEO) %>
@@ -139,13 +139,13 @@
           <p class="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Import source</p>
           <h2 id="original-import-heading" class="mt-1 text-sm font-semibold text-foreground">Original version</h2>
           <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-            <%= page.live_render_mode == "original_import" ? "The captured original is public. Your Builder changes remain safely separate." : "The native Builder version is public. You can temporarily keep the captured original live while refining it." %>
+            <%= page.live_render_mode == "original_import" ? "The captured original is public. Your Builder changes remain safely separate." : "Publish the captured website to keep its original appearance and behavior. Your editable Builder work will be kept separately." %>
           </p>
         </div>
         <a href="<%= page.original_import_url %>" target="_blank" rel="noreferrer" class="block truncate text-xs font-medium text-primary hover:underline"><%= page.original_import_url %></a>
         <button type="submit" formaction="<%= publish_original_import_admin_page_path(page) %>" formmethod="post"
                 class="w-full rounded-lg border border-primary/30 bg-background py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10">
-          <%= page.live_render_mode == "original_import" ? "Original version is live" : "Keep original import live" %>
+          <%= page.status == "published" && page.live_render_mode == "original_import" ? "Republish original version" : "Publish original version" %>
         </button>
       </section>
     <% end %>

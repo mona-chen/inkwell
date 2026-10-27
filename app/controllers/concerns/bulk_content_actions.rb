@@ -9,24 +9,31 @@ module BulkContentActions
     action = params[:bulk_action].to_s
     return redirect_to_bulk(kind, "Select at least one item.", alert: true) if ids.empty?
     return redirect_to_bulk(kind, "Select no more than 250 items at once.", alert: true) if ids.size > 250
-    unless %w[publish draft trash restore delete].include?(action)
+    unless (%w[publish draft trash restore delete] + (kind == "pages" ? ["publish_original"] : [])).include?(action)
       return redirect_to_bulk(kind, "Choose a bulk action.", alert: true)
     end
 
     relation.klass.transaction do
       records = relation.where(id: ids).order(:id).lock.to_a
       raise ActiveRecord::RecordNotFound unless records.size == ids.size
-      records.each { |record| authorize record, action == "publish" ? :publish? : %w[trash delete].include?(action) ? :destroy? : :update? }
+      records.each { |record| authorize record, action == "publish_original" ? :publish_original_import? : action == "publish" ? :publish? : %w[trash delete].include?(action) ? :destroy? : :update? }
+      if action == "publish_original"
+        missing = records.reject(&:original_import_available?)
+        if missing.any?
+          return redirect_to_bulk(kind, "No pages published. #{missing.size} selected pages have no captured original. Select only imported pages with an original version.", alert: true)
+        end
+      end
       if action == "delete" && records.any? { |record| record.status != "trashed" }
         return redirect_to_bulk(kind, "Move items to trash before deleting them permanently.", alert: true)
       end
       records.each do |record|
         case action
+        when "publish_original" then record.publish_original_import!
         when "publish"
           if record.draft_content.present?
             record.is_a?(Page) ? record.publish_native! : record.publish_draft!
           else
-            record.update!(status: "published")
+            record.update!(status: "published", **(record.is_a?(Page) ? { live_render_mode: "native" } : {}))
           end
         when "draft", "restore" then record.update!(status: "draft", **(record.is_a?(Post) ? { scheduled_for: nil } : {}))
         when "trash" then record.update!(status: "trashed")
@@ -34,7 +41,7 @@ module BulkContentActions
         end
       end
     end
-    messages = { "publish" => "published", "draft" => "unpublished", "trash" => "moved to trash", "restore" => "restored as drafts", "delete" => "permanently deleted" }
+    messages = { "publish_original" => "published using captured originals; Builder drafts were kept", "publish" => "published", "draft" => "unpublished", "trash" => "moved to trash", "restore" => "restored as drafts", "delete" => "permanently deleted" }
     redirect_to_bulk(kind, "#{ids.size} #{kind} #{messages.fetch(action)}.")
   rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotDestroyed => error
     redirect_to_bulk(kind, "No changes made: #{error.record.errors.full_messages.to_sentence}", alert: true)

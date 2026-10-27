@@ -88,4 +88,36 @@ RSpec.describe "Bulk content actions", type: :request do
     expect(invalid.reload.status).to eq("draft")
   end
 
+  it "publishes original imports in bulk while preserving native content and drafts" do
+    original = page("Original", original_import_url: "https://source.test/", original_import_html: "<main>Captured original</main>", draft_content: [{ type: "paragraph", data: { text: "Native working copy" } }])
+    saved_content, saved_draft = original.content.deep_dup, original.draft_content.deep_dup
+    get "/admin/pages"
+    expect(response.body).to include('value="publish_original"', 'ink-select-chevron')
+    post "/admin/pages/bulk", params: { ids: [original.id], bulk_action: "publish_original" }
+    expect(response).to have_http_status(:see_other)
+    expect(original.reload.status).to eq("published")
+    expect(original.live_render_mode).to eq("original_import")
+    expect(original.content).to eq(saved_content)
+    expect(original.draft_content).to eq(saved_draft)
+    get "/pages/#{original.slug}"
+    expect(response.body).to include("Captured original")
+  end
+
+  it "rejects a mixed original-publication batch without partially publishing" do
+    original = page("Original", original_import_url: "https://source.test/", original_import_html: "Captured")
+    native = page("Native only")
+    post "/admin/pages/bulk", params: { ids: [original.id, native.id], bulk_action: "publish_original" }
+    expect(response).to have_http_status(:see_other)
+    expect(original.reload.status).to eq("draft")
+    expect(native.reload.status).to eq("draft")
+    expect(flash[:alert]).to include("no captured original")
+  end
+
+  it "explicitly publishes native content when choosing the Builder version" do
+    original = page("Switch to native", status: "published", live_render_mode: "original_import", original_import_url: "https://source.test/", original_import_html: "Captured")
+    post "/admin/pages/bulk", params: { ids: [original.id], bulk_action: "publish" }
+    expect(original.reload.live_render_mode).to eq("native")
+    expect(original.content_blocks.first.dig("data", "text")).to eq("Saved content")
+  end
+
 end

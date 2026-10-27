@@ -16,7 +16,7 @@ export default class extends Controller {
     const count = this.itemTargets.filter(item => item.checked).length
     if (!count) { event.preventDefault(); return }
     const action = this.actionTarget.value
-    const messages = { delete: `Permanently delete ${count} selected items? This cannot be undone.`, trash: `Move ${count} selected items to trash? You can restore them later.`, publish: `Publish ${count} selected items? They will become visible on your site.`, draft: `Unpublish ${count} selected items? They will no longer be visible on your site.` }
+    const messages = { publish_original: `Publish the captured original for ${count} selected pages? The original websites will become public; Builder drafts will be kept.`, delete: `Permanently delete ${count} selected items? This cannot be undone.`, trash: `Move ${count} selected items to trash? You can restore them later.`, publish: `Publish ${count} selected items? They will become visible on your site.`, draft: `Unpublish ${count} selected items? They will no longer be visible on your site.` }
     if (messages[action] && !window.confirm(messages[action])) event.preventDefault()
   }
 }
