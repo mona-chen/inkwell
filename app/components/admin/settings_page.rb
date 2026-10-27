@@ -10,6 +10,8 @@ module Admin
       "general" => { label: "General", icon: :sliders_horizontal, subtitle: "Identity and regional preferences" },
       "discussion" => { label: "Discussion", icon: :message_circle, subtitle: "How visitors register and comment" },
       "homepage" => { label: "Homepage", icon: :home, subtitle: "Choose the content visitors see first" },
+      "custom_css" => { label: "Custom CSS", icon: :code, subtitle: "Additional styles for your public site" },
+      "custom_scripts" => { label: "Custom Scripts", icon: :code, subtitle: "Scripts for your public site" },
       "api" => { label: "API", icon: :code, subtitle: "Read-only content API and access tokens" },
       "maintenance" => { label: "Maintenance", icon: :wrench, subtitle: "Caches, assets, and recovery tools" }
     }.freeze
@@ -58,6 +60,27 @@ module Admin
     end
 
     private
+
+    def render_custom_css_section
+      render SettingsSection.new(title: "Site-wide custom CSS", description: "Applies to public pages, original imports, and frontend themes. Your admin and sign-in screens stay unaffected.") do |section|
+        section.form do
+          form_with(url: admin_settings_path(section: @section), method: :patch, scope: "settings", builder: Ink::FormBuilder, html: { id: form_id }) do |form|
+            form.field(:custom_css, as: :textarea, label: "Custom CSS", value: setting_value("custom_css", ""), description: "Paste CSS only, without <style> tags. Save to apply it across this site. Clear the field and save to remove your overrides.", control_html: { rows: 18, spellcheck: false, class: "font-mono text-xs", placeholder: "/* Your site-wide styles */" })
+          end
+        end
+      end
+    end
+
+    def render_custom_scripts_section
+      render SettingsSection.new(title: "Site-wide custom scripts", description: "Add trusted analytics, integrations, or custom behavior to public pages, including original imports and frontend themes. Scripts do not run in admin, sign-in screens, or Builder previews.") do |section|
+        section.form do
+          form_with(url: admin_settings_path(section: @section), method: :patch, scope: "settings", builder: Ink::FormBuilder, html: { id: form_id }) do |form|
+            form.field(:custom_scripts_head, as: :textarea, label: "Head scripts", value: setting_value("custom_scripts_head", ""), description: "Inserted at the end of <head>. Include <script> tags; external scripts can use src and defer. Only add code you trust.", control_html: { rows: 10, spellcheck: false, class: "font-mono text-xs", placeholder: '<script src="https://example.com/analytics.js" defer></script>' })
+            form.field(:custom_scripts_body, as: :textarea, label: "Footer scripts", value: setting_value("custom_scripts_body", ""), description: "Inserted before </body>, after the page content. Include <script> tags. Clear and save to remove. Each field supports up to 64 KB.", control_html: { rows: 12, spellcheck: false, class: "font-mono text-xs", placeholder: "<script>\n  // Your custom JavaScript\n</script>" })
+          end
+        end
+      end
+    end
 
     def render_general_section
       render SettingsSection.new(
@@ -337,6 +360,8 @@ module Admin
       case @section
       when "discussion" then render_discussion_section
       when "homepage" then render_homepage_section
+      when "custom_css" then render_custom_css_section
+      when "custom_scripts" then render_custom_scripts_section
       when "api" then render_api_section
       when "maintenance" then render_maintenance_section
       else render_general_section

@@ -49,4 +49,17 @@ RSpec.describe "Preserved imported pages", type: :request do
     imported("/same")
     expect { imported("/same", title: "Duplicate") }.to raise_error(ActiveRecord::RecordInvalid)
   end
+  it "hides the Framer host badge without removing the original runtime or branded page content" do
+    page = imported("/badge-example", original_import_html: '<html><head><script type="module" src="https://cdn.test/runtime.js"></script></head><body><main>Original Framer article</main><div id="__framer-badge-container"><a>Made in Framer</a></div></body></html>')
+    site.set_setting!("custom_css", "#__framer-badge-container { display: none !important; }")
+    get "/badge-example"
+    expect(response).to have_http_status(:ok)
+    document = Nokogiri::HTML5.parse(response.body)
+    expect(document.at_css("style[data-ink-site-custom-css]").text).to include("#__framer-badge-container", "display: none !important")
+    expect(document.at_css("#__framer-badge-container")).to be_present
+    expect(document.at_css('script[type="module"]')['src']).to eq("https://cdn.test/runtime.js")
+    expect(document.at_css("main").text).to eq("Original Framer article")
+    expect(page.reload.original_import_html).not_to include("data-ink-site-custom-css")
+  end
+
 end

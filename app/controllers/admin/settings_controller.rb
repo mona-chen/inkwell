@@ -1,12 +1,12 @@
 module Admin
   class SettingsController < BaseController
-    SECTIONS = %w[general discussion homepage api maintenance].freeze
+    SECTIONS = %w[general discussion homepage custom_css custom_scripts api maintenance].freeze
     # Columns on Site edited directly from the settings form.
     SITE_ATTRIBUTES = %w[name].freeze
     # Option-backed settings (Site#setting / Site#set_setting!).
     SETTINGS_SCHEMA = %w[
       tagline timezone registration_mode comments_enabled site_logo
-      show_on_front page_on_front
+      show_on_front page_on_front custom_css custom_scripts_head custom_scripts_body
     ].freeze
 
     def show
@@ -19,6 +19,19 @@ module Admin
     end
 
     def update
+      if params[:settings]&.key?(:custom_css)
+        css = params[:settings][:custom_css]
+        unless css.is_a?(String) && css.bytesize <= SiteCustomCss::MAX_BYTES
+          return redirect_to admin_settings_path(section: "custom_css"), status: :see_other, alert: "Custom CSS must be text and no larger than 64 KB."
+        end
+      end
+      %w[custom_scripts_head custom_scripts_body].each do |key|
+        next unless params[:settings]&.key?(key)
+        code = params[:settings][key]
+        unless code.is_a?(String) && code.bytesize <= SiteCustomCss::MAX_BYTES
+          return redirect_to admin_settings_path(section: "custom_scripts"), status: :see_other, alert: "Custom scripts must be text and no larger than 64 KB per field."
+        end
+      end
       SITE_ATTRIBUTES.each do |key|
         next unless params[:settings]&.key?(key)
 

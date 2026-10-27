@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::Base
   include Pundit::Authorization
+  include AppliesSiteCustomCss
 
   before_action :set_current_attributes
   around_action :set_time_zone
