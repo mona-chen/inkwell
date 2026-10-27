@@ -27,6 +27,9 @@ const manifestPath = path.join(captureDir, "manifest.json");
 if (!fs.existsSync(manifestPath)) throw new Error("Usage: npm run map-site -- /path/to/capture [--output payload.json]");
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 if (manifest.format === "ink-site-capture-v2") {
+  if (!Array.isArray(manifest.pages) || !manifest.pages.length) {
+    throw new Error(`Capture contains no pages. ${(manifest.failures || []).map((failure) => `${failure.url}: ${failure.error}`).join("; ")}`);
+  }
   const { spawnSync } = require("child_process");
   const siteOutput = path.resolve(outputFlag >= 0 ? args[outputFlag + 1] : path.join(captureDir, "site-builder-payload.json"));
   const prefix = new URL(manifest.source).hostname.replace(/^www\./, "").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "imported-site";

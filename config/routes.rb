@@ -48,6 +48,7 @@ Rails.application.routes.draw do
       member { post :publish_original_import }
     end
     resources :website_imports, only: %i[index new create show destroy] do
+      member { post :retry }
       resource :application, only: :create, module: :website_imports
     end
     resources :media, only: [:index, :create, :update, :destroy]

@@ -72,3 +72,17 @@ RSpec.describe WebsiteImport, type: :model do
     end
   end
 end
+
+RSpec.describe "Website capture completion", type: :model do
+  it "requires a nonempty mapped page set and retains partial capture errors" do
+    site = Site.create!(name: "Completion", domain: "completion.test")
+    role = Role.create!(name: "admin")
+    user = User.create!(name: "Owner", email: "completion@test.example", password: "password123", site: site, role: role)
+    record = site.website_imports.create!(user: user, source_url: "https://example.com", ownership_confirmed: true)
+    expect { record.mark_ready!({ "pages" => [] }) }.to raise_error(ArgumentError, /No pages/)
+    expect(record.reload.status).not_to eq("ready")
+    record.mark_ready!({ "pages" => [{ "source" => "https://example.com" }], "importReport" => { "capturedPages" => 1 }, "failures" => [{ "url" => "https://example.com/missing", "error" => "HTTP 404" }] })
+    expect(record.reload.progress).to eq(85)
+    expect(record.report["failures"].first["error"]).to eq("HTTP 404")
+  end
+end

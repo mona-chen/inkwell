@@ -15,9 +15,11 @@ module Admin
           end
           toolbar.trailing do
             if @website_import.ready?
-              render ButtonTo.new("Import editable pages", href: admin_website_import_application_path(@website_import), method: :post, variant: :primary, icon: :download)
+              render ButtonTo.new("Import #{@website_import.mapped_pages} editable pages", href: admin_website_import_application_path(@website_import), method: :post, variant: :primary, icon: :download)
             elsif @website_import.status == "imported" && @website_import.imported_page_ids.first
               render Button.new("Open first page", href: "/builder/page/#{@website_import.imported_page_ids.first}", variant: :primary, icon: :external_link)
+            elsif @website_import.retryable?
+              render ButtonTo.new("Retry capture", href: retry_admin_website_import_path(@website_import), method: :post, variant: :primary, icon: :refresh_cw)
             else
               render Button.new("Refresh status", href: admin_website_import_path(@website_import), variant: :ghost, icon: :refresh_cw)
             end
@@ -29,11 +31,11 @@ module Admin
             div do
               div(class: "flex items-center gap-2") do
                 h2(class: "text-sm font-semibold text-foreground") { status_title }
-                render Badge.new(@website_import.status, color: status_color, size: :xs)
+                render Badge.new(@website_import.empty_capture? ? "failed" : @website_import.status, color: status_color, size: :xs)
               end
               p(class: "mt-1 text-sm text-muted-foreground") { status_description }
             end
-            span(class: "text-sm font-medium tabular-nums text-foreground") { "#{@website_import.progress}%" }
+            span(class: "text-sm font-medium tabular-nums text-foreground") { @website_import.retryable? ? "Capture failed" : "#{@website_import.progress}%" }
           end
           div(class: "h-1.5 bg-muted") do
             div(class: "h-full bg-primary transition-all", style: "width: #{@website_import.progress}%")
@@ -41,20 +43,23 @@ module Admin
           dl(class: "grid gap-px bg-border sm:grid-cols-3") do
             metric("Captured routes", @website_import.captured_pages)
             metric("Mapped pages", @website_import.mapped_pages)
-            metric("Crawl limit", @website_import.max_pages)
+            metric("Pages created", @website_import.imported_page_ids.size)
           end
-          if @website_import.error_message.present?
+          if @website_import.error_message.present? || @website_import.empty_capture?
             div(class: "border-t border-danger/30 bg-danger/10 px-5 py-4") do
               h3(class: "text-sm font-medium text-danger") { "Import failed" }
-              pre(class: "mt-2 whitespace-pre-wrap break-words text-xs text-danger") { @website_import.error_message }
+              pre(class: "mt-2 whitespace-pre-wrap break-words text-xs text-danger") { @website_import.error_message.presence || "No pages were captured or mapped. This earlier capture was incorrectly marked ready. Retry the capture to get a fresh result and its route-level diagnostics." }
             end
           end
         end
 
         if @website_import.ready?
           div(class: "mt-6 rounded-xl border border-success/30 bg-success/5 p-5") do
-            h2(class: "text-sm font-semibold text-foreground") { "Ready to create native pages" }
-            p(class: "mt-1 text-sm text-muted-foreground") { "Capture complete. Importing creates editable draft pages and installs shared header and footer parts. Review interactions in Preview before publishing; a captured appearance does not guarantee recovered behavior." }
+            h2(class: "text-sm font-semibold text-foreground") { "Next: create your editable pages" }
+            p(class: "mt-1 text-sm text-muted-foreground") { "Capture is complete, but pages have not been created yet. Import the #{@website_import.mapped_pages} mapped pages as drafts, then review and publish them when ready. Your live site stays unchanged." }
+            div(class: "mt-4") do
+              render ButtonTo.new("Import #{@website_import.mapped_pages} editable pages", href: admin_website_import_application_path(@website_import), method: :post, variant: :primary, icon: :download)
+            end
           end
         end
         import_review
@@ -84,10 +89,17 @@ module Admin
 
     def import_review
       report = @website_import.report || {}
-      return if report["notices"].blank? && report["skippedRoutes"].blank? && report["quality"].blank?
+      return if report["notices"].blank? && report["skippedRoutes"].blank? && report["quality"].blank? && report["failures"].blank?
 
       section(class: "mt-6 rounded-xl border border-border bg-background p-5") do
         h2(class: "text-sm font-semibold text-foreground") { "Import review" }
+        failures = Array(report["failures"])
+        if failures.any?
+          h3(class: "mt-4 text-sm font-medium") { "#{failures.size} routes failed to capture" }
+          failures.each do |failure|
+            p(class: "mt-2 break-words text-xs text-muted-foreground") { "#{failure['url']}: #{failure['error']}" }
+          end
+        end
         recovered_behavior(report["quality"])
         Array(report["notices"]).each do |notice|
           p(class: "mt-2 text-sm text-muted-foreground") { notice }
@@ -143,16 +155,18 @@ module Admin
     end
 
     def status_title
-      { "queued" => "Waiting to start", "capturing" => "Capturing the website", "mapping" => "Converting to native elements", "ready" => "Capture ready", "importing" => "Creating pages", "imported" => "Website imported", "failed" => "Capture stopped" }.fetch(@website_import.status)
+      return "Capture failed: no pages found" if @website_import.empty_capture?
+      { "queued" => "Waiting to start", "capturing" => "Capturing the website", "mapping" => "Converting to native elements", "ready" => "Ready to import #{@website_import.mapped_pages} pages", "importing" => "Creating pages", "imported" => "Website imported", "failed" => "Capture stopped" }.fetch(@website_import.status)
     end
 
     def status_description
-      { "queued" => "The capture job is queued.", "capturing" => "Following authorized internal routes and recording responsive design evidence.", "mapping" => "Translating structure, styles, media, links, and motion into Builder data.", "ready" => "The mapped site is ready for your approval.", "importing" => "Creating editable pages and shared site parts.", "imported" => "The editable draft pages are available in Ink Builder.", "failed" => "Review the error below, then start a new capture after correcting the source." }.fetch(@website_import.status)
+      return "This capture produced no pages and cannot be imported. Retry it to see the capture result." if @website_import.empty_capture?
+      { "queued" => "The capture job is queued.", "capturing" => "Following authorized internal routes and recording responsive design evidence.", "mapping" => "Translating structure, styles, media, links, and motion into Builder data.", "ready" => "Capture finished. Choose Import editable pages to create the draft pages in Inkwell.", "importing" => "Creating editable pages and shared site parts.", "imported" => "The editable draft pages are available in Ink Builder.", "failed" => "No empty result is treated as a completed import. Review the capture error below, then retry." }.fetch(@website_import.status)
     end
 
     def status_color
-      return :success if %w[ready imported].include?(@website_import.status)
-      return :destructive if @website_import.status == "failed"
+      return :success if @website_import.status == "imported"
+      return :destructive if @website_import.retryable?
       :neutral
     end
   end

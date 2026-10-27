@@ -33,11 +33,20 @@ class WebsiteImport < ApplicationRecord
   end
 
   def ready?
-    status == "ready"
+    status == "ready" && mapped_pages.positive?
+  end
+
+  def empty_capture?
+    status == "ready" && !mapped_pages.positive?
+  end
+
+  def retryable?
+    status == "failed" || empty_capture?
   end
 
   def progress
-    { "queued" => 5, "capturing" => 35, "mapping" => 75, "ready" => 100, "importing" => 90, "imported" => 100, "failed" => 100 }.fetch(status, 0)
+    return 0 if empty_capture?
+    { "queued" => 5, "capturing" => 35, "mapping" => 75, "ready" => 85, "importing" => 90, "imported" => 100, "failed" => 100 }.fetch(status, 0)
   end
 
   def capture_directory
@@ -53,11 +62,16 @@ class WebsiteImport < ApplicationRecord
   end
 
   def mark_ready!(payload)
+    pages = payload["pages"]
+    unless pages.is_a?(Array) && pages.any?
+      failures = Array(payload["failures"]).filter_map { |failure| failure["error"] if failure.is_a?(Hash) }.first(3)
+      raise ArgumentError, "No pages could be imported. #{failures.join('; ')}".strip
+    end
     update!(
       status: "ready",
       captured_pages: payload.dig("importReport", "capturedPages").to_i,
       mapped_pages: payload.fetch("pages", []).size,
-      report: payload.fetch("importReport", {}),
+      report: payload.fetch("importReport", {}).merge("failures" => Array(payload["failures"])),
       finished_at: Time.current
     )
   end

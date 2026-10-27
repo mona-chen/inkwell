@@ -193,7 +193,10 @@ async function inspect(page) {
       if (typeof MouseEvent === "function") element.dispatchEvent(new MouseEvent("mouseleave", { bubbles: false, cancelable: false }));
     };
     const nextFrames = (count) => new Promise((resolve) => {
-      const step = (remaining) => (remaining <= 0 ? resolve() : requestAnimationFrame(() => step(remaining - 1)));
+      let frame;
+      const finish = () => { clearTimeout(timer); if (frame) cancelAnimationFrame(frame); resolve(); };
+      const timer = setTimeout(finish, 300);
+      const step = (remaining) => (remaining <= 0 ? finish() : (frame = requestAnimationFrame(() => step(remaining - 1))));
       step(count);
     });
     const hoverProbes = visibleElements.filter((element) => {
@@ -290,42 +293,53 @@ async function inspect(page) {
     let discoveredLinks = [];
     for (const viewport of viewports) {
       const page = await browser.newPage();
-      await page.setViewport(viewport);
-      await page.setCacheEnabled(false);
-      page.on("response", async (response) => {
-        const url = response.url();
-        const contentType = response.headers()["content-type"] || "";
-        if (!allowedOrigins.has(new URL(url).origin) || !/(css|javascript|image|font|svg|json)/i.test(contentType) || capturedAssets.has(url)) return;
-        try {
-          const buffer = await response.buffer();
-          if (!buffer.length || buffer.length > 15_000_000) return;
-          const filename = `${digest(url)}${extensionFor(contentType, url)}`;
-          fs.writeFileSync(path.join(output, "assets", filename), buffer);
-          capturedAssets.set(url, { url, file: `assets/${filename}`, contentType, bytes: buffer.length, status: response.status() });
-        } catch (_) {}
-      });
-      const response = await page.goto(pageUrl, { waitUntil: "networkidle2", timeout: 90_000 });
-      if (!response || (!response.ok() && response.status() !== 304)) {
-        await page.close();
-        throw new Error(`Page returned HTTP ${response ? response.status() : 'no response'}: ${pageUrl}`);
-      }
-      await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
-      await new Promise((resolve) => setTimeout(resolve, 1800));
-      if (!originalHtml) {
-        originalHtml = await page.evaluate(async () => { const response = await fetch(location.href, { credentials: "include", cache: "reload" }); return response.text(); });
-        renderedHtml = await page.content();
-        const fingerprint = sourceFingerprint(originalHtml, renderedHtml);
-        if (fingerprints.has(fingerprint)) {
-          await page.close();
-          return { duplicateOf: fingerprints.get(fingerprint) };
+      try {
+        await page.setViewport(viewport);
+        await page.setCacheEnabled(false);
+        page.on("response", async (response) => {
+          const url = response.url();
+          const contentType = response.headers()["content-type"] || "";
+          if (!allowedOrigins.has(new URL(url).origin) || !/(css|javascript|image|font|svg|json)/i.test(contentType) || capturedAssets.has(url)) return;
+          try {
+            const buffer = await response.buffer();
+            if (!buffer.length || buffer.length > 15_000_000) return;
+            const filename = `${digest(url)}${extensionFor(contentType, url)}`;
+            fs.writeFileSync(path.join(output, "assets", filename), buffer);
+            capturedAssets.set(url, { url, file: `assets/${filename}`, contentType, bytes: buffer.length, status: response.status() });
+          } catch (_) {}
+        });
+        console.error(`[capture] Loading ${pageUrl} (${viewport.name})`);
+        // Animation, video and analytics can keep a healthy page permanently busy.
+        // DOM readiness is required; network/font settling is best effort and bounded.
+        const response = await page.goto(pageUrl, { waitUntil: "domcontentloaded", timeout: 45_000 });
+        if (!response || (!response.ok() && response.status() !== 304)) {
+          throw new Error(`Page returned HTTP ${response ? response.status() : 'no response'}: ${pageUrl}`);
         }
-        pageFingerprint = fingerprint;
+        await page.waitForNetworkIdle({ idleTime: 500, timeout: 8000 }).catch((error) => {
+          if (error.name !== "TimeoutError") throw error;
+          console.error(`[capture] Network remained busy; capturing the rendered document: ${pageUrl}`);
+        });
+        await page.evaluate(async () => {
+          if (document.fonts?.ready) await Promise.race([document.fonts.ready, new Promise((resolve) => setTimeout(resolve, 5000))]);
+        });
+        await new Promise((resolve) => setTimeout(resolve, 1800));
+        if (!originalHtml) {
+          originalHtml = await response.text();
+          renderedHtml = await page.content();
+          const fingerprint = sourceFingerprint(originalHtml, renderedHtml);
+          if (fingerprints.has(fingerprint)) {
+            return { duplicateOf: fingerprints.get(fingerprint) };
+          }
+          pageFingerprint = fingerprint;
+        }
+        console.error(`[capture] Inspecting ${pageUrl} (${viewport.name})`);
+        const report = await inspect(page);
+        if (viewport.name === "desktop") discoveredLinks = report.links || [];
+        await page.screenshot({ path: path.join(pageDirectory, `${viewport.name}.png`), fullPage: true });
+        reports.push(report);
+      } finally {
+        if (!page.isClosed()) await page.close();
       }
-      const report = await inspect(page);
-      if (viewport.name === "desktop") discoveredLinks = report.links || [];
-      await page.screenshot({ path: path.join(pageDirectory, `${viewport.name}.png`), fullPage: true });
-      reports.push(report);
-      await page.close();
     }
     fs.writeFileSync(path.join(pageDirectory, "source.html"), originalHtml);
     fs.writeFileSync(path.join(pageDirectory, "rendered.html"), renderedHtml);
@@ -396,5 +410,6 @@ async function inspect(page) {
     assets: [...capturedAssets.values()],
   };
   fs.writeFileSync(path.join(output, "manifest.json"), JSON.stringify(manifest, null, 2));
+  if (!sitePages.length) throw new Error(`No pages could be captured. ${failures.map((failure) => `${failure.url}: ${failure.error}`).join("; ") || "The source contained no importable pages."}`);
   console.log(JSON.stringify({ ok: true, output, pages: sitePages.length, failures: failures.length, maxDepth, maxPages, assets: capturedAssets.size }, null, 2));
 })().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });

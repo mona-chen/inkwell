@@ -23,6 +23,18 @@ module Admin
       render Admin::WebsiteImportPage.new(website_import: website_import)
     end
 
+    def retry
+      website_import = Current.site.website_imports.find(params[:id])
+      website_import.with_lock do
+        unless website_import.retryable?
+          return redirect_to admin_website_import_path(website_import), status: :see_other, alert: "Only a failed capture can be retried."
+        end
+        website_import.update!(status: "queued", captured_pages: 0, mapped_pages: 0, report: {}, error_message: nil, started_at: nil, finished_at: nil)
+      end
+      WebsiteImportJob.perform_later(website_import.id)
+      redirect_to admin_website_import_path(website_import), status: :see_other, notice: "Website capture restarted."
+    end
+
     def destroy
       website_import = Current.site.website_imports.find(params[:id])
       trash_pages = params[:disposition] == "trash_pages"

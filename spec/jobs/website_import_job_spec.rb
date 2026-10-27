@@ -45,7 +45,7 @@ RSpec.describe WebsiteImportJob do
     end
     FileUtils.mkdir_p(import.capture_directory)
     import.capture_directory.join("site-builder-payload.json").write(
-      JSON.generate("pages" => [], "importReport" => { "capturedPages" => 2 })
+      JSON.generate("pages" => [{ "source" => "https://example.com/", "title" => "Home", "slug" => "home", "payload" => { "children" => [] } }], "importReport" => { "capturedPages" => 2 })
     )
 
     described_class.perform_now(import.id)
@@ -81,7 +81,7 @@ RSpec.describe WebsiteImportJob do
     })
     FileUtils.mkdir_p(import.capture_directory)
     import.capture_directory.join("site-builder-payload.json").write(
-      JSON.generate("pages" => [], "importReport" => { "capturedPages" => 12 })
+      JSON.generate("pages" => [{ "source" => "https://example.com/", "title" => "Home", "slug" => "home", "payload" => { "children" => [] } }], "importReport" => { "capturedPages" => 12 })
     )
 
     described_class.perform_now(import.id)
@@ -103,7 +103,7 @@ RSpec.describe WebsiteImportJob do
     })
     FileUtils.mkdir_p(import.capture_directory)
     import.capture_directory.join("site-builder-payload.json").write(
-      JSON.generate("pages" => [], "importReport" => { "capturedPages" => 2 })
+      JSON.generate("pages" => [{ "source" => "https://example.com/", "title" => "Home", "slug" => "home", "payload" => { "children" => [] } }], "importReport" => { "capturedPages" => 2 })
     )
 
     described_class.perform_now(import.id)
@@ -112,4 +112,15 @@ RSpec.describe WebsiteImportJob do
     expect(import.reload.allowed_origins).to be_empty
     expect(import.status).to eq("ready")
   end
+  it "fails an empty mapped capture instead of reporting it ready" do
+    import = create_import
+    commands = []
+    stub_capture(commands, import)
+    FileUtils.mkdir_p(import.capture_directory)
+    import.capture_directory.join("site-builder-payload.json").write(JSON.generate("pages" => [], "failures" => [{ "url" => import.source_url, "error" => "Navigation timed out" }]))
+    described_class.perform_now(import.id)
+    expect(import.reload.status).to eq("failed")
+    expect(import.error_message).to include("No pages could be imported", "Navigation timed out")
+  end
+
 end
