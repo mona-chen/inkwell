@@ -89,7 +89,7 @@ class Page < ApplicationRecord
 
   def public_path_must_be_local
     return if public_path.nil?
-    if public_path.match?(%r{\A/(?:admin|users|api|builder|plugins|posts|pages|authors|tags|docs|media)(?:/|\z)}) || %w[/sitemap.xml /feed.xml /signup /new-site].include?(public_path)
+    if public_path.match?(%r{\A/(?:admin|users|api|mcp|builder|plugins|posts|pages|authors|tags|docs|media)(?:/|\z)}) || %w[/sitemap.xml /feed.xml /signup /new-site].include?(public_path)
       errors.add(:public_path, "conflicts with an application route")
     end
     unless public_path.match?(%r{\A/(?!/)[^?#\s]*\z}) && !public_path.split("/").any? { |part| [".", ".."].include?(part) }

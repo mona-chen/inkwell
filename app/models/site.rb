@@ -17,6 +17,9 @@ class Site < ApplicationRecord
   has_many :plugin_activations, class_name: "Multisite::SitePluginActivation", dependent: :destroy
   has_many :custom_domains, class_name: "Multisite::SiteCustomDomain", dependent: :destroy
   has_many :api_tokens, dependent: :destroy
+  has_many :agent_credentials, dependent: :destroy
+  has_many :agent_activities, dependent: :destroy
+  has_many :live_plugins, dependent: :destroy
 
   # Multisite columns (active/is_default/subdomain) exist after the plugin migration runs;
   # the scopes are safe to define unconditionally — they only touch the DB when called.

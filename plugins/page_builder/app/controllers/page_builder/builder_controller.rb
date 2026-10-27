@@ -32,6 +32,8 @@ module PageBuilder
 
     def preview
       @record.content = @record.editing_blocks.deep_dup if @record.respond_to?(:editing_blocks)
+      draft_title = @record.content_blocks.find { |block| block["type"] == "page_builder" }&.dig("data", "store", "settings", "title")
+      @record.title = draft_title if draft_title.is_a?(String) && draft_title.present?
       ThemeManager.activate_for_request!(self, Current.site.active_theme, preview: true)
       return preview_content_template if @record.is_a?(Page) && @record.template_for.present?
       template = @record.is_a?(Page) ? "pages/#{@record.template}" : "posts/show"
@@ -183,7 +185,7 @@ module PageBuilder
           end
         end
 
-        blocks = (@record.is_a?(Page) && @record.template_for.present? ? @record.editing_blocks : @record.content_blocks).deep_dup
+        blocks = @record.editing_blocks.deep_dup
         block = { "type" => "page_builder", "data" => { "html" => erb } }
         block["data"]["site_parts"] = site_parts.slice("header", "footer") if !publishing && site_parts.present?
         block["data"]["store"] = store if store
@@ -193,8 +195,8 @@ module PageBuilder
         idx ? blocks[idx] = block : blocks << block
         attributes = { content: blocks }
         title = store&.dig(:settings, :title) || store&.dig("settings", "title")
-        attributes[:title] = title.strip if title.is_a?(String) && title.strip.present?
-        if @record.is_a?(Page) && @record.template_for.present? && !publishing
+        attributes[:title] = title.strip if title.is_a?(String) && title.strip.present? && (publishing || @record.status != "published")
+        if !publishing
           attributes[:draft_content] = attributes.delete(:content)
         end
         if publishing

@@ -12,15 +12,17 @@ module Admin
       "homepage" => { label: "Homepage", icon: :home, subtitle: "Choose the content visitors see first" },
       "custom_css" => { label: "Custom CSS", icon: :code, subtitle: "Additional styles for your public site" },
       "custom_scripts" => { label: "Custom Scripts", icon: :code, subtitle: "Scripts for your public site" },
+      "agents" => { label: "AI agents", icon: :bot, subtitle: "Scoped access, plugin tools, and activity" },
       "api" => { label: "API", icon: :code, subtitle: "Read-only content API and access tokens" },
       "maintenance" => { label: "Maintenance", icon: :wrench, subtitle: "Caches, assets, and recovery tools" }
     }.freeze
 
-    def initialize(site:, section: "general", new_token: nil)
+    def initialize(site:, section: "general", new_token: nil, new_agent_secret: nil)
       @site = site
       @pages = site.pages.where(template_for: nil).published.ordered
       @section = SECTIONS.key?(section) ? section : "general"
       @new_token = new_token
+      @new_agent_secret = new_agent_secret
     end
 
     def view_template
@@ -267,6 +269,93 @@ module Admin
       end
     end
 
+    def render_agents_section
+      render SettingsSection.new(title: "Agent connections", description: "One MCP endpoint for this site's core and active plugin tools. Existing Content API tokens remain read-only.") do |section|
+        section.form do
+          div(class: "space-y-5") do
+            p(class: "font-mono text-sm break-all") { "#{helpers.request.base_url}/mcp" }
+            p(class: "text-sm text-muted-foreground") { "Connect using Streamable HTTP with an Authorization: Bearer token header. Credentials expire after 90 days. Grant publishing and plugin deployment only when the agent should change the live site." }
+            if @new_agent_secret.present?
+              p(class: "text-sm font-medium") { "Copy this secret now. It is stored as a hash and will not be shown again." }
+              code(class: "block break-all rounded-lg border border-border bg-muted/30 p-3 text-xs") { @new_agent_secret }
+            end
+            form_with(url: admin_agent_credentials_path, method: :post, builder: Ink::FormBuilder, html: { class: "space-y-4" }) do |form|
+              form.field(:name, label: "Agent name", control_html: { placeholder: "Website assistant", required: true })
+              fieldset(class: "grid gap-3 sm:grid-cols-2") do
+                legend(class: "mb-3 text-sm font-medium") { "Permissions" }
+                AgentCredential::SCOPES.each do |scope|
+                  label(class: "flex items-start gap-3 rounded-lg border border-border p-3 text-sm") do
+                    input(type: "checkbox", name: "scopes[]", value: scope, checked: scope == "site:read", class: "mt-1 h-4 w-4 shrink-0 accent-primary")
+                    span(class: "space-y-1") do
+                      span(class: "block font-medium") { AgentCredential::SCOPE_DETAILS.fetch(scope).first }
+                      span(class: "block text-xs text-muted-foreground") { AgentCredential::SCOPE_DETAILS.fetch(scope).last }
+                      code(class: "block text-[11px] text-muted-foreground") { scope }
+                    end
+                  end
+                end
+              end
+              render Button.new("Create agent credential", variant: :primary, type: :submit, size: :sm)
+            end
+            @site.agent_credentials.includes(:user).order(id: :desc).each do |credential|
+              div(class: "flex flex-wrap items-center justify-between gap-3 border-t border-border py-3") do
+                div do
+                  p(class: "text-sm font-medium") { credential.name }
+                  p(class: "text-xs text-muted-foreground") { "#{credential.token_prefix}… · #{credential.revoked_at ? 'Revoked' : "Expires #{credential.expires_at.to_date}"}" }
+                  p(class: "text-xs text-muted-foreground") { credential.scopes.join(" · ") }
+                end
+                unless credential.revoked_at
+                  button_to("Revoke", admin_agent_credential_path(credential), method: :delete, class: "text-sm text-destructive", data: { turbo_confirm: "Revoke this agent's access?" })
+                end
+              end
+            end
+          end
+        end
+      end
+      render SettingsSection.new(title: "Available plugin tools", description: "Active plugins contribute tools to the same MCP connection. Each agent sees only the tools allowed by its permissions.") do |section|
+        section.form do
+          engines = Inkwell::PluginManager.discovered.select { |engine| engine.mcp_tools.any? && AgentAccess::Registry.plugin_active?(@site, engine.plugin_slug) }
+          if engines.empty?
+            p(class: "text-sm text-muted-foreground") { "No active Rails plugins expose MCP tools yet." }
+          end
+          engines.each do |engine|
+            div(class: "space-y-1 border-b border-border py-3") do
+              p(class: "text-sm font-medium") { engine.plugin_name }
+              engine.mcp_tools.each_key { |name| code(class: "block break-all text-xs text-muted-foreground") { "#{engine.plugin_slug}.#{name}" } }
+            end
+          end
+        end
+      end
+      render SettingsSection.new(title: "Plugin deployments", description: "Live frontend plugins activate on the next public page load. Rails plugins, gems and migrations use your normal release pipeline and process restart.") do |section|
+        section.form do
+          if @site.live_plugins.none?
+            p(class: "text-sm text-muted-foreground") { "No live plugin releases. An agent with plugins:deploy can stage and activate a CSS/JavaScript package through MCP." }
+          end
+          @site.live_plugins.includes(:active_release).order(:slug).each do |plugin|
+            p(class: "text-sm") { "#{plugin.slug} · #{plugin.active_release ? "Live: #{plugin.active_release.manifest['version']}" : 'Inactive'} · #{plugin.releases.count} releases" }
+            form_with(url: admin_live_plugin_path(plugin), method: :patch, builder: Ink::FormBuilder, html: { class: "mt-3 mb-5 space-y-3" }) do |form|
+              form.hidden_field(:expected_active_release_id, value: plugin.active_release_id, id: "plugin_#{plugin.id}_expected_release")
+              label(for: "plugin_#{plugin.id}_release", class: "block text-xs font-medium") { "Deploy #{plugin.slug}" }
+              form.field(:release_id, as: :select, label: false, control_html: { id: "plugin_#{plugin.id}_release" }, value: plugin.active_release_id.to_s, options: [["Disabled", ""]] + plugin.releases.order(id: :desc).map { |release| ["#{release.manifest['version']} · release #{release.id}", release.id.to_s] })
+              render Button.new("Apply release", variant: :secondary, type: :submit, size: :sm, data: { turbo_confirm: "Change this plugin on the public site?" })
+            end
+          end
+        end
+      end
+      render SettingsSection.new(title: "Recent agent activity", description: "A record of tool calls and their outcomes. Submitted code and secrets are excluded from this list.") do |section|
+        section.form do
+          if @site.agent_activities.none?
+            p(class: "text-sm text-muted-foreground") { "Agent tool calls will appear here after a connection is used." }
+          end
+          @site.agent_activities.order(id: :desc).limit(30).each do |event|
+            div(class: "flex flex-wrap justify-between gap-2 border-b border-border py-2 text-xs") do
+              span(class: "font-mono") { event.tool }
+              span(class: "text-muted-foreground") { "#{event.status} · #{event.created_at.strftime('%b %-d, %H:%M')}" }
+            end
+          end
+        end
+      end
+    end
+
     def render_api_section
       api_base = "#{helpers.request&.protocol}#{@site.domain}/api/v1"
       tokens = @site.api_tokens.order(created_at: :desc)
@@ -362,6 +451,7 @@ module Admin
       when "homepage" then render_homepage_section
       when "custom_css" then render_custom_css_section
       when "custom_scripts" then render_custom_scripts_section
+      when "agents" then render_agents_section
       when "api" then render_api_section
       when "maintenance" then render_maintenance_section
       else render_general_section
@@ -369,7 +459,7 @@ module Admin
     end
 
     def form_section?
-      !%w[maintenance api].include?(@section)
+      !%w[maintenance api agents].include?(@section)
     end
 
     def form_id

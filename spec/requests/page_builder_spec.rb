@@ -27,7 +27,8 @@ RSpec.describe "Page builder ↔ block editor", type: :request do
     }, as: :json
 
     expect(response).to have_http_status(:ok)
-    block = page.reload.content_blocks.find { |b| b["type"] == "page_builder" }
+    block = page.reload.draft_content.find { |b| b["type"] == "page_builder" }
+    expect(page.content_blocks).to eq([])
     expect(page.title).to eq("About our team")
     expect(page.status).not_to eq("published")
     expect(block["data"]["html"]).to include("<p>new</p>")
@@ -55,7 +56,7 @@ RSpec.describe "Page builder ↔ block editor", type: :request do
     expect(response.parsed_body).to include("status" => "published", "public_url" => "/pages/launch")
     expect(page.reload.status).to eq("published")
     expect(page.draft_content).to be_nil
-    expect(page.content_blocks.first.dig("data", "html")).to include("Ready")
+    expect(page.content_blocks.find { |block| block["type"] == "page_builder" }.dig("data", "html")).to include("Ready")
 
     get "/pages/launch"
     expect(response).to have_http_status(:ok)
@@ -312,5 +313,26 @@ RSpec.describe "Page builder ↔ block editor", type: :request do
     expect(response.body).to include("savedStore && savedStore.version === 2")
     expect(response.body).to include("var savedStore = {};")
     expect(response.body).to include("Why teams choose us")
+  end
+end
+
+RSpec.describe "Builder draft publication boundary", type: :request do
+  include Devise::Test::IntegrationHelpers
+  it "keeps published HTML and title unchanged when saving a visual draft" do
+    site = Site.create!(name: "Boundary", domain: "boundary.test")
+    role = Role.create!(name: "admin")
+    user = User.create!(name: "Owner", email: "boundary@test.example", password: "password123", site: site, role: role)
+    page = site.pages.create!(title: "Live title", author: user, template: "landing", status: "published", content: [{ type: "page_builder", data: { html: "<main>Live version</main>" } }])
+    sign_in user
+    post "/builder/save", params: { record_type: "page", record_id: page.id, publish: false, html: "<main>Draft version</main>", store: { version: 2, settings: { title: "Draft title" }, children: [] } }, as: :json
+    expect(response).to have_http_status(:ok)
+    expect(page.reload.title).to eq("Live title")
+    expect(page.content_blocks.first.dig("data", "html")).to include("Live version")
+    expect(page.draft_content.first.dig("data", "html")).to include("Draft version")
+    get page.url
+    expect(response.body).to include("Live version")
+    expect(response.body).not_to include("Draft version")
+    get "/builder/page/#{page.id}/preview"
+    expect(response.body).to include("Draft version")
   end
 end

@@ -6,3 +6,6 @@
 Rails.application.config.filter_parameters += [
   :passw, :email, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc
 ]
+
+# Agent secrets and executable snippets must not be echoed into parameter logs.
+Rails.application.config.filter_parameters += [:new_agent_secret, :token_digest, :manifest, :custom_scripts_head, :custom_scripts_body]

@@ -215,7 +215,7 @@
       if (document.getElementById('customJs') && savedCustomJs) document.getElementById('customJs').value = savedCustomJs;
     });
     var recordId = <%= params[:record_id].to_json.html_safe %>;
-    var recordTitle = <%= @record.title.to_json.html_safe %>;
+    var recordTitle = <%= (@saved_store.dig("settings", "title").presence || @record.title).to_json.html_safe %>;
     var publicPageUrl = <%= @public_record_url.to_json.html_safe %>;
     var originalImportAvailable = <%= (@record.is_a?(Page) && @record.original_import_available?).to_json.html_safe %>;
     var previewPageUrl = <%= "/builder/#{@record.is_a?(Page) ? 'page' : 'post'}/#{@record.id}/preview".to_json.html_safe %>;

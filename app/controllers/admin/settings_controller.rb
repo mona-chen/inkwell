@@ -1,6 +1,6 @@
 module Admin
   class SettingsController < BaseController
-    SECTIONS = %w[general discussion homepage custom_css custom_scripts api maintenance].freeze
+    SECTIONS = %w[general discussion homepage custom_css custom_scripts agents api maintenance].freeze
     # Columns on Site edited directly from the settings form.
     SITE_ATTRIBUTES = %w[name].freeze
     # Option-backed settings (Site#setting / Site#set_setting!).
@@ -14,7 +14,8 @@ module Admin
       render Admin::SettingsPage.new(
         site: @site,
         section: settings_section,
-        new_token: session.delete(:new_api_token)
+        new_token: session.delete(:new_api_token),
+        new_agent_secret: session.delete(:new_agent_secret)
       )
     end
 

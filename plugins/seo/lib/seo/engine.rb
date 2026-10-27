@@ -9,6 +9,15 @@ module Seo
 
     register_admin_nav(label: "SEO", path: "/plugins/seo_toolkit/seo", icon: "search", section: "Site")
 
+    register_mcp_tool(name: "analyze", scope: "site:read", read_only: true,
+      description: "Analyze the current page/post draft using the site's SEO and readability engines. Does not persist changes.",
+      schema: { type: "object", properties: { kind: { type: "string", enum: %w[page post] }, id: { type: "integer", minimum: 1 } }, required: %w[kind id], additionalProperties: false }) do |context, args|
+      record = context.record(args["kind"], args["id"])
+      analysis = Seo::ContentAnalysis.new(record)
+      readability = Seo::ReadabilityAnalysis.new(record)
+      { score: analysis.score, readability: readability.score, results: analysis.results.map(&:to_h), reading_results: readability.results.map(&:to_h) }
+    end
+
     def on_activate
       register_meta_tag_hooks
       register_sitemap_hooks

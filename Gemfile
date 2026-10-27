@@ -104,3 +104,5 @@ group :test do
   gem "selenium-webdriver"
   gem "webmock"
 end
+
+gem "json_schemer", "~> 2.5"

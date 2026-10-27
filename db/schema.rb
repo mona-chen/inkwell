@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_27_040000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_27_070000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -59,6 +59,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_040000) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "agent_activities", force: :cascade do |t|
+    t.jsonb "after_state", default: {}, null: false
+    t.bigint "agent_credential_id"
+    t.string "arguments_digest"
+    t.jsonb "before_state", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.string "error_code"
+    t.bigint "site_id", null: false
+    t.string "status", null: false
+    t.string "tool", null: false
+    t.datetime "updated_at", null: false
+    t.index ["agent_credential_id"], name: "index_agent_activities_on_agent_credential_id"
+    t.index ["site_id"], name: "index_agent_activities_on_site_id"
+  end
+
+  create_table "agent_credentials", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "last_used_at"
+    t.string "name", null: false
+    t.datetime "revoked_at"
+    t.jsonb "scopes", default: [], null: false
+    t.bigint "site_id", null: false
+    t.string "token_digest", null: false
+    t.string "token_prefix", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["site_id"], name: "index_agent_credentials_on_site_id"
+    t.index ["token_digest"], name: "index_agent_credentials_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_agent_credentials_on_user_id"
   end
 
   create_table "api_tokens", force: :cascade do |t|
@@ -123,6 +155,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_040000) do
     t.datetime "updated_at", null: false
     t.string "version"
     t.index ["slug"], name: "index_installed_plugins_on_slug", unique: true
+  end
+
+  create_table "live_plugin_releases", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "digest", null: false
+    t.bigint "live_plugin_id", null: false
+    t.jsonb "manifest", default: {}, null: false
+    t.datetime "updated_at", null: false
+    t.index ["live_plugin_id"], name: "index_live_plugin_releases_on_live_plugin_id"
+  end
+
+  create_table "live_plugins", force: :cascade do |t|
+    t.bigint "active_release_id"
+    t.datetime "created_at", null: false
+    t.jsonb "settings", default: {}, null: false
+    t.bigint "site_id", null: false
+    t.string "slug", null: false
+    t.datetime "updated_at", null: false
+    t.index ["site_id", "slug"], name: "index_live_plugins_on_site_id_and_slug", unique: true
+    t.index ["site_id"], name: "index_live_plugins_on_site_id"
   end
 
   create_table "media_items", force: :cascade do |t|
@@ -616,11 +668,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_040000) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "agent_activities", "agent_credentials", on_delete: :nullify
+  add_foreign_key "agent_activities", "sites"
+  add_foreign_key "agent_credentials", "sites"
+  add_foreign_key "agent_credentials", "users"
   add_foreign_key "api_tokens", "sites"
   add_foreign_key "builder_workspaces", "sites"
   add_foreign_key "comments", "posts"
   add_foreign_key "comments", "users"
   add_foreign_key "contact_form_messages", "sites"
+  add_foreign_key "live_plugin_releases", "live_plugins"
+  add_foreign_key "live_plugins", "live_plugin_releases", column: "active_release_id"
+  add_foreign_key "live_plugins", "sites"
   add_foreign_key "media_items", "sites"
   add_foreign_key "media_items", "users", column: "uploaded_by_id"
   add_foreign_key "menu_items", "menu_items", column: "parent_id"

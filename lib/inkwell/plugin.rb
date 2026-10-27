@@ -64,6 +64,18 @@ module Inkwell
         }
       end
 
+      # Definitions live on the engine class, not activation callbacks. Discovery is
+      # evaluated per request so deactivation works in every web process immediately.
+      def register_mcp_tool(name:, scope:, description:, schema:, read_only: false, &handler)
+        @_mcp_tools ||= {}
+        raise ArgumentError, "Duplicate MCP tool #{name}" if @_mcp_tools.key?(name)
+        @_mcp_tools[name] = { scope: scope, description: description, schema: schema, read_only: read_only, handler: handler }
+      end
+
+      def mcp_tools
+        @_mcp_tools || {}
+      end
+
       def normalize_nav_children(children)
         Array(children).map do |child|
           {

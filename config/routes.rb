@@ -11,6 +11,9 @@ Rails.application.routes.draw do
     post "users",          to: "users/registrations#create", as: :user_registration
   end
 
+  post "mcp", to: "mcp#create"
+  match "mcp", to: "mcp#show", via: [:get, :delete]
+
   root to: "site#home"
   get "feed.xml", to: "site#feed", defaults: { format: "xml" }
   get "sitemap.xml", to: "site#sitemap", defaults: { format: "xml" }
@@ -57,6 +60,8 @@ Rails.application.routes.draw do
       member { post :purge_cache }
     end
 
+    resources :live_plugins, only: [:update]
+    resources :agent_credentials, only: [:create, :destroy]
     resources :api_tokens, only: [:create, :destroy]
 
     resources :plugins, only: [:index] do
