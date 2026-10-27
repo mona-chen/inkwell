@@ -1,6 +1,7 @@
 AiWriter::Engine.routes.draw do
   post "write" => "completions#create"
   post "images" => "images#create"
+  post "visual_review" => "visual_reviews#create"
   post "web" => "web#create"
   post "chat" => "completions#chat"
   post "tool_result" => "completions#tool_result"

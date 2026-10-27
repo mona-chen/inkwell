@@ -11,28 +11,28 @@ module Seo
     end
 
     def results
-      @results ||= [sentence_length, paragraph_length, transition_words, subheading_distribution, reading_ease]
+      @results ||= if words.empty?
+        [[:sentence_length, "Sentence length"], [:paragraph_length, "Paragraph length"], [:transition_words, "Transition words"], [:readability_headings, "Subheading distribution"], [:reading_ease, "Reading ease"]].map do |id, label|
+          result(id, label, :improvement, "Add content to evaluate this check.")
+        end
+      else
+        [sentence_length, paragraph_length, transition_words, subheading_distribution, reading_ease]
+      end
     end
 
     def score
+      return 0 if words.empty?
       weights = { good: 1.0, improvement: 0.55, problem: 0.0 }
       ((results.sum { |item| weights.fetch(item.status) } / results.length) * 100).round
     end
 
     private
 
-    def blocks
-      source = record.try(:draft_content).presence || record.try(:content).presence || []
-      Array(source).select { |block| block.is_a?(Hash) }
+    def document
+      @document ||= ContentDocument.new(record.respond_to?(:editing_blocks) ? record.editing_blocks : record.content)
     end
 
-    def text_blocks
-      blocks.filter_map do |block|
-        data = block["data"] || block[:data] || {}
-        value = data["text"] || data[:text] || data["content"] || data[:content]
-        ActionView::Base.full_sanitizer.sanitize(value.to_s).squish.presence
-      end
-    end
+    def text_blocks = document.paragraphs
 
     def text
       @text ||= text_blocks.join(" ")
@@ -71,7 +71,7 @@ module Seo
     end
 
     def subheading_distribution
-      headings = blocks.count { |block| (block["type"] || block[:type]).to_s == "heading" }
+      headings = document.headings
       expected = words.length / 300
       status = headings >= expected ? :good : headings.positive? ? :improvement : :problem
       result(:readability_headings, "Subheading distribution", status, "#{headings} subheading#{'s' unless headings == 1} across #{words.length} words.")

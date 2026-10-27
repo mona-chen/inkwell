@@ -4,7 +4,7 @@ import { Controller } from "@hotwired/stimulus"
 // whose Turbo Frame loads the admin media picker; clicking an item dispatches a bubbling
 // CustomEvent that fills the block's url field + preview and closes the dialog.
 export default class extends Controller {
-  static targets = ["urlField", "altField", "preview", "dialog", "frame"]
+  static targets = ["urlField", "altField", "preview", "dialog", "frame", "clearButton", "chooseButton"]
 
   connect() {
     this._onSelect = (event) => this.select(event)
@@ -31,7 +31,16 @@ export default class extends Controller {
     event.preventDefault()
     this.urlFieldTarget.value = ""
     this.urlFieldTarget.dispatchEvent(new Event("input", { bubbles: true }))
-    this.previewTarget.innerHTML = '<span class="text-gray-400 text-xs">None</span>'
+    if (this.hasAltFieldTarget) {
+      this.altFieldTarget.value = ""
+      this.altFieldTarget.dispatchEvent(new Event("input", { bubbles: true }))
+    }
+    const placeholder = document.createElement("span")
+    placeholder.className = "composer-cover-empty"
+    placeholder.textContent = "Add a cover image"
+    this.previewTarget.replaceChildren(placeholder)
+    if (this.hasClearButtonTarget) this.clearButtonTarget.hidden = true
+    if (this.hasChooseButtonTarget) this.chooseButtonTarget.textContent = "Choose image"
   }
 
   // Close when clicking the dialog backdrop (outside the panel)
@@ -57,13 +66,17 @@ export default class extends Controller {
     const wantsId = this.urlFieldTarget.name === "settings[site_logo]" || this.urlFieldTarget.name === "post[featured_image_id]"
     this.urlFieldTarget.value = wantsId ? (id || "") : url
     this.urlFieldTarget.dispatchEvent(new Event("input", { bubbles: true })) // triggers block-editor#serialize
-    if (this.altFieldTarget && alt) {
-      this.altFieldTarget.value = alt
+    if (this.hasAltFieldTarget) {
+      this.altFieldTarget.value = alt || ""
       this.altFieldTarget.dispatchEvent(new Event("input", { bubbles: true }))
     }
-    this.previewTarget.innerHTML = url
-      ? `<img src="${url}" class="w-full h-full object-contain" alt="">`
-      : `<span class="text-gray-400 text-xs">No image</span>`
+    const image = document.createElement("img")
+    image.src = url
+    image.alt = ""
+    image.className = "w-full h-full object-contain"
+    this.previewTarget.replaceChildren(image)
+    if (this.hasClearButtonTarget) this.clearButtonTarget.hidden = false
+    if (this.hasChooseButtonTarget) this.chooseButtonTarget.textContent = "Replace"
     this.dialogTarget?.close()
   }
 }

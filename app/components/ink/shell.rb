@@ -27,7 +27,7 @@ module Ink
         )
         aside(
           id: "admin-navigation",
-          class: "fixed inset-y-0 left-0 z-50 flex w-[15.5rem] -translate-x-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:h-svh lg:translate-x-0 lg:shadow-none",
+          class: "fixed inset-y-0 left-0 z-50 flex w-56 -translate-x-full flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-2xl transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:h-svh lg:translate-x-0 lg:shadow-none",
           data: { admin_shell_target: "panel" }
         ) do
           button(

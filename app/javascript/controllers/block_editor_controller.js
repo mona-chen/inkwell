@@ -1,3 +1,4 @@
+import { placeEditorPopover } from "editor_popover"
 import { Controller } from "@hotwired/stimulus"
 import Sortable from "sortablejs"
 
@@ -138,8 +139,8 @@ export function parseMarkdown(text) {
 // HTML-soup liability) — every block is structured fields, so what's stored is always valid,
 // renderable data, never partially-typed markup.
 export default class extends Controller {
-  static targets = ["list", "block", "hiddenField", "blockPicker", "emptyState", "slashMenu", "saveStatus", "undoButton", "redoButton", "wordCount"]
-  static values = { types: Array, saveUrl: String, resourceKey: String }
+  static targets = ["list", "block", "hiddenField", "blockPicker", "emptyState", "slashMenu", "saveStatus", "undoButton", "redoButton", "wordCount", "inspector", "settingsToggle"]
+  static values = { types: Array, saveUrl: String, resourceKey: String, autosaveMetadata: Boolean }
 
   connect() {
     this.sortable = Sortable.create(this.listTarget, {
@@ -161,16 +162,111 @@ export default class extends Controller {
     this.updateHistoryButtons()
     requestAnimationFrame(() => this.updateWordCount())
     this.bindPickerOutsideClose()
+    if (this.hasInspectorTarget) {
+      let closed = window.innerWidth < 1000
+      try { const preference = localStorage.getItem("ink-post-settings"); if (preference !== null) closed = preference === "closed" } catch {}
+      this.setInspector(!closed)
+    }
+    this._reposition = () => {
+      if (this.slashMenuOpen()) this.positionSlashMenu()
+      if (this.hasBlockPickerTarget && this.blockPickerTarget.open) this.positionPicker()
+      this.listTarget.querySelectorAll(".composer-block-menu[open]").forEach(menu => this.positionBlockMenu(menu))
+    }
+    window.addEventListener("resize", this._reposition)
+    window.addEventListener("scroll", this._reposition, true)
+    window.visualViewport?.addEventListener("resize", this._reposition)
     this.bindMarkdownPaste()
+    this.resizeObserver = new ResizeObserver(() => this.resizeTextFields())
+    this.resizeObserver.observe(this.listTarget)
+    this.resizeTextFields()
+    this._editorKeydown = event => {
+      if (event.defaultPrevented) return
+      const popover = event.target.closest(".composer-block-popover, .composer-inserter")
+      if (popover && ["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key) && (!event.target.matches("input, textarea") || event.key === "ArrowDown")) {
+        const buttons = [...popover.querySelectorAll("button")].filter(button => button.getClientRects().length && !button.disabled)
+        if (buttons.length) {
+          event.preventDefault()
+          const current = buttons.indexOf(document.activeElement)
+          const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (current + (event.key === "ArrowUp" ? -1 : 1) + buttons.length) % buttons.length
+          buttons[next].focus({ preventScroll: true })
+          const item = buttons[next]
+          if (item.offsetTop < popover.scrollTop) popover.scrollTop = item.offsetTop
+          else if (item.offsetTop + item.offsetHeight > popover.scrollTop + popover.clientHeight) popover.scrollTop = item.offsetTop + item.offsetHeight - popover.clientHeight
+        }
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault()
+        const form = this.element.closest("form")
+        const button = this.element.querySelector('.composer-save[type="submit"]')
+        if (button) form?.requestSubmit(button)
+        else form?.requestSubmit()
+      }
+      if (event.key === "Escape") {
+        const menu = event.target.closest(".composer-block-menu[open]")
+        if (menu) { menu.open = false; menu.querySelector("summary").focus() }
+        if (this.blockPickerTarget.open) { this.closePicker(); this.blockPickerTarget.querySelector("summary").focus() }
+      }
+    }
+    this.element.addEventListener("keydown", this._editorKeydown)
+    this._richSlash = event => {
+      const block = event.target.closest('[data-block-editor-target="block"]')
+      if (event.detail.query === null) {
+        if (this.slashBlock === block) this.hideSlashMenu()
+        return
+      }
+      this.openSlashMenu(block, block.querySelector("[contenteditable=true]"))
+      this.slashRichIndex = event.detail.index
+      this.buildSlashMenu(event.detail.query)
+    }
+    this._richMenuKeydown = event => {
+      if (event.target.isContentEditable && this.slashMenuOpen() && ["ArrowUp", "ArrowDown", "Enter", "Escape", "Tab"].includes(event.key)) {
+        this.onKeydown(event)
+        event.stopPropagation()
+      }
+    }
+    this.listTarget.addEventListener("composer:slash", this._richSlash)
+    this.listTarget.addEventListener("keydown", this._richMenuKeydown, true)
+    this._formInput = (event) => {
+      if (!this.listTarget.contains(event.target) && event.target.matches("input, textarea, select")) {
+        if (this.autosaveMetadataValue) this.scheduleAutosave()
+        else { this.metadataDirty = true; this.setSaveStatus("Unsaved settings") }
+      }
+    }
+    this.element.closest("form")?.addEventListener("input", this._formInput)
   }
 
   disconnect() {
     document.body.classList.remove("ink-writing-focus")
     this.sortable?.destroy()
+    this.resizeObserver?.disconnect()
+    window.removeEventListener("resize", this._reposition)
+    window.removeEventListener("scroll", this._reposition, true)
+    window.visualViewport?.removeEventListener("resize", this._reposition)
+    this.element.removeEventListener("keydown", this._editorKeydown)
+    this.listTarget.removeEventListener("composer:slash", this._richSlash)
+    this.listTarget.removeEventListener("keydown", this._richMenuKeydown, true)
+    this.element.closest("form")?.removeEventListener("input", this._formInput)
     this.hideSlashMenu()
     window.removeEventListener("mousedown", this._outsideClickHandler)
     this.listTarget.removeEventListener("paste", this._pasteHandler)
     if (this.saveTimer) clearTimeout(this.saveTimer)
+  }
+
+  // Sidebar links can point into progressively disclosed plugin settings.
+  revealPanel(event) {
+    const link = event.target.closest("a[href]")
+    if (!link) return
+    const url = new URL(link.href, window.location.href)
+    if (url.origin !== location.origin || url.pathname !== location.pathname || !url.hash) return
+    const target = document.getElementById(decodeURIComponent(url.hash.slice(1)))
+    if (!target || !this.element.closest("form")?.contains(target)) return
+    event.preventDefault()
+    let parent = target.parentElement
+    while (parent) {
+      if (parent.tagName === "DETAILS") parent.open = true
+      parent = parent.parentElement
+    }
+    target.scrollIntoView({ block: "start" })
   }
 
   toggleFocus(event) {
@@ -210,6 +306,10 @@ export default class extends Controller {
     this._outsideClickHandler = (e) => {
       const picker = this.blockPickerTarget
       if (picker.open && !picker.contains(e.target)) picker.removeAttribute("open")
+      this.listTarget.querySelectorAll(".composer-block-menu[open]").forEach(menu => {
+        if (!menu.contains(e.target)) menu.open = false
+      })
+      if (this.slashMenuOpen() && !this.slashMenuTarget.contains(e.target) && e.target !== this.slashField) this.hideSlashMenu()
     }
     window.addEventListener("mousedown", this._outsideClickHandler)
   }
@@ -241,11 +341,13 @@ export default class extends Controller {
 
   insertAbove(event) {
     const block = event.target.closest("[data-block-editor-target='block']")
+    block.querySelector(".composer-block-menu")?.removeAttribute("open")
     this.insertBlock("paragraph", block, false)
   }
 
   insertBelow(event) {
     const block = event.target.closest("[data-block-editor-target='block']")
+    block.querySelector(".composer-block-menu")?.removeAttribute("open")
     this.insertBlock("paragraph", block, true)
   }
 
@@ -287,9 +389,13 @@ export default class extends Controller {
 
   duplicateBlock(event) {
     const block = event.target.closest("[data-block-editor-target='block']")
-    const copy = block.cloneNode(true)
+    const data = {}
+    block.querySelectorAll("[data-field]").forEach(field => { data[field.dataset.field] = field.type === "checkbox" ? field.checked : field.value })
+    const copy = this.buildBlockEl({ type: block.dataset.type, data })
     block.after(copy)
     this.commit()
+    block.querySelector(".composer-block-menu")?.removeAttribute("open")
+    copy.querySelector(".composer-block-menu")?.removeAttribute("open")
     this.focusBlockField(copy)
   }
 
@@ -307,14 +413,18 @@ export default class extends Controller {
     const block = event.target.closest("[data-block-editor-target='block']")
     const prev = block.previousElementSibling
     if (prev) this.listTarget.insertBefore(block, prev)
+    block.querySelector(".composer-block-menu")?.removeAttribute("open")
     this.commit()
+    this.focusBlockField(block)
   }
 
   moveDown(event) {
     const block = event.target.closest("[data-block-editor-target='block']")
     const next = block.nextElementSibling
     if (next) this.listTarget.insertBefore(next, block)
+    block.querySelector(".composer-block-menu")?.removeAttribute("open")
     this.commit()
+    this.focusBlockField(block)
   }
 
   // ---- keyboard ------------------------------------------------------------
@@ -339,6 +449,7 @@ export default class extends Controller {
 
     // Slash menu navigation
     if (this.slashMenuOpen() && (key === "ArrowDown" || key === "ArrowUp" || key === "Enter" || key === "Escape" || key === "Tab")) {
+      if (!this.slashCount() && key !== "Escape") { event.preventDefault(); return }
       if (key === "ArrowDown") { event.preventDefault(); this.slashIndex = (this.slashIndex + 1) % this.slashCount(); this.highlightSlash(); return }
       if (key === "ArrowUp") { event.preventDefault(); this.slashIndex = (this.slashIndex - 1 + this.slashCount()) % this.slashCount(); this.highlightSlash(); return }
       if (key === "Escape") { event.preventDefault(); this.removeSlashSlash(field); this.hideSlashMenu(); return }
@@ -347,20 +458,36 @@ export default class extends Controller {
       return
     }
 
-    // Enter in a text block → new paragraph below
-    if (key === "Enter" && !event.shiftKey && (field.tagName === "TEXTAREA" || field.tagName === "INPUT")) {
-      if (block.dataset.type === "paragraph" || block.dataset.type === "heading") {
-        event.preventDefault()
-        this.insertBlock("paragraph", block, true)
-      }
+    if (event.isComposing) return
+    if ((ctrlKey || metaKey) && shiftKey && key === "ArrowUp") {
+      event.preventDefault(); this.moveUp({ target: block }); return
+    }
+    if ((ctrlKey || metaKey) && shiftKey && key === "ArrowDown") {
+      event.preventDefault(); this.moveDown({ target: block }); return
+    }
+    const textBlock = ["paragraph", "heading"].includes(block.dataset.type) && field.tagName === "TEXTAREA"
+    if (!textBlock) return
+    // Split at the selection, keeping the text on either side of the caret.
+    if (key === "Enter" && !shiftKey) {
+      event.preventDefault()
+      const suffix = field.value.slice(field.selectionEnd)
+      field.value = field.value.slice(0, field.selectionStart)
+      const next = this.buildBlockEl({ type: "paragraph", data: { text: suffix } })
+      block.after(next)
+      this.commit(); this.focusBlockField(next); this.resizeTextFields()
       return
     }
-
-    // Backspace on an empty text block → remove it, focus the previous
-    if (key === "Backspace" && (field.tagName === "TEXTAREA" || field.tagName === "INPUT")) {
-      if (field.value === "" && ["paragraph", "heading", "quote", "list", "callout"].includes(block.dataset.type)) {
+    if (key === "Backspace" && field.selectionStart === 0 && field.selectionEnd === 0) {
+      const previous = block.previousElementSibling
+      const previousField = previous?.matches('[data-type="paragraph"], [data-type="heading"]') && previous.querySelector('textarea[data-field="text"]')
+      if (previousField) {
         event.preventDefault()
-        this.removeBlock({ target: block })
+        const caret = previousField.value.length
+        previousField.value += field.value
+        block.remove(); this.commit(); previousField.focus()
+        previousField.setSelectionRange(caret, caret); this.resizeTextFields()
+      } else if (!field.value) {
+        event.preventDefault(); this.removeBlock({ target: block })
       }
     }
   }
@@ -369,72 +496,151 @@ export default class extends Controller {
 
   onInput(event) {
     const field = event.target
-    const value = field.value
+    const value = field.value || ""
+    this.resizeTextFields()
 
-    if (field.dataset.field === "text" && value.endsWith("/") && !this.slashMenuOpen()) {
-      this.openSlashMenu(field.closest("[data-block-editor-target='block']"), field)
-    } else if (!value.endsWith("/")) {
+    if (field.dataset.field === "text" && /^\/[a-z _-]*$/i.test(value) && field.selectionStart === value.length) {
+      this.openSlashMenu(field.closest('[data-block-editor-target="block"]'), field)
+      this.buildSlashMenu(value.slice(1))
+    } else {
       this.hideSlashMenu()
     }
     this.serialize()
   }
 
-  buildSlashMenu() {
-    this.slashMenuTarget.innerHTML = ""
-    this.types.forEach((type, i) => {
-      const btn = document.createElement("button")
-      btn.type = "button"
-      btn.textContent = type.charAt(0).toUpperCase() + type.slice(1)
-      btn.dataset.index = i
-      btn.dataset.action = "block-editor#slashInsert"
-      btn.className = "w-full text-left px-3 py-1.5 text-sm rounded-md hover:bg-gray-50"
-      this.slashMenuTarget.appendChild(btn)
+  buildSlashMenu(query = "") {
+    const labels = { paragraph: "Text", heading: "Heading", rich_text: "Formatted text", image: "Image", quote: "Quote", list: "List", code: "Code", separator: "Divider", callout: "Callout", button: "Button" }
+    this.slashTypes = this.types.filter(type => `${labels[type] || type} ${type}`.toLowerCase().includes(query.toLowerCase().replaceAll("_", " ")))
+    this.slashIndex = 0
+    this.slashMenuTarget.replaceChildren()
+    const heading = document.createElement("div")
+    heading.className = "composer-slash-heading"
+    heading.textContent = this.slashTypes.length ? "INSERT BLOCK · ↑ ↓ TO NAVIGATE" : "No matching blocks"
+    this.slashMenuTarget.append(heading)
+    this.slashTypes.forEach((type, index) => {
+      const button = document.createElement("button")
+      button.type = "button"
+      const icon = this.element.querySelector(`template[data-composer-icon="${type}"]`)
+      if (icon) button.append(icon.content.cloneNode(true))
+      const label = document.createElement("span")
+      label.textContent = labels[type] || type.replaceAll("_", " ")
+      button.append(label)
+      button.dataset.index = index
+      button.dataset.action = "mousedown->block-editor#keepSelection click->block-editor#slashInsert"
+      button.setAttribute("role", "option")
+      this.slashMenuTarget.append(button)
     })
+    this.highlightSlash()
+    if (this.slashBlock) this.positionSlashMenu()
   }
+
+  keepSelection(event) { event.preventDefault() }
 
   openSlashMenu(block, field) {
     this.slashBlock = block
     this.slashField = field
-    this.slashIndex = 0
     this.slashMenuTarget.classList.remove("hidden")
-    this.slashMenuTarget.style.top = `${block.offsetTop + block.offsetHeight + 4}px`
-    this.highlightSlash()
+    this.element.classList.add("has-slash-menu")
+    this.positionSlashMenu()
+  }
+
+  positionSlashMenu() {
+    if (!this.slashField?.isConnected) { this.hideSlashMenu(); return }
+    let anchor = this.slashField.getBoundingClientRect()
+    if (this.slashField.isContentEditable) {
+      const selection = window.getSelection()
+      if (selection?.rangeCount && this.slashField.contains(selection.anchorNode)) {
+        const rect = selection.getRangeAt(0).getBoundingClientRect()
+        if (rect.height) anchor = rect
+      }
+    }
+    placeEditorPopover(this.slashMenuTarget, anchor, { maxHeight: 300 })
+  }
+
+  pickerToggled() {
+    if (!this.blockPickerTarget.open) return
+    this.positionPicker()
+    this.blockPickerTarget.querySelector('input[type="search"]')?.focus({ preventScroll: true })
+  }
+
+  positionPicker() {
+    const panel = this.blockPickerTarget.querySelector(".composer-inserter")
+    if (!panel) return
+    panel.dataset.popoverWidth = "340"
+    placeEditorPopover(panel, this.blockPickerTarget.querySelector("summary").getBoundingClientRect(), { maxHeight: 450 })
+  }
+
+  blockMenuToggled(event) {
+    const menu = event.target
+    if (menu.open) this.positionBlockMenu(menu)
+  }
+
+  positionBlockMenu(menu) {
+    const panel = menu.querySelector(".composer-block-popover")
+    panel.dataset.popoverWidth = "230"
+    placeEditorPopover(panel, menu.querySelector("summary").getBoundingClientRect(), { maxHeight: 400 })
+  }
+
+  toggleInspector() {
+    if (document.body.classList.contains("ink-writing-focus")) {
+      document.body.classList.remove("ink-writing-focus")
+      const focus = this.element.querySelector('[data-action="block-editor#toggleFocus"]')
+      focus?.setAttribute("aria-pressed", "false")
+      if (focus) focus.textContent = "Focus"
+      this.setInspector(true)
+    } else this.setInspector(this.inspectorTarget.hidden)
+  }
+
+  setInspector(open) {
+    this.inspectorTarget.hidden = !open
+    this.element.classList.toggle("settings-hidden", !open)
+    this.settingsToggleTarget.setAttribute("aria-expanded", String(open))
+    try { localStorage.setItem("ink-post-settings", open ? "open" : "closed") } catch {}
+    requestAnimationFrame(() => this.resizeTextFields())
   }
 
   hideSlashMenu() {
     this.slashMenuTarget.classList.add("hidden")
+    this.element.classList.remove("has-slash-menu")
     this.slashBlock = null
     this.slashField = null
+    this.slashRichIndex = null
   }
 
-  slashMenuOpen() {
-    return !this.slashMenuTarget.classList.contains("hidden")
-  }
-
-  slashCount() {
-    return this.types.length
-  }
+  slashMenuOpen() { return !this.slashMenuTarget.classList.contains("hidden") }
+  slashCount() { return this.slashTypes?.length || 0 }
 
   highlightSlash() {
-    this.slashMenuTarget.querySelectorAll("button").forEach((b, i) => {
-      b.classList.toggle("bg-gray-100", i === this.slashIndex)
+    this.slashMenuTarget.querySelectorAll("button").forEach((button, index) => {
+      button.classList.toggle("is-selected", index === this.slashIndex)
+      button.setAttribute("aria-selected", String(index === this.slashIndex))
     })
+    const selected = this.slashMenuTarget.querySelector(".is-selected")
+    if (selected) {
+      const menu = this.slashMenuTarget
+      if (selected.offsetTop < menu.scrollTop) menu.scrollTop = selected.offsetTop
+      else if (selected.offsetTop + selected.offsetHeight > menu.scrollTop + menu.clientHeight) menu.scrollTop = selected.offsetTop + selected.offsetHeight - menu.clientHeight
+    }
   }
 
-  slashInsert() {
-    const type = this.types[this.slashIndex]
+  slashInsert(event) {
+    const index = event?.currentTarget?.dataset.index
+    const type = this.slashTypes[index === undefined ? this.slashIndex : Number(index)]
     if (!type || !this.slashBlock) return
-
-    const field = this.slashField
-    if (field) field.value = field.value.slice(0, -1)
     const block = this.slashBlock
+    const richIndex = this.slashRichIndex
     this.hideSlashMenu()
-    this.insertBlock(type, block, true)
+    const inserted = { type, data: type === "heading" ? { level: 2 } : {} }
+    if (block.dataset.type === "rich_text" && Number.isInteger(richIndex)) {
+      const doc = JSON.parse(block.querySelector('[data-field="json"]').value)
+      const before = doc.content.slice(0, richIndex)
+      const after = doc.content.slice(richIndex + 1)
+      const wrap = content => ({ type: "rich_text", data: { json: JSON.stringify({ type: "doc", content }) } })
+      this.replaceBlockWithBlocks(block, [...(before.length ? [wrap(before)] : []), inserted, ...(after.length ? [wrap(after)] : [])], before.length ? 1 : 0)
+    } else this.replaceBlockWithBlocks(block, [inserted])
   }
 
-  removeSlashSlash(field) {
-    if (field) field.value = field.value.slice(0, -1)
-  }
+  removeSlashSlash() { /* Escape leaves the author's text intact. */ }
 
   // ---- serialization + history ------------------------------------------------
 
@@ -460,6 +666,8 @@ export default class extends Controller {
   commit() {
     this.hiddenFieldTarget.value = this.serializeValue()
     this.updateWordCount()
+    this.resizeTextFields()
+    this.element.dispatchEvent(new CustomEvent("composer:change", { bubbles: true }))
     const current = this.hiddenFieldTarget.value
     if (this.historyIndex >= 0 && this.history[this.historyIndex] === current) return
     if (this.historyIndex < this.history.length - 1) this.history = this.history.slice(0, this.historyIndex + 1)
@@ -502,6 +710,10 @@ export default class extends Controller {
       if (el) this.listTarget.appendChild(el)
     })
     this.hiddenFieldTarget.value = json
+    this.element.dispatchEvent(new CustomEvent("composer:change", { bubbles: true }))
+    this.updateWordCount()
+    this.resizeTextFields()
+    this.scheduleAutosave()
     this.toggleEmptyState()
   }
 
@@ -521,14 +733,14 @@ export default class extends Controller {
   }
 
   // Replace one block with a sequence of parsed markdown blocks (in its place), then commit.
-  replaceBlockWithBlocks(block, blocks) {
+  replaceBlockWithBlocks(block, blocks, focusIndex = 0) {
     const els = blocks.map((b) => this.buildBlockEl(b)).filter(Boolean)
     if (!els.length) return
     els.forEach((el) => block.before(el))
     block.remove()
     this.commit()
     this.toggleEmptyState()
-    this.focusBlockField(els[0])
+    this.focusBlockField(els[focusIndex])
   }
 
   // ---- programmatic mutation API --------------------------------------------
@@ -609,25 +821,34 @@ export default class extends Controller {
 
   autosave() {
     this.saveTimer = null
+    if (this.autosaveInFlight) { this.scheduleAutosave(); return }
+    this.autosaveInFlight = true
     this.setSaveStatus("Saving…")
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
+    const form = this.element.closest("form")
+    const payload = this.autosaveMetadataValue ? new FormData(form) : new FormData()
+    if (!this.autosaveMetadataValue) payload.set(`${this.resourceKeyValue || "post"}[draft_content]`, this.hiddenFieldTarget.value)
+    const snapshot = JSON.stringify([...payload.entries()].filter(([key]) => key !== "authenticity_token"))
 
     fetch(this.saveUrlValue, {
       method: "PATCH",
       headers: {
         "X-CSRF-Token": csrf,
-        "Content-Type": "application/json",
         "Accept": "application/json"
       },
-      body: JSON.stringify({
-        [this.resourceKeyValue || "post"]: { draft_content: this.hiddenFieldTarget.value }
-      })
+      body: payload
     })
       .then((r) => {
         if (!r.ok) throw new Error(`save failed: ${r.status}`)
-        this.setSaveStatus("Saved")
+        if (!this.element.isConnected) return
+        const currentPayload = this.autosaveMetadataValue ? new FormData(form) : new FormData()
+        if (!this.autosaveMetadataValue) currentPayload.set(`${this.resourceKeyValue || "post"}[draft_content]`, this.hiddenFieldTarget.value)
+        const current = JSON.stringify([...currentPayload.entries()].filter(([key]) => key !== "authenticity_token"))
+        if (current === snapshot) this.setSaveStatus(this.metadataDirty ? "Text saved · unsaved settings" : "Saved")
+        else if (!this.saveTimer) this.scheduleAutosave()
       })
       .catch(() => this.setSaveStatus("Save failed — check connection"))
+      .finally(() => { this.autosaveInFlight = false })
   }
 
   setSaveStatus(text) {
@@ -640,10 +861,17 @@ export default class extends Controller {
   updateWordCount() {
     if (!this.hasWordCountTarget) return
     const words = this.blockTargets.reduce((sum, el) => {
+      if (el.dataset.type === "rich_text") {
+        try {
+          const doc = JSON.parse(el.querySelector('[data-field="json"]')?.value || "{}")
+          const text = node => node.text || (node.content || []).map(text).join(" ")
+          return sum + (text(doc).match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)?.length || 0)
+        } catch { return sum }
+      }
       el.querySelectorAll("[data-field]").forEach((f) => {
         // Skip hidden serialized fields (e.g. page_builder ERB) — count real text only.
         if (f.type === "textarea" || f.type === "text") {
-          sum += (f.value || "").trim().split(/\s+/).filter(Boolean).length
+          sum += ((f.value || "").match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)?.length || 0)
         }
       })
       return sum
@@ -655,10 +883,39 @@ export default class extends Controller {
   // ---- helpers -------------------------------------------------------------
 
   focusBlockField(block) {
-    const field = block.querySelector("textarea, input:not([type='hidden']), select")
+    const field = [...block.querySelectorAll("[contenteditable=true], textarea, input:not([type='hidden']), select")].find(candidate => !candidate.closest("dialog"))
+    this.resizeTextFields()
+    if (!field && block.dataset.type === "rich_text") {
+      block.dataset.editorAutofocus = "true"
+      requestAnimationFrame(() => block.querySelector("[contenteditable=true]")?.focus())
+    }
     if (!field) return
     field.focus()
     if (field.tagName === "INPUT") field.select()
+    if (field.tagName === "TEXTAREA") field.setSelectionRange(0, 0)
+  }
+
+  resizeTextFields() {
+    this.element.querySelectorAll('.composer-title, [data-block-editor-target="list"] textarea').forEach(field => {
+      if (field.classList.contains("code-editor")) return
+      const before = field.style.height
+      field.style.height = "auto"
+      const height = `${field.scrollHeight}px`
+      field.style.height = height === "0px" ? before : height
+    })
+  }
+
+  changeBlockType(event) {
+    const block = event.target.closest('[data-block-editor-target="block"]')
+    const field = block.querySelector('textarea[data-field="text"]')
+    if (!field || !["paragraph", "heading"].includes(block.dataset.type)) return
+    const type = event.params.type
+    if (type === "rich_text") {
+      const content = field.value ? [{ type: "text", text: field.value }] : []
+      this.replaceBlockWithBlocks(block, [{ type, data: { json: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content }] }) } }])
+    } else {
+      this.replaceBlockWithBlocks(block, [{ type, data: { text: field.value, level: event.params.level || 2 } }])
+    }
   }
 
   toggleEmptyState() {

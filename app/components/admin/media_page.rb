@@ -13,7 +13,7 @@ module Admin
     end
 
     def view_template
-      div(class: "max-w-[1200px]") do
+      div(class: "workspace-list") do
         render Toolbar.new do |toolbar|
           toolbar.leading do
             render ToolbarTitle.new(

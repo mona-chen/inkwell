@@ -207,8 +207,9 @@ export default class PanelManager {
     renderSiteSettings() {
         const settings = this.runtime.document.data.settings;
         const theme = settings.theme || {};
+        const inherited = this.runtime.siteStyleDefaults || {};
         const wrapper = document.createElement('div'); wrapper.className = 'ink-v2-site-settings';
-        wrapper.appendChild(this.screenTitle('Site Settings', 'tune', { back: true }));
+        wrapper.appendChild(this.screenTitle('Page & theme', 'tune', { back: true }));
         const section = (title) => { const el = document.createElement('section'); el.className = 'ink-v2-control-section'; el.innerHTML = `<h3>${title}</h3>`; wrapper.appendChild(el); return el; };
         const field = (host, label, value, type, commit, options = []) => {
             const row = document.createElement('div'); row.className = 'ink-v2-control'; const caption = document.createElement('label'); caption.textContent = label;
@@ -230,7 +231,7 @@ export default class PanelManager {
             const part = findPart(key);
             const canonical = this.runtime.siteParts?.[key];
             const button = document.createElement('button'); button.type = 'button'; button.className = 'ink-v2-site-part-action';
-            const status = part ? 'Global · editing updates every assigned page' : canonical ? 'Available globally · add to this page' : 'Create global part';
+            const status = part ? 'Shared part · publish to update the site registry' : canonical ? 'Available globally · add to this page' : 'Create global part';
             button.innerHTML = `<span class="material-symbols-rounded">${key === 'header' ? 'web_asset' : 'bottom_panel'}</span><span><strong>${key[0].toUpperCase()}${key.slice(1)}</strong><small>${status}</small></span><span class="material-symbols-rounded">${part ? 'edit' : 'add'}</span>`;
             // Imported global parts use a display:contents scoping wrapper. Select their first
             // editable child so the canvas can draw a useful outline and expose its native
@@ -252,8 +253,17 @@ export default class PanelManager {
         const design = section('Design language');
         const designNote = document.createElement('p');
         designNote.className = 'ink-v2-control-note';
-        designNote.textContent = 'Tokens drive every section — colour, type, shape, spacing and motion. Pick a starting point, then fine-tune below.';
+        designNote.textContent = 'These styles apply to this page. Element styles override them. Shared headers and footers are managed separately.';
         design.appendChild(designNote);
+        const inheritButton = document.createElement('button');
+        inheritButton.type = 'button'; inheritButton.className = 'ink-v2-action-button';
+        inheritButton.textContent = 'Use site colors, typography & spacing';
+        inheritButton.title = 'Clear page theme overrides. Element styles and custom CSS are preserved.';
+        inheritButton.addEventListener('click', () => {
+            this.runtime.updateDocumentSettings({ theme: { colors: {}, typography: {}, spacing: {} } }, 'Use site styles');
+            this.render();
+        });
+        design.appendChild(inheritButton);
         const presets = document.createElement('div');
         presets.className = 'ink-v2-design-presets';
         Object.entries(THEME_PRESETS).forEach(([name, preset]) => {
@@ -267,12 +277,12 @@ export default class PanelManager {
             presets.appendChild(button);
         });
         design.appendChild(presets);
-        const colors = section('Global colors');
-        Object.entries(DEFAULT_THEME_COLORS).forEach(([name, fallback]) => field(colors, name[0].toUpperCase() + name.slice(1), theme.colors?.[name] || fallback, 'color', (value) => this.updateTheme('colors', name, value)));
-        const typography = section('Global typography');
-        field(typography, 'Font family', theme.typography?.fontFamily || DEFAULT_THEME_TYPOGRAPHY.fontFamily, 'select', (value) => this.updateTheme('typography', 'fontFamily', value), ['Inter,ui-sans-serif,system-ui,sans-serif', 'Roboto,Arial,sans-serif', 'Georgia,serif', 'ui-monospace,SFMono-Regular,monospace', ...availableFonts(this.runtime.document)]);
-        field(typography, 'Base font size', theme.typography?.baseSize || DEFAULT_THEME_TYPOGRAPHY.baseSize, 'number', (value) => this.updateTheme('typography', 'baseSize', value));
-        field(typography, 'Line height', theme.typography?.lineHeight || DEFAULT_THEME_TYPOGRAPHY.lineHeight, 'number', (value) => this.updateTheme('typography', 'lineHeight', value));
+        const colors = section('Page colors');
+        Object.entries(DEFAULT_THEME_COLORS).forEach(([name, fallback]) => field(colors, name[0].toUpperCase() + name.slice(1), theme.colors?.[name] || inherited[name] || fallback, 'color', (value) => this.updateTheme('colors', name, value)));
+        const typography = section('Page typography');
+        field(typography, 'Font family', theme.typography?.fontFamily || inherited.fontFamily || DEFAULT_THEME_TYPOGRAPHY.fontFamily, 'select', (value) => this.updateTheme('typography', 'fontFamily', value), ['Inter,ui-sans-serif,system-ui,sans-serif', 'Roboto,Arial,sans-serif', 'Georgia,serif', 'ui-monospace,SFMono-Regular,monospace', ...availableFonts(this.runtime.document)]);
+        field(typography, 'Base font size', theme.typography?.baseSize || inherited.baseSize || DEFAULT_THEME_TYPOGRAPHY.baseSize, 'number', (value) => this.updateTheme('typography', 'baseSize', value));
+        field(typography, 'Line height', theme.typography?.lineHeight || inherited.lineHeight || DEFAULT_THEME_TYPOGRAPHY.lineHeight, 'number', (value) => this.updateTheme('typography', 'lineHeight', value));
         const customFontSection = section('Custom fonts');
         const customFonts = Array.isArray(settings.customFonts) ? settings.customFonts : [];
         const updateCustomFont = (index, changes) => {
@@ -299,9 +309,9 @@ export default class PanelManager {
         addFont.addEventListener('click', () => this.runtime.updateDocumentSettings({ customFonts: [...customFonts, { family: 'Custom font', url: '', weight: '400', style: 'normal', display: 'swap' }] }, 'Add custom font'));
         customFontSection.appendChild(addFont);
         const spacing = section('Layout system');
-        field(spacing, 'Content width', theme.spacing?.contentWidth || 1140, 'number', (value) => this.updateTheme('spacing', 'contentWidth', value));
-        field(spacing, 'Page gutter', theme.spacing?.pageGutter ?? 10, 'number', (value) => this.updateTheme('spacing', 'pageGutter', value));
-        field(spacing, 'Section gap', theme.spacing?.sectionGap ?? 0, 'number', (value) => this.updateTheme('spacing', 'sectionGap', value));
+        field(spacing, 'Content width', theme.spacing?.contentWidth || inherited.contentWidth || 1140, 'number', (value) => this.updateTheme('spacing', 'contentWidth', value));
+        field(spacing, 'Page gutter', theme.spacing?.pageGutter ?? inherited.pageGutter ?? 10, 'number', (value) => this.updateTheme('spacing', 'pageGutter', value));
+        field(spacing, 'Section gap', theme.spacing?.sectionGap ?? inherited.sectionGap ?? 0, 'number', (value) => this.updateTheme('spacing', 'sectionGap', value));
         const breakpoints = section('Responsive breakpoints');
         field(breakpoints, 'Tablet', settings.breakpoints?.tablet || 1024, 'number', (value) => this.runtime.updateDocumentSettings({ breakpoints: { ...settings.breakpoints, tablet: value } }, 'Change tablet breakpoint'));
         field(breakpoints, 'Mobile', settings.breakpoints?.mobile || 767, 'number', (value) => this.runtime.updateDocumentSettings({ breakpoints: { ...settings.breakpoints, mobile: value } }, 'Change mobile breakpoint'));
@@ -320,7 +330,7 @@ export default class PanelManager {
     updateTheme(group, name, value) {
         const theme = structuredClone(this.runtime.document.data.settings.theme || {});
         theme[group] = { ...(theme[group] || {}), [name]: value };
-        this.runtime.updateDocumentSettings({ theme }, `Change global ${name}`);
+        this.runtime.updateDocumentSettings({ theme }, `Change page ${name}`);
     }
 
     renderHistory() {

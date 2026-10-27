@@ -237,7 +237,7 @@ RSpec.describe "Page builder ↔ block editor", type: :request do
     sign_in user
 
     post "/builder/save", params: {
-      record_type: "page", record_id: page.id, html: "<main>About</main>",
+      record_type: "page", record_id: page.id, publish: true, html: "<main>About</main>",
       store: { version: 2, type: "page", settings: { title: "About" }, children: [] },
       site_parts: {
         header: { id: "global-header", type: "site-part", settings: { partKey: "header", label: "Updated header" }, children: [] }

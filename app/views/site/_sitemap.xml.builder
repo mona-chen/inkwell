@@ -22,8 +22,10 @@ xml.urlset xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9" do
   end
 
   @pages.each do |page|
+    next if page.url == "/"
+
     xml.url do
-      xml.loc page_url(page)
+      xml.loc "#{request.base_url}#{page.url}"
       xml.lastmod page.updated_at.to_date.iso8601
       xml.changefreq "monthly"
       xml.priority "0.6"

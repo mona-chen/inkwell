@@ -49,6 +49,19 @@ module Inkwell
     require_relative "../lib/page_builder_theme_no_cache"
     config.middleware.insert_before ActionDispatch::Static, PageBuilderThemeNoCache
 
+    # Let theme bundles retain /assets imports without changing the host asset namespace.
+    require_relative "../lib/theme_public_assets"
+    initializer "inkwell.theme_public_assets", after: "multisite.middleware" do |app|
+      anchor = defined?(Multisite::SiteResolver) ? Multisite::SiteResolver : ActionDispatch::Session::CookieStore
+      if app.config.assets.server
+        app.middleware.move_after anchor, Propshaft::Server
+        app.middleware.insert_before Propshaft::Server, ThemePublicAssets
+        app.middleware.move_after anchor, ThemePublicAssets
+      else
+        app.middleware.insert_after anchor, ThemePublicAssets
+      end
+    end
+
     # Engine migrations (ActiveStorage, ActionText, ActionMailbox, and every /plugins engine)
     # aren't added to `db:migrate` automatically — Rails only migrates the app's own db/migrate
     # unless the paths are registered. Without this, plugin tables and ActiveStorage's tables

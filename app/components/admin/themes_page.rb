@@ -11,53 +11,100 @@ module Admin
     end
 
     def view_template
-      render Toolbar.new do |toolbar|
-        toolbar.leading do
-          render ToolbarTitle.new(
-            title: "Themes",
-            subtitle: "Currently active: #{@active_theme}"
-          )
+      div(class: "themes-library") do
+        header(class: "themes-heading") do
+          div do
+            p(class: "themes-eyebrow") { "SITE DESIGN" }
+            h1 { "Theme packages" }
+            p(class: "themes-intro") { "Install, preview, and activate your site’s frontend." }
+          end
+          if Current.user&.admin?
+            render Button.new("Import a theme", href: "#theme-import", variant: :primary, icon: :download)
+          end
         end
-      end
 
-      render Grid.new(cols: "1 sm:2 lg:3", gap: 6) do
-        @themes.each do |theme|
-          render theme_card(theme)
+        render DesignNavigation.new(current: "themes")
+        div(class: "themes-section-heading") do
+          h2 { "Your themes" }
+          span { "#{@themes.size} installed" }
         end
+        div(class: "themes-cards") { @themes.each { |theme| theme_card(theme) } }
+        import_panel if Current.user&.admin?
       end
     end
 
     private
 
-    def theme_card(theme)
-      name = theme[:name] || theme["name"]
-      description = theme[:description] || theme["description"]
-      Card.new do |card|
-        card.title do
-          Flex(dir: :row, gap: 2, align: :center) do
-            span(class: "flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground") do
-              render Icon.new(:palette, size: :sm)
+    def import_panel
+      section(id: "theme-import", class: "themes-import") do
+        div(class: "themes-import-intro") do
+          span(class: "themes-import-icon") { render Icon.new(:download, size: :sm) }
+          h2 { "Import a theme package" }
+          p { "Install a Rails theme, a static website, or a bundled app from a ZIP file." }
+          div(class: "themes-formats") do
+            span { "Rails + Hotwire" }
+            span { "HTML / CSS / JS" }
+            span { "React & other bundles" }
+          end
+        end
+        form_with(url: import_admin_themes_path, multipart: true, class: "themes-import-form", data: { turbo: false }) do |form|
+          form.label :archive, "Theme package", class: "themes-field-label"
+          div(class: "themes-file") do
+            form.file_field :archive, accept: ".zip", required: true
+          end
+          p(class: "themes-help") { "ZIP archive · up to 200 MB" }
+          details(class: "themes-options") do
+            summary { "Routing options" }
+            div(class: "themes-routing") do
+              form.check_box :spa
+              div do
+                form.label :spa, "Enable client-side routing"
+                p { "For single-page apps without a theme.json manifest. Keeps nested URLs working on refresh." }
+              end
             end
-            span(class: "text-sm font-semibold text-foreground") { name }
-            if theme[:slug] == @active_theme
-              render Badge.new("Active", color: :success, size: :xs)
+          end
+          div(class: "themes-import-footer") do
+            p { "Import first. Preview before going live." }
+            render Button.new("Import theme", type: :submit, variant: :primary, icon: :download)
+          end
+        end
+      end
+    end
+
+    def theme_card(theme)
+      slug = theme[:slug]
+      active = slug == @active_theme
+      manifest = ThemeManager.manifest(slug)
+      packaged = manifest["format"] == "inkwell-theme-v1"
+      article(class: "themes-card#{active ? ' is-active' : ''}") do
+        div(class: "themes-package-mark", aria: { hidden: "true" }) do
+          render Icon.new(packaged ? :package : :palette, size: :lg)
+          span { packaged ? manifest["kind"].to_s.capitalize : "Rails theme" }
+        end
+        div(class: "themes-card-content") do
+          div(class: "themes-card-title") do
+            h3 { theme[:name] || theme["name"] }
+            render Badge.new("Active", color: :success, size: :xs) if active
+          end
+          p(class: "themes-description") { theme[:description] || theme["description"] }
+          if packaged
+            p(class: "themes-help") { "#{manifest['kind'].capitalize} · #{manifest.fetch('routes', {}).size} routes#{manifest['spa_fallback'] ? ' · Client-side routing' : ''}" }
+            dependencies = ThemePackages::Dependencies.new(manifest.fetch("dependencies", {}))
+            if dependencies.gems.any? || dependencies.packages.any?
+              details(class: "themes-options") do
+                summary { "Dependencies" }
+                pre { JSON.pretty_generate(dependencies.data) }
+                p(class: "themes-help") { "Install gems and build packages separately before activation. Gems require a server restart." }
+              end
             end
           end
         end
-        card.body do
-          p(class: "min-h-[2.5rem] text-xs leading-5 text-muted-foreground") { description }
-        end
-        card.footer do
-          render Grid.new(cols: "1 sm:2", gap: 3) do
-            render Button.new("Preview", href: preview_admin_theme_path(theme[:slug]), variant: :ghost, icon: :eye)
-            unless theme[:slug] == @active_theme
-              render ButtonTo.new(
-                "Activate",
-                href: activate_admin_theme_path(theme[:slug]),
-                method: :post,
-                variant: :primary
-              )
-            end
+        footer(class: "themes-card-footer") do
+          render Button.new("Preview", href: preview_admin_theme_path(slug), variant: :ghost, icon: :eye)
+          if active
+            span(class: "themes-current") { "Currently on your site" }
+          else
+            render ButtonTo.new("Activate", href: activate_admin_theme_path(slug), method: :post, variant: :primary)
           end
         end
       end

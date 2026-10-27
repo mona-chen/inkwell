@@ -1,13 +1,13 @@
 <%# "+ Add block" picker: single block types + reusable patterns, shared by the post and
     page editors. Gutenberg-style: searchable, icon-per-item, grouped. Closes on outside click
     or after an insert (see block-editor#bindPickerOutsideClose / closePicker). %>
-<details data-block-editor-target="blockPicker" class="relative">
+<details data-block-editor-target="blockPicker" class="relative" data-action="toggle->block-editor#pickerToggled">
   <summary class="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-border/50 text-muted-foreground/60 text-[10px] font-medium cursor-pointer hover:border-border hover:text-muted-foreground transition list-none">
     <%= render Ink::Icon.new(:plus, size: :xs) %>
-    Add
+    Insert block
   </summary>
 
-  <div class="absolute right-0 z-10 mt-2 w-80 rounded-xl bg-background p-3 shadow-lg border border-border">
+  <div class="composer-inserter absolute right-0 z-10 mt-2 w-80 rounded-xl bg-background p-3 shadow-lg border border-border">
     <div class="relative mb-3">
       <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">
         <%= render Ink::Icon.new(:search, size: :xs) %>

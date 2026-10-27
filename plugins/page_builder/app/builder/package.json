@@ -23,5 +23,8 @@
     "capture-site": "node scripts/capture-site.js",
     "map-site": "node scripts/map-site-capture.js",
     "smoke": "cd ../../../.. && bin/rails builder:smoke"
+  },
+  "dependencies": {
+    "html-to-image": "^1.11.13"
   }
 }

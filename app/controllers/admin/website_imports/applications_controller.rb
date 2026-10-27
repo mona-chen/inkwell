@@ -14,7 +14,7 @@ module Admin
         ).import!(payload)
         website_import.update!(status: "imported", imported_page_ids: pages.map { |page| page.fetch(:id) }, finished_at: Time.current)
 
-        redirect_to pages.first.fetch(:builder_url), status: :see_other, notice: "Imported #{pages.size} editable pages."
+        redirect_to pages.first.fetch(:builder_url), status: :see_other, notice: "Imported or refreshed #{pages.size} pages. Existing publication settings and Builder edits were retained."
       rescue JSON::ParserError, Errno::ENOENT => error
         website_import&.mark_failed!(error.message)
         redirect_to admin_website_import_path(website_import), status: :see_other, alert: "The mapped capture could not be read."

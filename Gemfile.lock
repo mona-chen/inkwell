@@ -541,6 +541,7 @@ DEPENDENCIES
   rspec-rails
   rubocop-rails-omakase
   ruby-vips (~> 2.2)
+  rubyzip (~> 3.5)
   selenium-webdriver
   solid_cable
   solid_cache

@@ -395,7 +395,7 @@ module AiWriter
           "and NOTHING changed. Send the arguments as an object with the named fields."
       else
         "#{tool} arguments are not valid JSON#{evidence}, so the call was discarded and NOTHING " \
-          "changed. A payload that stops mid-write was cut off, not composed wrong: do NOT resend the " \
+          "changed. This may be malformed generation or an incomplete response; do NOT resend the " \
           "same call. Split the work into smaller calls — one section per append_tree call, each under " \
           "the composition.maximumNodes limit from get_capabilities."
       end

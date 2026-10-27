@@ -29,6 +29,23 @@ RSpec.describe "Theme template contract" do
   theme_dirs.sort.each do |theme_dir|
     slug = File.basename(theme_dir)
 
+    if ThemeManager.manifest(slug)["format"] == "inkwell-theme-v1"
+      context "the #{slug} frontend package" do
+        it "declares a valid frontend contract" do
+          expect { ThemePackages::Manifest.new(ThemeManager.manifest(slug)) }.not_to raise_error
+        end
+
+        it "supplies a layout for Rails views while using core content fallbacks" do
+          runtime = ThemePackages::Runtime.for(slug)
+          if runtime.manifest.kind == "rails"
+            views = runtime.manifest.data.fetch("views", "views")
+            expect(File).to exist(File.join(theme_dir, views, "layouts/application.html.erb"))
+          end
+        end
+      end
+      next
+    end
+
     context "the #{slug} theme" do
       THEME_REQUIRED_TEMPLATES.each do |template, reason|
         it "defines #{template} (#{reason})" do

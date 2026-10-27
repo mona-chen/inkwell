@@ -137,12 +137,12 @@ async function main() {
     await wait(2500);
 
     if (process.env.APP_UI_SMOKE_ONLY) {
-      for (const route of ['/admin','/admin/posts','/admin/pages','/admin/posts/new','/admin/media','/admin/comments','/admin/menus','/admin/themes','/admin/users','/admin/settings','/admin/plugins','/admin/widgets','/admin/taxonomies','/admin/pages/new','/admin/website_imports','/admin/website_imports/new','/builder','/plugins/ai_writer/settings','/plugins/seo_toolkit/seo']) {
+      for (const route of ['/admin','/admin/design','/admin/design?section=parts','/admin/design?section=styles','/admin/templates','/admin/posts','/admin/pages','/admin/posts/new','/admin/media','/admin/comments','/admin/menus','/admin/themes','/admin/users','/admin/settings','/admin/plugins','/admin/widgets','/admin/taxonomies','/admin/pages/new','/admin/website_imports','/admin/website_imports/new','/builder','/plugins/ai_writer/settings','/plugins/seo_toolkit/seo']) {
         await client.send('Page.navigate',{url:BASE_URL+route});await wait(1200);
         const page=await client.evaluate(`({title:document.title,shell:!!document.querySelector('[data-ink="shell"]'),overflow:document.documentElement.scrollWidth>innerWidth,errors:document.querySelector('h1')?.textContent})`);
         check('workspace screen renders '+route,page.shell&&!page.overflow,JSON.stringify(page));
         if(route==='/admin/posts/new') {
-          const writing=await client.evaluate(`(function(){document.querySelector('.ink-writing-start').click();var block=document.querySelector('[data-block-editor-target="block"]');return {block:!!block,focused:!!block?.contains(document.activeElement),hidden:document.querySelector('.ink-writing-start').classList.contains('hidden')};})()`);
+          const writing=await client.evaluate(`(async function(){document.querySelector('.ink-writing-start').click();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));var block=document.querySelector('[data-block-editor-target="block"]');return {block:!!block,focused:!!block?.contains(document.activeElement),hidden:document.querySelector('.ink-writing-start').classList.contains('hidden')};})()`);
           check('Start writing creates a real focused editable paragraph',writing.block&&writing.focused&&writing.hidden,JSON.stringify(writing));
           await client.evaluate(`document.querySelector('[data-block-editor-target="undoButton"]').click();true`);
           const focusMode=await client.evaluate(`(function(){var button=document.querySelector('.ink-writing-focus-toggle');button.click();var active=document.body.classList.contains('ink-writing-focus')&&getComputedStyle(document.querySelector('.admin-block-editor__inspector')).display==='none';button.click();return active&&!document.body.classList.contains('ink-writing-focus');})()`);
@@ -151,6 +151,24 @@ async function main() {
         }
         if(['/admin','/admin/posts/new'].includes(route)){const capture=await client.send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});fs.writeFileSync('/tmp/inkwell-'+(route==='/admin'?'workspace':'writing')+'.png',Buffer.from(capture.result.data,'base64'));}
       }
+      await client.send('Page.navigate', {url: BASE_URL + '/admin'}); await wait(500);
+      await client.send('Emulation.setDeviceMetricsOverride', {width: 390, height: 844, deviceScaleFactor: 1, mobile: false}); await wait(150);
+      const closedDrawer = await client.evaluate(`({inert:document.getElementById('admin-navigation').inert,overflow:document.documentElement.scrollWidth>innerWidth})`);
+      check('mobile workspace has no horizontal overflow and closed navigation is inert', closedDrawer.inert && !closedDrawer.overflow, JSON.stringify(closedDrawer));
+      const openDrawer = await client.evaluate(`(function(){document.querySelector('[aria-controls="admin-navigation"]').click();var panel=document.getElementById('admin-navigation');return {modal:panel.getAttribute('aria-modal')==='true',focused:panel.contains(document.activeElement),background:panel.nextElementSibling.inert};})()`);
+      check('mobile navigation moves focus and isolates the background', openDrawer.modal && openDrawer.focused && openDrawer.background, JSON.stringify(openDrawer));
+      await client.send('Input.dispatchKeyEvent', {type:'keyDown',key:'Tab',code:'Tab',modifiers:8});
+      await client.send('Input.dispatchKeyEvent', {type:'keyUp',key:'Tab',code:'Tab',modifiers:8});
+      const trapped = await client.evaluate(`document.getElementById('admin-navigation').contains(document.activeElement)`);
+      check('mobile navigation contains keyboard focus', trapped);
+      await client.send('Input.dispatchKeyEvent', {type:'keyDown',key:'Escape',code:'Escape'});
+      await client.send('Input.dispatchKeyEvent', {type:'keyUp',key:'Escape',code:'Escape'});
+      const escaped = await client.evaluate(`({closed:document.getElementById('admin-navigation').inert,restored:document.activeElement===document.querySelector('[aria-controls="admin-navigation"]'),unlocked:!document.body.classList.contains('overflow-hidden')})`);
+      check('Escape closes navigation, restores focus, and unlocks scrolling',escaped.closed && escaped.restored && escaped.unlocked,JSON.stringify(escaped));
+      await client.evaluate(`document.querySelector('[aria-controls="admin-navigation"]').click();true`);
+      await client.send('Emulation.setDeviceMetricsOverride', {width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false}); await wait(150);
+      const desktopDrawer = await client.evaluate(`({active:!document.getElementById('admin-navigation').inert,unlocked:!document.body.classList.contains('overflow-hidden'),background:!document.getElementById('admin-navigation').nextElementSibling.inert})`);
+      check('resizing an open drawer to desktop clears modal state',desktopDrawer.active && desktopDrawer.unlocked && desktopDrawer.background,JSON.stringify(desktopDrawer));
       check('app navigation has no uncaught errors',client.errors.length===0,client.errors.join(' | '));
       client.close();process.exitCode=failures?1:0;return;
     }
@@ -1844,9 +1862,9 @@ async function main() {
       var result={
         fullWidth:Math.abs(fEl.getBoundingClientRect().width-(fEl.parentElement.getBoundingClientRect().width-gutter*2))<2,
         boxedW:Math.round(bEl.getBoundingClientRect().width),
-        contentWidth:(css.match(/--ink-content-width:([^;]+)/)||[])[1],
+        contentWidth:win.getComputedStyle(canvas.documentElement).getPropertyValue('--ink-content-width').trim(),
         gutterApplied:gutter===10,
-        gutterCss:css.includes('--ink-page-gutter:10px')
+        gutterCss:win.getComputedStyle(canvas.documentElement).getPropertyValue('--ink-page-gutter').trim()==='10px'
       };
       r.remove(full.id); r.remove(boxed.id);
       return result;
@@ -1934,10 +1952,12 @@ async function main() {
       r.document.replace({version:2,type:'page',settings:{title:'Migration'},children:[legacyButton]});
       var migrated=r.document.get(legacyButton.id),base=migrated.styles.desktop.base;
       var libraryTypes=Array.from(document.querySelectorAll('.ink-v2-library-item')).map(function(el){return el.dataset.inkElementType});
-      var result={sizeRemoved:!Object.hasOwn(migrated.settings,'size'),font:base['font-size']&&base['font-size'].size,padding:base.padding&&base.padding.top,radius:base['border-radius']&&base['border-radius'].size,legacyHidden:!['section','columns','column'].some(function(type){return libraryTypes.includes(type)})};
+      var shelved=['section','columns','column','aurora-text','retro-grid','marquee','animated-list','animated-beam','bento-grid'];
+      var copilotTypes=Object.values(JSON.parse(b.copilotTools.apply('get_capabilities')).elements).flat().map(function(def){return def.type});
+      var result={sizeRemoved:!Object.hasOwn(migrated.settings,'size'),font:base['font-size']&&base['font-size'].size,padding:base.padding&&base.padding.top,radius:base['border-radius']&&base['border-radius'].size,legacyHidden:!shelved.some(function(type){return libraryTypes.includes(type)}),copilotHidden:!shelved.some(function(type){return copilotTypes.includes(type)})};
       r.document.replace(before);return result;
     })()`);
-    check("legacy button presets migrate to explicit styles and compatibility-only layout elements stay out of the modern library", state.sizeRemoved && state.font===18 && state.padding===20 && state.radius===5 && state.legacyHidden, JSON.stringify(state));
+    check("legacy button presets migrate to explicit styles and compatibility-only layout elements stay out of the modern library", state.sizeRemoved && state.font===18 && state.padding===20 && state.radius===5 && state.legacyHidden && state.copilotHidden, JSON.stringify(state));
 
     state = await client.evaluate(`(function(){
       var b=builder,r=b.runtime,before=r.serialize();

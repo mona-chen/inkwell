@@ -21,10 +21,11 @@ module PageBuilder
       # The builder's base design-kit vocabulary (the .cp-* hooks the templates emit) ships with
       # the theme; the page's custom CSS refines it. Element data is the source of truth.
       link = '<link rel="stylesheet" href="/page_builder_theme/ink-design-kit.css">'
+      inherited_styles = "<style>#{Current.site.builder_styles.css}</style>"
       style = custom_css.present? ? "<style>#{custom_css}</style>" : ""
       script = custom_js.present? ? "<script>#{custom_js}</script>" : ""
       content = %(<div class="ink-builder-content">#{body_only}</div>)
-      view_context.render(inline: link + style + content + script, type: :erb, locals: @locals)
+      view_context.render(inline: link + inherited_styles + style + content + script, type: :erb, locals: @locals)
     end
 
     private

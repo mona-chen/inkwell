@@ -616,7 +616,9 @@ module AiWriter
         end
 
         assistant = client.stream_round(session[:messages], system: session[:system], tools: session[:tools]) do |piece|
-          stream_json(choice: { delta: piece }) unless piece[:tool_calls]
+          # Completion prose is provisional until verification accepts it. Otherwise a rejected
+          # "finished" claim leaks into the same response as another round's edits.
+          stream_json(choice: { delta: piece }) if piece[:reasoning_content]
         end
         # Stays out of the message history: an assistant turn carrying an unknown key is not
         # something every OpenAI-compatible provider accepts back.
@@ -644,6 +646,7 @@ module AiWriter
         end
 
         CLIENT_SESSIONS.delete(session_id)
+        stream_json(choice: { delta: { content: assistant[:content] } }) if assistant[:content].present?
         stream_done
         return
       end
@@ -668,6 +671,12 @@ module AiWriter
 
         entry["arguments"] = nil
         entry["argument_error"] = AiWriter::Client.argument_failure_message(name, problem, finish_reason: finish_reason)
+        if %w[append_tree replace_page].include?(name)
+          # Advice alone did not prevent retries of 26KB recursive trees. Remove the failed
+          # transport shape for the rest of this request, while keeping every surgical tool.
+          session[:tools] = Array(session[:tools]).reject { |tool| %w[append_tree replace_page].include?(tool.dig(:function, :name) || tool.dig("function", "name")) }
+          entry["argument_error"] += " Recursive tree tools are unavailable for the remainder of this request. Use list_archetypes and compose_page/compose_section when appropriate, or insert_element with small settings and set_styles for custom layouts. Do not repeat the recursive payload."
+        end
         entry
       end
     end
@@ -682,6 +691,16 @@ module AiWriter
       attempts = session[:attempts] ||= {}
 
       failed = results.select { |result| result["failed"].to_s == "true" }
+      # Successful reads must not disguise repeated failed edits. Count unsuccessful mutation
+      # rounds separately, and reset only when an edit actually succeeds.
+      if results.any? { |result| result["mutated"].to_s == "true" }
+        session[:failed_edit_rounds] = 0
+      elsif results.each_with_index.any? { |result, index| result["failed"].to_s == "true" && emitted[index].to_s.match?(/\A(?:append_tree|replace_page|compose_page|compose_section|insert_element|set_styles|update_element)\u001F/) }
+        session[:failed_edit_rounds] = session.fetch(:failed_edit_rounds, 0) + 1
+      end
+      if session.fetch(:failed_edit_rounds, 0) >= MAX_BARREN_ROUNDS
+        return "Copilot stopped after #{MAX_BARREN_ROUNDS} unsuccessful editing rounds instead of spending more on retries. The attempted edits were not applied; earlier successful changes remain undoable. The design is incomplete."
+      end
       signatures = []
       results.each_with_index do |result, index|
         signatures << emitted[index] if result["failed"].to_s == "true" && emitted[index]
@@ -807,12 +826,28 @@ module AiWriter
            When a tool result says a call was cut off, empty, or not valid JSON, the design was not
            wrong — the payload did not survive the trip. Do not resend it: split it into smaller
            calls and continue.
+           COMPACT COMPOSITION: when list_archetypes, compose_page and compose_section are available,
+           inspect their content examples first. Prefer their compact content contracts for suitable
+           sections: the browser generates valid native nodes and responsive styles deterministically.
+           A full redesign can use compose_page for a compact complete foundation in one undo step,
+           then precise edits for a distinctive result. Do not expand an available archetype into a
+           giant recursive JSON tree. For custom sections keep each tree under 25 nodes and roughly
+           4KB; add detail with small edits. cssClasses is a string, never an array. Only elements
+           with acceptsChildren:true may contain children. Node count measures complexity, not beauty.
+           Establish the visual direction first: audience, one composition idea, type contrast,
+           palette, a specific hero visual, and section rhythm. Adapt the direction to this request;
+           do not carry the previous page's palette or editorial style into an unrelated redesign.
         3. After you change the canvas, call audit_design. Correct every error and meaningful
            warning with precise tools, then audit again. Do not claim completion without a final
            audit. Tool errors are feedback: correct the payload and continue.
            Six error codes mean the design did not land and must be fixed, not reported:
            uncompilable-styles, inert-class-hooks, glyph-as-graphic, horizontal-overflow,
            collapsed-headings, narrow-content-column.
+           A structural audit is NOT a visual quality verdict. If review_design is available,
+           review the hero and a lower section at desktop and mobile widths before finishing.
+           Fix its highest-impact observations, then review again only when those edits justify it.
+           Limit visual review to four calls per request. If it is unavailable, do not claim you
+           inspected screenshots. Never infer beautiful, complete, or working from node counts alone.
         4. STYLE CONTRACT — a value that does not match it is dropped from the stylesheet, and the
            page then looks styled in the tree and unstyled on screen.
            - Sizes are always { size: 7, unit: "px" }: width, height, min/max width and height,

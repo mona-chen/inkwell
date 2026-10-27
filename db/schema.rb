@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_22_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_27_040000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -208,6 +208,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_120000) do
     t.text "original_import_html"
     t.string "original_import_url"
     t.bigint "parent_id"
+    t.string "public_path"
     t.boolean "robots_noarchive", default: false, null: false
     t.boolean "robots_noimageindex", default: false, null: false
     t.boolean "robots_nosnippet", default: false, null: false
@@ -231,8 +232,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_120000) do
     t.index ["author_id"], name: "index_pages_on_author_id"
     t.index ["live_render_mode"], name: "index_pages_on_live_render_mode"
     t.index ["parent_id"], name: "index_pages_on_parent_id"
+    t.index ["site_id", "public_path"], name: "index_pages_on_site_id_and_public_path", unique: true, where: "(public_path IS NOT NULL)"
     t.index ["site_id", "slug"], name: "index_pages_on_site_id_and_slug", unique: true
     t.index ["site_id", "template_for"], name: "index_pages_on_site_id_and_template_for"
+    t.index ["site_id", "template_for"], name: "index_pages_unique_template_role", unique: true, where: "(template_for IS NOT NULL)"
     t.index ["site_id"], name: "index_pages_on_site_id"
   end
 

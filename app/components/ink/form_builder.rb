@@ -68,7 +68,7 @@ module Ink
     def css_for(as)
       return "h-4 w-4 rounded border-input accent-primary" if as == :checkbox
 
-      base = "w-full rounded-lg border border-input bg-background px-3 text-[13px] text-foreground shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
+      base = "ink-control w-full rounded-lg border border-input bg-background px-3 text-[13px] text-foreground shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none"
       case as
       when :textarea then base + " min-h-24 resize-y py-2"
       when :select then base + " h-9 pr-9 ink-select-chevron"

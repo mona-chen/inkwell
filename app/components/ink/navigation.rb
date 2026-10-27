@@ -23,7 +23,7 @@ module Ink
 
     def render_brand
       a(href: "/admin", class: "group flex items-center gap-2.5 px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring") do
-        span(class: "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-black/20 transition group-hover:-rotate-3 group-hover:scale-105") do
+        span(class: "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground") do
           render Ink::Icon.new(:pen_tool, size: :sm)
         end
         div do
@@ -36,7 +36,7 @@ module Ink
     def render_group(group)
       div(class: "relative flex w-full min-w-0 flex-col py-1") do
         if group[:label]
-          span(class: "flex h-7 shrink-0 items-center px-2.5 text-[9px] font-bold uppercase tracking-[0.16em] text-sidebar-foreground/32") { group[:label] }
+          span(class: "flex h-7 shrink-0 items-center px-2.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-sidebar-foreground/60") { group[:label] }
         end
         group[:items].each { |item| render_item(item) }
       end

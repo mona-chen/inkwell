@@ -40,7 +40,7 @@ module Seo
     end
 
     def auto_description
-      text = @record.content_blocks.map { |b| b.dig("data", "text").to_s }.join(" ")
+      text = ContentDocument.new(@record.content_blocks).text
       text.present? ? text.truncate(160) : nil
     end
 

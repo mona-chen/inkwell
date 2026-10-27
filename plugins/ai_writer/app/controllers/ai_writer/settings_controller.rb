@@ -10,6 +10,7 @@ module AiWriter
   class SettingsController < Admin::BaseController
     SETTING_KEYS = %w[
       ai_base_url ai_model ai_api_key
+      ai_review_base_url ai_review_model ai_review_api_key
       ai_image_base_url ai_image_model ai_image_api_key
       mcp_enabled mcp_url mcp_token
       web_fetch_enabled web_search_provider web_search_base_url web_search_api_key

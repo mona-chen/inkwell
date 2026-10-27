@@ -23,6 +23,8 @@ module Admin
         end
       end
 
+      render DesignNavigation.new(current: "widgets")
+
       div(class: "mb-4 flex flex-wrap gap-2") do
         Widget::AREAS.each do |area|
           render Button.new(

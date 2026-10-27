@@ -54,7 +54,7 @@ module Admin
     end
 
     def nav_groups
-      Admin::Shell.build_nav_groups(user: @user, pending_count: Comment.pending.count)
+      Admin::Shell.build_nav_groups(user: @user, pending_count: Comment.joins(:post).where(posts: { site_id: @current_site&.id }).pending.count)
     end
   end
 end

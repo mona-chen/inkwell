@@ -58,6 +58,7 @@ gem "pg_search"
 # Pagination (used by admin posts/media index) and sitemap XML building
 gem "kaminari"
 gem "nokogiri"
+gem "rubyzip", "~> 3.5"
 
 # Caching
 # (Solid Cache is used in place of Redis — see config/cache.yml)

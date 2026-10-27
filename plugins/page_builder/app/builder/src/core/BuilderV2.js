@@ -196,6 +196,7 @@ export default class BuilderV2 {
         const store = this.hydrateSiteParts(sourceStore);
         this.runtime = new EditorRuntime(store);
         this.runtime.siteParts = this.siteParts;
+        this.runtime.siteStyleDefaults = this.options.siteStyleDefaults || {};
         this.bindSitePartSync();
         this.runtime.assetUploadHandler = this.assetUploadHandler;
         this.runtime.mount(this.canvasRoot, { panel: this.widgetsContainer, settingsPanel: this.settingsContainer });
@@ -236,7 +237,7 @@ export default class BuilderV2 {
         this.mainContainer.appendChild(this.iframe);
         this.iframeDoc = this.iframe.contentDocument;
         this.iframeDoc.open();
-        this.iframeDoc.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded"><style id="ink-canvas-base">${CANVAS_BASE_CSS}</style><style id="ink-canvas-styles">${inkCanvasCss}</style><style id="ink-magic-canvas-styles">${inkMagicCss}</style><style id="ink-editor-canvas-styles">${EDITOR_CANVAS_CSS}${inkCanvasEditorCss}</style></head><body><main class="ink-canvas-root" data-ink-canvas-root></main></body></html>`);
+        this.iframeDoc.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Material+Symbols+Rounded"><style id="ink-canvas-base">${CANVAS_BASE_CSS}</style><style id="ink-site-styles">${this.options.siteStylesCss || ''}</style><style id="ink-canvas-styles">${inkCanvasCss}</style><style id="ink-magic-canvas-styles">${inkMagicCss}</style><style id="ink-editor-canvas-styles">${EDITOR_CANVAS_CSS}${inkCanvasEditorCss}</style></head><body><main class="ink-canvas-root" data-ink-canvas-root></main></body></html>`);
         this.iframeDoc.close();
         this.canvasIconObserver = installLucideIcons(this.iframeDoc, {
             filter: (icon) => Boolean(icon.closest('.ink-editor-toolbar, .ink-editor-context-menu, .ink-editor-empty, .ink-empty-action, .ink-empty-back, .ink-lightbox')),

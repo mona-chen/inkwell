@@ -14,12 +14,12 @@ module Admin
     end
 
     def view_template
-      div(class: "admin-pages max-w-[1100px]") do
+      div(class: "admin-pages workspace-list") do
       render Toolbar.new do |toolbar|
         toolbar.leading do
           render ToolbarTitle.new(
             title: "Pages",
-            subtitle: "#{pluralize(@pages.total_count, "page")} · timeless content"
+            subtitle: "#{pluralize(@pages.total_count, "page")}"
           )
         end
         toolbar.trailing do

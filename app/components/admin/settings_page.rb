@@ -16,7 +16,7 @@ module Admin
 
     def initialize(site:, section: "general", new_token: nil)
       @site = site
-      @pages = site.pages.published.ordered
+      @pages = site.pages.where(template_for: nil).published.ordered
       @section = SECTIONS.key?(section) ? section : "general"
       @new_token = new_token
     end

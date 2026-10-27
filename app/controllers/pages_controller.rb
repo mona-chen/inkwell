@@ -1,16 +1,15 @@
 class PagesController < ApplicationController
   before_action :activate_theme
 
+  include RendersPublicPage
+
   def show
-    @page = Current.site.pages.published.friendly.find(params[:id])
-    @head_meta = Inkwell::Hooks.filter(:head_meta, [], post: @page)
-    if @page.live_render_mode == "original_import" && @page.original_import_available?
-      response.headers["Content-Security-Policy"] = ""
-      return render html: @page.original_import_html.html_safe, layout: false, content_type: "text/html"
+    page = if params[:imported_path]
+      Current.site.pages.where(template_for: nil).published.find_by!(public_path: "/#{params[:imported_path]}")
+    else
+      Current.site.pages.where(template_for: nil).published.friendly.find(params[:id])
     end
-    render template: "pages/#{@page.template}", locals: { page: @page }
-  rescue ActionView::MissingTemplate
-    render "pages/default", locals: { page: @page }
+    render_public_page(page)
   end
 
   private

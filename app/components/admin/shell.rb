@@ -29,7 +29,7 @@ module Admin
     # Plugins contribute items/children via Inkwell::Plugin#register_admin_nav.
     GROUPS = [
       {
-        label: "Publish",
+        label: "Content",
         items: [
           { label: "Posts", path: "/admin/posts", icon: "document-text" },
           { label: "Pages", path: "/admin/pages", icon: "document" },
@@ -38,32 +38,23 @@ module Admin
         ]
       },
       {
-        label: "Site",
+        label: "Site design",
         items: [
-          {
-            label: "Appearance",
-            icon: "paint-brush",
-            children: [
-              { label: "Themes", path: "/admin/themes", icon: "palette" },
-              { label: "Content templates", path: "/admin/templates", icon: "layout" }
-            ]
-          },
-          { label: "Navigation", path: "/admin/menus", icon: "bars-3" },
-          { label: "Widgets", path: "/admin/widgets", icon: "blocks" },
+          { label: "Site design", path: "/admin/design", icon: "palette" }
+        ]
+      },
+      {
+        label: "Tools",
+        items: [
           { label: "Import website", path: "/admin/website_imports", icon: "globe" }
         ]
       },
       {
-        label: "Extensions",
-        items: [
-          { label: "Plugins", path: "/admin/plugins", icon: "puzzle-piece" }
-        ]
-      },
-      {
-        label: "Workspace",
+        label: "Administration",
         items: [
           { label: "Users", path: "/admin/users", icon: "users" },
-          { label: "Settings", path: "/admin/settings", icon: "cog-6-tooth" }
+          { label: "Settings", path: "/admin/settings", icon: "cog-6-tooth" },
+          { label: "Plugins", path: "/admin/plugins", icon: "puzzle-piece" }
         ]
       },
       {
@@ -90,7 +81,9 @@ module Admin
         item = build_nav_item(nav, user: user, pending_count: pending_count)
         next unless item
 
-        section = (nav[:section] || "Extensions").to_s
+        section = { "Publish" => "Content", "Site" => "Site design", "Extensions" => "Tools", "Workspace" => "Administration" }.fetch(nav[:section].to_s, nav[:section].presence || "Tools")
+        next if nav[:path] == "/builder"
+        section = "Tools" if nav[:path].to_s.start_with?("/plugins/seo_toolkit")
         target = groups.find { |label, _items| label == section }
         target ||= (groups << [ section, [] ]).last
 
@@ -112,10 +105,18 @@ module Admin
       {
         label: item[:label],
         path: item[:path],
-        icon: ICONS[item[:icon].to_s] || :circle,
+        icon: icon_name(item[:icon]),
         badge: badge,
         children: children.presence
       }.compact
+    end
+
+    def self.icon_name(name)
+      mapped = ICONS[name.to_s] || name.to_s.tr("-", "_").to_sym
+      LucideRails::IconProvider.icon(mapped.to_s.tr("_", "-"))
+      mapped
+    rescue ArgumentError
+      :puzzle
     end
 
     def self.find_nav_item(items, label)
@@ -174,7 +175,7 @@ module Admin
     end
 
     def build_nav_groups
-      self.class.build_nav_groups(user: @user, pending_count: Comment.pending.count)
+      self.class.build_nav_groups(user: @user, pending_count: Comment.joins(:post).where(posts: { site_id: @current_site&.id }).pending.count)
     end
   end
 end

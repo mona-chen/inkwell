@@ -21,6 +21,19 @@ RSpec.describe "Block editor patterns", type: :request do
     expect(response.body).to include(">Publish<")
   end
 
+  it "keeps a draft reachable after autosaving its title and settings" do
+    post = Post.create!(title: "Original title", site: site, author: user, status: "draft")
+    original_slug = post.slug
+    patch admin_post_path(post), params: { post: { title: "Revised title", excerpt: "A useful summary", draft_content: [{ type: "paragraph", data: { text: "Working copy" } }].to_json } }, headers: { "Accept" => "application/json" }
+    expect(response).to have_http_status(:ok)
+    expect(post.reload.slug).to eq(original_slug)
+    expect(post.title).to eq("Revised title")
+    expect(post.excerpt).to eq("A useful summary")
+    expect(post.editing_blocks.first.dig("data", "text")).to eq("Working copy")
+    get edit_admin_post_path(original_slug)
+    expect(response).to have_http_status(:ok)
+  end
+
   it "does not duplicate list blocks with a rendered preview" do
     post = Post.create!(title: "List post", site: site, author: user, status: "draft",
       content: [ { "type" => "list", "data" => { "ordered" => false, "items" => "One\nTwo" } } ])
@@ -54,12 +67,12 @@ RSpec.describe "Block editor patterns", type: :request do
 
     hero = body[%r{<template id="pattern-template-hero">(.*?)</template>}m, 1]
     expect(hero).to include('data-type="heading"')
-    expect(hero).to include('value="Big headline here"')
+    expect(Nokogiri::HTML.fragment(hero).at_css('textarea[data-field="text"]').text).to eq('Big headline here')
     expect(hero).to include('data-type="button"')
     expect(hero).to include('value="Get started"')
   end
 
-  it "renders custom reactive selectors (choice-field) for heading/callout/button/list" do
+  it "retains heading levels and reactive selectors for callout/button/list" do
     post = Post.create!(title: "Selectors post", site: site, author: user, status: "draft",
       content: [
         { "type" => "heading", "data" => { "level" => 3, "text" => "Hi" } },
@@ -72,9 +85,9 @@ RSpec.describe "Block editor patterns", type: :request do
     expect(response).to have_http_status(:ok)
     body = response.body
 
-    expect(body.scan('data-controller="choice-field"').size).to be >= 4
-    # heading: 4 preview-sized level buttons + hidden level input carrying the saved value
-    expect(body).to include('data-preview-class="level-3"')
+    expect(body.scan('data-controller="choice-field"').size).to be >= 3
+    # Heading editing retains its saved level independently of the textarea.
+    expect(body).to include('class="heading-preview' )
     expect(body).to match(/data-field="level"[^>]*value="3"/)
     # callout tone buttons + hidden tone input
     expect(body).to include('data-preview-class="tone-warning"')

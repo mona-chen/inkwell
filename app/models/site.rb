@@ -33,6 +33,10 @@ class Site < ApplicationRecord
     options.find_or_initialize_by(key: key).update!(value: { "value" => value })
   end
 
+  def builder_styles
+    SiteDesignStyles.new(setting("builder_styles", {}))
+  end
+
   def builder_site_parts
     setting("builder_site_parts", {}).presence || {}
   end

@@ -37,6 +37,8 @@ class Page < ApplicationRecord
   # template page is created. Precedence mirrors WordPress: a user-created template page
   # (storage) always wins over the plugin/core default (registry).
   DEFAULT_TEMPLATE_ROLES = [
+    { role: "site_header", label: "Site header", description: "Shared header for Builder pages.", icon: "panel_top", kind: "site_part" },
+    { role: "site_footer", label: "Site footer", description: "Shared footer for Builder pages.", icon: "panel_bottom", kind: "site_part" },
     { role: "single_author", label: "Author profile", description: "An author's profile and published posts.", icon: "user" },
     { role: "single_post", label: "Single post", description: "How one blog post renders.", icon: "file_text" },
     { role: "archive", label: "Post archive", description: "The list of blog posts (category, tag, and search).", icon: "list" },
@@ -68,9 +70,11 @@ class Page < ApplicationRecord
   validates :template_for, inclusion: { in: ->(_record) { Page.template_roles } }, allow_nil: true
   before_validation { self.template_for = nil if template_for.blank? }
 
-  # Resolves the site's page designated as the template for a content-type role.
+  validates :template_for, uniqueness: { scope: :site_id }, allow_nil: true
+
+  # Public routes only resolve published templates. Drafts remain available in admin.
   def self.template_for(site, role)
-    site.pages.find_by(template_for: role)
+    site.pages.published.find_by(template_for: role)
   end
 
   def draft?
@@ -79,6 +83,19 @@ class Page < ApplicationRecord
 
   scope :published, -> { where(status: "published") }
   scope :ordered, -> { order(:menu_order) }
+
+  validates :public_path, uniqueness: { scope: :site_id }, allow_nil: true
+  validate :public_path_must_be_local
+
+  def public_path_must_be_local
+    return if public_path.nil?
+    if public_path.match?(%r{\A/(?:admin|users|api|builder|plugins|posts|pages|authors|tags|docs|media)(?:/|\z)}) || %w[/sitemap.xml /feed.xml /signup /new-site].include?(public_path)
+      errors.add(:public_path, "conflicts with an application route")
+    end
+    unless public_path.match?(%r{\A/(?!/)[^?#\s]*\z}) && !public_path.split("/").any? { |part| [".", ".."].include?(part) }
+      errors.add(:public_path, "must be an absolute local path without a query or fragment")
+    end
+  end
 
   LIVE_RENDER_MODES = %w[native original_import].freeze
 
@@ -107,7 +124,7 @@ class Page < ApplicationRecord
 
   # Public URL path, used by dynamic content bindings (`{{ page.url }}`).
   def url
-    "/pages/#{slug}"
+    public_path.presence || "/pages/#{slug}"
   end
 
   def content_blocks
@@ -137,7 +154,12 @@ class Page < ApplicationRecord
 
   def publish_draft!
     with_lock do
-      update!(content: publishable_draft_content, draft_content: nil, status: "published")
+      blocks = if template_for.present?
+        draft_content.nil? ? content_blocks : draft_content
+      else
+        publishable_draft_content
+      end
+      update!(content: blocks, draft_content: nil, status: "published")
     end
   end
 
@@ -164,12 +186,11 @@ class Page < ApplicationRecord
   end
 
   def canonical_url
-    canonical_url_override.presence || "/pages/#{seo_slug_override.presence || slug}"
+    canonical_url_override.presence || public_path.presence || "/pages/#{seo_slug_override.presence || slug}"
   end
 
   def auto_meta_description
-    text = content_blocks.map { |b| b.dig("data", "text").to_s }.join(" ")
-    text.present? ? text.truncate(300) : nil
+    ContentDocument.new(content_blocks).text.presence&.truncate(300)
   end
 
   def content=(value)

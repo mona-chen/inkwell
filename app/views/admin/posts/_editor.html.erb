@@ -7,63 +7,54 @@
     work is never lost. Undo/redo + a live "Saved / Saving…" indicator live in the toolbar. %>
 
 <div data-controller="block-editor"
+     data-action="click->block-editor#revealPanel"
      data-block-editor-types-value="<%= BlockRenderer.registered_types.to_json %>"
      data-block-editor-save-url-value="<%= post.new_record? ? nil : admin_post_path(post) %>"
      data-block-editor-resource-key-value="post"
-     class="admin-block-editor grid gap-6">
+     data-block-editor-autosave-metadata-value="<%= post.status != "published" %>"
+     class="admin-block-editor post-composer grid gap-6">
 
-  <div class="relative min-w-0 w-full">
+  <header class="composer-header">
+    <div class="composer-location">
+      <%= link_to admin_posts_path, class: "composer-back", aria: { label: "Back to posts" } do %>
+        <%= render Ink::Icon.new(:arrow_left, size: :sm) %>
+      <% end %>
+      <div><p class="composer-eyebrow">POST COMPOSER</p><span><%= post.new_record? ? "New story" : "Edit story" %></span></div>
+    </div>
+    <div class="composer-publish">
+      <button type="button" class="composer-settings-toggle" data-block-editor-target="settingsToggle" data-action="block-editor#toggleInspector" aria-controls="post-settings" aria-expanded="true" title="Toggle post settings"><%= render Ink::Icon.new(:panel_right, size: :sm) %><span>Settings</span></button>
+      <span data-block-editor-target="saveStatus" role="status" class="composer-save-state"><%= post.new_record? ? "Unsaved draft" : "Saved" %></span>
+      <%= button_tag "Save draft", type: :submit, name: (post.status == "published" ? nil : "save_draft"), value: "1", class: "composer-save" %>
+      <% if post.persisted? %>
+        <button type="submit" formaction="<%= publish_admin_post_path(post) %>" formmethod="post" class="composer-publish-button"><span><%= post.status == "published" ? "Update post" : "Publish" %></span> <%= render Ink::Icon.new(:arrow_up_right, size: :xs) %></button>
+      <% end %>
+    </div>
+  </header>
+
+  <div class="composer-paper relative min-w-0 w-full">
     <%# Hidden field carries the serialized draft blocks. Bound to draft_content so the
         form's "Save draft" persists them (autosave also PATCHes the same key). %>
     <input type="hidden" name="post[draft_content]" data-block-editor-target="hiddenField" value="<%= html_escape(post.editing_blocks.to_json) %>">
 
     <%# Editor toolbar: undo/redo + save status + add block %>
-    <div class="sticky top-14 z-20 -mx-1 mb-5 flex min-h-10 items-center justify-between gap-3 border-y border-border/70 bg-background/90 px-1 py-1.5 backdrop-blur-xl">
-      <div class="flex items-center gap-1">
-        <button type="button" data-action="block-editor#toggleFocus" aria-pressed="false" title="Focus on writing" class="ink-writing-focus-toggle">Focus</button>
-        <button type="button" data-action="block-editor#undo"
-                class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo">
-          ↺ Undo
-        </button>
-        <button type="button" data-action="block-editor#redo"
-                class="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                data-block-editor-target="redoButton" title="Redo (Ctrl+Y)" aria-label="Redo">
-          ↻ Redo
-        </button>
-      </div>
-
-      <div class="flex min-w-0 items-center justify-end gap-2">
-        <span data-block-editor-target="wordCount" class="text-xs text-muted-foreground">
-          0 words · < 1 min read
-        </span>
-        <span data-block-editor-target="saveStatus" class="text-xs text-muted-foreground">
-          <%= post.new_record? ? "New — not saved yet" : "Saved" %>
-        </span>
-        <%# Plugin-injected editor controls (e.g. the AI Writer plugin's button + dialog) %>
-        <% BlockRenderer.editor_toolbar_partials.each { |p| concat(render(p, record: post)) } %>
+    <div class="composer-tools">
+      <div class="composer-tool-group">
         <%= render "admin/posts/blocks/picker" %>
-        <span class="mx-0.5 hidden h-5 w-px bg-border sm:block"></span>
-        <% if post.status == "published" %>
-          <button type="submit"
-                  class="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
-            Save draft
-          </button>
-        <% else %>
-          <button type="submit" name="save_draft" value="1"
-                  class="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-muted">
-            Save draft
-          </button>
-        <% end %>
-        <% if post.persisted? %>
-          <button type="submit" formaction="<%= publish_admin_post_path(post) %>" formmethod="post"
-                  class="inline-flex h-8 items-center rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
-            <%= post.status == "published" ? "Update" : "Publish" %>
-          </button>
-        <% end %>
+
+        <span class="composer-tool-divider"></span>
+        <button type="button" data-action="block-editor#undo" data-block-editor-target="undoButton" title="Undo (Ctrl+Z)" aria-label="Undo" class="composer-tool"><%= render Ink::Icon.new(:undo_2, size: :sm) %></button>
+        <button type="button" data-action="block-editor#redo" data-block-editor-target="redoButton" title="Redo (Ctrl+Y)" aria-label="Redo" class="composer-tool"><%= render Ink::Icon.new(:redo_2, size: :sm) %></button>
+      </div>
+      <div class="composer-tool-group">
+        <% BlockRenderer.editor_toolbar_partials.each { |p| concat(render(p, record: post)) } %>
+        <button type="button" data-action="block-editor#toggleFocus" aria-pressed="false" title="Focus on writing" class="ink-writing-focus-toggle">Focus</button>
       </div>
     </div>
+    <div class="composer-manuscript">
 
+      <%= f.label :title, "Post title", class: "sr-only" %>
+      <%= f.text_area :title, rows: 1, data: { action: "input->block-editor#resizeTextFields" }, placeholder: "Give your story a title…", class: "composer-title", autocomplete: "off" %>
+      <div class="composer-author"><span class="composer-author-dot"></span><%= post.author&.name || Current.user.name %><span>·</span><span data-block-editor-target="wordCount">0 words · &lt; 1 min read</span></div>
     <div data-block-editor-target="list" class="relative space-y-1 min-h-24">
       <% post.editing_blocks.each do |block| %>
         <%= render BlockRenderer.editor_partial(block['type']), data: block["data"], record: post %>
@@ -73,22 +64,31 @@
     <%# Floating slash-command ("/") insertion menu, positioned by the Stimulus controller %>
     <div data-block-editor-target="slashMenu" class="hidden absolute z-20 left-0 w-48 bg-background border border-border rounded-lg shadow-lg py-1"></div>
 
-    <button type="button" data-block-editor-target="emptyState" data-action="block-editor#addBlock" data-block-editor-type-param="paragraph"
+    <button type="button" data-block-editor-target="emptyState" data-action="block-editor#addBlock" data-block-editor-type-param="rich_text"
             class="ink-writing-start <%= 'hidden' unless post.editing_blocks.empty? %>">
       <span>Start writing…</span>
-      <small>Click here to write. Type / to add a heading, image, or another block.</small>
+      <small>Write with formatting tools, or type / to insert a block.</small>
     </button>
+
+    </div>
 
     <%# Hidden <template> elements the Stimulus controller clones when a block type is picked %>
     <%= render "admin/posts/blocks/templates" %>
+    <% BlockRenderer.registered_types.each do |type| %>
+      <template data-composer-icon="<%= type %>"><%= render Ink::Icon.new(BlockRenderer.icon_for(type), size: :sm) %></template>
+    <% end %>
   </div>
 
-  <aside class="admin-block-editor__inspector min-w-0 space-y-4">
+  <aside id="post-settings" data-block-editor-target="inspector" class="admin-block-editor__inspector min-w-0 space-y-4">
+    <h2 class="composer-inspector-title">Post settings</h2>
     <%= render "admin/posts/sidebar", f: f, post: post %>
   </aside>
 </div>
 
 <%# Full-width plugin workspaces belong after the editor, outside the narrow inspector. %>
 <% Array(Inkwell::Hooks.filter(:post_editor_after_content, [], post: post)).each do |panel| %>
-  <%= raw panel %>
+  <details class="composer-discovery">
+    <summary><span>Search & social appearance</span><span>Review before publishing ↓</span></summary>
+    <%= raw panel %>
+  </details>
 <% end %>

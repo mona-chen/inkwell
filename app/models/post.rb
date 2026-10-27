@@ -96,8 +96,7 @@ class Post < ApplicationRecord
   end
 
   def auto_meta_description
-    text = content_blocks.map { |b| b.dig("data", "text").to_s }.join(" ").truncate(300)
-    text.present? ? text : nil
+    ContentDocument.new(content_blocks).text.presence&.truncate(300)
   end
 
   # Commit the working copy to the live content and publish. Creating a revision first captures
@@ -124,7 +123,7 @@ class Post < ApplicationRecord
   end
 
   def should_generate_new_friendly_id?
-    slug.blank? || title_changed?
+    slug.blank?
   end
 
   private

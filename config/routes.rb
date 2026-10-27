@@ -72,11 +72,17 @@ Rails.application.routes.draw do
     end
 
     resources :themes, only: [:index] do
+      collection { post :import }
       member do
         post :activate
         get :preview
       end
     end
+    post "design/parts/:part/edit", to: "design#edit_part", as: :edit_design_part
+    patch "design", to: "design#update", as: nil
+    get "design", to: "design#show", as: :design
+    delete "templates/:role", to: "templates#reset", as: :reset_template
+    delete "templates/:role/draft", to: "templates#discard", as: :discard_template_draft
     get "templates", to: "templates#index", as: :templates
     post "templates/:role", to: "templates#create", as: :create_template
   end
@@ -113,4 +119,8 @@ Rails.application.routes.draw do
 
     mount engine_class => "/plugins/#{engine_class.instance.plugin_slug}"
   end
+  # Last: application and plugin endpoints always take precedence over imported paths.
+  get "theme-assets/:theme_slug/*asset_path", to: "theme_sites#asset", format: false
+  get "*imported_path", to: "theme_sites#show", format: false
+
 end

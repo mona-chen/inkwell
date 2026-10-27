@@ -133,15 +133,8 @@ module Seo
 
     def seo_workspace_html(record, type)
       <<~HTML.squish
-        <section id="seo-optimization" class="ink-seo-workspace mt-8 rounded-xl border border-border bg-background shadow-sm" data-controller="seo-editor" data-action="input->seo-editor#update change->seo-editor#update">
-          <header class="flex items-center justify-between border-b border-border px-5 py-4">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-primary">SEO Toolkit</p>
-              <h2 class="mt-0.5 text-lg font-semibold text-foreground">Search optimization</h2>
-            </div>
-            <span class="text-xs text-muted-foreground">Search appearance · Analysis · Social · Advanced</span>
-          </header>
-          #{seo_panel_html(record, type)}
+        <section id="seo-optimization" class="ink-seo-workspace mt-8 rounded-xl border border-border bg-background shadow-sm" data-controller="seo-editor" data-seo-editor-resource-value="#{type}" data-seo-editor-record-id-value="#{record.id}" data-seo-editor-analysis-url-value="/plugins/seo_toolkit/analyze">
+          #{seo_workspace_layout(seo_panel_html(record, type), record)}
         </section>
       HTML
     end
@@ -177,7 +170,7 @@ module Seo
       score_color = score >= 80 ? "success" : score >= 50 ? "warning" : "danger"
       readability_color = readability.score >= 80 ? "success" : readability.score >= 50 ? "warning" : "danger"
       effective_title = title_value.presence || title_placeholder
-      effective_desc = desc_value.presence || record.try(:seo_description) || record.try(:auto_meta_description) || ""
+      effective_desc = desc_value.presence || record.try(:excerpt).presence || ContentDocument.new(record.editing_blocks).text.truncate(160)
       title_len = effective_title.length
       desc_len = effective_desc.length
       site_domain = record.site&.domain || "example.com"
@@ -231,6 +224,54 @@ module Seo
           </aside>
         </div>
       HTML
+    end
+
+    def seo_workspace_layout(html, record)
+      fragment = Nokogiri::HTML.fragment(html)
+      search, social = fragment.css(".seo-ws-main > section").to_a
+      analysis, readability, schema, advanced = fragment.css(".seo-ws-side > details").to_a
+      analysis.remove_attribute("open")
+      readability.remove_attribute("open")
+      analysis.at_css("summary").inner_html = '<span>SEO recommendations</span><span data-seo-editor-target="issueCount"></span>'
+      analysis.css("summary + div").first["data-seo-editor-target"] = "recommendations"
+      readability.at_css("summary").inner_html = '<span>Readability</span><span data-seo-editor-target="readingScore"></span>'
+      readability.css("summary + div").first["data-seo-editor-target"] = "readingRecommendations"
+      search.css(".seo-score").remove
+      breadcrumb = search.at_css('input[name$="[breadcrumb_title]"]')&.ancestors(".seo-field")&.first
+      advanced.add_child(breadcrumb.unlink) if breadcrumb
+      [schema, advanced].each { |section| section["open"] = "open" }
+      summary = Seo::ContentAnalysis.new(record)
+      reading = Seo::ReadabilityAnalysis.new(record)
+      tabs = %w[Search Social Advanced].map do |name|
+        key = name.downcase
+        %(<button type="button" id="seo-tab-#{key}" role="tab" aria-controls="seo-panel-#{key}" data-seo-editor-target="tab" data-tab="#{key}" data-action="seo-editor#switchTab keydown->seo-editor#tabKeydown">#{name}</button>)
+      end.join
+      output = <<~HTML
+        <div class="seo-workspace-nav"><div role="tablist" aria-label="Search and sharing settings">#{tabs}</div><span data-seo-editor-target="analysisStatus" role="status">Based on your current draft</span></div>
+        <div id="seo-panel-search" role="tabpanel" aria-labelledby="seo-tab-search" data-seo-editor-target="panel" data-tab="search" class="seo-tab-panel seo-search-layout">
+          <div class="seo-editing-column">#{search.to_html}</div>
+          <aside class="seo-review-column"><div class="seo-health"><span class="seo-health-caption">DRAFT REVIEW</span><div><strong data-seo-editor-target="score">#{summary.score}</strong><span>/ 100</span></div><p data-seo-editor-target="wordCount">#{ContentDocument.new(record.editing_blocks).words.length} words analyzed</p></div>#{analysis.to_html}#{readability.to_html}<p class="seo-review-note">Recommendations update as you write.</p></aside>
+        </div>
+        <div id="seo-panel-social" role="tabpanel" aria-labelledby="seo-tab-social" data-seo-editor-target="panel" data-tab="social" class="seo-tab-panel">#{social.to_html}</div>
+        <div id="seo-panel-advanced" role="tabpanel" aria-labelledby="seo-tab-advanced" data-seo-editor-target="panel" data-tab="advanced" class="seo-tab-panel seo-advanced-layout">#{schema.to_html}#{advanced.to_html}</div>
+      HTML
+      document = Nokogiri::HTML.fragment(output)
+      document.css("input:not([type=hidden]), textarea, select").each_with_index do |field, index|
+        field["id"] ||= "seo-field-#{index}"
+        label = field.ancestors(".seo-field").first&.at_css("label") || field.parent.at_css("label")
+        label["for"] = field["id"] if label && !label.ancestors.include?(field)
+      end
+      description = document.at_css('textarea[data-seo-editor-target="metaDescription"]')
+      hint = Nokogiri::XML::Node.new("p", document)
+      hint["class"] = "seo-field-hint"
+      hint["data-seo-editor-target"] = "descriptionSource"
+      hint.content = "Uses your draft summary when left empty"
+      description.add_next_sibling(hint)
+      # Live social-image previews use the same fallback chain as the saved metadata.
+      document.css('input[name$="[og_image_url]"]').each { |field| field["data-seo-editor-target"] = "ogImage" }
+      document.css('input[name$="[twitter_image_url]"]').each { |field| field["data-seo-editor-target"] = "xImage" }
+      document.css(".seo-social-img").each_with_index { |image, index| image["data-seo-editor-target"] = index.zero? ? "ogPreviewImage" : "xPreviewImage" }
+      document.to_html
     end
 
     def seo_checkbox(prefix, name, checked, label)

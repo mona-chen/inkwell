@@ -12,6 +12,27 @@ module Seo
       redirect_to "/plugins/seo_toolkit/seo?section=#{requested_section}", notice: "SEO settings updated."
     end
 
+    # Analyze an unsaved working copy; this endpoint never persists content or settings.
+    def analyze
+      type = params[:resource] == "page" ? "page" : "post"
+      collection = type == "page" ? Current.site.pages : Current.site.posts
+      record = params[:record_id].present? ? collection.find(params[:record_id]) : collection.build(author: current_user)
+      authorize record, record.persisted? ? :update? : :create?
+      record.assign_attributes(params.require(:content).permit(:title, :excerpt, :draft_content, :seo_title, :seo_description, :seo_focus_keyword, :seo_slug_override, :og_title, :og_description, :og_image_url, :twitter_title, :twitter_description, :twitter_image_url))
+      analysis = Seo::ContentAnalysis.new(record)
+      readability = Seo::ReadabilityAnalysis.new(record)
+      document = ContentDocument.new(record.editing_blocks)
+      render json: {
+        score: analysis.score, readability: readability.score,
+        results: analysis.results.map(&:to_h), reading_results: readability.results.map(&:to_h),
+        words: document.words.length,
+        title: record.seo_title.presence || record.title.to_s,
+        generated_description: record.try(:excerpt).presence || document.text.truncate(160),
+        description: record.seo_description.presence || record.try(:excerpt).presence || document.text.truncate(160),
+        slug: record.seo_slug_override.presence || record.slug.to_s
+      }
+    end
+
     def sitemap
       head :not_found and return unless Current.site.setting("seo_enable_sitemap", "1") == "1"
 

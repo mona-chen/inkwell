@@ -14,10 +14,12 @@ module Admin
         toolbar.leading do
           render ToolbarTitle.new(
             title: "Navigation",
-            subtitle: "Shape the primary paths through your site"
+            subtitle: "Manage your site’s header and footer links"
           )
         end
       end
+
+      render DesignNavigation.new(current: "navigation")
 
       render Grid.new(cols: "1 lg:2", gap: 4) do
         @menus.each do |menu|

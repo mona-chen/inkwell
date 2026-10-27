@@ -27,3 +27,4 @@ pin "sortablejs", to: "https://ga.jspm.io/npm:sortablejs@1.15.2/modular/sortable
 # TipTap WYSIWYG — pre-bundled with esbuild into a single ESM file (vendor/javascript/tiptap.js)
 # so importmap doesn't need to pin its ~20 internal module specifiers.
 pin "tiptap", to: "tiptap.js"
+pin "editor_popover"

@@ -18,7 +18,7 @@ module Admin
     private
 
     def nav_items
-      [{ label: nil, items: [{ label: "Home", path: "/admin", icon: :home, current: current?("/admin") }] }] +
+      [{ label: nil, items: [{ label: "Overview", path: "/admin", icon: :home, current: current?("/admin") }] }] +
         @groups.map do |(label, items)|
           { label: label, items: items.map { |item| nav_item(item) } }
         end
@@ -28,6 +28,7 @@ module Admin
       children = Array(item[:children]).map { |child| nav_item(child) }
       path = item[:path]
       current = path.present? && current?(path)
+      current ||= path == "/admin/design" && %w[/admin/templates /admin/themes /admin/menus /admin/widgets].any? { |prefix| current?(prefix) }
       current ||= children.any? { |child| child[:current] } if children.any?
 
       attrs = { label: item[:label], path: path, icon: item[:icon], current: current }

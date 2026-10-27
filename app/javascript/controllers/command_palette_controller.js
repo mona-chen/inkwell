@@ -14,7 +14,7 @@ export default class extends Controller {
     if (!event.metaKey && !event.ctrlKey) return
 
     event.preventDefault()
-    if (this.panelTarget.classList.contains("hidden")) {
+    if (!this.panelTarget.open) {
       this.open()
     } else {
       this.close()
@@ -22,16 +22,17 @@ export default class extends Controller {
   }
 
   open() {
-    this.panelTarget.classList.remove("hidden")
+    if (this.panelTarget.open) return
+    this.panelTarget.showModal()
     this.reset()
     this.inputTarget.focus()
     document.addEventListener("keydown", this.boundEscape = (e) => {
       if (e.key === "Escape") this.close()
-    }, { once: true })
+    })
   }
 
   close() {
-    this.panelTarget.classList.add("hidden")
+    this.panelTarget.close()
     this.inputTarget.value = ""
     document.removeEventListener("keydown", this.boundEscape)
     if (this.triggerTarget?.isConnected) this.triggerTarget.focus()
@@ -41,8 +42,13 @@ export default class extends Controller {
     if (event.target === this.panelTarget) this.close()
   }
 
-  select() {
-    this.panelTarget.classList.add("hidden")
+  select() { this.close() }
+
+  cancel(event) { event.preventDefault(); this.close() }
+
+  disconnect() {
+    document.removeEventListener("keydown", this.boundEscape)
+    if (this.panelTarget.open) this.panelTarget.close()
   }
 
   filter() {

@@ -8,7 +8,9 @@ export const SHADER_RUNTIME = String.raw`
   function mount(canvas) {
     var root = canvas.parentElement, settings;
     try { settings = JSON.parse(root.dataset.inkShader || '{}'); } catch (_) { return function() {}; }
-    var gl = canvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'low-power' });
+    // preserveDrawingBuffer keeps the last frame readable, so canvas snapshots (visual review,
+    // thumbnails) capture the shader instead of a blank rectangle.
+    var gl = canvas.getContext('webgl', { alpha: false, antialias: false, powerPreference: 'low-power', preserveDrawingBuffer: true });
     if (!gl) {root.dataset.shaderStatus='fallback';return function() {};}
     var frame = 0, disposed = false, visible = true, lost = false, last = 0;
     var reduced = matchMedia('(prefers-reduced-motion: reduce)');

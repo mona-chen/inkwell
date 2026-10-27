@@ -20,7 +20,10 @@ module PageBuilder
       @saved_custom_css = builder_block&.dig("data", "custom_css") || ""
       @saved_custom_js = builder_block&.dig("data", "custom_js") || ""
       @saved_html_body = @html.to_s[/<body[^>]*>(.*?)<\/body>/m, 1].presence || @html.to_s
+      @public_record_url = public_record_url
       @site_parts = Current.site.builder_site_parts
+      draft_parts = builder_block&.dig("data", "site_parts")
+      @site_parts = @site_parts.merge(draft_parts) if draft_parts.is_a?(Hash)
       # Builder v2 intentionally starts from its normalized recursive store. The email-era
       # elementLists model and HTML-to-store reconstruction are not compatibility constraints.
       @saved_store = {} unless @saved_store["version"] == 2
@@ -28,7 +31,9 @@ module PageBuilder
     end
 
     def preview
+      @record.content = @record.editing_blocks.deep_dup if @record.respond_to?(:editing_blocks)
       ThemeManager.activate_for_request!(self, Current.site.active_theme, preview: true)
+      return preview_content_template if @record.is_a?(Page) && @record.template_for.present?
       template = @record.is_a?(Page) ? "pages/#{@record.template}" : "posts/show"
       locals = @record.is_a?(Page) ? { page: @record } : { post: @record }
       render template: template, locals: locals, layout: "application"
@@ -36,6 +41,30 @@ module PageBuilder
       fallback = @record.is_a?(Page) ? "pages/default" : "posts/show"
       render fallback, locals: locals, layout: "application"
     end
+
+    def preview_content_template
+      template = @record
+      @page = template
+      case template.template_for
+      when "single_post"
+        @post = Current.site.posts.published.order(updated_at: :desc).first || Current.site.posts.new(title: "Example post", author: current_user, content: [])
+        @page = @post
+        @template_body = TemplateRenderer.render(template, view_context: view_context, locals: { post: @post })
+        render template: "posts/template", layout: "application"
+      when "index", "archive"
+        @posts = Current.site.posts.published.includes(:author).order(published_at: :desc).page(1).per(9)
+        @template_body = TemplateRenderer.render(template, view_context: view_context)
+        render template: "posts/template_index", layout: "application"
+      when "single_author"
+        @author = current_user
+        @posts = Current.site.posts.published.where(author: @author).order(published_at: :desc).page(1).per(9)
+        @template_body = TemplateRenderer.render(template, view_context: view_context, locals: { author: @author })
+        render template: "authors/template", layout: "application"
+      else
+        render html: TemplateRenderer.render(template, view_context: view_context), layout: "application"
+      end
+    end
+    private :preview_content_template
 
     def workspace_pages
       pages = Current.site.pages.ordered.includes(:author).map do |page|
@@ -137,30 +166,42 @@ module PageBuilder
       store = params[:store].presence
       custom_css = ErbConverter.convert(params[:custom_css].to_s, document_root: root)
       custom_js = ErbConverter.convert(params[:custom_js].to_s, document_root: root)
-      if params[:site_parts].present?
-        site_parts = params[:site_parts].respond_to?(:to_unsafe_h) ? params[:site_parts].to_unsafe_h : params[:site_parts].to_h
-        # A page only submits the global parts it currently references. Merge those edited
-        # canonical trees into the site registry; never erase an unrelated footer simply
-        # because the current page only uses a header (or vice versa).
-        Current.site.set_builder_site_parts!(Current.site.builder_site_parts.merge(site_parts.slice("header", "footer")))
-      end
+      @record.class.transaction do
+        publishing = ActiveModel::Type::Boolean.new.cast(params[:publish])
+        site_parts = {}
+        if params[:site_parts].present?
+          site_parts = params[:site_parts].respond_to?(:to_unsafe_h) ? params[:site_parts].to_unsafe_h : params[:site_parts].to_h
+          # A page only submits the global parts it currently references. Merge those edited
+          # canonical trees into the site registry; never erase an unrelated footer simply
+          # because the current page only uses a header (or vice versa).
+          if publishing
+            Current.site.with_lock do
+              Current.site.set_builder_site_parts!(Current.site.builder_site_parts.merge(site_parts.slice("header", "footer")))
+            end
+          end
+        end
 
-      blocks = @record.content_blocks.dup
-      block = { "type" => "page_builder", "data" => { "html" => erb } }
-      block["data"]["store"] = store if store
-      block["data"]["custom_css"] = custom_css if custom_css.present?
-      block["data"]["custom_js"] = custom_js if custom_js.present?
-      idx = blocks.index { |b| b["type"] == "page_builder" }
-      idx ? blocks[idx] = block : blocks << block
-      attributes = { content: blocks }
-      title = store&.dig(:settings, :title) || store&.dig("settings", "title")
-      attributes[:title] = title.strip if title.is_a?(String) && title.strip.present?
-      if ActiveModel::Type::Boolean.new.cast(params[:publish])
-        attributes[:status] = "published"
-        attributes[:live_render_mode] = "native" if @record.is_a?(Page)
-        attributes[:draft_content] = nil if @record.has_attribute?(:draft_content)
+        blocks = (@record.is_a?(Page) && @record.template_for.present? ? @record.editing_blocks : @record.content_blocks).deep_dup
+        block = { "type" => "page_builder", "data" => { "html" => erb } }
+        block["data"]["site_parts"] = site_parts.slice("header", "footer") if !publishing && site_parts.present?
+        block["data"]["store"] = store if store
+        block["data"]["custom_css"] = custom_css if custom_css.present?
+        block["data"]["custom_js"] = custom_js if custom_js.present?
+        idx = blocks.index { |b| b["type"] == "page_builder" }
+        idx ? blocks[idx] = block : blocks << block
+        attributes = { content: blocks }
+        title = store&.dig(:settings, :title) || store&.dig("settings", "title")
+        attributes[:title] = title.strip if title.is_a?(String) && title.strip.present?
+        if @record.is_a?(Page) && @record.template_for.present? && !publishing
+          attributes[:draft_content] = attributes.delete(:content)
+        end
+        if publishing
+          attributes[:status] = "published"
+          attributes[:live_render_mode] = "native" if @record.is_a?(Page)
+          attributes[:draft_content] = nil if @record.has_attribute?(:draft_content)
+        end
+        @record.update!(attributes)
       end
-      @record.update!(attributes)
 
       render json: {
         ok: true,
@@ -216,13 +257,23 @@ module PageBuilder
     end
 
     def builder_block
-      @record.content_blocks.find { |b| b["type"] == "page_builder" }
+      (@record.respond_to?(:editing_blocks) ? @record.editing_blocks : @record.content_blocks).find { |b| b["type"] == "page_builder" }
     end
 
     def public_record_url
       return unless @record.status == "published"
 
-      @record.is_a?(Page) ? "/pages/#{@record.slug}" : "/posts/#{@record.slug}"
+      if @record.is_a?(Page) && @record.template_for.present?
+        case @record.template_for
+        when "index", "archive" then "/posts"
+        when "single_post"
+          post = Current.site.posts.published.order(updated_at: :desc).first
+          "/posts/#{post.slug}" if post
+        when "single_author" then "/authors/#{current_user.to_param}"
+        end
+      else
+        @record.is_a?(Page) ? @record.url : "/posts/#{@record.slug}"
+      end
     end
 
     def preview_record_url

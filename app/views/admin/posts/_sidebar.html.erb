@@ -2,7 +2,8 @@
 <%# Sections are collapsed by default; interaction reveals configuration. %>
 
 <%# ── Status ─────────────────────────────────────────────────────── %>
-<div class="mb-4">
+<section class="composer-setting-section">
+  <h3 class="mb-3">Publication</h3>
   <div class="flex items-center gap-2">
     <span class="inline-flex items-center gap-1.5 text-sm font-medium">
       <% if post.status == "published" %>
@@ -27,29 +28,27 @@
     Revision history
   </a>
 <% end %>
-</div>
-
-<hr class="border-border mb-4">
+</section>
 
 <%# ── Featured Image ────────────────────────────────────────────── %>
-<div class="mb-4" data-controller="media-picker">
+<section class="composer-setting-section" data-controller="media-picker">
   <h3 class="text-[10px] font-semibold text-muted-foreground uppercase tracking-[.04em] mb-2">Featured image</h3>
   <%= f.hidden_field :featured_image_id, data: { media_picker_target: "urlField" } %>
   <%= f.hidden_field :featured_image_alt, data: { media_picker_target: "altField" } %>
+  <button type="button" data-action="media-picker#open" class="composer-cover-button" aria-label="Choose featured image">
   <div data-media-picker-target="preview" class="flex h-32 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted/30">
     <% if post.featured_image %>
       <img src="<%= post.featured_image.url %>" alt="" class="h-full w-full object-cover">
     <% else %>
-      <span class="text-xs text-muted-foreground">No featured image</span>
+      <span class="composer-cover-empty"><%= render Ink::Icon.new(:image, size: :sm) %><span>Add a cover image</span></span>
     <% end %>
   </div>
+  </button>
   <div class="mt-2 flex gap-2">
-    <button type="button" data-action="media-picker#open" class="inline-flex h-7 items-center rounded-md border border-border px-2 text-[11px] font-semibold text-foreground hover:bg-muted">
+    <button type="button" data-action="media-picker#open" data-media-picker-target="chooseButton" class="inline-flex h-7 items-center rounded-md border border-border px-2 text-[11px] font-semibold text-foreground hover:bg-muted">
       <%= post.featured_image ? "Replace" : "Choose image" %>
     </button>
-    <% if post.featured_image %>
-      <button type="button" data-action="media-picker#clear" class="inline-flex h-7 items-center rounded-md px-2 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground">Remove</button>
-    <% end %>
+      <button type="button" data-media-picker-target="clearButton" <%= "hidden" unless post.featured_image %> data-action="media-picker#clear" class="inline-flex h-7 items-center rounded-md px-2 text-[11px] font-semibold text-muted-foreground hover:bg-muted hover:text-foreground">Remove</button>
   </div>
   <dialog data-media-picker-target="dialog" data-action="click->media-picker#backdropClose" class="m-auto w-[42rem] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-background p-0 shadow-2xl backdrop:bg-black/50">
     <div class="flex items-center justify-between border-b border-border px-4 py-3">
@@ -62,13 +61,12 @@
       </turbo-frame>
     </div>
   </dialog>
-</div>
-
-<hr class="border-border mb-4">
+</section>
 
 <%# ── Organize ──────────────────────────────────────────────────── %>
-<div class="mb-4">
+<section class="composer-setting-section">
   <h3 class="text-[10px] font-semibold text-muted-foreground uppercase tracking-[.04em] mb-2">Organize</h3>
+  <p class="composer-setting-help">Help readers find this story.</p>
   <div class="space-y-3">
     <% [["Categories", "category", Term.categories, post.categories], ["Tags", "tag", Term.tags, post.tags]].each do |label, taxonomy, terms, selected| %>
       <details class="group">
@@ -89,12 +87,10 @@
       </details>
     <% end %>
   </div>
-</div>
-
-<hr class="border-border mb-4">
+</section>
 
 <%# ── Discovery (Excerpt + SEO + Social) ─────────────────────────── %>
-<div class="mb-4">
+<section class="composer-setting-section">
   <h3 class="text-[10px] font-semibold text-muted-foreground uppercase tracking-[.04em] mb-3">Discovery</h3>
 
   <details class="group mb-2">
@@ -121,4 +117,4 @@
       <p class="text-xs text-muted-foreground">Comments: <%= post.comments.count %> total, <%= post.comments.pending.count %> pending</p>
     </div>
   </details>
-</div>
+</section>

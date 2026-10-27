@@ -5,7 +5,9 @@
   when %r{\A/admin/pages} then "Pages"
   when %r{\A/admin/media} then "Media"
   when %r{\A/admin/comments} then "Comments"
-  when %r{\A/admin/themes} then "Appearance"
+  when %r{\A/admin/themes} then "Theme packages"
+  when %r{\A/admin/design} then "Site design"
+  when %r{\A/admin/templates} then "Content templates"
   when %r{\A/admin/menus} then "Navigation"
   when %r{\A/admin/widgets} then "Widgets"
   when %r{\A/admin/website_imports} then "Import website"
@@ -18,7 +20,9 @@
   when %r{\A/plugins/meta_capi} then "Meta CAPI"
   when %r{\A/plugins/contact_form} then "Contact messages"
   when %r{\A/plugins/newsletter} then "Subscribers"
-  else "Home"
+  when %r{\A/plugins/image_sources} then "Image sources"
+  when %r{\A/plugins/multisite} then "Sites"
+  else "Overview"
   end
   admin_title = content_for?(:title) ? yield(:title) : route_title
 %>

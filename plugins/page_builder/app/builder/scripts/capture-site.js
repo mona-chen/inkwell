@@ -8,6 +8,7 @@
 
 const crypto = require("crypto");
 const { outOfScopeArticleOrigins } = require("./site-routes");
+const { sourceFingerprint } = require("./capture-identity");
 const fs = require("fs");
 const path = require("path");
 // puppeteer-core v25+ is ESM-only; loaded via dynamic import inside the async main block below
@@ -248,6 +249,8 @@ async function inspect(page) {
   const capturedAssets = new Map();
   const sitePages = [];
   const failures = [];
+  const aliases = [];
+  const fingerprints = new Map();
   // Out-of-scope origins the site links to for its articles (a CMS domain, a blog subdomain).
   const externalOrigins = new Map();
   const normalizePageUrl = (value) => {
@@ -269,13 +272,26 @@ async function inspect(page) {
   };
   const capturePage = async (pageUrl, pageDirectory) => {
     safeMkdir(pageDirectory);
+    const cachedManifest = path.join(pageDirectory, "manifest.json");
+    if (args.includes("--resume") && fs.existsSync(cachedManifest) && fs.existsSync(path.join(pageDirectory, "source.html")) && fs.existsSync(path.join(pageDirectory, "rendered.html"))) {
+      const cached = JSON.parse(fs.readFileSync(cachedManifest, "utf8"));
+      if (cached.source === pageUrl && cached.viewports?.length === viewports.length && !cached.viewports.some((viewport) => /^(403 Forbidden|404 Not Found|502 Bad Gateway)$/i.test(viewport.title))) {
+        const fingerprint = sourceFingerprint(fs.readFileSync(path.join(pageDirectory, "source.html"), "utf8"), fs.readFileSync(path.join(pageDirectory, "rendered.html"), "utf8"));
+        if (fingerprints.has(fingerprint)) return { duplicateOf: fingerprints.get(fingerprint) };
+        fingerprints.set(fingerprint, pageUrl);
+        (cached.assets || []).forEach((asset) => { if (fs.existsSync(path.join(output, asset.file))) capturedAssets.set(asset.url, asset); });
+        return { manifest: cached, discoveredLinks: cached.viewports.find((viewport) => viewport.viewport.width >= 1000)?.links || [] };
+      }
+    }
     const reports = [];
+    let pageFingerprint = null;
     let originalHtml = "";
     let renderedHtml = "";
     let discoveredLinks = [];
     for (const viewport of viewports) {
       const page = await browser.newPage();
       await page.setViewport(viewport);
+      await page.setCacheEnabled(false);
       page.on("response", async (response) => {
         const url = response.url();
         const contentType = response.headers()["content-type"] || "";
@@ -288,12 +304,22 @@ async function inspect(page) {
           capturedAssets.set(url, { url, file: `assets/${filename}`, contentType, bytes: buffer.length, status: response.status() });
         } catch (_) {}
       });
-      await page.goto(pageUrl, { waitUntil: "networkidle2", timeout: 90_000 });
+      const response = await page.goto(pageUrl, { waitUntil: "networkidle2", timeout: 90_000 });
+      if (!response || (!response.ok() && response.status() !== 304)) {
+        await page.close();
+        throw new Error(`Page returned HTTP ${response ? response.status() : 'no response'}: ${pageUrl}`);
+      }
       await page.evaluate(async () => { if (document.fonts && document.fonts.ready) await document.fonts.ready; });
       await new Promise((resolve) => setTimeout(resolve, 1800));
       if (!originalHtml) {
-        originalHtml = await page.evaluate(async () => { const response = await fetch(location.href, { credentials: "include" }); return response.text(); });
+        originalHtml = await page.evaluate(async () => { const response = await fetch(location.href, { credentials: "include", cache: "reload" }); return response.text(); });
         renderedHtml = await page.content();
+        const fingerprint = sourceFingerprint(originalHtml, renderedHtml);
+        if (fingerprints.has(fingerprint)) {
+          await page.close();
+          return { duplicateOf: fingerprints.get(fingerprint) };
+        }
+        pageFingerprint = fingerprint;
       }
       const report = await inspect(page);
       if (viewport.name === "desktop") discoveredLinks = report.links || [];
@@ -313,6 +339,7 @@ async function inspect(page) {
       assets: [...capturedAssets.values()],
     };
     fs.writeFileSync(path.join(pageDirectory, "manifest.json"), JSON.stringify(manifest, null, 2));
+    if (pageFingerprint) fingerprints.set(pageFingerprint, pageUrl);
     return { manifest, discoveredLinks };
   };
   try {
@@ -324,7 +351,13 @@ async function inspect(page) {
       const pageDirectory = path.join(output, "pages", key);
       try {
         const result = await capturePage(item.url, pageDirectory);
+        if (result.duplicateOf) {
+          console.error(`[capture] Alias ${item.url} -> ${result.duplicateOf}`);
+          aliases.push({ url: item.url, target: result.duplicateOf, reason: "Identical source and rendered content; duplicate navigation was not expanded." });
+          continue;
+        }
         const desktop = result.manifest.viewports.find((viewport) => viewport.viewport.width >= 1000) || result.manifest.viewports[0];
+        console.error(`[capture] ${sitePages.length + 1}/${maxPages} ${item.url}`);
         sitePages.push({ key, url: item.url, title: desktop.title, depth: item.depth, parent: item.parent, manifest: `pages/${key}/manifest.json`, document: desktop.document, technology: desktop.technology });
         // Links the site publishes to another origin are not followed on this pass: the importer
         // must never crawl a host it was not authorized for. Recording the origins that carry
@@ -342,6 +375,7 @@ async function inspect(page) {
           });
         }
       } catch (error) {
+        console.error(`[capture] Failed ${item.url}: ${error.message}`);
         failures.push({ url: item.url, depth: item.depth, error: error.message });
       }
     }
@@ -357,6 +391,7 @@ async function inspect(page) {
     executionPolicy: "Captured JavaScript is evidence only and must not execute in the editor without explicit review.",
     pages: sitePages,
     failures,
+    aliases,
     externalOrigins: [...externalOrigins.values()].map(({ origin, urls }) => ({ origin, routes: urls.size, sample: [...urls][0] })),
     assets: [...capturedAssets.values()],
   };

@@ -12,7 +12,7 @@ module Admin
     end
 
     def view_template
-      div(class: "max-w-[1100px]") do
+      div(class: "workspace-list") do
         render_header
         render_filters
         if @posts.empty?
@@ -30,7 +30,7 @@ module Admin
         toolbar.leading do
           render ToolbarTitle.new(
             title: "Posts",
-            subtitle: "#{pluralize(@posts.total_count, "post")} · your publishing queue"
+            subtitle: "#{pluralize(@posts.total_count, "post")}"
           )
         end
         toolbar.trailing do

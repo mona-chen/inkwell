@@ -11,7 +11,8 @@ class PostsController < ApplicationController
     @posts = @posts.order(published_at: :desc).page(params[:page]).per(9)
 
     # A page designated as the archive/index template replaces the theme's posts index.
-    if (template = Page.template_for(Current.site, "index") || Page.template_for(Current.site, "archive"))
+    roles = params.values_at(:category, :slug, :q).any?(&:present?) ? %w[archive index] : %w[index archive]
+    if (template = roles.lazy.map { |role| Page.template_for(Current.site, role) }.find(&:present?))
       @page = template
       @template_body = PageBuilder::TemplateRenderer.render(template, view_context: view_context)
       render template: "posts/template_index"

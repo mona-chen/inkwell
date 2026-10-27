@@ -798,7 +798,8 @@
         // search, say) arrives through the config a plugin contributed — so the model is
         // offered exactly what this server can actually do, and nothing else.
         window.inkCopilot = Object.assign(
-          { mediaUrl: this.mediaUrlValue || "/admin/media", imageUrl: this.imageUrlValue || null },
+          { mediaUrl: this.mediaUrlValue || "/admin/media", imageUrl: this.imageUrlValue || null,
+            visualReviewUrl: <%= raw((AiWriter::VisualReviewClient.new(site: Current.site).configured? ? "/plugins/ai_writer/visual_review" : nil).to_json) %> },
           this.configValue || {}
         )
         this._selectionChanged = window.builder?.runtime?.events.on("selection:change", () => this.updateScope())
@@ -1064,6 +1065,7 @@
       // executes them against the LIVE v2 store via builder.copilotTools (each edit morphs the
       // canvas and is undoable), then posts the results back to resume the loop.
       async clientSend(prompt, signal) {
+        window.builder.copilotTools.resetReviewBudget?.()
         const csrf = document.querySelector('meta[name="csrf-token"]')?.content
         const tools = window.builder.copilotTools.TOOLS
         let finalContent = ""
@@ -1111,7 +1113,7 @@
               else this.noteToolRejection(call.name, execution.content)
               // `failed` is what lets the server notice a loop: a call that keeps failing in the same
               // way is not going to start working, and the request should end with an explanation.
-              results.push({ id: call.id, content: execution.content, failed: this.toolFailed(execution.content) })
+              results.push({ id: call.id, content: execution.content, failed: this.toolFailed(execution.content), mutated: execution.mutated })
             }
             this.requestStartedAt = Date.now()
             this.armRequestTimeout()

@@ -216,7 +216,7 @@
     });
     var recordId = <%= params[:record_id].to_json.html_safe %>;
     var recordTitle = <%= @record.title.to_json.html_safe %>;
-    var publicPageUrl = <%= (@record.status == "published" ? (@record.is_a?(Page) ? "/pages/#{@record.slug}" : "/posts/#{@record.slug}") : nil).to_json.html_safe %>;
+    var publicPageUrl = <%= @public_record_url.to_json.html_safe %>;
     var originalImportAvailable = <%= (@record.is_a?(Page) && @record.original_import_available?).to_json.html_safe %>;
     var previewPageUrl = <%= "/builder/#{@record.is_a?(Page) ? 'page' : 'post'}/#{@record.id}/preview".to_json.html_safe %>;
     var themeUrl = '/page_builder_theme';
@@ -235,6 +235,8 @@
         customCss: savedCustomCss,
         customJs: savedCustomJs,
         siteParts: savedSiteParts,
+        siteStyleDefaults: <%= Current.site.builder_styles.values.merge("fontFamily" => SiteDesignStyles::FONTS.fetch(Current.site.builder_styles.values["font"])).to_json.html_safe %>,
+        siteStylesCss: <%= Current.site.builder_styles.css.to_json.html_safe %>,
         currentEditor: <%= raw(json_escape({ name: current_user.name }.to_json)) %>,
         collaboration: { record_type: recordType, record_id: recordId },
       });
@@ -250,6 +252,7 @@
           document.querySelector('.spin-loader').remove();
           hidePageLoader();
           if (typeof applyCustomCode === 'function') applyCustomCode();
+          if (new URLSearchParams(window.location.search).get('panel') === 'site') builder.openPanelScreen('site');
         });
       });
 
@@ -307,7 +310,7 @@
 
     async function returnToInkwell() {
       var saved = await builder.studio.saveDraft();
-      if (saved?.ok) window.location.assign(<%= "/admin/#{@record.is_a?(Page) ? 'pages' : 'posts'}/#{@record.id}/edit".to_json.html_safe %>);
+      if (saved?.ok) window.location.assign(<%= (@record.is_a?(Page) && @record.template_for.to_s.start_with?("site_") ? "/admin/design?section=parts" : @record.is_a?(Page) && @record.template_for.present? ? "/admin/templates" : "/admin/#{@record.is_a?(Page) ? 'pages' : 'posts'}/#{@record.id}/edit").to_json.html_safe %>);
     }
 
     async function persistBuilderDocument(publish) {

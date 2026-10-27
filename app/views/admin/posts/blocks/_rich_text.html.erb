@@ -7,43 +7,29 @@
          value="<%= html_escape(local_assigns[:data]&.dig("json")) %>">
 
   <%# WYSIWYG toolbar — hidden by default, shown on hover/focus via CSS %>
-  <div data-rich-text-target="toolbar" class="mb-2 flex flex-wrap items-center gap-0.5 rounded-lg border border-border/80 bg-card p-1 shadow-sm select-none">
-    <div class="flex items-center mr-1">
-      <button type="button" data-command="setParagraph" title="Paragraph (Ctrl+Alt+0)" aria-label="Paragraph"
-              class="rich-text-btn">¶</button>
-      <button type="button" data-command="toggleHeading" data-arg="1" title="Heading 1 (Ctrl+Alt+1)" aria-label="Heading 1"
-              class="rich-text-btn">H1</button>
-      <button type="button" data-command="toggleHeading" data-arg="2" title="Heading 2 (Ctrl+Alt+2)" aria-label="Heading 2"
-              class="rich-text-btn">H2</button>
-      <button type="button" data-command="toggleHeading" data-arg="3" title="Heading 3 (Ctrl+Alt+3)" aria-label="Heading 3"
-              class="rich-text-btn">H3</button>
-    </div>
-      <span class="mx-1 h-4 w-px bg-border"></span>
-    <div class="flex items-center mr-1">
-      <button type="button" data-command="toggleBold" title="Bold (Ctrl+B)" aria-label="Bold" class="rich-text-btn"><strong>B</strong></button>
-      <button type="button" data-command="toggleItalic" title="Italic (Ctrl+I)" aria-label="Italic" class="rich-text-btn"><em>I</em></button>
-      <button type="button" data-command="toggleUnderline" title="Underline (Ctrl+U)" aria-label="Underline" class="rich-text-btn"><u>U</u></button>
-      <button type="button" data-command="toggleStrike" title="Strikethrough" aria-label="Strikethrough" class="rich-text-btn"><s>S</s></button>
-      <button type="button" data-command="toggleCode" title="Inline code" aria-label="Inline code" class="rich-text-btn">&lt;/&gt;</button>
-    </div>
-      <span class="mx-1 h-4 w-px bg-border"></span>
-    <div class="flex items-center mr-1">
-      <button type="button" data-command="toggleBulletList" title="Bullet list" aria-label="Bullet list" class="rich-text-btn">•</button>
-      <button type="button" data-command="toggleOrderedList" title="Numbered list" aria-label="Numbered list" class="rich-text-btn">1.</button>
-      <button type="button" data-command="toggleBlockquote" title="Quote" aria-label="Quote" class="rich-text-btn">“</button>
-      <button type="button" data-command="toggleCodeBlock" title="Code block" aria-label="Code block" class="rich-text-btn">{ }</button>
-      <button type="button" data-command="setHorizontalRule" title="Divider" aria-label="Divider" class="rich-text-btn">—</button>
-    </div>
-      <span class="mx-1 h-4 w-px bg-border"></span>
-    <div class="flex items-center mr-1">
-      <button type="button" data-command="undo" title="Undo (Ctrl+Z)" aria-label="Undo" class="rich-text-btn">↶</button>
-      <button type="button" data-command="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" class="rich-text-btn">↷</button>
-    </div>
-    <div class="flex items-center mr-1">
-      <button type="button" data-command="toggleLink" title="Insert link" aria-label="Insert link" class="rich-text-btn">↗</button>
-      <button type="button" data-command="unsetLink" title="Remove link" aria-label="Remove link" class="rich-text-btn">↗×</button>
-    </div>
+  <div data-rich-text-target="toolbar" class="composer-formatting" role="toolbar" aria-label="Text formatting">
+    <% [
+      [["setParagraph", nil, "pilcrow", "Paragraph"], ["toggleHeading", 1, "heading_1", "Heading 1"], ["toggleHeading", 2, "heading_2", "Heading 2"], ["toggleHeading", 3, "heading_3", "Heading 3"]],
+      [["toggleBold", nil, "bold", "Bold"], ["toggleItalic", nil, "italic", "Italic"], ["toggleUnderline", nil, "underline", "Underline"], ["toggleStrike", nil, "strikethrough", "Strikethrough"], ["toggleCode", nil, "code", "Inline code"]],
+      [["toggleBulletList", nil, "list", "Bullet list"], ["toggleOrderedList", nil, "list_ordered", "Numbered list"], ["toggleBlockquote", nil, "quote", "Quote"], ["toggleCodeBlock", nil, "square_code", "Code block"], ["setHorizontalRule", nil, "minus", "Divider"]],
+      [["toggleLink", nil, "link", "Insert link"], ["unsetLink", nil, "unlink", "Remove link"]]
+    ].each do |group| %>
+      <div class="composer-format-group">
+        <% group.each do |command, argument, icon, label| %>
+          <button type="button" data-command="<%= command %>" <%= "data-arg=#{argument}" if argument %> title="<%= label %>" aria-label="<%= label %>" class="rich-text-btn"><%= render Ink::Icon.new(icon, size: :sm) %></button>
+        <% end %>
+      </div>
+    <% end %>
   </div>
 
   <div data-rich-text-target="editor" class="rich-text text-sm leading-relaxed"></div>
+  <dialog data-rich-text-target="linkDialog" class="composer-link-dialog" aria-label="Edit link">
+    <h3>Insert a link</h3>
+    <p>Give your readers somewhere useful to go.</p>
+    <label>Link address
+      <input type="text" data-rich-text-target="linkUrl" data-action="keydown->rich-text#linkKeydown" placeholder="https://example.com" autocomplete="off">
+    </label>
+    <p data-rich-text-target="linkError" class="composer-link-error" role="alert"></p>
+    <div><button type="button" data-action="rich-text#closeLink" class="composer-save">Cancel</button><button type="button" data-action="rich-text#applyLink" class="composer-publish-button">Apply link</button></div>
+  </dialog>
 </div>

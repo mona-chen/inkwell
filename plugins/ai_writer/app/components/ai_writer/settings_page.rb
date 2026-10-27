@@ -40,6 +40,19 @@ module AiWriter
           end
         end
 
+        render SettingsSection.new(title: "Visual design review", description: "Let Copilot review snapshots of the actual canvas, including individual sections and mobile layouts. This requires an image-capable chat model; it can be separate from the builder's text model.") do |section|
+          section.form do
+            settings_form do |form|
+              form.group do
+                form.field(:ai_review_model, value: setting_value("ai_review_model"), label: "Visual review model", description: "Leave blank to disable. The provider must accept image_url messages.")
+                form.field(:ai_review_base_url, value: setting_value("ai_review_base_url"), label: "Review API base URL", placeholder: "Same as the chat API")
+                form.field(:ai_review_api_key, value: setting_value("ai_review_api_key"), label: "Review API key", as: :password, description: "Falls back to the chat API key. Snapshots are sent to this provider for critique.")
+              end
+              save_row(form)
+            end
+          end
+        end
+
         render SettingsSection.new(
           title: "Image generation",
           description: "Give the Copilot a picture generator. Name an image model to switch the tool on; every picture it makes is saved to this site's media library, so you can reuse, replace, or delete it like any other upload."

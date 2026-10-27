@@ -14,6 +14,7 @@ import { isUnsupportedValue, previewValue, shapeOf } from './styleValues.js';
 import { iconCount, libraryTitle, searchIcons } from './icons.js';
 import { availableMediaTools, generateImage, imageProviders, imageSearchUrl, listMedia, mediaLibraryUrl, searchImages } from './mediaTools.js';
 import { availableWebTools, fetchWebPage, webSearch, webSearchProvider } from './webTools.js';
+import { createReviewTools } from './reviewTools.js';
 // Client-side design tools for the AI Copilot. The design lives in the browser as the v2
 // builder store, so every mutation is applied to the live runtime and recorded as one or more
 // undoable commands. Whole pages are composed atomically; surgical follow-up edits still use
@@ -47,6 +48,10 @@ export function createCopilotTools(runtime, builder) {
         const node = runtime.document.get(String(pathOrId));
         return node ? { node, parent: runtime.document.parentOf(node.id), path: String(pathOrId) } : null;
     };
+
+    // The visual reviewer sees pixels, not the store, so it lives beside resolve(): it needs
+    // the same path/id targeting every other tool uses to find the layer it should photograph.
+    const review = createReviewTools(runtime, builder, resolve);
 
     // Behaviour is part of the design, so read_design reports it: a layer's motion, its group
     // membership, sticky pinning, states and interactions are all visible without running anything.
@@ -96,7 +101,9 @@ export function createCopilotTools(runtime, builder) {
 
     const capabilities = () => {
         const groups = {};
-        runtime.elements.list().filter((definition) => !definition.internal).forEach((definition) => {
+        // Legacy and shelved types stay registered (existing pages keep rendering, tools can still
+        // target them by id), but they are not vocabulary the AI should compose new work from.
+        runtime.elements.list().filter((definition) => !definition.internal && !definition.legacy).forEach((definition) => {
             const category = definition.category || 'Other';
             const compact = compactDefinition(definition);
             if (!['frame', 'container', 'heading', 'paragraph', 'button', 'image', 'shader'].includes(definition.type)) delete compact.defaults;
@@ -562,6 +569,7 @@ export function createCopilotTools(runtime, builder) {
                 case 'read_element': return target ? asJson({ id: target.node.id, type: target.node.type, settings: target.node.settings, styles: target.node.styles, children: (target.node.children || []).map(({ id, type }) => ({ id, type })) }) : asJson({ ok: false, error: 'Element not found' });
                 case 'read_custom_code': return asJson({ css: builder.customCode.getCss(), js: builder.customCode.getJs() });
                 case 'audit_design': return asJson(auditDesign());
+                case 'review_design': return settle(review.assess(args));
                 case 'search_icons': return asJson({ query: args.query, results: searchIcons(args.query, Number(args.limit) || 24) });
                 case 'fetch_web_page': return settle(fetchWebPage(args));
                 case 'web_search': return settle(webSearch(args));
@@ -718,7 +726,8 @@ export function createCopilotTools(runtime, builder) {
     // configured. Advertising a tool the server cannot fulfil stalls a design run.
     return {
         apply, execute, context, index, resolve, MUTATING_TOOLS,
-        get TOOLS() { return TOOLS.concat(availableMediaTools()).concat(availableWebTools()); },
+        resetReviewBudget: review.resetReviewBudget,
+        get TOOLS() { return TOOLS.concat(review.available() ? [review.tool] : []).concat(availableMediaTools()).concat(availableWebTools()); },
         isMutation: (name) => MUTATING_TOOLS.has(name),
     };
 }

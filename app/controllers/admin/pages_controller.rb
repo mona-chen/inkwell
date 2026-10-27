@@ -3,7 +3,7 @@ module Admin
     before_action :set_page, only: %i[edit update destroy publish publish_original_import]
 
     def index
-      @pages = Current.site.pages.includes(:author)
+      @pages = Current.site.pages.where(template_for: nil).includes(:author)
       @pages = @pages.where(status: params[:status]) if params[:status].present? && %w[draft published].include?(params[:status])
       @pages = @pages.where("title ILIKE ?", "%#{params[:q]}%") if params[:q].present?
       @pages = @pages.order(:menu_order).page(params[:page])

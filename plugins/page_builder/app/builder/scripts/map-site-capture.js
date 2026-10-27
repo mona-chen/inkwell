@@ -46,6 +46,10 @@ if (manifest.format === "ink-site-capture-v2") {
     return original || "Home";
   };
   const routes = Object.fromEntries(manifest.pages.map((page) => [routeKey(page.url), routeSlug(page.url)]));
+  (manifest.aliases || []).forEach((alias) => {
+    const target = routes[routeKey(alias.target)];
+    if (target) routes[routeKey(alias.url)] = target;
+  });
   const findElement = (root, tagName) => {
     if (root?.tagName === tagName) return root;
     for (const child of root?.childNodes || []) { const match = findElement(child, tagName); if (match) return match; }
@@ -429,7 +433,7 @@ if (manifest.format === "ink-site-capture-v2") {
       initialHtml,
       importReport: { ...payload.importReport, mode: "native-dom", inferred: { components: patterns.report.components, roles: patterns.report.roles, sections: patterns.report.sections, notices: patterns.report.notices, counts: patterns.report.counts }, ...importQuality(deduplicatedNativeChildren, pageManifest.viewports, Object.values(capturedSiteParts)) },
     };
-    return { source: page.url, title, slug: routes[routeKey(page.url)], depth: page.depth, parentSource: page.parent, payload: nativePayload };
+    return { source: page.url, sourceAliases: (manifest.aliases || []).filter((alias) => alias.target === page.url).map((alias) => alias.url), title, slug: routes[routeKey(page.url)], depth: page.depth, parentSource: page.parent, payload: nativePayload };
   });
   // Global header/footer nodes bring component-specific responsive classes with them. Their
   // CSS is part of the site part, not the destination route's page stylesheet, so every page
@@ -448,6 +452,7 @@ if (manifest.format === "ink-site-capture-v2") {
     failures: manifest.failures || [],
     importReport: {
       capturedPages: manifest.pages.length, mappedPages: pages.length, failedPages: (manifest.failures || []).length, routes,
+      aliases: manifest.aliases || [],
       behaviorVerified: false,
       notices: ["Structure, styles and the interactions the capture could observe were reconstructed as native, editable element data.", "Regions the site renders from component code (for example a nav panel or a dropdown body) are rebuilt from the markup that did ship; review the inferred components list."],
       pages: pages.map((page) => ({ source: page.source, ...page.payload.importReport })),

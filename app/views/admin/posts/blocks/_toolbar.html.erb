@@ -1,12 +1,22 @@
-<%# Per-block toolbar: drag handle + context menu. Hidden by default, revealed on hover/focus. %>
-<div class="block-toolbar absolute -left-8 top-1/2 -translate-y-1/2 z-50 flex flex-col rounded-lg border border-border bg-background shadow-sm py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-  <button type="button" data-block-editor-target="dragHandle"
-          class="flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground hover:bg-muted cursor-grab rounded"
-          title="Drag to reorder" aria-label="Drag to reorder">⠿</button>
-  <button type="button" data-action="block-editor#duplicateBlock"
-          class="flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded opacity-0 group-hover:opacity-100 transition-opacity"
-          title="Duplicate" aria-label="Duplicate block">⧉</button>
-  <button type="button" data-action="block-editor#removeBlock"
-          class="flex items-center justify-center w-7 h-7 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-          title="Delete block" aria-label="Delete block">✕</button>
+<div class="block-toolbar composer-block-controls">
+  <button type="button" data-block-editor-target="dragHandle" class="composer-block-grip" title="Drag to reorder" aria-label="Drag to reorder"><%= render Ink::Icon.new(:grip_vertical, size: :sm) %></button>
+  <details class="composer-block-menu" data-action="toggle->block-editor#blockMenuToggled">
+    <summary aria-label="Block actions" title="Block actions"><%= render Ink::Icon.new(:ellipsis, size: :sm) %></summary>
+    <div class="composer-block-popover">
+      <p>BLOCK ACTIONS</p>
+      <button type="button" data-action="block-editor#insertAbove">Insert above <%= render Ink::Icon.new(:arrow_up, size: :xs) %></button>
+      <button type="button" data-action="block-editor#insertBelow">Insert below <%= render Ink::Icon.new(:arrow_down, size: :xs) %></button>
+      <button type="button" data-action="block-editor#moveUp">Move up <kbd>⌘ ⇧ ↑</kbd></button>
+      <button type="button" data-action="block-editor#moveDown">Move down <kbd>⌘ ⇧ ↓</kbd></button>
+      <button type="button" data-action="block-editor#duplicateBlock">Duplicate <%= render Ink::Icon.new(:copy, size: :xs) %></button>
+      <div class="composer-convert-options">
+        <p>TURN INTO</p>
+        <button type="button" data-action="block-editor#changeBlockType" data-block-editor-type-param="paragraph">Text</button>
+        <button type="button" data-action="block-editor#changeBlockType" data-block-editor-type-param="heading" data-block-editor-level-param="2">Heading 2</button>
+        <button type="button" data-action="block-editor#changeBlockType" data-block-editor-type-param="heading" data-block-editor-level-param="3">Heading 3</button>
+        <button type="button" data-action="block-editor#changeBlockType" data-block-editor-type-param="rich_text">Formatted text <%= render Ink::Icon.new(:bold, size: :xs) %></button>
+      </div>
+      <button type="button" data-action="block-editor#removeBlock" class="composer-delete">Delete block <%= render Ink::Icon.new(:trash_2, size: :xs) %></button>
+    </div>
+  </details>
 </div>

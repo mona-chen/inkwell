@@ -42,31 +42,19 @@ module Seo
     end
 
     def description
-      record.try(:seo_description).presence || record.try(:auto_meta_description).to_s
+      record.try(:seo_description).presence || record.try(:excerpt).presence || document.text.truncate(160)
     end
 
     def keyphrase
       record.try(:seo_focus_keyword).to_s.strip.downcase
     end
 
-    def source_content
-      record.try(:draft_content).presence || record.try(:content).presence || []
+    def document
+      @document ||= ContentDocument.new(record.respond_to?(:editing_blocks) ? record.editing_blocks : record.content)
     end
 
-    def blocks
-      Array(source_content).select { |block| block.is_a?(Hash) }
-    end
-
-    def text
-      @text ||= blocks.flat_map do |block|
-        data = block["data"] || block[:data] || {}
-        %w[text content caption].filter_map { |key| data[key].presence || data[key.to_sym].presence }
-      end.join(" ").then { |value| ActionView::Base.full_sanitizer.sanitize(value).squish }
-    end
-
-    def words
-      @words ||= text.scan(/[[:alnum:]]+(?:['’-][[:alnum:]]+)*/)
-    end
+    def text = document.text
+    def words = document.words
 
     def includes_keyphrase?(value)
       keyphrase.present? && value.to_s.downcase.include?(keyphrase)
@@ -118,29 +106,22 @@ module Seo
     end
 
     def heading_structure
-      headings = blocks.count { |block| (block["type"] || block[:type]).to_s == "heading" }
+      headings = document.headings
       status = headings.positive? ? :good : words.length < 200 ? :improvement : :problem
       result(:headings, "Subheading distribution", status, headings.positive? ? "#{headings} subheading#{'s' unless headings == 1} found." : "Break longer content into descriptive subheadings.")
     end
 
     def outbound_links
-      links = blocks.sum do |block|
-        data = block["data"] || block[:data] || {}
-        explicit = %w[url href].count { |key| (data[key] || data[key.to_sym]).present? }
-        embedded = data.values.grep(String).sum { |value| value.scan(/<a\b[^>]*href=/i).length }
-        explicit + embedded
-      end
+      links = document.links
       status = links.positive? ? :good : :improvement
       result(:links, "Links", status, links.positive? ? "#{links} link#{'s' unless links == 1} found." : "Consider adding a useful internal or external link.")
     end
 
     def images
-      image_blocks = blocks.select { |block| (block["type"] || block[:type]).to_s == "image" }
-      present = record.try(:featured_image_url).present? || image_blocks.any? { |block| (block.dig("data", "url") || block.dig(:data, :url)).present? }
-      missing_alt = image_blocks.any? do |block|
-        data = block["data"] || block[:data] || {}
-        (data["url"] || data[:url]).present? && (data["alt"] || data[:alt]).blank?
-      end
+      image_blocks = document.images
+      present = record.try(:featured_image_url).present? || image_blocks.any?
+      missing_alt = image_blocks.any? { |image| image["alt"].blank? }
+      missing_alt ||= record.try(:featured_image_id).present? && record.try(:featured_image_alt).blank?
       status = !present ? :improvement : missing_alt ? :problem : :good
       message = if !present
         "Add a relevant image and descriptive alt text."

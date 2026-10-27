@@ -73,4 +73,14 @@ RSpec.describe "Builder content-type templates", type: :request do
     expect(response.body).to include("data-tpl='author'", "Ada", "Hello Template")
     expect(response.body).not_to include("Someone else's post", "Private draft")
   end
+  it "uses archive templates for filtered lists and index templates for the blog home" do
+    builder_page(title: "Index layout", slug: "index-layout", role_name: "index", raw_html: "<p>Index marker</p>")
+    builder_page(title: "Archive layout", slug: "archive-layout", role_name: "archive", raw_html: "<p>Archive marker</p>")
+    get "/posts?q=Hello"
+    expect(response.body).to include("Archive marker")
+    expect(response.body).not_to include("Index marker")
+    get "/posts"
+    expect(response.body).to include("Index marker")
+  end
+
 end
