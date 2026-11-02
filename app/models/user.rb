@@ -3,6 +3,7 @@ class User < ApplicationRecord
 
   belongs_to :site
   has_many :theme_repository_sources, dependent: :destroy
+  has_many :github_app_connections, dependent: :restrict_with_error
   belongs_to :role
   has_many :agent_credentials, dependent: :destroy
   has_many :posts, foreign_key: :author_id, dependent: :nullify

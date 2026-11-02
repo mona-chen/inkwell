@@ -9,3 +9,5 @@ Rails.application.config.filter_parameters += [
 
 # Agent secrets and executable snippets must not be echoed into parameter logs.
 Rails.application.config.filter_parameters += [:new_agent_secret, :token_digest, :manifest, :custom_scripts_head, :custom_scripts_body]
+
+Rails.application.config.filter_parameters += [:code, :state, :pem, :credentials_ciphertext]

@@ -6,7 +6,7 @@ module Admin
       visible_releases = Current.site.theme_repository_sources.pluck(:installed_slug).compact + [@active_theme]
       managed_releases = ThemeRepositorySource.pluck(:releases).flat_map { |releases| releases.map { |release| release["slug"] } }
       @themes.reject! { |theme| managed_releases.include?(theme[:slug]) && !visible_releases.include?(theme[:slug]) }
-      render Admin::ThemesPage.new(themes: @themes, active_theme: @active_theme)
+      render Admin::ThemesPage.new(themes: @themes, active_theme: @active_theme, tab: params[:tab], install_method: params[:method])
     end
 
     # Theme packages contain server-side templates; importing is a platform-admin action.

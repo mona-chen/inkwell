@@ -1,7 +1,7 @@
 # GitHub theme installation and automatic updates
 
 Deploy the changes, run `bin/rails db:migrate`, restart the web/queue processes,
-and open **Site design → Theme packages → Install from GitHub** as a platform
+and open **Site design → Theme packages → Add theme** as a platform
 administrator. Installation executes trusted Rails templates just like ZIP theme
 installation, so ordinary tenant managers cannot connect repositories.
 
@@ -17,13 +17,41 @@ CI to publish ready-to-serve output. The installer can retain packages needing a
 build, but readiness checks prevent activation until those outputs/dependencies exist.
 Rails gems require the normal application release and restart.
 
-## Private repositories
+## Connect a GitHub App
 
-Set **`INKWELL_GITHUB_TOKEN`** in the deployment environment to a fine-grained token
-with Contents read access to the intended repositories. It is used only by the
-platform-admin installer, never stored in source records, sent to browsers, or sent
-to archive redirect hosts. Public repositories can work without a token, subject to
-GitHub's lower unauthenticated API limits. Do not embed credentials in repository URLs.
+Open **Theme packages → GitHub connection → Create GitHub App**. This uses
+GitHub's manifest flow, so Inkwell prepares the permissions and URLs for you:
+
+1. Open Inkwell on its public HTTPS address. Set `INKWELL_PUBLIC_URL` to that
+   origin when a reverse proxy does not expose the correct public address.
+   Local development requires a public HTTPS tunnel; localhost callbacks are
+   not supported by this setup flow.
+2. Choose **Create GitHub App**, then **Continue on GitHub**. Confirm the App
+   registration on GitHub and return to Inkwell.
+3. Choose **Install on GitHub** and select your account or organization and the
+   repositories it can read. Complete GitHub authorization when you return.
+4. Open **Add theme → GitHub repository**, select an accessible repository and
+   deployment branch, then install. Preview before enabling automatic activation.
+
+The App requests only Contents and Metadata read permission and push events.
+Its private key, client secret and webhook secret are encrypted in the database
+using a key derived from Rails' `secret_key_base`. Preserve that key across
+releases and keep database/key backups protected. Installation tokens are
+short-lived and generated on demand; tokens are never shown in the admin UI.
+The OAuth return checks that the authorizing GitHub user can access the selected
+installation and that it belongs to this App. A callback installation ID alone
+is never accepted as proof of access.
+
+**Manage repository access** reopens GitHub installation settings; use
+**Refresh repositories** after access changes. Removing repository access or
+suspending/deleting an installation pauses the affected automatic deployments.
+**Disconnect** pauses linked deployments locally and keeps the App registration
+so it can be installed again. It does not uninstall or delete the App on GitHub.
+
+Public repository URL installs remain available without an App. Legacy installs
+can optionally use `INKWELL_GITHUB_TOKEN`, a fine-grained token with Contents read
+access. Explicit App-linked installs never fall back to that token after
+disconnection. Do not embed credentials in repository URLs.
 
 ## Automatic deploys
 
@@ -43,9 +71,12 @@ readiness checks succeed. Failures appear beside the connection; older releases
 remain intact. New public page requests use the new release; existing pages need a
 reload, and immutable old asset paths remain available for cached pages.
 
-These are scheduled checks, not an instantaneous push webhook. The production
-Solid Queue worker **and recurring scheduler** must run (`bin/jobs` or the existing
-Puma supervisor setup). **Check for updates** also queues a manual sync.
+App-linked repositories also receive push-triggered updates at
+`/github/hooks/site/:site_id`. Inkwell verifies the webhook HMAC signature,
+installation, repository and exact branch before enqueuing a sync; paused sources
+are ignored. Scheduled checks remain a fallback. The production Solid Queue
+worker **and recurring scheduler** must run (`bin/jobs` or the existing Puma
+supervisor setup). **Sync** also queues a manual check.
 
 A manual theme switch suspends automatic activation rather than overriding the
 owner's selection on the next commit. To resume, save the repository preferences

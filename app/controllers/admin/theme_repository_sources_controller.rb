@@ -3,11 +3,17 @@ module Admin
     before_action :platform_admin!
 
     def create
-      source = Current.site.theme_repository_sources.create!(source_params.merge(user: current_user))
+      attrs = source_params
+      if attrs[:github_app_connection_id].present?
+        connection = Current.site.github_app_connection
+        raise GithubApps::Client::Error, "Connect GitHub and select an accessible repository first" unless connection&.connected? && connection.authorized? && connection.id.to_s == attrs[:github_app_connection_id].to_s
+        raise GithubApps::Client::Error, "Repository is outside the installation's access; refresh repository access" unless connection.repositories.any? { |repo| repo["full_name"] == attrs[:repository] }
+      end
+      source = Current.site.theme_repository_sources.create!(attrs.merge(user: current_user))
       SyncThemeRepositoryJob.perform_later(source.id)
       redirect_to admin_themes_path, notice: "GitHub theme installation queued. Refresh to see the result."
-    rescue ActiveRecord::RecordInvalid => error
-      redirect_to admin_themes_path, alert: error.record.errors.full_messages.to_sentence
+    rescue ActiveRecord::RecordInvalid, GithubApps::Client::Error => error
+      redirect_to admin_themes_path, alert: error.is_a?(ActiveRecord::RecordInvalid) ? error.record.errors.full_messages.to_sentence : error.message
     end
 
     def update
@@ -49,7 +55,7 @@ module Admin
     end
 
     def source_params
-      params.require(:theme_repository_source).permit(:repository, :branch, :auto_update, :auto_activate, :spa)
+      params.require(:theme_repository_source).permit(:repository, :branch, :auto_update, :auto_activate, :spa, :github_app_connection_id)
     end
   end
 end

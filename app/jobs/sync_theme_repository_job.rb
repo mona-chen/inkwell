@@ -10,7 +10,12 @@ class SyncThemeRepositoryJob < ApplicationJob
     source.with_lock do
       return if automatic && !source.auto_update
       source.update!(status: "checking", error_message: nil, checked_at: Time.current)
-      github = ThemePackages::Github.new(source.repository)
+      github = if source.github_app_connection
+        token = GithubApps::Client.new(source.github_app_connection).installation_token
+        ThemePackages::Github.new(source.repository, token: token)
+      else
+        ThemePackages::Github.new(source.repository)
+      end
       sha = github.head(source.branch)
       if sha == source.deployed_sha && ThemePackages::Runtime.for(source.installed_slug)
         readiness = ThemePackages::Runtime.for(source.installed_slug)&.readiness_errors

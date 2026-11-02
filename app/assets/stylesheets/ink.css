@@ -70,7 +70,7 @@
 :is(#admin-shell, [data-ink="auth-shell"]) :is(input[type="checkbox"],input[type="radio"],input[type="file"]):focus-visible { outline:1px solid var(--ring); outline-offset:3px; }
 @media(forced-colors:active) { :is(#admin-shell, [data-ink="auth-shell"]) :is(input,select,textarea):focus-visible { outline:1px solid Highlight; outline-offset:2px; } }
 #admin-shell :is(button,a,summary):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
-#admin-shell [aria-current="page"] { box-shadow: inset 2px 0 var(--primary); }
+#admin-shell [data-ink="app-navigation"] [aria-current="page"] { box-shadow: inset 2px 0 var(--primary); }
 #admin-shell table th { white-space: nowrap; }
 #admin-shell table td { vertical-align: middle; }
 .ink-writing-focus-toggle { height: 28px; padding: 0 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--foreground); font-size: 12px; white-space: nowrap; }

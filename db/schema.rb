@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_03_091000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_03_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -144,6 +144,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_091000) do
     t.bigint "site_id", null: false
     t.datetime "updated_at", null: false
     t.index ["site_id"], name: "index_contact_form_messages_on_site_id"
+  end
+
+  create_table "github_app_connections", force: :cascade do |t|
+    t.string "account_login"
+    t.bigint "app_id", null: false
+    t.string "client_id", null: false
+    t.datetime "created_at", null: false
+    t.text "credentials_ciphertext", null: false
+    t.bigint "installation_id"
+    t.string "public_url", null: false
+    t.jsonb "repositories", default: [], null: false
+    t.bigint "site_id", null: false
+    t.string "slug", null: false
+    t.datetime "synced_at"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["app_id"], name: "index_github_app_connections_on_app_id", unique: true
+    t.index ["site_id"], name: "index_github_app_connections_on_site_id", unique: true
+    t.index ["user_id"], name: "index_github_app_connections_on_user_id"
   end
 
   create_table "installed_plugins", force: :cascade do |t|
@@ -567,6 +586,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_091000) do
     t.datetime "created_at", null: false
     t.string "deployed_sha"
     t.text "error_message"
+    t.bigint "github_app_connection_id"
     t.string "installed_slug"
     t.jsonb "releases", default: [], null: false
     t.string "repository", null: false
@@ -575,6 +595,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_091000) do
     t.string "status", default: "queued", null: false
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.index ["github_app_connection_id"], name: "index_theme_repository_sources_on_github_app_connection_id"
     t.index ["site_id"], name: "index_theme_repository_sources_on_site_id"
     t.index ["user_id"], name: "index_theme_repository_sources_on_user_id"
   end
@@ -698,6 +719,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_091000) do
   add_foreign_key "comments", "posts"
   add_foreign_key "comments", "users"
   add_foreign_key "contact_form_messages", "sites"
+  add_foreign_key "github_app_connections", "sites"
+  add_foreign_key "github_app_connections", "users"
   add_foreign_key "live_plugin_releases", "live_plugins"
   add_foreign_key "live_plugins", "live_plugin_releases", column: "active_release_id"
   add_foreign_key "live_plugins", "sites"
@@ -727,6 +750,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_091000) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "terms", "sites"
+  add_foreign_key "theme_repository_sources", "github_app_connections"
   add_foreign_key "theme_repository_sources", "sites"
   add_foreign_key "theme_repository_sources", "users"
   add_foreign_key "user_sites", "sites"

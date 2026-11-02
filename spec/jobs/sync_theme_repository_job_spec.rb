@@ -105,4 +105,23 @@ RSpec.describe SyncThemeRepositoryJob do
     expect(site.reload.active_theme).to eq("default")
   end
 
+  it "uses an on-demand App installation token for an App-linked source" do
+    connection = site.create_github_app_connection!(user: user, app_id: 123, slug: "inkwell-test", client_id: "client", public_url: "https://example.test", app_credentials: { "pem" => "test-key" }, installation_id: 456)
+    source.update!(github_app_connection: connection)
+    app_client = instance_double(GithubApps::Client, installation_token: "short-lived-token")
+    allow(GithubApps::Client).to receive(:new).with(connection).and_return(app_client)
+    expect(ThemePackages::Github).to receive(:new).with("example/theme", token: "short-lived-token").and_return(client)
+    described_class.perform_now(source.id)
+    expect(source.reload.status).to eq("installed")
+  end
+
+  it "never falls back to an environment token after an App is disconnected" do
+    connection = site.create_github_app_connection!(user: user, app_id: 123, slug: "inkwell-test", client_id: "client", public_url: "https://example.test", app_credentials: { "pem" => "test-key" })
+    source.update!(github_app_connection: connection)
+    expect(ThemePackages::Github).not_to receive(:new)
+    described_class.perform_now(source.id)
+    expect(source.reload.status).to eq("failed")
+    expect(site.reload.active_theme).to eq("default")
+  end
+
 end

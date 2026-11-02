@@ -14,6 +14,8 @@ Rails.application.routes.draw do
   post "mcp", to: "mcp#create"
   match "mcp", to: "mcp#show", via: [:get, :delete]
 
+  post "github/hooks/site/:site_id", to: "github_webhooks#create"
+
   root to: "site#home"
   get "feed.xml", to: "site#feed", defaults: { format: "xml" }
   get "sitemap.xml", to: "site#sitemap", defaults: { format: "xml" }
@@ -77,6 +79,15 @@ Rails.application.routes.draw do
         post :deactivate
         post :reactivate
       end
+    end
+
+    resource :github_connection, only: [:destroy] do
+      post :manifest
+      get :callback
+      post :install
+      get :setup
+      get :authorize
+      post :refresh
     end
 
     resources :theme_repository_sources, only: [:create, :update] do

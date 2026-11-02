@@ -7,7 +7,7 @@ RSpec.describe "GitHub theme connections", type: :request do
   before { sign_in user }
 
   it "shows GitHub installation and creates a queued site-scoped source" do
-    get "/admin/themes"
+    get "/admin/themes?tab=add"
     expect(response).to have_http_status(:ok)
     expect(response.body).to include("Install from GitHub", "theme_repository_source[repository]")
     expect(SyncThemeRepositoryJob).to receive(:perform_later).with(kind_of(Integer))
@@ -16,7 +16,7 @@ RSpec.describe "GitHub theme connections", type: :request do
     source = site.theme_repository_sources.last
     expect(source).to have_attributes(repository: "owner/theme", branch: "release", auto_update: true, auto_activate: false)
     get "/admin/themes"
-    expect(response.body).to include("owner/theme", "Automatic update checks")
+    expect(response.body).to include("owner/theme", "Automatic updates")
     patch "/admin/theme_repository_sources/#{source.id}", params: { "repository_#{source.id}" => { auto_update: "0", auto_activate: "0" } }
     expect(source.reload.auto_update).to eq(false)
   end

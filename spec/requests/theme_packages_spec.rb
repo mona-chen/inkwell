@@ -87,7 +87,7 @@ RSpec.describe "Theme package administration", type: :request do
 
   it "shows a conventional multipart import form and imports without activating" do
     sign_in admin
-    get "/admin/themes"
+    get "/admin/themes?tab=add&method=zip"
     expect(response).to have_http_status(:ok)
     expect(response.body).to include('type="file"', 'name="archive"', 'multipart/form-data')
     Dir.mktmpdir do |directory|

@@ -1,7 +1,7 @@
 module ThemePackages
   class Manifest
     SLUG = /\A[a-z][a-z0-9_-]{0,63}\z/
-    RESERVED = %w[admin users api builder plugins posts pages authors tags docs media assets rails theme-assets sitemap.xml feed.xml signup new-site].freeze
+    RESERVED = %w[admin users api github builder plugins posts pages authors tags docs media assets rails theme-assets sitemap.xml feed.xml signup new-site].freeze
     attr_reader :data
 
     def initialize(data)
