@@ -21,3 +21,15 @@ test('reports external CMS articles separately from captured and missing interna
   assert.match(skipped[0].reason, /Outside/);
   assert.match(skipped[1].reason, /Not captured/);
 });
+
+test('reports sitemap-only omissions and counts captured aliases as covered', () => {
+  const manifest = {
+    source: 'https://site.test/', pages: [{ url: 'https://site.test/' }],
+    aliases: [{ url: 'https://site.test/home', target: 'https://site.test/' }],
+    sitemapDiscovery: { urls: ['https://site.test/', 'https://site.test/home', 'https://site.test/legal/privacy'] }
+  };
+  const skipped = skippedRoutes(manifest, []);
+  assert.equal(skipped.length, 1);
+  assert.equal(skipped[0].url, 'https://site.test/legal/privacy');
+  assert.match(skipped[0].reason, /Not captured/);
+});

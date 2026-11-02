@@ -33,4 +33,10 @@ RSpec.describe "Website import completion and retry", type: :request do
     expect(capture.reload.status).to eq("queued")
   end
 
+  it "shows the sitemap route inventory alongside the capture results" do
+    capture.update!(report: { "sitemapDiscovery" => { "urls" => ["https://example.com/", "https://example.com/legal/privacy"], "documents" => ["https://example.com/sitemap.xml"] } })
+    get "/admin/website_imports/#{capture.id}"
+    expect(response.body).to include("2 page URLs discovered from the sitemap", "https://example.com/legal/privacy")
+  end
+
 end

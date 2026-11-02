@@ -89,10 +89,19 @@ module Admin
 
     def import_review
       report = @website_import.report || {}
-      return if report["notices"].blank? && report["skippedRoutes"].blank? && report["quality"].blank? && report["failures"].blank?
+      return if report["notices"].blank? && report["skippedRoutes"].blank? && report["quality"].blank? && report["failures"].blank? && report.dig("sitemapDiscovery", "urls").blank?
 
       section(class: "mt-6 rounded-xl border border-border bg-background p-5") do
         h2(class: "text-sm font-semibold text-foreground") { "Import review" }
+        discovery = report["sitemapDiscovery"].to_h
+        if discovery["urls"].present?
+          details(class: "mt-4") do
+            summary(class: "cursor-pointer text-sm font-medium") { "#{discovery['urls'].size} page URLs discovered from the sitemap" }
+            ul(class: "mt-3 space-y-2") do
+              Array(discovery["urls"]).each { |url| li(class: "break-words text-xs text-muted-foreground") { url } }
+            end
+          end
+        end
         failures = Array(report["failures"])
         if failures.any?
           h3(class: "mt-4 text-sm font-medium") { "#{failures.size} routes failed to capture" }
@@ -107,7 +116,7 @@ module Admin
         skipped = Array(report["skippedRoutes"])
         if skipped.any?
           details(class: "mt-4") do
-            summary(class: "cursor-pointer text-sm font-medium") { "#{skipped.size} linked URLs were not captured" }
+            summary(class: "cursor-pointer text-sm font-medium") { "#{skipped.size} discovered URLs were not captured" }
             ul(class: "mt-3 space-y-3") do
               skipped.each do |entry|
                 li(class: "break-words text-xs") do

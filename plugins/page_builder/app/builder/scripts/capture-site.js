@@ -9,6 +9,7 @@
 const crypto = require("crypto");
 const { outOfScopeArticleOrigins } = require("./site-routes");
 const { sourceFingerprint } = require("./capture-identity");
+const { discoverSitemapRoutes } = require("./sitemap-discovery");
 const fs = require("fs");
 const path = require("path");
 // puppeteer-core v25+ is ESM-only; loaded via dynamic import inside the async main block below
@@ -253,6 +254,7 @@ async function inspect(page) {
   const sitePages = [];
   const failures = [];
   const aliases = [];
+  let sitemapDiscovery = { urls: [], documents: [], errors: [] };
   const fingerprints = new Map();
   // Out-of-scope origins the site links to for its articles (a CMS domain, a blog subdomain).
   const externalOrigins = new Map();
@@ -359,6 +361,16 @@ async function inspect(page) {
   try {
     const queue = [{ url: normalizePageUrl(sourceUrl.href), depth: 0, parent: null }];
     const queued = new Set(queue.map((item) => item.url));
+    if (maxDepth > 0 && maxPages > 1) {
+      sitemapDiscovery = await discoverSitemapRoutes({ source: sourceUrl.href, allowedOrigins: [...allowedOrigins], maxUrls: maxPages });
+      for (const value of sitemapDiscovery.urls) {
+        const url = normalizePageUrl(value);
+        if (!url || queued.has(url) || queue.length >= maxPages) continue;
+        queued.add(url);
+        queue.push({ url, depth: 1, parent: sourceUrl.href });
+      }
+      console.error(`[capture] Discovered ${sitemapDiscovery.urls.length} sitemap routes from ${sitemapDiscovery.documents.length} documents`);
+    }
     while (queue.length && sitePages.length < maxPages) {
       const item = queue.shift();
       const key = pageKey(item.url);
@@ -405,6 +417,7 @@ async function inspect(page) {
     executionPolicy: "Captured JavaScript is evidence only and must not execute in the editor without explicit review.",
     pages: sitePages,
     failures,
+    sitemapDiscovery,
     aliases,
     externalOrigins: [...externalOrigins.values()].map(({ origin, urls }) => ({ origin, routes: urls.size, sample: [...urls][0] })),
     assets: [...capturedAssets.values()],

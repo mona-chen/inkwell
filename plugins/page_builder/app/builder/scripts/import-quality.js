@@ -29,9 +29,11 @@ function importQuality(nodes, viewports = [], extraRoots = []) {
 
 function skippedRoutes(manifest, pageManifests) {
   const captured = new Set(manifest.pages.map((page) => canonical(page.url)));
+  for (const alias of manifest.aliases || []) if (captured.has(canonical(alias.target))) captured.add(canonical(alias.url));
   const allowedOrigins = new Set([new URL(manifest.source).origin, ...(manifest.crawl?.origins || [])]);
   const routes = new Map();
-  for (const page of pageManifests) for (const viewport of page.viewports || []) for (const link of viewport.links || []) {
+  const evidence = pageManifests.concat([{ source: manifest.source, viewports: [{ links: manifest.sitemapDiscovery?.urls || [] }] }]);
+  for (const page of evidence) for (const viewport of page.viewports || []) for (const link of viewport.links || []) {
     try {
       const url = new URL(link, page.source);
       if (!/^https?:$/.test(url.protocol) || captured.has(canonical(url.href))) continue;

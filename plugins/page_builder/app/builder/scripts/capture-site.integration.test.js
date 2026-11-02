@@ -64,3 +64,33 @@ test("pages with persistent background requests remain capturable", { skip: !fs.
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("captures sitemap-only routes even when navigation links omit them", { skip: !fs.existsSync(chrome), timeout: 60000 }, async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ink-sitemap-capture-"));
+  const server = http.createServer((request, response) => {
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    if (request.url === "/robots.txt") {
+      response.writeHead(200, { "Content-Type": "text/plain" });
+      return response.end(`Sitemap: ${origin}/sitemap.xml`);
+    }
+    if (request.url === "/sitemap.xml") {
+      response.writeHead(200, { "Content-Type": "application/xml" });
+      return response.end(`<urlset><url><loc>${origin}/</loc></url><url><loc>${origin}/voice</loc></url><url><loc>${origin}/legal/privacy</loc></url></urlset>`);
+    }
+    response.writeHead(200, { "Content-Type": "text/html" });
+    response.end(`<!doctype html><html><head><title>Fixture ${request.url}</title></head><body><main><h1>Page ${request.url}</h1><p>This route has no navigation links.</p></main></body></html>`);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const result = await run(["capture-site.js", `${origin}/`, "--confirm-ownership", "--max-pages", "10", "--depth", "2", "--output", root]);
+    assert.equal(result.code, 0, result.output);
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json")));
+    assert.deepEqual(manifest.pages.map((page) => new URL(page.url).pathname), ["/", "/voice", "/legal/privacy"]);
+    assert.equal(manifest.sitemapDiscovery.urls.length, 3);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -455,6 +455,7 @@ if (manifest.format === "ink-site-capture-v2") {
     failures: manifest.failures || [],
     importReport: {
       capturedPages: manifest.pages.length, mappedPages: pages.length, failedPages: (manifest.failures || []).length, routes,
+      sitemapDiscovery: manifest.sitemapDiscovery || { urls: [], documents: [], errors: [] },
       aliases: manifest.aliases || [],
       behaviorVerified: false,
       notices: ["Structure, styles and the interactions the capture could observe were reconstructed as native, editable element data.", "Regions the site renders from component code (for example a nav panel or a dropdown body) are rebuilt from the markup that did ship; review the inferred components list."],
