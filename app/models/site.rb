@@ -16,6 +16,7 @@ class Site < ApplicationRecord
   has_many :invitations, class_name: "Multisite::SiteInvitation", dependent: :destroy
   has_many :plugin_activations, class_name: "Multisite::SitePluginActivation", dependent: :destroy
   has_many :custom_domains, class_name: "Multisite::SiteCustomDomain", dependent: :destroy
+  has_many :theme_repository_sources, dependent: :destroy
   has_many :api_tokens, dependent: :destroy
   has_many :agent_credentials, dependent: :destroy
   has_many :agent_activities, dependent: :destroy

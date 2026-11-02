@@ -3,6 +3,9 @@ module Admin
     def index
       @themes = Theme.discover
       @active_theme = Current.site.active_theme
+      visible_releases = Current.site.theme_repository_sources.pluck(:installed_slug).compact + [@active_theme]
+      managed_releases = ThemeRepositorySource.pluck(:releases).flat_map { |releases| releases.map { |release| release["slug"] } }
+      @themes.reject! { |theme| managed_releases.include?(theme[:slug]) && !visible_releases.include?(theme[:slug]) }
       render Admin::ThemesPage.new(themes: @themes, active_theme: @active_theme)
     end
 

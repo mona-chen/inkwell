@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_27_070000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_03_091000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -558,6 +558,27 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_070000) do
     t.index ["site_id"], name: "index_terms_on_site_id"
   end
 
+  create_table "theme_repository_sources", force: :cascade do |t|
+    t.string "activation_base_slug"
+    t.boolean "auto_activate", default: false, null: false
+    t.boolean "auto_update", default: false, null: false
+    t.string "branch", default: "main", null: false
+    t.datetime "checked_at"
+    t.datetime "created_at", null: false
+    t.string "deployed_sha"
+    t.text "error_message"
+    t.string "installed_slug"
+    t.jsonb "releases", default: [], null: false
+    t.string "repository", null: false
+    t.bigint "site_id", null: false
+    t.boolean "spa", default: false, null: false
+    t.string "status", default: "queued", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["site_id"], name: "index_theme_repository_sources_on_site_id"
+    t.index ["user_id"], name: "index_theme_repository_sources_on_user_id"
+  end
+
   create_table "themes", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.jsonb "customizer_settings", default: {}, null: false
@@ -706,6 +727,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_27_070000) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "terms", "sites"
+  add_foreign_key "theme_repository_sources", "sites"
+  add_foreign_key "theme_repository_sources", "users"
   add_foreign_key "user_sites", "sites"
   add_foreign_key "user_sites", "users"
   add_foreign_key "users", "roles"

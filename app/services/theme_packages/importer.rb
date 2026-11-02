@@ -12,7 +12,7 @@ module ThemePackages
       @destination = Pathname.new(destination)
     end
 
-    def import_zip!(archive, slug: nil, name: nil, spa: false)
+    def import_zip!(archive, slug: nil, name: nil, spa: false, release_slug: nil)
       Dir.mktmpdir("inkwell-theme") do |directory|
         root = Pathname.new(directory)
         count = bytes = 0
@@ -47,13 +47,13 @@ module ThemePackages
         else
           root
         end
-        import_directory!(package_root, slug: slug, name: name, spa: spa)
+        import_directory!(package_root, slug: slug, name: name, spa: spa, release_slug: release_slug)
       end
     rescue Zip::Error => error
       raise Invalid, "Invalid ZIP archive: #{error.message}"
     end
 
-    def import_directory!(source, slug: nil, name: nil, spa: false)
+    def import_directory!(source, slug: nil, name: nil, spa: false, release_slug: nil)
       source = Pathname.new(source).realpath
       raise Invalid, "Theme source must be a directory" unless source.directory?
       Dir.mktmpdir("inkwell-theme-stage") do |directory|
@@ -83,7 +83,10 @@ module ThemePackages
             **(spa ? { "spa_fallback" => "index.html" } : {})
           }))
         end
-        manifest = Manifest.new(JSON.parse(stage.join("theme.json").read))
+        manifest_data = JSON.parse(stage.join("theme.json").read)
+        manifest_data["slug"] = release_slug if release_slug && manifest_data.is_a?(Hash)
+        manifest = Manifest.new(manifest_data)
+        stage.join("theme.json").write(JSON.pretty_generate(manifest.data))
         validate_files!(stage, manifest)
         dependencies = Dependencies.new(manifest.data.fetch("dependencies", {}))
         stage.join("Gemfile.theme").write(dependencies.gemfile)

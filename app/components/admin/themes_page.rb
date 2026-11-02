@@ -29,11 +29,57 @@ module Admin
           span { "#{@themes.size} installed" }
         end
         div(class: "themes-cards") { @themes.each { |theme| theme_card(theme) } }
-        import_panel if Current.user&.admin?
+        if Current.user&.admin?
+          github_panel
+          import_panel
+        end
       end
     end
 
     private
+
+    def github_panel
+      section(class: "themes-import") do
+        div(class: "themes-import-intro") do
+          h2 { "Install from GitHub" }
+          p { "Connect a trusted repository containing theme.json or a static index.html. Each commit installs as a separate release." }
+          p(class: "themes-help") { "Auto-updates check the selected branch every five minutes. Publish compiled frontend assets in the repository; dependency installation and builds run through your deployment pipeline." }
+        end
+        form_with(url: admin_theme_repository_sources_path, scope: :theme_repository_source, builder: Ink::FormBuilder, html: { class: "themes-import-form" }) do |form|
+          form.field(:repository, label: "GitHub repository", control_html: { placeholder: "https://github.com/owner/theme", required: true })
+          form.field(:branch, label: "Branch", value: "main", control_html: { required: true })
+          form.field(:auto_update, as: :switch, label: "Check for new commits automatically")
+          form.field(:auto_activate, as: :switch, label: "Activate valid new releases automatically")
+          form.field(:spa, as: :switch, label: "Enable client-side routing for plain bundles")
+          render Button.new("Install repository", type: :submit, variant: :primary, icon: :download)
+        end
+      end
+      Current.site.theme_repository_sources.order(id: :desc).each do |source|
+        section(class: "themes-import") do
+          div(class: "themes-import-intro") do
+            h2 { source.repository }
+            p { "#{source.branch} · #{source.status.humanize}" }
+            p(class: "themes-help") { "Commit: #{source.deployed_sha&.first(12) || 'Not installed'}" }
+            p(class: "themes-help") { source.error_message } if source.error_message.present?
+            render ButtonTo.new("Check for updates", href: sync_admin_theme_repository_source_path(source), method: :post, variant: :outline, size: :sm)
+          end
+          div(class: "themes-import-form") do
+            form_with(url: admin_theme_repository_source_path(source), method: :patch, builder: Ink::FormBuilder, scope: "repository_#{source.id}") do |form|
+              form.field(:auto_update, as: :switch, label: "Automatic update checks", checked: source.auto_update)
+              form.field(:auto_activate, as: :switch, label: "Automatic activation", checked: source.auto_activate)
+              render Button.new("Save update preferences", type: :submit, variant: :secondary, size: :sm)
+            end
+            source.releases.reverse.each do |release|
+              div(class: "themes-help") do
+                span { "#{release['sha'].first(12)} " }
+                render Button.new("Preview", href: preview_admin_theme_path(release['slug']), variant: :ghost, size: :sm)
+                render ButtonTo.new("Activate / roll back", href: activate_admin_theme_repository_source_path(source, slug: release['slug']), method: :post, variant: :outline, size: :sm)
+              end
+            end
+          end
+        end
+      end
+    end
 
     def import_panel
       section(id: "theme-import", class: "themes-import") do

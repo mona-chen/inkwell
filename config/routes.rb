@@ -79,6 +79,13 @@ Rails.application.routes.draw do
       end
     end
 
+    resources :theme_repository_sources, only: [:create, :update] do
+      member do
+        post :sync
+        post :activate
+      end
+    end
+
     resources :themes, only: [:index] do
       collection { post :import }
       member do

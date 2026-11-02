@@ -2,6 +2,7 @@ class User < ApplicationRecord
   devise :database_authenticatable, :registerable, :recoverable, :rememberable, :trackable, :validatable
 
   belongs_to :site
+  has_many :theme_repository_sources, dependent: :destroy
   belongs_to :role
   has_many :agent_credentials, dependent: :destroy
   has_many :posts, foreign_key: :author_id, dependent: :nullify
