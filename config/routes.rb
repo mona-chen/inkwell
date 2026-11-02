@@ -83,6 +83,7 @@ Rails.application.routes.draw do
 
     resource :github_connection, only: [:destroy] do
       post :manifest
+      get :registration
       get :callback
       post :install
       get :setup

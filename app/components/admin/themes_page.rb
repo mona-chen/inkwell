@@ -147,7 +147,7 @@ module Admin
             render Badge.new(connection.connected? ? "Connected" : "Setup required", color: connection.connected? ? :success : :neutral)
           end
           div(class: "theme-connection-actions") do
-            render ButtonTo.new(connection.connected? ? "Manage repository access" : "Install on GitHub", href: install_admin_github_connection_path, method: :post, variant: :primary, size: :sm, icon: :external_link)
+            render ButtonTo.new(connection.connected? ? "Manage repository access" : "Install on GitHub", href: install_admin_github_connection_path, method: :post, data: { turbo: false }, variant: :primary, size: :sm, icon: :external_link)
             if connection.connected?
               render ButtonTo.new("Refresh repositories", href: refresh_admin_github_connection_path, method: :post, variant: :outline, size: :sm, icon: :refresh_cw)
               render ButtonTo.new("Disconnect", href: admin_github_connection_path, method: :delete, variant: :ghost, size: :sm, data: { turbo_confirm: "Disconnect this account and pause automatic theme deployments?" })
@@ -164,7 +164,7 @@ module Admin
           end
         else
           div(class: "theme-connection-actions") do
-            render ButtonTo.new("Create GitHub App", href: manifest_admin_github_connection_path, method: :post, variant: :primary, size: :sm, icon: :external_link)
+            render ButtonTo.new("Create GitHub App", href: manifest_admin_github_connection_path, method: :post, data: { turbo: false }, variant: :primary, size: :sm, icon: :external_link)
           end
           unless GithubApps::Setup.public_url(helpers.request.base_url)
             p(class: "theme-field-help") { "Complete setup on your public HTTPS deployment or an HTTPS tunnel. GitHub needs a reachable webhook and callback URL." }

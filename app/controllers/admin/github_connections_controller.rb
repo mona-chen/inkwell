@@ -7,7 +7,17 @@ module Admin
       base = GithubApps::Setup.public_url(request.base_url)
       raise GithubApps::Client::Error, "Open Inkwell on a public HTTPS URL (or an HTTPS tunnel) before creating the GitHub App." unless base
       raise GithubApps::Client::Error, "A GitHub App is already configured for this site" if Current.site.github_app_connection
-      state = issue_state(:github_manifest, {})
+      issue_state(:github_manifest, {})
+      session[:github_manifest_base] = base
+      redirect_to registration_admin_github_connection_path, status: :see_other
+    end
+
+    def registration
+      pending = session[:github_manifest].to_h
+      base = session[:github_manifest_base]
+      unless base.present? && pending["nonce"].present? && pending["expires"].to_i > Time.current.to_i && pending["site_id"] == Current.site.id && pending["user_id"] == current_user.id
+        raise GithubApps::Client::Error, "GitHub App setup expired; start again"
+      end
       manifest = {
         name: "Inkwell #{SecureRandom.hex(4)}", url: base, description: "Theme deployment for #{Current.site.name}",
         hook_attributes: { url: "#{base}/github/hooks/site/#{Current.site.id}", active: true },
@@ -15,8 +25,7 @@ module Admin
         setup_url: "#{base}/admin/github_connection/setup", setup_on_update: true, request_oauth_on_install: false,
         public: true, default_permissions: { contents: "read", metadata: "read" }, default_events: ["push"]
       }
-      session[:github_manifest_base] = base
-      render Admin::GithubManifestPage.new(manifest: manifest, state: state)
+      render Admin::GithubManifestPage.new(manifest: manifest, state: pending.fetch("nonce")), content_type: "text/html"
     end
 
     def callback

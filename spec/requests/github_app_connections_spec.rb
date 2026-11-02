@@ -16,14 +16,22 @@ RSpec.describe "GitHub App connections", type: :request do
     expect(response.body).not_to include('name="theme_repository_source[repository]"')
     get "/admin/themes?tab=github"
     expect(response.body).to include("Create GitHub App")
+    form = Nokogiri::HTML(response.body).at_css('form[action="/admin/github_connection/manifest"]')
+    expect(form["data-turbo"]).to eq("false")
     get "/admin/themes?tab=add"
     expect(response.body).to include("Install from GitHub", "Public repository URL")
   end
 
   it "registers through a single-use manifest state and encrypts credentials" do
     allow(GithubApps::Setup).to receive(:public_url).and_return("https://inkwell.example")
-    post "/admin/github_connection/manifest"
+    # Match Turbo's Accept header from the production failure. A POST must
+    # redirect to a GET page, never return HTML labeled as a turbo-stream.
+    post "/admin/github_connection/manifest", headers: { "Accept" => "text/vnd.turbo-stream.html, text/html, application/xhtml+xml" }
+    expect(response).to have_http_status(:see_other)
+    expect(response).to redirect_to(registration_admin_github_connection_path)
+    follow_redirect!
     expect(response).to have_http_status(:ok)
+    expect(response.media_type).to eq("text/html")
     document = Nokogiri::HTML(response.body)
     state = URI.decode_www_form(URI(document.at_css('form')['action']).query).to_h.fetch("state")
     manifest = JSON.parse(document.at_css('input[name=manifest]')['value'])
@@ -37,6 +45,12 @@ RSpec.describe "GitHub App connections", type: :request do
     get "/admin/github_connection/callback", params: { state: state, code: "valid-code" }
     expect(GithubAppConnection.count).to eq(1)
     expect(response).to redirect_to(admin_themes_path(tab: "github"))
+  end
+
+  it "does not expose a registration page without an active setup session" do
+    get "/admin/github_connection/registration"
+    expect(response).to redirect_to(admin_themes_path(tab: "github"))
+    expect(response.body).not_to include('name="manifest"')
   end
 
   it "rejects an unsolicited installation callback" do
