@@ -73,7 +73,7 @@ RSpec.describe "GitHub App connections", type: :request do
     get "/admin/github_connection/authorize", params: { state: state, code: "oauth-code" }
     expect(connection.reload).to have_attributes(installation_id: 789, account_login: "verified-owner")
     get "/admin/themes?tab=add"
-    expect(response.body).to include("verified-owner/private-theme", "github_app_connection_id")
+    expect(response.body).to include("verified-owner/private-theme", "github_app_connection_id", 'data-controller="searchable-select"', "Search repositories")
     expect(response.body).not_to include("private-client-secret")
   end
 

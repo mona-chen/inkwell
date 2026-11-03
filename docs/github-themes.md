@@ -104,3 +104,14 @@ publish files to another server. Use a shared persistent theme volume or a deplo
 pipeline that distributes the installed files to every serving instance. Database
 metadata alone is insufficient. Updates can rehydrate a missing current release,
 but persistent shared storage is required for uninterrupted production serving.
+
+## Compiled static assets and embedded previews
+
+Static packages can declare `"asset_prefix": "/__inkwell_assets__/"`. Their build
+step writes that placeholder before asset paths in HTML, JavaScript, CSS, SVG and
+JSON. Inkwell resolves it to the installed release's `/theme-assets/<slug>/`
+namespace when serving those files. Navigation URLs remain ordinary site routes.
+This keeps embedded images, fonts and modules attached to an immutable release,
+including when it is being previewed while another theme is active. Embedded HTML
+must be a declared manifest route target to be served from that asset namespace;
+unlisted HTML and source files remain unavailable.

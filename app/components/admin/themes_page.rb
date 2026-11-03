@@ -82,7 +82,7 @@ module Admin
         if connection&.connected? && connection.repositories.any?
           form.hidden_field(:github_app_connection_id, value: connection.id)
           choices = connection.repositories.map { |repo| ["#{repo['full_name']} · #{repo['default_branch']}", repo['full_name'], { "data-default-branch" => repo['default_branch'] }] }
-          form.field(:repository, as: :select, label: "Repository", options: choices, include_blank: "Choose a repository", control_html: { required: true, data: { action: "change->repository-picker#select" } })
+          render Ink::SearchableSelect.new(form: form, name: :repository, label: "Repository", options: choices, prompt: "Choose a repository", source_action: "change->repository-picker#select")
         else
           form.field(:repository, label: "Public repository URL", control_html: { placeholder: "https://github.com/your-team/site-theme", required: true })
           p(class: "theme-field-help") { "Public repositories work without connecting an App. Private repos need a GitHub connection." }

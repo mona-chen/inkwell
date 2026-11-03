@@ -6,7 +6,7 @@ module ThemePackages
   class Importer
     MAX_FILES = 10_000
     MAX_BYTES = 200.megabytes
-    EXCLUDED = %w[.git node_modules vendor .bundle .env .DS_Store].freeze
+    EXCLUDED = %w[.git node_modules .bundle .env .DS_Store].freeze
 
     def initialize(destination: Rails.root.join("app/themes"))
       @destination = Pathname.new(destination)

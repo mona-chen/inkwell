@@ -24,6 +24,9 @@ module ThemePackages
       if data["entrypoint"] && !imports.key?(data["entrypoint"])
         raise Invalid, "entrypoint must name a declared import"
       end
+      if data["asset_prefix"] && !(kind == "static" && data["asset_prefix"].is_a?(String) && data["asset_prefix"].match?(%r{\A/__inkwell_[a-z0-9_]+__/\z}))
+        raise Invalid, "asset_prefix must be a static theme asset placeholder"
+      end
       Dependencies.new(data.fetch("dependencies", {})).validate!
     end
 

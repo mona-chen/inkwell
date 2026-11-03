@@ -47,6 +47,29 @@ RSpec.describe "Theme package routing", type: :request do
     expect(site.reload.active_theme).to eq("default")
   end
 
+  it "isolates placeholder assets and embedded documents from the active theme" do
+    manifest = JSON.parse(root.join("theme.json").read)
+    manifest["asset_prefix"] = "/__inkwell_assets__/"
+    manifest["routes"]["/vendor/demo/index.html"] = "vendor/demo/index.html"
+    root.join("theme.json").write(JSON.generate(manifest))
+    FileUtils.mkdir_p(root.join("public/vendor/demo"))
+    root.join("public/vendor/demo/index.html").write('<script src="/__inkwell_assets__/assets/app.js"></script>')
+    root.join("public/assets/app.js").write('const image="/__inkwell_assets__/assets/photo.png";')
+    site.update!(active_theme: "default")
+    get "/theme-assets/package-test/vendor/demo/index.html"
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include("/theme-assets/package-test/assets/app.js")
+    get "/theme-assets/package-test/assets/app.js"
+    expect(response.media_type).to eq("text/javascript")
+    expect(response.body).to include("/theme-assets/package-test/assets/photo.png")
+    expect(response.body).not_to include("/__inkwell_assets__/")
+    get "/theme-assets/package-test/about.html"
+    expect(response).to have_http_status(:ok)
+    get "/theme-assets/package-test/undeclared.html"
+    expect(response).to have_http_status(:not_found)
+    expect(site.reload.active_theme).to eq("default")
+  end
+
   it "does not return HTML for missing chunks, API requests, or unknown file paths" do
     get "/assets/missing.js"
     expect(response).to have_http_status(:not_found)

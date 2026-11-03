@@ -24,11 +24,15 @@ RSpec.describe ThemePackages::Importer do
     write("index.html", "<h1>Home</h1>")
     write("about.html", "<h1>About</h1>")
     write("assets/app.js", "window.loaded=true")
+    write("vendor/product-demo/index.html", "<h1>Product demo</h1>")
+    write("vendor/product-demo/app.js", "window.demo=true")
     write(".env", "SECRET=private")
     manifest = importer.import_directory!(@source, slug: "static-test")
     expect(manifest["spa_fallback"]).to be_nil
     expect(manifest["routes"]).to include("/" => "index.html", "/about" => "about.html", "/about.html" => "about.html")
     expect(@destination.join("static-test/public/assets/app.js")).to exist
+    expect(@destination.join("static-test/public/vendor/product-demo/app.js")).to exist
+    expect(manifest["routes"]).to include("/vendor/product-demo/index.html" => "vendor/product-demo/index.html")
     expect(@destination.join("static-test/public/.env")).not_to exist
   end
 

@@ -70,18 +70,33 @@ module ThemePackages
     end
 
     def serve_asset(controller, relative)
+      # HTML in an asset namespace is allowed only for declared static documents
+      # (for example an embedded product demo), and receives the same rewriting.
+      if manifest.kind == "static" && manifest.routes.value?(relative) && File.extname(relative) == ".html"
+        render_html(controller, public_root.join(relative))
+        return true
+      end
       file = asset_file(relative)
       return false unless file
-      controller.send_file file, type: CONTENT_TYPES.fetch(file.extname.downcase), disposition: "inline"
+      if manifest.data["asset_prefix"] && %w[.css .js .mjs .json .svg].include?(file.extname.downcase)
+        controller.render body: resolve_asset_prefix(file.read), content_type: CONTENT_TYPES.fetch(file.extname.downcase)
+      else
+        controller.send_file file, type: CONTENT_TYPES.fetch(file.extname.downcase), disposition: "inline"
+      end
       true
     end
 
     private
 
+    def resolve_asset_prefix(text)
+      prefix = manifest.data["asset_prefix"]
+      prefix ? text.gsub(prefix, "/theme-assets/#{manifest.slug}/") : text
+    end
+
     def public_root = root.join(manifest.data.fetch("public", "public"))
 
     def render_html(controller, file, spa: false)
-      document = Nokogiri::HTML5.parse(file.read)
+      document = Nokogiri::HTML5.parse(resolve_asset_prefix(file.read))
       source_path = "/#{file.relative_path_from(public_root)}"
       document.css("[src], link[href]").each do |node|
         attribute = node["src"] ? "src" : "href"
@@ -99,6 +114,14 @@ module ThemePackages
         base = Nokogiri::XML::Node.new("base", document)
         base["href"] = "/"
         document.at_css("head").prepend_child(base)
+      end
+      if controller.params[:preview_theme] == manifest.slug && controller.current_user&.admin?
+        script = Nokogiri::XML::Node.new("script", document)
+        script["src"] = controller.helpers.asset_path("theme_preview_navigation.js")
+        script["defer"] = "defer"
+        script["data-ink-theme-preview"] = manifest.slug
+        script["data-routes"] = manifest.routes.keys.to_json
+        document.at_css("body").add_child(script)
       end
       html = document.to_html
       controller.render html: html.html_safe, layout: false, content_type: "text/html"

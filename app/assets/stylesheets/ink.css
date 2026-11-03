@@ -100,3 +100,22 @@
 #admin-shell select.ink-select-chevron { -webkit-appearance:none; appearance:none; padding-right:38px; cursor:pointer; }
 #admin-shell select.ink-control:hover { border-color:color-mix(in srgb,var(--foreground) 30%,var(--border)); }
 #admin-shell select.ink-control option { background:var(--card); color:var(--foreground); }
+
+.ink-searchable-select { position:relative; margin-bottom:16px; }
+.ink-searchable-select [hidden] { display:none !important; }
+.ink-searchable-select-label { display:block; font-size:12px; font-weight:500; margin-bottom:7px; }
+.ink-searchable-select-trigger { display:flex; align-items:center; gap:10px; width:100%; min-height:40px; padding:9px 12px; border:1px solid var(--border); border-radius:7px; background:var(--background); color:var(--muted-foreground); text-align:left; font-size:13px; }
+.ink-searchable-select-trigger>span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ink-searchable-select-trigger.has-value { color:var(--foreground); }
+.ink-searchable-select-trigger[aria-expanded="true"] { border-color:color-mix(in srgb,var(--foreground) 40%,var(--border)); }
+.ink-searchable-select-trigger[aria-invalid="true"] { border-color:var(--destructive); }
+.ink-searchable-select-popover { position:absolute; top:100%; margin-top:6px; inset-inline:0; z-index:40; padding:5px; border:1px solid var(--border); border-radius:9px; background:var(--card); color:var(--foreground); box-shadow:0 10px 30px #0003; }
+.ink-searchable-select-search { display:flex; gap:9px; align-items:center; border-bottom:1px solid var(--border); padding:5px 8px 10px; color:var(--muted-foreground); }
+#admin-shell .ink-searchable-select-search input { flex:1; min-width:0; border:0; background:transparent; outline:none; box-shadow:none; padding:6px 0; font-size:13px; color:var(--foreground); }
+.ink-searchable-select-options { max-height:260px; overflow:auto; padding-top:4px; overscroll-behavior:contain; }
+.ink-searchable-select-option { width:100%; display:flex; align-items:center; gap:12px; padding:10px; text-align:left; border-radius:5px; font-size:13px; }
+.ink-searchable-select-option>span { flex:1; overflow-wrap:anywhere; }
+.ink-searchable-select-option small { color:var(--muted-foreground); font-size:11px; }
+.ink-searchable-select-option:hover,.ink-searchable-select-option.is-highlighted { background:var(--muted); }
+.ink-searchable-select-option[aria-selected="true"]>span { color:var(--primary); font-weight:600; }
+.ink-searchable-select-empty { padding:24px 12px; color:var(--muted-foreground); font-size:12px; text-align:center; }
