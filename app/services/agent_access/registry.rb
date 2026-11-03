@@ -11,7 +11,7 @@ module AgentAccess
     end
 
     def tools
-      definitions = CoreTools.tools + SettingsTools.tools + LivePlugins.tools
+      definitions = CoreTools.tools + SettingsTools.tools + LivePlugins.tools + ThemeTools.tools
       Inkwell::PluginManager.discovered.each do |engine|
         next unless self.class.plugin_active?(@credential.site, engine.plugin_slug)
         engine.mcp_tools.each do |name, options|

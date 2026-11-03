@@ -1,5 +1,5 @@
 class AgentCredential < ApplicationRecord
-  SCOPES = %w[site:read content:write content:publish builder:write plugins:read plugins:deploy settings:write].freeze
+  SCOPES = %w[site:read content:write content:publish builder:write plugins:read plugins:deploy settings:write theme:read theme:write theme:release].freeze
   SCOPE_DETAILS = {
     "site:read" => ["Read site content", "Inspect pages, drafts, SEO and public site configuration."],
     "content:write" => ["Create and edit drafts", "Create posts and pages; update content and metadata."],
@@ -7,7 +7,10 @@ class AgentCredential < ApplicationRecord
     "builder:write" => ["Edit visual designs", "Change native Builder layers in shared drafts."],
     "plugins:read" => ["Inspect plugins", "Read installed plugins and their public configuration."],
     "plugins:deploy" => ["Deploy frontend plugins", "Activate CSS/JavaScript releases on the public site."],
-    "settings:write" => ["Change public site settings", "Edit site-wide scripts, CSS, theme defaults and plugin settings."]
+    "settings:write" => ["Change public site settings", "Edit site-wide scripts, CSS, theme defaults and plugin settings."],
+    "theme:read" => ["Read theme routes", "Inspect declared theme routes, parts, editable regions and previews."],
+    "theme:write" => ["Edit theme route SEO", "Update theme route titles, SEO and publication metadata."],
+    "theme:release" => ["Manage theme releases", "Queue builds and explicitly activate or roll back theme releases."]
   }.freeze
   belongs_to :site
   belongs_to :user

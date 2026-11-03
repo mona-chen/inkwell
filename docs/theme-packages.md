@@ -1,5 +1,13 @@
 # Importing frontend themes
 
+For CMS-backed static pages and local fixture previews, follow the
+[theme runtime contract guide](theme-runtime-contract.md).
+
+> Static themes can declare CMS templates, parts, regions and fixture data with the
+> optional `inkwell` manifest section. See [theme-runtime-contract.md](theme-runtime-contract.md)
+> for the canonical data contract, region markers, islands, theme routes, Rails helpers
+> and MCP tools.
+
 Themes own frontend source; Rails application features and APIs remain in Inkwell
 and its plugins. A theme can contain ERB views, Stimulus controllers, Turbo
 navigation, compiled React/Vue/etc., or ordinary HTML/CSS/JS. It is not an isolated

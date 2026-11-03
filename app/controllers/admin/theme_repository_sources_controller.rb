@@ -45,13 +45,12 @@ module Admin
         raise ThemePackages::Invalid, "Unknown release" unless release
         runtime = ThemePackages::Runtime.for(release["slug"])
         raise ThemePackages::Invalid, "Release is missing from this server" unless runtime
-        raise ThemePackages::Invalid, runtime.readiness_errors.join(". ") if runtime.readiness_errors.any?
-        Current.site.update!(active_theme: release["slug"])
+        ThemeRuntime::Releases.activate!(site: Current.site, slug: release["slug"])
         # A manual deployment/rollback always pauses automatic activation.
         source.update!(auto_activate: false)
       end
       redirect_to admin_themes_path, notice: "Theme release activated. Automatic activation paused."
-    rescue ThemePackages::Invalid => error
+    rescue ThemePackages::Invalid, ThemeRuntime::Releases::Error => error
       redirect_to admin_themes_path, alert: error.message
     end
 

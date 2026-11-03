@@ -7,15 +7,16 @@ class SiteController < ApplicationController
 
   def home
     runtime = ThemePackages::Runtime.for(@current_theme)
-    return if runtime&.render(self, "/")
 
-    if @theme_preview && params[:theme_home] == "1"
+    if @theme_preview
+      return if runtime&.render(self, "/")
+
       @posts = Current.site.posts.published.recent.includes(:author, :terms).limit(10)
       return render "site/home"
     end
 
-    # If a static front page is configured (Settings → Reading → Homepage), render that
-    # page's template — same as PagesController — instead of the posts archive.
+    # Route precedence: native Inkwell pages beat the active theme's declared
+    # route. A theme can never shadow the configured front page.
     if Current.site.front_page?
       render_public_page(Current.site.front_page)
       return
@@ -23,6 +24,8 @@ class SiteController < ApplicationController
 
     imported_home = Current.site.pages.published.find_by(public_path: "/")
     return render_public_page(imported_home) if imported_home
+
+    return if runtime&.render(self, "/")
 
     @posts = Current.site.posts.published.recent.limit(10)
     @head_meta = Inkwell::Hooks.filter(:head_meta, [], post: nil)
@@ -39,6 +42,7 @@ class SiteController < ApplicationController
 
     @posts = Current.site.posts.published.order(published_at: :desc)
     @pages = Current.site.pages.where(template_for: nil).published.ordered
+    @theme_routes = Current.site.theme_routes.where(theme_release_id: Current.site.active_theme).sitemap.ordered.reject { |route| route.path.include?(":") || route.path == "/" || route.robots.to_s.include?("noindex") }
     render xml: render_to_string(partial: "site/sitemap", formats: [:xml]), layout: false
   end
 

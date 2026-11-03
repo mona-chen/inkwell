@@ -22,6 +22,9 @@ class Site < ApplicationRecord
   has_many :agent_credentials, dependent: :destroy
   has_many :agent_activities, dependent: :destroy
   has_many :live_plugins, dependent: :destroy
+  has_many :theme_routes, dependent: :destroy
+  has_many :theme_region_overrides, dependent: :destroy
+  has_many :theme_part_overrides, dependent: :destroy
 
   # Multisite columns (active/is_default/subdomain) exist after the plugin migration runs;
   # the scopes are safe to define unconditionally — they only touch the DB when called.

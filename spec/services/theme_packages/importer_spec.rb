@@ -73,6 +73,29 @@ RSpec.describe ThemePackages::Importer do
     expect { ThemePackages::Manifest.new({ "format" => "inkwell-theme-v1", "slug" => "../bad", "name" => "Bad", "kind" => "static" }) }.to raise_error(ThemePackages::Invalid)
   end
 
+  it "validates declared contract files, fixtures and parts before install" do
+    write("theme.json", JSON.generate(format: "inkwell-theme-v1", slug: "contract-files", name: "Contract", kind: "static", public: "public",
+      routes: { "/" => "index.html", "/blog" => "blog.html" },
+      inkwell: { contract: "1", fixtures: "inkwell/fixtures", parts: { header: "inkwell/parts/header.html" }, editable_regions: { hero: { type: "rich_text", builder: true } } }))
+    write("public/index.html", "Home")
+    write("public/blog.html", "Blog")
+    write("inkwell/parts/header.html", "<header>Header</header>")
+    write("inkwell/fixtures/site.json", JSON.generate(id: "1", name: "Fixture", url: "/", logo: nil))
+    write("inkwell/fixtures/posts.json", "[]")
+    expect { importer.import_directory!(@source, slug: "contract-files") }.not_to raise_error
+
+    FileUtils.rm(@source.join("inkwell/fixtures/posts.json"))
+    write("inkwell/fixtures/posts.json", "{}")
+    expect { importer.import_directory!(@source, slug: "contract-files") }.to raise_error(ThemePackages::Invalid, /posts.json/)
+  end
+
+  it "blocks a declaration whose part file is missing" do
+    write("theme.json", JSON.generate(format: "inkwell-theme-v1", slug: "missing-part", name: "Missing", kind: "static", public: "public",
+      routes: { "/" => "index.html" }, inkwell: { contract: "1", parts: { header: "inkwell/parts/header.html" } }))
+    write("public/index.html", "Home")
+    expect { importer.import_directory!(@source, slug: "missing-part") }.to raise_error(ThemePackages::Invalid, /Missing declared part/)
+  end
+
   it "imports ZIPs without executing build scripts and rejects escaping entries" do
     archive = @root.join("website.zip")
     Zip::File.open(archive, create: true) { |zip| zip.get_output_stream("index.html") { |out| out.write("Home") } }

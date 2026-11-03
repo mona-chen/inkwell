@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_03_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_03_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -577,6 +577,39 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_100000) do
     t.index ["site_id"], name: "index_terms_on_site_id"
   end
 
+  create_table "theme_part_overrides", force: :cascade do |t|
+    t.text "body", default: "", null: false
+    t.datetime "created_at", null: false
+    t.string "part_key", null: false
+    t.integer "revision", default: 0, null: false
+    t.bigint "site_id", null: false
+    t.string "theme_release_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["site_id", "theme_release_id", "part_key"], name: "index_theme_part_overrides_unique", unique: true
+    t.index ["site_id"], name: "index_theme_part_overrides_on_site_id"
+  end
+
+  create_table "theme_part_revisions", force: :cascade do |t|
+    t.text "body"
+    t.datetime "created_at", null: false
+    t.integer "revision_number", null: false
+    t.bigint "theme_part_override_id", null: false
+    t.index ["theme_part_override_id", "revision_number"], name: "index_theme_part_revisions_unique", unique: true
+    t.index ["theme_part_override_id"], name: "index_theme_part_revisions_on_theme_part_override_id"
+  end
+
+  create_table "theme_region_overrides", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "data", default: {}, null: false
+    t.string "region_key", null: false
+    t.integer "revision", default: 0, null: false
+    t.bigint "site_id", null: false
+    t.string "theme_release_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["site_id", "theme_release_id", "region_key"], name: "index_theme_region_overrides_unique", unique: true
+    t.index ["site_id"], name: "index_theme_region_overrides_on_site_id"
+  end
+
   create_table "theme_repository_sources", force: :cascade do |t|
     t.string "activation_base_slug"
     t.boolean "auto_activate", default: false, null: false
@@ -598,6 +631,47 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_100000) do
     t.index ["github_app_connection_id"], name: "index_theme_repository_sources_on_github_app_connection_id"
     t.index ["site_id"], name: "index_theme_repository_sources_on_site_id"
     t.index ["user_id"], name: "index_theme_repository_sources_on_user_id"
+  end
+
+  create_table "theme_route_revisions", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "revision_number", null: false
+    t.jsonb "snapshot", default: {}, null: false
+    t.bigint "theme_route_id", null: false
+    t.bigint "user_id"
+    t.index ["theme_route_id", "revision_number"], name: "idx_on_theme_route_id_revision_number_c7e0d7bca7", unique: true
+    t.index ["theme_route_id"], name: "index_theme_route_revisions_on_theme_route_id"
+    t.index ["user_id"], name: "index_theme_route_revisions_on_user_id"
+  end
+
+  create_table "theme_routes", force: :cascade do |t|
+    t.string "canonical_url"
+    t.datetime "created_at", null: false
+    t.jsonb "draft_data", default: {}, null: false
+    t.text "meta_description"
+    t.string "navigation_label"
+    t.string "navigation_location"
+    t.integer "navigation_position", default: 0, null: false
+    t.string "path", null: false
+    t.datetime "published_at"
+    t.integer "revision", default: 0, null: false
+    t.string "robots", default: "index, follow", null: false
+    t.string "route_key", null: false
+    t.jsonb "schema_json", default: {}, null: false
+    t.string "seo_title"
+    t.bigint "site_id", null: false
+    t.boolean "sitemap", default: true, null: false
+    t.bigint "social_image_id"
+    t.string "status", default: "published", null: false
+    t.string "theme_release_id", null: false
+    t.string "title_override"
+    t.datetime "updated_at", null: false
+    t.index ["site_id", "path"], name: "index_theme_routes_on_site_id_and_path"
+    t.index ["site_id", "status"], name: "index_theme_routes_on_site_id_and_status"
+    t.index ["site_id", "theme_release_id", "path"], name: "index_theme_routes_release_path", unique: true
+    t.index ["site_id", "theme_release_id", "route_key"], name: "idx_on_site_id_theme_release_id_route_key_2fd5fe8bab"
+    t.index ["site_id"], name: "index_theme_routes_on_site_id"
+    t.index ["social_image_id"], name: "index_theme_routes_on_social_image_id"
   end
 
   create_table "themes", force: :cascade do |t|
@@ -750,9 +824,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_100000) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "terms", "sites"
+  add_foreign_key "theme_part_overrides", "sites"
+  add_foreign_key "theme_part_revisions", "theme_part_overrides"
+  add_foreign_key "theme_region_overrides", "sites"
   add_foreign_key "theme_repository_sources", "github_app_connections"
   add_foreign_key "theme_repository_sources", "sites"
   add_foreign_key "theme_repository_sources", "users"
+  add_foreign_key "theme_route_revisions", "theme_routes"
+  add_foreign_key "theme_route_revisions", "users"
+  add_foreign_key "theme_routes", "media_items", column: "social_image_id"
+  add_foreign_key "theme_routes", "sites"
   add_foreign_key "user_sites", "sites"
   add_foreign_key "user_sites", "users"
   add_foreign_key "users", "roles"

@@ -1,0 +1,108 @@
+#!/usr/bin/env ruby
+# Standard-library-only preview server for a theme package. It does not boot
+# Rails: it serves the theme's declared public directory, injects the fixture
+# contract, and applies declared static routes. Use it while building a theme.
+require "json"
+require "pathname"
+require "socket"
+require "uri"
+
+theme_root = Pathname.new(ARGV.shift || Dir.pwd).expand_path
+port = Integer(ARGV.shift || ENV.fetch("PORT", "4567"))
+manifest_path = theme_root.join("theme.json")
+abort "theme.json was not found in #{theme_root}" unless manifest_path.file?
+
+manifest = JSON.parse(manifest_path.read)
+abort "Unsupported theme format" unless manifest["format"] == "inkwell-theme-v1"
+abort "Rails themes need the host Rails runtime" unless manifest["kind"] == "static"
+public_root = theme_root.join(manifest.fetch("public", "public"))
+routes = manifest.fetch("routes", {})
+fixture_dir = theme_root.join(manifest.dig("inkwell", "fixtures") || "inkwell/fixtures")
+
+MIME = {
+  ".html" => "text/html; charset=utf-8", ".css" => "text/css; charset=utf-8",
+  ".js" => "text/javascript; charset=utf-8", ".mjs" => "text/javascript; charset=utf-8",
+  ".json" => "application/json", ".svg" => "image/svg+xml", ".png" => "image/png",
+  ".jpg" => "image/jpeg", ".jpeg" => "image/jpeg", ".webp" => "image/webp",
+  ".avif" => "image/avif", ".gif" => "image/gif", ".ico" => "image/x-icon",
+  ".woff" => "font/woff", ".woff2" => "font/woff2", ".ttf" => "font/ttf",
+  ".mp4" => "video/mp4", ".webm" => "video/webm", ".pdf" => "application/pdf"
+}.freeze
+
+def fixture_contract(directory, fallback_site)
+  data = {}
+  if directory.directory?
+    Dir.glob(directory.join("*.json")).each do |file|
+      data[File.basename(file, ".json")] = JSON.parse(File.read(file))
+    end
+  end
+  data["site"] ||= fallback_site
+  data["navigation"] ||= []
+  data["page"] ||= {}
+  data["posts"] ||= []
+  data["authors"] ||= []
+  data["comments"] ||= []
+  data["pagination"] ||= { "page" => 1, "per_page" => 10, "total" => data["posts"].size, "pages" => 1, "next" => nil, "previous" => nil }
+  data
+rescue JSON::ParserError => error
+  abort "Invalid fixture: #{error.message}"
+end
+
+DATA = fixture_contract(fixture_dir, { "id" => manifest["slug"], "name" => manifest["name"], "url" => "", "logo" => nil })
+DATA_SCRIPT = %(<script type="application/json" id="inkwell-data" data-inkwell-contract="1">#{JSON.generate(DATA).gsub("<", "\\u003c").gsub(">", "\\u003e").gsub("&", "\\u0026")}</script>)
+
+def resolve_file(public_root, routes, path, spa_fallback)
+  return if path.split("/").any? { |part| [ ".", ".." ].include?(part) }
+
+  target = routes[path]
+  target ||= routes.find do |pattern, _|
+    pattern.include?(":") && /\A#{pattern.split("/", -1).map { |segment| segment.match?(/\A:[a-z_]+\z/) ? "[^/]+" : Regexp.escape(segment) }.join("/")}\z/.match?(path)
+  end&.last
+  target ||= routes["/#{path.sub(%r{\A/}, '')}"]
+  target ||= "index.html" if path == "/"
+  target ||= path.delete_prefix("/") if path.match?(/\.[a-z0-9]+\z/i)
+  target ||= spa_fallback if spa_fallback && path.match?(%r{\A/[^.]*\z}) && !routes.key?(path)
+  return unless target
+
+  file = public_root.join(target)
+  file.file? ? file : nil
+end
+
+def html_with_data(file)
+  html = file.read
+  return DATA_SCRIPT unless html.match?(/<html/i)
+
+  html.sub(/<head([^>]*)>/i, '<head\1><meta name="inkwell-rendering" content="fixture">').sub(/(<body[^>]*>)/i, "\\1#{DATA_SCRIPT}")
+end
+
+server = TCPServer.new("127.0.0.1", port)
+puts "Previewing #{manifest['name']} at http://127.0.0.1:#{port}"
+puts "Fixtures: #{fixture_dir}"
+
+loop do
+  client = server.accept
+  begin
+    request_line = client.gets.to_s
+    method, target, = request_line.split(" ")
+    while (line = client.gets) && line != "\r\n"; end
+    path = URI.parse(target.to_s).path
+    file = resolve_file(public_root, routes, path, manifest["spa_fallback"])
+    if method != "GET" && method != "HEAD"
+      client.write "HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    elsif file.nil?
+      client.write "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    elsif file.extname.downcase == ".html"
+      body = html_with_data(file)
+      client.write "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: #{body.bytesize}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n"
+      client.write body unless method == "HEAD"
+    else
+      body = file.binread
+      client.write "HTTP/1.1 200 OK\r\nContent-Type: #{MIME.fetch(file.extname.downcase, 'application/octet-stream')}\r\nContent-Length: #{body.bytesize}\r\nConnection: close\r\n\r\n"
+      client.write body unless method == "HEAD"
+    end
+  rescue URI::InvalidURIError, StandardError
+    client.write "HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+  ensure
+    client.close
+  end
+end

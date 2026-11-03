@@ -23,15 +23,10 @@ module Admin
     end
 
     def activate
-      Current.site.with_lock do
-        return head :not_found unless ThemeManager.available.include?(params[:id])
-        if (runtime = ThemePackages::Runtime.for(params[:id]))
-          errors = runtime.readiness_errors
-          return redirect_to admin_themes_path, alert: errors.join(". ") if errors.any?
-        end
-        Current.site.update!(active_theme: params[:id])
-      end
+      ThemeRuntime::Releases.activate!(site: Current.site, slug: params[:id])
       redirect_to admin_themes_path, notice: "Theme activated."
+    rescue ThemeRuntime::Releases::Error => error
+      redirect_to admin_themes_path, alert: error.message
     end
 
     def destroy

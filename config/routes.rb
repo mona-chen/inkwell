@@ -105,6 +105,20 @@ Rails.application.routes.draw do
         get :preview
       end
     end
+    resources :theme_routes, only: [:edit, :update] do
+      member do
+        get :preview
+        post :publish
+        post :unpublish
+        post :restore
+      end
+    end
+    resources :theme_regions, param: :region_key, only: %i[index show update] do
+      member { delete :reset }
+    end
+    resources :theme_parts, param: :part_key, only: %i[index show update] do
+      member { delete :reset }
+    end
     post "design/parts/:part/edit", to: "design#edit_part", as: :edit_design_part
     patch "design", to: "design#update", as: nil
     get "design", to: "design#show", as: :design
@@ -146,6 +160,8 @@ Rails.application.routes.draw do
 
     mount engine_class => "/plugins/#{engine_class.instance.plugin_slug}"
   end
+  # Deferred, read-only islands used by static themes (comments, search, pagination).
+  get "theme-islands/:kind", to: "theme_islands#show", format: false
   # Last: application and plugin endpoints always take precedence over imported paths.
   get "theme-assets/:theme_slug/*asset_path", to: "theme_sites#asset", format: false
   get "*imported_path", to: "theme_sites#show", format: false

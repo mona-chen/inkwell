@@ -19,14 +19,17 @@ namespace :themes do
 
   desc "Install packages and build a trusted theme source: themes:build[SLUG]"
   task :build, [:slug] => :environment do |_task, args|
-    runtime = ThemePackages::Runtime.for(args[:slug]) or abort "Theme package not found"
-    package = runtime.root.join("package.json")
-    abort "Theme has no package.json" unless package.file?
-    data = JSON.parse(package.read)
-    abort "package.json requires a build script" unless data.dig("scripts", "build").present?
-    install = runtime.root.join("package-lock.json").file? ? "ci" : "install"
-    abort "Package installation failed" unless system("npm", install, chdir: runtime.root.to_s)
-    abort "Theme build failed" unless system("npm", "run", "build", chdir: runtime.root.to_s)
+    ThemePackages::Builder.new.build!(args[:slug])
     puts "Built #{args[:slug]}."
+  rescue ThemePackages::Builder::Error => error
+    abort error.message
+  end
+end
+
+namespace :themes do
+  desc "Backfill CMS theme routes from every site's installed manifest"
+  task sync_routes: :environment do
+    ThemeRoutes::Synchronizer.sync_all!
+    puts "Theme routes synchronized."
   end
 end

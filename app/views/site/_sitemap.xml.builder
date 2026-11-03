@@ -21,6 +21,15 @@ xml.urlset xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9" do
     end
   end
 
+  @theme_routes.each do |route|
+    xml.url do
+      xml.loc "#{request.base_url}#{route.path}"
+      xml.lastmod route.updated_at.to_date.iso8601
+      xml.changefreq "monthly"
+      xml.priority "0.6"
+    end
+  end
+
   @pages.each do |page|
     next if page.url == "/"
 

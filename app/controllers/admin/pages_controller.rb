@@ -9,7 +9,8 @@ module Admin
       @pages = @pages.where(status: params[:status]) if params[:status].present? && %w[draft published trashed].include?(params[:status])
       @pages = @pages.where("title ILIKE ?", "%#{params[:q]}%") if params[:q].present?
       @pages = @pages.order(:menu_order).page(params[:page])
-      render Admin::PagesPage.new(pages: @pages, status: params[:status], q: params[:q])
+      @theme_routes = theme_routes_scope
+      render Admin::PagesPage.new(pages: @pages, theme_routes: @theme_routes, status: params[:status], q: params[:q])
     end
 
     def new
@@ -84,6 +85,17 @@ module Admin
     end
 
     private
+
+    def theme_routes_scope
+      routes = Current.site.theme_routes.where(theme_release_id: Current.site.active_theme)
+      routes = routes.none if params[:status] == "trashed"
+      routes = routes.where(status: params[:status]) if %w[draft published].include?(params[:status])
+      if params[:q].present?
+        term = "%#{params[:q]}%"
+        routes = routes.where("path ILIKE :term OR route_key ILIKE :term OR title_override ILIKE :term OR seo_title ILIKE :term", term: term)
+      end
+      routes.ordered
+    end
 
     def set_page
       @page = Current.site.pages.friendly.find(params[:id])

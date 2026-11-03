@@ -22,7 +22,7 @@ module ThemePackages
             bytes += entry.size
             raise Invalid, "Theme archive exceeds limits" if count > MAX_FILES || bytes > MAX_BYTES
             parts = entry.name.split("/")
-            raise Invalid, "Unsafe archive path" if entry.name.start_with?("/", "\\") || entry.name.include?("\\") || parts.any? { |part| [".", ".."].include?(part) } || entry.symlink?
+            raise Invalid, "Unsafe archive path" if entry.name.start_with?("/", "\\") || entry.name.include?("\\") || parts.any? { |part| [ ".", ".." ].include?(part) } || entry.symlink?
             next if entry.directory?
             target = root.join(entry.name)
             FileUtils.mkdir_p(target.dirname)
@@ -70,7 +70,7 @@ module ThemePackages
           routes = stage.join("public").glob("**/*.html").to_h do |file|
             relative = file.relative_path_from(stage.join("public")).to_s
             route = relative == "index.html" ? "/" : "/#{relative}"
-            [route, relative]
+            [ route, relative ]
           end
           routes.dup.each do |route, file|
             routes["/index.html"] = file if route == "/"
@@ -150,11 +150,38 @@ module ThemePackages
       if manifest.kind == "rails" && !view_root.join("layouts/application.html.erb").file?
         raise Invalid, "Rails themes require views/layouts/application.html.erb"
       end
+      validate_contract_files!(root, manifest, public_root, view_root)
       dependencies = manifest.data.fetch("dependencies", {}).fetch("packages", {})
       if dependencies.any?
         raise Invalid, "Declared packages require package.json" unless package.file?
         declared = package_data.fetch("dependencies", {}).merge(package_data.fetch("devDependencies", {}))
         raise Invalid, "package.json must match declared package dependencies" unless dependencies.all? { |key, value| declared[key] == value }
+      end
+    end
+
+    def validate_contract_files!(root, manifest, public_root, view_root)
+      return unless manifest.data["inkwell"].is_a?(Hash)
+
+      ThemeRuntime::Fixtures.new(root, manifest.inkwell["fixtures"].presence || "inkwell/fixtures").validate! if manifest.inkwell.key?("fixtures")
+
+      manifest.parts.each do |key, target|
+        next if manifest.routes.value?(target) || manifest.routes.key?(target)
+
+        file = if manifest.kind == "static"
+          candidates = [ public_root.join(target), public_root.join("#{target}.html"), public_root.join("parts/#{target}.html"), public_root.join("parts/#{target}/index.html") ]
+          candidates << root.join(target) if target.start_with?("inkwell/")
+          candidates.find(&:file?)
+        else
+          [ view_root.join("#{target}.html.erb"), view_root.join("_#{target}.html.erb"), view_root.join("#{target}.html") ].find(&:file?)
+        end
+        raise Invalid, "Missing declared part: #{key} (#{target})" unless file
+      end
+
+      manifest.templates.each do |key, target|
+        next if manifest.routes.value?(target) || manifest.routes.key?(target)
+
+        file = manifest.kind == "static" ? public_root.join("#{target}.html") : view_root.join("#{target}.html.erb")
+        raise Invalid, "Missing declared template: #{key} (#{target})" unless file.file?
       end
     end
   end

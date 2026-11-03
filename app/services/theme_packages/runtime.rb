@@ -29,6 +29,7 @@ module ThemePackages
       errors = []
       dependencies = Dependencies.new(manifest.data.fetch("dependencies", {}))
       errors << "Install gems and restart Rails: #{dependencies.missing_gems.keys.join(', ')}" if dependencies.missing_gems.any?
+      errors.concat(contract_errors)
       targets = manifest.routes.values + Array(manifest.data["spa_fallback"])
       targets.each do |target|
         file = manifest.kind == "static" ? public_root.join(target) : root.join(manifest.data.fetch("views", "views"), "#{target}.html.erb")
@@ -40,23 +41,57 @@ module ThemePackages
       errors.uniq
     end
 
+    def contract_errors
+      errors = []
+      if manifest.inkwell.key?("fixtures")
+        begin
+          ThemeRuntime::Fixtures.new(root, manifest.inkwell["fixtures"].presence || "inkwell/fixtures").validate!
+        rescue ThemePackages::Invalid => error
+          errors << error.message
+        end
+      end
+      manifest.parts.each do |key, target|
+        found = if manifest.kind == "static"
+          candidates = [ "#{target}.html", target, "parts/#{target}.html", "parts/#{target}/index.html" ]
+          candidates.any? do |candidate|
+            public_root.join(candidate).file? || (candidate.start_with?("inkwell/") && root.join(candidate).file?)
+          end
+        else
+          view_root = root.join(manifest.data.fetch("views", "views"))
+          [ view_root.join("#{target}.html.erb"), view_root.join(File.dirname(target), "_#{File.basename(target)}.html.erb"), root.join(target) ].any?(&:file?)
+        end
+        errors << "Missing theme part #{key} (#{target})" unless found
+      end
+      errors
+    end
+
     def render(controller, path, fallback: true)
-      target = manifest.routes[path]
-      if target
+      request = ThemeRuntime::Request.new(
+        site: Current.site,
+        path: path,
+        theme_slug: manifest.slug,
+        query: controller.params.to_unsafe_h.symbolize_keys.slice(:page, :q),
+        preview: controller.params[:preview_theme] == manifest.slug && controller.current_user&.admin?,
+        allow_spa_fallback: fallback,
+        base_url: controller.request.base_url
+      )
+      match = request.match
+      if match
+        return false if match.target.blank?
+
         if manifest.kind == "rails"
           controller.instance_variable_set(:@site, Current.site)
-          controller.render template: target, layout: "application"
+          controller.instance_variable_set(:@theme_route, match.route)
+          controller.instance_variable_set(:@theme_data, request.data)
+          controller.render template: match.target, layout: "application"
         else
-          render_html(controller, public_root.join(target), spa: target == manifest.data["spa_fallback"])
+          render_html(controller, public_root.join(match.target), spa: match.fallback || match.target == manifest.data["spa_fallback"], request: request)
         end
         return true
       end
       # Asset requests must never receive the SPA shell, including missing chunks.
       return true if path != "/" && serve_asset(controller, path.delete_prefix("/"))
-      if fallback && manifest.data["spa_fallback"] && File.extname(path).empty? && Manifest.route?(path)
-        render_html(controller, public_root.join(manifest.data["spa_fallback"]), spa: true)
-        return true
-      end
+
       false
     end
 
@@ -86,8 +121,6 @@ module ThemePackages
       true
     end
 
-    private
-
     def resolve_asset_prefix(text)
       prefix = manifest.data["asset_prefix"]
       prefix ? text.gsub(prefix, "/theme-assets/#{manifest.slug}/") : text
@@ -95,7 +128,9 @@ module ThemePackages
 
     def public_root = root.join(manifest.data.fetch("public", "public"))
 
-    def render_html(controller, file, spa: false)
+    private
+
+    def render_html(controller, file, spa: false, request: nil)
       document = Nokogiri::HTML5.parse(resolve_asset_prefix(file.read))
       source_path = "/#{file.relative_path_from(public_root)}"
       document.css("[src], link[href]").each do |node|
@@ -124,6 +159,16 @@ module ThemePackages
         document.at_css("body").add_child(script)
       end
       html = document.to_html
+      if request
+        html = ThemeRuntime::Document.new(
+          html: html,
+          data: request.data,
+          render_mode: request.render_mode,
+          serializer: request.serializer,
+          site: Current.site,
+          theme_slug: manifest.slug
+        ).render
+      end
       controller.render html: html.html_safe, layout: false, content_type: "text/html"
     end
   end

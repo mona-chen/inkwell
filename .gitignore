@@ -43,3 +43,4 @@
 /config/credentials/*.key
 
 cookie_jar
+/.sofia/

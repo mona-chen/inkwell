@@ -6,8 +6,9 @@ module Admin
   class PagesPage < ApplicationComponent
     STATUSES = [["All", nil], ["Published", "published"], ["Draft", "draft"], ["Trash", "trashed"]].freeze
 
-    def initialize(pages:, status: nil, q: nil, pagy: nil)
+    def initialize(pages:, theme_routes: [], status: nil, q: nil, pagy: nil)
       @pages = pages
+      @theme_routes = theme_routes
       @status = status
       @q = q
       @pagy = pagy
@@ -19,7 +20,7 @@ module Admin
         toolbar.leading do
           render ToolbarTitle.new(
             title: "Pages",
-            subtitle: "#{pluralize(@pages.total_count, "page")}"
+            subtitle: "#{pluralize(@pages.total_count + @theme_routes.size, "page")}"
           )
         end
         toolbar.trailing do
@@ -29,10 +30,11 @@ module Admin
 
       render_filters
 
-        if @pages.empty?
+        if @pages.empty? && @theme_routes.empty?
           render_empty
         else
-          render_page_list
+          render_page_list if @pages.any?
+          render_theme_route_list if @theme_routes.any?
         end
       end
     end
@@ -74,6 +76,49 @@ module Admin
         end
       end
       render ContentPagination.new(collection: @pages, kind: "pages", status: @status, q: @q)
+    end
+
+    def render_theme_route_list
+      div(class: "mt-6 overflow-hidden rounded-xl bg-card shadow-xs ring-1 ring-border/60") do
+        div(class: "flex items-center justify-between gap-3 border-b border-border px-5 py-3") do
+          h3(class: "text-sm font-semibold text-foreground") { "Theme pages" }
+          span(class: "text-xs text-muted-foreground") { "#{@theme_routes.size} route#{'s' unless @theme_routes.size == 1}" }
+        end
+        ul(class: "divide-y divide-border") do
+          @theme_routes.each { |route| render_theme_route_row(route) }
+        end
+      end
+    end
+
+    def render_theme_route_row(route)
+      li(class: "group flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-muted/40", data: { theme_route_row: true }) do
+        div(class: "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary") do
+          render Icon.new(:file_text, size: :sm)
+        end
+        div(class: "min-w-0 flex-1") do
+          div(class: "flex items-center gap-2") do
+            a(href: edit_admin_theme_route_path(route), class: "truncate text-[15px] font-semibold text-foreground transition-colors group-hover:text-primary") { route.display_title }
+            render Badge.new("Theme", color: :info, size: :xs)
+            render Badge.new(route.status, color: route.published? ? :success : :neutral, size: :xs)
+          end
+          div(class: "mt-1 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground") do
+            code(class: "font-mono") { route.path }
+            span(class: "text-muted-foreground/40") { "·" }
+            span { route.route_key }
+            span(class: "text-muted-foreground/40") { "·" }
+            span { relative_time(route.updated_at) }
+          end
+        end
+        div(class: "shrink-0") do
+          render Dropdown.new(placement: :bottom_end) do |menu|
+            menu.trigger(size: :sm, label: "Actions for #{route.display_title}") do
+              render Icon.new(:ellipsis, size: :sm)
+            end
+            menu.item("Edit SEO", href: edit_admin_theme_route_path(route), icon: :pencil)
+            menu.item("Preview", href: preview_admin_theme_route_path(route), icon: :external_link, target: "_blank")
+          end
+        end
+      end
     end
 
     def render_page_row(page)
