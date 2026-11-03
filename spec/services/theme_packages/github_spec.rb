@@ -22,4 +22,12 @@ RSpec.describe ThemePackages::Github do
     stub_request(:get, "https://api.github.com/repos/owner/theme/commits/main").to_return(status: 403, body: "private details")
     expect { client.head("main") }.to raise_error(ThemePackages::Invalid, /HTTP 403/)
   end
+  it "preserves non-UTF-8 ZIP bytes without text transcoding" do
+    bytes = "PK\x03\x04\xC1\xFF\x00\x80".b
+    stub_request(:get, "https://api.github.com/repos/owner/theme/zipball/#{sha}").to_return(body: bytes)
+    described_class.new("owner/theme").archive(sha) do |path|
+      expect(File.binread(path)).to eq(bytes)
+    end
+  end
+
 end

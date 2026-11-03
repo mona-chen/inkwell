@@ -21,6 +21,7 @@ module ThemePackages
     def archive(sha)
       raise Invalid, "Invalid commit SHA" unless sha.match?(/\A[0-9a-f]{40,64}\z/)
       Tempfile.create(["inkwell-github", ".zip"]) do |file|
+        file.binmode
         request("https://api.github.com/repos/#{@repository}/zipball/#{sha}", limit: Importer::MAX_BYTES, output: file)
         file.flush
         yield file.path
