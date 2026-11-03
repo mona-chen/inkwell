@@ -98,7 +98,7 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :themes, only: [:index] do
+    resources :themes, only: [:index, :destroy] do
       collection { post :import }
       member do
         post :activate

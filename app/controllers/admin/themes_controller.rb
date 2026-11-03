@@ -23,13 +23,23 @@ module Admin
     end
 
     def activate
-      return head :not_found unless ThemeManager.available.include?(params[:id])
-      if (runtime = ThemePackages::Runtime.for(params[:id]))
-        errors = runtime.readiness_errors
-        return redirect_to admin_themes_path, alert: errors.join(". ") if errors.any?
+      Current.site.with_lock do
+        return head :not_found unless ThemeManager.available.include?(params[:id])
+        if (runtime = ThemePackages::Runtime.for(params[:id]))
+          errors = runtime.readiness_errors
+          return redirect_to admin_themes_path, alert: errors.join(". ") if errors.any?
+        end
+        Current.site.update!(active_theme: params[:id])
       end
-      Current.site.update!(active_theme: params[:id])
       redirect_to admin_themes_path, notice: "Theme activated."
+    end
+
+    def destroy
+      return head :forbidden unless current_user.admin?
+      ThemePackages::Remover.new.remove!(params[:id])
+      redirect_to admin_themes_path, notice: "Theme deleted. Linked automatic deployments are paused; manual Sync can reinstall it."
+    rescue ThemePackages::Invalid => error
+      redirect_to admin_themes_path, alert: error.message
     end
 
     # Renders the live site in an iframe with ?preview_theme=<slug> so admins can preview

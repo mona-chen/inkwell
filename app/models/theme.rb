@@ -7,7 +7,7 @@ class Theme < ApplicationRecord
     Dir.glob(Rails.root.join("app/themes/*/theme.json")).map do |manifest_path|
       path = File.dirname(manifest_path)
       manifest = JSON.parse(File.read(File.join(path, "theme.json")))
-      { slug: File.basename(path), **manifest.slice("name", "description", "author", "version") }
+      { slug: File.basename(path), **manifest.slice("name", "description", "author", "version").symbolize_keys }
     end
   end
 end

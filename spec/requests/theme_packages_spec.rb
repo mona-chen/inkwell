@@ -123,6 +123,39 @@ RSpec.describe "Theme package administration", type: :request do
     end
   end
 
+  it "deletes an inactive theme, removes its release references and pauses automatic installs" do
+    FileUtils.mkdir_p(theme_root.join("public"))
+    theme_root.join("public/index.html").write("Home")
+    theme_root.join("theme.json").write(JSON.generate(format: "inkwell-theme-v1", slug: "upload-test", name: "Ruut", kind: "static", routes: { "/" => "index.html" }))
+    source = site.theme_repository_sources.create!(user: admin, repository: "owner/theme", installed_slug: "upload-test", deployed_sha: "a" * 40, auto_update: true, auto_activate: true, releases: [{ "slug" => "upload-test", "sha" => "a" * 40 }])
+    sign_in admin
+    get "/admin/themes"
+    expect(response.body).to include("Ruut", 'action="/admin/themes/upload-test"', "Delete")
+    delete "/admin/themes/upload-test"
+    expect(theme_root).not_to exist
+    expect(source.reload).to have_attributes(installed_slug: nil, deployed_sha: nil, releases: [], auto_update: false, auto_activate: false, status: "removed")
+    expect(site.reload.active_theme).to eq("default")
+  end
+
+  it "protects bundled themes and themes in use by any other site" do
+    FileUtils.mkdir_p(theme_root.join("public"))
+    theme_root.join("theme.json").write(JSON.generate(format: "inkwell-theme-v1", slug: "upload-test", name: "Ruut", kind: "static", routes: {}))
+    Site.create!(name: "Other", domain: "other-delete.test", active_theme: "upload-test")
+    sign_in admin
+    delete "/admin/themes/upload-test"
+    expect(theme_root).to exist
+    expect(flash[:alert]).to include("every site")
+    delete "/admin/themes/mono"
+    expect(flash[:alert]).to include("bundled")
+  end
+
+  it "restricts installed theme deletion to platform administrators" do
+    sign_in admin
+    admin.update!(role: Role.create!(name: "manager", capabilities: ["manage_site"]))
+    delete "/admin/themes/upload-test"
+    expect(response).to have_http_status(:forbidden)
+  end
+
   it "refuses activation until required gems are loaded" do
     FileUtils.mkdir_p(theme_root.join("public"))
     theme_root.join("public/index.html").write("Home")

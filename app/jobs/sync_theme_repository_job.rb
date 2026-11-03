@@ -46,6 +46,9 @@ class SyncThemeRepositoryJob < ApplicationJob
     return unless authorizer.admin? && !authorizer.deactivated?
     source.site.with_lock do
       return unless source.site.active_theme == source.activation_base_slug
+      return unless ThemeManager.available.include?(slug)
+      runtime = ThemePackages::Runtime.for(slug)
+      return if runtime && runtime.readiness_errors.any?
       source.site.update!(active_theme: slug)
       source.update!(activation_base_slug: slug)
     end

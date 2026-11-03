@@ -190,8 +190,8 @@ module Admin
           render Button.new("Preview", href: preview_admin_theme_path(source.installed_slug), variant: :ghost, size: :sm) if source.installed_slug
         end
         p(class: "theme-deployment-error") { source.error_message } if source.error_message.present?
-        details(class: "theme-deployment-details") do
-          summary { "Deployment settings & release history" }
+        details(class: "theme-deployment-details", open: source.status == "needs_build") do
+          summary { "Edit deploy branch, settings & release history" }
           div(class: "theme-deployment-body") do
             form_with(url: admin_theme_repository_source_path(source), method: :patch, builder: Ink::FormBuilder, scope: "repository_#{source.id}") do |form|
               form.field(:branch, label: "Deploy branch", value: source.branch, control_html: { required: true })
@@ -219,6 +219,7 @@ module Admin
       slug = theme[:slug]
       active = slug == @active_theme
       manifest = ThemeManager.manifest(slug)
+      ready = !ThemePackages::Runtime.for(slug)&.readiness_errors&.any?
       article(class: "themes-card theme-library-card#{active ? ' is-active' : ''}") do
         div(class: "theme-card-preview #{slug == 'mono' ? 'theme-card-preview-mono' : ''}", aria: { hidden: true }) do
           div(class: "theme-preview-masthead") { span { Current.site.name }; render Icon.new(:menu, size: :xs) }
@@ -230,6 +231,7 @@ module Admin
           div(class: "themes-card-title") do
             h3 { theme[:name] || slug.titleize }
             render Badge.new("Active", color: :success, size: :xs) if active
+            render Badge.new("Needs build", color: :neutral, size: :xs) unless ready
           end
           p(class: "themes-description") { theme[:description] || "#{manifest['kind']&.capitalize || 'Rails'} theme package" }
         end
@@ -237,8 +239,11 @@ module Admin
           render Button.new("Preview", href: preview_admin_theme_path(slug), variant: :ghost, size: :sm, icon: :eye)
           if active
             span(class: "themes-current") { "Currently live" }
-          else
+          elsif ready
             render ButtonTo.new("Activate", href: activate_admin_theme_path(slug), method: :post, variant: :outline, size: :sm)
+          end
+          if !active && Current.user&.admin? && !ThemePackages::Remover::PROTECTED.include?(slug)
+            render ButtonTo.new("Delete", href: admin_theme_path(slug), method: :delete, variant: :ghost, size: :sm, data: { turbo_confirm: "Delete this installed theme and its release files? Linked automatic deployments will be paused. This cannot be undone; you can reinstall from its repository or ZIP." })
           end
         end
       end
