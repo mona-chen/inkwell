@@ -24,7 +24,9 @@ class ThemeRoute < ApplicationRecord
   scope :sitemap, -> { published.where(sitemap: true) }
 
   def self.active_for(site)
-    where(site: site, theme_release_id: site.active_theme)
+    scope = where(site: site, theme_release_id: site.active_theme)
+    manifest = ThemePackages::Runtime.for(site.active_theme)&.manifest
+    manifest ? scope.where.not(path: manifest.routes.keys - manifest.canonical_routes.keys) : scope
   end
 
   def self.match(site:, path:, release: site.active_theme, preview: false)

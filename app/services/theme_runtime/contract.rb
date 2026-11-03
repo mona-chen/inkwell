@@ -4,7 +4,7 @@ module ThemeRuntime
   module Contract
     SITE_KEYS = %w[id name url logo].freeze
     SEO_KEYS = %w[title description canonical robots og twitter schema sitemap].freeze
-    PAGE_KEYS = %w[type id title slug url html excerpt published_at updated_at author seo].freeze
+    PAGE_KEYS = %w[type id title slug url html excerpt image published_at updated_at author seo].freeze
     AUTHOR_KEYS = %w[id name slug url bio avatar posts_count].freeze
     COMMENT_KEYS = %w[id post_id parent_id author body html created_at].freeze
     NAVIGATION_KEYS = %w[label url active children].freeze

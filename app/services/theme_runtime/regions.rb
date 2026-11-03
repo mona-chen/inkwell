@@ -96,19 +96,30 @@ module ThemeRuntime
     def post_card(post)
       image = post["image"].presence
       media = image ? %(<a href="#{h(post['url'])}"><img src="#{h(image)}" alt="" loading="lazy"></a>) : ""
-      author = post.dig("author", "name")
-      meta = [ author, post["published_at"] ].compact.join(" · ")
+      meta = post_byline(post)
       excerpt = post["excerpt"].presence
-      %(<article class="ink-post-card">#{media}<h2><a href="#{h(post['url'])}">#{h(post['title'])}</a></h2>#{meta.present? ? "<p class=\"ink-post-meta\">#{h(meta)}</p>" : ''}#{excerpt ? "<p>#{h(excerpt)}</p>" : ''}</article>)
+      %(<article class="ink-post-card">#{media}<div class="ink-post-summary"><h2><a href="#{h(post['url'])}">#{h(post['title'])}</a></h2>#{excerpt ? "<p>#{h(excerpt)}</p>" : ''}#{meta}</div></article>)
     end
 
     def post_html
       page = @data["page"] || {}
       return %(<p>No post selected.</p>) if page["title"].blank?
 
-      author = page.dig("author", "name")
-      meta = [ author, page["published_at"] ].compact.join(" · ")
-      %(<article class="ink-region-post"><header><h1>#{h(page['title'])}</h1>#{meta.present? ? "<p class=\"ink-post-meta\">#{h(meta)}</p>" : ''}</header><div class="ink-post-content">#{page['html']}</div></article>)
+      cover = page["image"].present? ? %(<img class="ink-post-cover" src="#{h(page['image'])}" alt="">) : ""
+      %(<article class="ink-region-post"><header><h1>#{h(page['title'])}</h1>#{post_byline(page)}</header>#{cover}<div class="ink-post-content">#{page['html']}</div></article>)
+    end
+
+    def post_byline(post)
+      author = post["author"] || {}
+      avatar = author["avatar"].presence
+      date = Date.iso8601(post["published_at"].to_s.first(10)).strftime("%b %-d, %Y") if post["published_at"].present?
+      label = [author["name"].presence, date].compact.join(" · ")
+      return "" if label.blank?
+
+      image = avatar ? %(<img class="ink-byline-avatar" src="#{h(avatar)}" alt="" width="28" height="28">) : ""
+      %(<p class="ink-post-meta">#{image}#{h(label)}</p>)
+    rescue Date::Error
+      ""
     end
 
     def authors_html(node)

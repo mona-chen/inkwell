@@ -63,6 +63,18 @@ module ThemePackages
     def slug = data.fetch("slug")
     def kind = data.fetch("kind")
     def routes = data.fetch("routes", {})
+
+    def canonical_route(path)
+      return path unless path.end_with?(".html") && routes.key?(path)
+
+      clean = path.delete_suffix(".html")
+      clean = clean.delete_suffix("/index").presence || "/" if clean.end_with?("/index")
+      routes[clean] == routes[path] ? clean : path
+    end
+
+    def canonical_routes
+      routes.select { |path, _| canonical_route(path) == path }
+    end
     def inkwell = data.fetch("inkwell", {})
     def contract? = inkwell.is_a?(Hash) && inkwell.key?("contract")
     def contract_version = inkwell["contract"].to_s

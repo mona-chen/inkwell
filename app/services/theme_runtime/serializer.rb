@@ -25,7 +25,7 @@ module ThemeRuntime
     def navigation(location: "header", current_path: nil)
       menu = site.menus.find_by(location: location)
       items = menu ? menu.menu_items.select { |item| item.parent_id.nil? }.map { |item| menu_item_payload(item, current_path) } : []
-      assigned = site.theme_routes.where(theme_release_id: site.active_theme).published.where(navigation_location: location).ordered.filter_map do |route|
+      assigned = ThemeRoute.active_for(site).published.where(navigation_location: location).ordered.filter_map do |route|
         next if route.path.include?(":")
 
         { "label" => route.navigation_label.presence || route.display_title, "url" => route.path, "active" => route.path == current_path, "children" => [] }
@@ -62,6 +62,7 @@ module ThemeRuntime
         "id" => post.id.to_s,
         "title" => post.title.to_s,
         "slug" => post.slug.to_s,
+        "image" => absolute(post.featured_image_url),
         "url" => post.url,
         "html" => ContentHtml.render(post.content_blocks),
         "excerpt" => post.excerpt.presence || ContentDocument.new(post.content_blocks).text.truncate(300),
@@ -96,7 +97,7 @@ module ThemeRuntime
         "slug" => user.to_param.to_s,
         "url" => "/authors/#{user.to_param}",
         "bio" => user.bio.to_s,
-        "avatar" => nil,
+        "avatar" => absolute(user.avatar_url),
         "posts_count" => user.posts.published.count
       }
     end

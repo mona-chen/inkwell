@@ -2,6 +2,8 @@ class PostsController < ApplicationController
   before_action :activate_theme
 
   def index
+    return if params.values_at(:category, :slug).none?(&:present?) && render_theme_blog("blog_index")
+
     @posts = Current.site.posts.published.includes(:author)
     @category = Current.site.terms.find_by(taxonomy: "category", slug: params[:category]) if params[:category].present?
     @tag = Current.site.terms.find_by(taxonomy: "tag", slug: params[:slug]) if params[:slug].present?
@@ -23,6 +25,8 @@ class PostsController < ApplicationController
 
   def show
     @post = Current.site.posts.published.friendly.find(params[:id])
+    return if render_theme_blog("blog_post", slug: @post.slug)
+
     @head_meta = Inkwell::Hooks.filter(:head_meta, [], post: @post)
     @prev_post = Current.site.posts.published.where("published_at < ?", @post.published_at).order(published_at: :desc).first
     @next_post = Current.site.posts.published.where("published_at > ?", @post.published_at).order(published_at: :asc).first
@@ -38,6 +42,17 @@ class PostsController < ApplicationController
   end
 
   private
+
+  def render_theme_blog(role, slug: nil)
+    runtime = ThemePackages::Runtime.for(@current_theme)
+    return false unless runtime&.manifest&.kind == "static"
+
+    path = runtime.manifest.templates[role]
+    return false unless runtime.manifest.routes.key?(path)
+    return false if path.include?(":") && !(slug && path.end_with?("/:slug"))
+
+    runtime.render(self, slug ? path.sub(/:slug\z/, slug) : path, fallback: false)
+  end
 
   def activate_theme
     preview_theme = params[:preview_theme] if current_user&.admin?

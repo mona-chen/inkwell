@@ -42,7 +42,7 @@ class SiteController < ApplicationController
 
     @posts = Current.site.posts.published.order(published_at: :desc)
     @pages = Current.site.pages.where(template_for: nil).published.ordered
-    @theme_routes = Current.site.theme_routes.where(theme_release_id: Current.site.active_theme).sitemap.ordered.reject { |route| route.path.include?(":") || route.path == "/" || route.robots.to_s.include?("noindex") }
+    @theme_routes = ThemeRoute.active_for(Current.site).sitemap.ordered.reject { |route| route.path.include?(":") || route.path == "/" || route.robots.to_s.include?("noindex") }
     render xml: render_to_string(partial: "site/sitemap", formats: [:xml]), layout: false
   end
 

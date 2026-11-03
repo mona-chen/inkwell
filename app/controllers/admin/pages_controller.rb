@@ -87,7 +87,7 @@ module Admin
     private
 
     def theme_routes_scope
-      routes = Current.site.theme_routes.where(theme_release_id: Current.site.active_theme)
+      routes = ThemeRoute.active_for(Current.site)
       routes = routes.none if params[:status] == "trashed"
       routes = routes.where(status: params[:status]) if %w[draft published].include?(params[:status])
       if params[:q].present?

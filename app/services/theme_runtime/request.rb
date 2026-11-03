@@ -65,7 +65,7 @@ module ThemeRuntime
     def resolve
       return unless runtime
 
-      overlay = theme_route_for(path)
+      overlay = theme_route_for(runtime.manifest.canonical_route(path))
       return draft_match(overlay) if overlay && !overlay.published? && !preview
 
       manifest_match = manifest_route_for(path)
@@ -187,7 +187,7 @@ module ThemeRuntime
         pagination: pagination
       )
       seo = serializer.seo_payload(record: record, route: route, path: path)
-      seo["canonical"] = route&.canonical_url.presence || serializer.absolute_url(path)
+      seo["canonical"] = route&.canonical_url.presence || serializer.absolute_url(runtime.manifest.canonical_route(path))
       data["page"]["seo"] = seo
       data
     end

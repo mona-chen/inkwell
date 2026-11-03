@@ -11,7 +11,7 @@ module ThemeRoutes
       runtime = ThemePackages::Runtime.for(@theme_slug)
       return [] unless runtime
 
-      runtime.manifest.routes.map do |path, target|
+      runtime.manifest.canonical_routes.map do |path, target|
         route = @site.theme_routes.find_or_initialize_by(path: path, theme_release_id: @theme_slug)
         route.route_key = ThemeRoute.route_key_for(path, runtime.manifest.data, target)
         route.status = "published" if route.new_record?

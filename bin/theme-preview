@@ -86,6 +86,8 @@ loop do
     method, target, = request_line.split(" ")
     while (line = client.gets) && line != "\r\n"; end
     path = URI.parse(target.to_s).path
+    prefix = manifest["asset_prefix"]
+    path = "/#{path.delete_prefix(prefix)}" if prefix && path.start_with?(prefix)
     file = resolve_file(public_root, routes, path, manifest["spa_fallback"])
     if method != "GET" && method != "HEAD"
       client.write "HTTP/1.1 405 Method Not Allowed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
