@@ -1,14 +1,20 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  copy(event) {
-    const value = event.currentTarget.dataset.clipboardValue || event.currentTarget.textContent
-    navigator.clipboard.writeText(value).then(() => {
-      const original = event.currentTarget.textContent
-      event.currentTarget.textContent = "Copied!"
-      setTimeout(() => {
-        event.currentTarget.textContent = original
-      }, 1500)
-    })
+  static targets = ["source"]
+
+  async copy(event) {
+    const button = event.currentTarget
+    const original = button.textContent
+    const source = this.hasSourceTarget ? this.sourceTarget : null
+    try {
+      await navigator.clipboard.writeText(source?.value ?? (button.dataset.clipboardValue || original))
+      button.textContent = "Copied!"
+    } catch {
+      source?.focus()
+      source?.select()
+      button.textContent = source ? "Press Ctrl/Cmd+C" : "Copy failed"
+    }
+    setTimeout(() => { button.textContent = original }, 2500)
   }
 }

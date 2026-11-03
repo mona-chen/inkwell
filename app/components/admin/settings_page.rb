@@ -28,7 +28,7 @@ module Admin
     def view_template
       render Toolbar.new do |toolbar|
         toolbar.leading do
-          render ToolbarTitle.new(title: "Settings", subtitle: SECTIONS.fetch(@section).fetch(:subtitle))
+          render ToolbarTitle.new(title: @section == "agents" ? "AI agents" : "Settings", subtitle: SECTIONS.fetch(@section).fetch(:subtitle))
         end
         if form_section?
           toolbar.trailing do
@@ -269,50 +269,90 @@ module Admin
       end
     end
 
+    def agent_copy_field(label, value, secret: false)
+      div(class: "flex gap-2", data: { controller: "clipboard" }) do
+        input(type: "text", value: value, readonly: true, aria: { label: label }, class: "min-w-0 flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-sm", data: { clipboard_target: "source", agent_secret: secret })
+        button(type: "button", class: "rounded-md border border-border px-3 py-2 text-sm", data: { action: "clipboard#copy" }) { "Copy #{label.downcase}" }
+      end
+    end
+
     def render_agents_section
-      render SettingsSection.new(title: "Agent connections", description: "One MCP endpoint for this site's core and active plugin tools. Existing Content API tokens remain read-only.") do |section|
+      render SettingsSection.new(title: "Connect an agent", description: "Set up an MCP client to work with this site.") do |section|
         section.form do
           div(class: "space-y-5") do
-            p(class: "font-mono text-sm break-all") { "#{helpers.request.base_url}/mcp" }
-            p(class: "text-sm text-muted-foreground") { "Connect using Streamable HTTP with an Authorization: Bearer token header. Credentials expire after 90 days. Grant publishing and plugin deployment only when the agent should change the live site." }
-            if @new_agent_secret.present?
-              p(class: "text-sm font-medium") { "Copy this secret now. It is stored as a hash and will not be shown again." }
-              code(class: "block break-all rounded-lg border border-border bg-muted/30 p-3 text-xs") { @new_agent_secret }
+            endpoint = "#{helpers.request.base_url}/mcp"
+            p(class: "text-sm font-medium") { "MCP server URL" }
+            agent_copy_field("Server URL", endpoint)
+            ol(class: "list-decimal space-y-1 pl-5 text-sm text-muted-foreground") do
+              li { "Create a credential with the permissions your agent needs." }
+              li { "Add the server URL in your MCP client using Streamable HTTP." }
+              li { "Set the Authorization header to Bearer followed by the credential, then list tools." }
             end
-            form_with(url: admin_agent_credentials_path, method: :post, builder: Ink::FormBuilder, html: { class: "space-y-4" }) do |form|
-              form.field(:name, label: "Agent name", control_html: { placeholder: "Website assistant", required: true })
-              fieldset(class: "grid gap-3 sm:grid-cols-2") do
-                legend(class: "mb-3 text-sm font-medium") { "Permissions" }
-                AgentCredential::SCOPES.each do |scope|
-                  label(class: "flex items-start gap-3 rounded-lg border border-border p-3 text-sm") do
-                    input(type: "checkbox", name: "scopes[]", value: scope, checked: scope == "site:read", class: "mt-1 h-4 w-4 shrink-0 accent-primary")
-                    span(class: "space-y-1") do
-                      span(class: "block font-medium") { AgentCredential::SCOPE_DETAILS.fetch(scope).first }
-                      span(class: "block text-xs text-muted-foreground") { AgentCredential::SCOPE_DETAILS.fetch(scope).last }
-                      code(class: "block text-[11px] text-muted-foreground") { scope }
-                    end
-                  end
-                end
+            details(class: "rounded-lg border border-border p-4 text-sm") do
+              summary(class: "cursor-pointer font-medium") { "Instructions for your agent" }
+              instructions = "List available Inkwell tools first. Work in drafts and read current versions before editing. Ask before publishing or deploying. Preview changes before making them live."
+              div(class: "mt-3 space-y-3", data: { controller: "clipboard" }) do
+                p(class: "max-w-prose leading-relaxed text-muted-foreground") { instructions }
+                button(type: "button", class: "rounded-md border border-border px-3 py-2", data: { action: "clipboard#copy", clipboard_value: instructions }) { "Copy instructions" }
               end
-              render Button.new("Create agent credential", variant: :primary, type: :submit, size: :sm)
             end
-            @site.agent_credentials.includes(:user).order(id: :desc).each do |credential|
-              div(class: "flex flex-wrap items-center justify-between gap-3 border-t border-border py-3") do
-                div do
-                  p(class: "text-sm font-medium") { credential.name }
-                  p(class: "text-xs text-muted-foreground") { "#{credential.token_prefix}… · #{credential.revoked_at ? 'Revoked' : "Expires #{credential.expires_at.to_date}"}" }
-                  p(class: "text-xs text-muted-foreground") { credential.scopes.join(" · ") }
-                end
-                unless credential.revoked_at
-                  button_to("Revoke", admin_agent_credential_path(credential), method: :delete, class: "text-sm text-destructive", data: { turbo_confirm: "Revoke this agent's access?" })
+            if @new_agent_secret.present?
+              div(class: "space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4") do
+                p(class: "text-sm font-semibold") { "Credential created" }
+                p(class: "text-sm text-muted-foreground") { "Copy it before leaving this page. You’ll only see it once." }
+                agent_copy_field("Credential", @new_agent_secret, secret: true)
+                div(data: { controller: "agent-check", agent_check_endpoint_value: endpoint }) do
+                  button(type: "button", class: "rounded-md border border-border px-3 py-2 text-sm", data: { action: "agent-check#check" }) { "Test connection" }
+                  p(role: "status", class: "mt-2 text-sm", data: { agent_check_target: "status" })
                 end
               end
             end
           end
         end
       end
-      render SettingsSection.new(title: "Available plugin tools", description: "Active plugins contribute tools to the same MCP connection. Each agent sees only the tools allowed by its permissions.") do |section|
+      agent_disclosure("Create a credential", "Credentials expire after 90 days.") do
+            form_with(url: admin_agent_credentials_path, method: :post, builder: Ink::FormBuilder, html: { class: "space-y-4" }) do |form|
+              form.field(:name, label: "Agent name", control_html: { placeholder: "Website assistant", required: true })
+              fieldset(class: "grid gap-2 sm:grid-cols-2") do
+                legend(class: "mb-3 text-sm font-medium") { "Permissions" }
+                AgentCredential::SCOPES.each do |scope|
+                  label(class: "flex items-start gap-3 rounded-md bg-muted/30 p-2 text-sm") do
+                    input(type: "checkbox", name: "scopes[]", value: scope, checked: scope == "site:read", class: "mt-1 h-4 w-4 shrink-0 accent-primary")
+                    span(class: "space-y-1") do
+                      span(class: "block font-medium") { AgentCredential::SCOPE_DETAILS.fetch(scope).first }
+                      span(class: "block text-xs text-muted-foreground") { AgentCredential::SCOPE_DETAILS.fetch(scope).last }
+                    end
+                  end
+                end
+              end
+              render Button.new("Create agent credential", variant: :primary, type: :submit, size: :sm)
+            end
+      end
+      render SettingsSection.new(title: "Manage credentials", description: "Review access and revoke credentials you no longer use.") do |section|
         section.form do
+            credentials = @site.agent_credentials.order(id: :desc).to_a
+            if credentials.empty?
+              p(class: "text-sm text-muted-foreground") { "No agent credentials yet." }
+            end
+            credentials.each do |credential|
+              div(class: "flex flex-wrap items-center justify-between gap-3 border-t border-border py-3") do
+                div do
+                  p(class: "text-sm font-medium") { credential.name }
+                  p(class: "text-xs text-muted-foreground") { "#{credential.token_prefix}… · #{credential.revoked_at ? 'Revoked' : "Expires #{credential.expires_at.to_date}"}" }
+                  div(class: "mt-2 flex flex-wrap gap-1") do
+                    credential.scopes.each do |scope|
+                      span(class: "rounded-md bg-muted px-2 py-1 text-xs") { AgentCredential::SCOPE_DETAILS.fetch(scope, [scope]).first }
+                    end
+                  end
+                end
+                unless credential.revoked_at
+                  button_to("Revoke", admin_agent_credential_path(credential), method: :delete, class: "text-sm text-destructive", data: { turbo_confirm: "Revoke this agent's access?" })
+                end
+              end
+            end
+        end
+      end
+      agent_disclosure("Plugin tools", "Tools available through this site’s MCP connection.") do
           engines = Inkwell::PluginManager.discovered.select { |engine| engine.mcp_tools.any? && AgentAccess::Registry.plugin_active?(@site, engine.plugin_slug) }
           if engines.empty?
             p(class: "text-sm text-muted-foreground") { "No active Rails plugins expose MCP tools yet." }
@@ -323,10 +363,8 @@ module Admin
               engine.mcp_tools.each_key { |name| code(class: "block break-all text-xs text-muted-foreground") { "#{engine.plugin_slug}.#{name}" } }
             end
           end
-        end
       end
-      render SettingsSection.new(title: "Plugin deployments", description: "Live frontend plugins activate on the next public page load. Rails plugins, gems and migrations use your normal release pipeline and process restart.") do |section|
-        section.form do
+      agent_disclosure("Plugin deployments", "Manage live frontend releases.") do
           if @site.live_plugins.none?
             p(class: "text-sm text-muted-foreground") { "No live plugin releases. An agent with plugins:deploy can stage and activate a CSS/JavaScript package through MCP." }
           end
@@ -339,10 +377,8 @@ module Admin
               render Button.new("Apply release", variant: :secondary, type: :submit, size: :sm, data: { turbo_confirm: "Change this plugin on the public site?" })
             end
           end
-        end
       end
-      render SettingsSection.new(title: "Recent agent activity", description: "A record of tool calls and their outcomes. Submitted code and secrets are excluded from this list.") do |section|
-        section.form do
+      agent_disclosure("Recent activity", "Review tool calls and their outcomes.") do
           if @site.agent_activities.none?
             p(class: "text-sm text-muted-foreground") { "Agent tool calls will appear here after a connection is used." }
           end
@@ -352,7 +388,16 @@ module Admin
               span(class: "text-muted-foreground") { "#{event.status} · #{event.created_at.strftime('%b %-d, %H:%M')}" }
             end
           end
+      end
+    end
+
+    def agent_disclosure(title, description, &block)
+      details(class: "mb-3 rounded-xl border border-border bg-card") do
+        summary(class: "cursor-pointer px-4 py-3 text-sm font-semibold") do
+          plain title
+          span(class: "ml-2 font-normal text-muted-foreground") { description }
         end
+        div(class: "border-t border-border p-4", &block)
       end
     end
 

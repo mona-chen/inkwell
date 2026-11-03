@@ -32,6 +32,26 @@ module AgentAccess
       add.call("content_read", "site:read", "Read live and draft content and its version before editing.", object(content_keys, %w[kind id]), true) do |ctx, args|
         serialize(ctx.record(args["kind"], args["id"]), details: true)
       end
+      add.call("media_upload", "content:write", "Upload a PNG, JPEG, WebP, GIF or PDF from base64. Returns the media ID and URL for image blocks and featured images. Maximum 700 KiB.", object({
+        filename: { type: "string", minLength: 1, maxLength: 255 },
+        base64: { type: "string", minLength: 4, maxLength: 955_736 },
+        alt: { type: "string", maxLength: 500 }
+      }, %w[filename base64])) do |ctx, args|
+        item = ctx.site.media_items.build(uploaded_by: ctx.user, alt_text: args["alt"])
+        begin
+          bytes = Base64.strict_decode64(args["base64"])
+        rescue ArgumentError
+          raise Error, "Invalid base64 data"
+        end
+        raise Error, "File exceeds 700 KiB" if bytes.bytesize > 700 * 1024
+        io = StringIO.new(bytes)
+        type = Marcel::MimeType.for(io)
+        raise Error, "Unsupported file type" unless %w[image/png image/jpeg image/webp image/gif application/pdf].include?(type)
+        io.rewind
+        item.file.attach(io: io, filename: args["filename"], content_type: type, identify: false)
+        item.save!
+        item.library_json
+      end
       add.call("content_create", "content:write", "Create an unpublished page or post. Returns editor and preview URLs. Use the Builder workspace tools for visual design.", object({ kind: { type: "string", enum: %w[page post] }, title: { type: "string", minLength: 1, maxLength: 200 } }, %w[kind title])) do |ctx, args|
         scope = args["kind"] == "page" ? ctx.site.pages : ctx.site.posts
         record = scope.build(title: args["title"], author: ctx.user, status: "draft", content: [])
@@ -55,7 +75,8 @@ module AgentAccess
         serialize(record, details: true)
       end
       metadata = { title: { type: "string", minLength: 1, maxLength: 200 }, seo_title: { type: "string", maxLength: 300 }, seo_description: { type: "string", maxLength: 1000 }, seo_focus_keyword: { type: "string", maxLength: 300 }, og_title: { type: "string", maxLength: 300 }, og_description: { type: "string", maxLength: 1000 }, noindex: { type: "boolean" }, nofollow: { type: "boolean" } }
-      add.call("content_update_metadata", "content:write", "Update title and SEO metadata. These fields take effect immediately; published content also requires content:publish permission. Read current version first.", object(content_keys.merge(version: { type: "string" }, values: object(metadata)), %w[kind id version values])) do |ctx, args|
+      metadata[:featured_image_id] = { type: %w[integer null], minimum: 1 }
+      add.call("content_update_metadata", "content:write", "Update title, SEO or a post's featured_image_id (null clears it). These fields take effect immediately; published content also requires content:publish permission. Read current version first.", object(content_keys.merge(version: { type: "string" }, values: object(metadata)), %w[kind id version values])) do |ctx, args|
         record = ctx.record(args["kind"], args["id"])
         record.with_lock do
           ctx.authorize!(record, :update)
@@ -64,7 +85,15 @@ module AgentAccess
             ctx.require_scope!("content:publish")
             ctx.authorize!(record, :publish)
           end
-          record.update!(args["values"])
+          values = args["values"]
+          if values.key?("featured_image_id")
+            raise Error, "Featured images can only be assigned to posts" unless record.is_a?(Post)
+            if values["featured_image_id"]
+              image = ctx.site.media_items.find_by(id: values["featured_image_id"])
+              raise Error, "Choose an image from this site's media library" unless image&.image?
+            end
+          end
+          record.update!(values)
         end
         serialize(record, details: true)
       end
