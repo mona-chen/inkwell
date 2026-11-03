@@ -32,9 +32,10 @@ module AgentAccess
       add.call("content_read", "site:read", "Read live and draft content and its version before editing.", object(content_keys, %w[kind id]), true) do |ctx, args|
         serialize(ctx.record(args["kind"], args["id"]), details: true)
       end
-      add.call("media_upload", "content:write", "Upload a PNG, JPEG, WebP, GIF or PDF from base64. Returns the media ID and URL for image blocks and featured images. Maximum 700 KiB.", object({
+      max_media_bytes = 10.megabytes
+      add.call("media_upload", "content:write", "Upload a PNG, JPEG, WebP, GIF or PDF from base64. Returns the media ID and URL for image blocks and featured images. Maximum 10 MB.", object({
         filename: { type: "string", minLength: 1, maxLength: 255 },
-        base64: { type: "string", minLength: 4, maxLength: 955_736 },
+        base64: { type: "string", minLength: 4, maxLength: 4 * ((max_media_bytes + 2) / 3) },
         alt: { type: "string", maxLength: 500 }
       }, %w[filename base64])) do |ctx, args|
         item = ctx.site.media_items.build(uploaded_by: ctx.user, alt_text: args["alt"])
@@ -43,7 +44,7 @@ module AgentAccess
         rescue ArgumentError
           raise Error, "Invalid base64 data"
         end
-        raise Error, "File exceeds 700 KiB" if bytes.bytesize > 700 * 1024
+        raise Error, "File exceeds 10 MB" if bytes.bytesize > max_media_bytes
         io = StringIO.new(bytes)
         type = Marcel::MimeType.for(io)
         raise Error, "Unsupported file type" unless %w[image/png image/jpeg image/webp image/gif application/pdf].include?(type)

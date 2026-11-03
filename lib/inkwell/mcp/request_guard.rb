@@ -5,7 +5,7 @@ module Inkwell
     # Bound the body before Rails parses/logs JSON parameters, including chunked
     # requests with no Content-Length. Do not buffer an unbounded request first.
     class RequestGuard
-      MAX_BYTES = 1_048_576
+      MAX_BYTES = 14 * 1024 * 1024
       def initialize(app)
         @app = app
       end

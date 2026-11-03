@@ -2,7 +2,7 @@
 # never authenticate this endpoint; legacy content API tokens remain read-only.
 class McpController < ActionController::API
   SUPPORTED_VERSIONS = %w[2025-06-18 2025-11-25].freeze
-  MAX_BYTES = 1.megabyte
+  MAX_BYTES = Inkwell::Mcp::RequestGuard::MAX_BYTES
   before_action :authenticate_agent!
 
   def show
