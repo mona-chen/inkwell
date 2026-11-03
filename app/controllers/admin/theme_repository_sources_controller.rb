@@ -18,11 +18,18 @@ module Admin
 
     def update
       source = Current.site.theme_repository_sources.find(params[:id])
+      branch_changed = false
       source.with_lock do
-        source.update!(params.require("repository_#{source.id}").permit(:auto_update, :auto_activate).merge(user: current_user))
+        source.update!(params.require("repository_#{source.id}").permit(:branch, :auto_update, :auto_activate).merge(user: current_user))
+        branch_changed = source.saved_change_to_branch?
+        # A different branch is a new deployment target: review its first release.
+        source.update!(auto_activate: false) if branch_changed
         source.update!(activation_base_slug: source.site.reload.active_theme) if source.auto_activate
       end
-      redirect_to admin_themes_path, notice: "Repository update preferences saved."
+      SyncThemeRepositoryJob.perform_later(source.id) if branch_changed
+      redirect_to admin_themes_path, notice: branch_changed ? "Deploy branch updated. Installation queued; review the release before activating." : "Repository update preferences saved."
+    rescue ActiveRecord::RecordInvalid => error
+      redirect_to admin_themes_path, alert: error.record.errors.full_messages.to_sentence
     end
 
     def sync

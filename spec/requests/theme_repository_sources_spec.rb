@@ -21,6 +21,15 @@ RSpec.describe "GitHub theme connections", type: :request do
     expect(source.reload.auto_update).to eq(false)
   end
 
+  it "switches a source-only connection to its compiled branch and queues a review-only install" do
+    source = site.theme_repository_sources.create!(user: user, repository: "owner/theme", branch: "main", auto_activate: true, status: "needs_build")
+    expect(SyncThemeRepositoryJob).to receive(:perform_later).with(source.id)
+    patch "/admin/theme_repository_sources/#{source.id}", params: { "repository_#{source.id}" => { branch: "inkwell-theme", auto_activate: "1" } }
+    expect(source.reload).to have_attributes(branch: "inkwell-theme", auto_activate: false)
+    expect(response).to redirect_to(admin_themes_path)
+    expect(site.reload.active_theme).to eq("default")
+  end
+
   it "rejects non-GitHub URLs without enqueuing code downloads" do
     expect(SyncThemeRepositoryJob).not_to receive(:perform_later)
     post "/admin/theme_repository_sources", params: { theme_repository_source: { repository: "https://example.com/site", branch: "main" } }

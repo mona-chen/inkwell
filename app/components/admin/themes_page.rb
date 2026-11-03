@@ -194,6 +194,8 @@ module Admin
           summary { "Deployment settings & release history" }
           div(class: "theme-deployment-body") do
             form_with(url: admin_theme_repository_source_path(source), method: :patch, builder: Ink::FormBuilder, scope: "repository_#{source.id}") do |form|
+              form.field(:branch, label: "Deploy branch", value: source.branch, control_html: { required: true })
+              p(class: "theme-field-help") { "Choose a branch containing built theme files. Source-only branches cannot be activated. Changing branches queues an install and pauses automatic activation." }
               form.field(:auto_update, as: :switch, label: "Automatic updates", checked: source.auto_update)
               form.field(:auto_activate, as: :switch, label: "Automatic activation", checked: source.auto_activate)
               render Button.new("Save preferences", type: :submit, variant: :secondary, size: :sm)
