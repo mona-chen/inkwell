@@ -32,6 +32,35 @@
       <%= f.label :title_override, "Title override", class: "mb-1 block text-sm font-medium text-foreground" %>
       <%= f.text_field :title_override, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
     </div>
+    <% social_fields = capture do %>
+    <div>
+      <%= f.label :social_image_id, "Social image (media ID)", class: "mb-1 block text-sm font-medium text-foreground" %>
+      <%= f.number_field :social_image_id, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
+      <% if @route.social_image %><p class="mt-1 text-xs text-muted-foreground"><%= @route.social_image.url %></p><% end %>
+    </div>
+    <% end %>
+    <% advanced_fields = capture do %>
+      <section class="seo-panel space-y-4">
+    <div>
+      <%= f.label :canonical_url, "Canonical URL", class: "mb-1 block text-sm font-medium text-foreground" %>
+      <%= f.text_field :canonical_url, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
+    </div>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <%= f.label :robots, "Robots", class: "mb-1 block text-sm font-medium text-foreground" %>
+        <%= f.select :robots, [["Index, follow", "index, follow"], ["No index, follow", "noindex, follow"], ["Index, nofollow", "index, nofollow"], ["No index, nofollow", "noindex, nofollow"]], {}, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
+      </div>
+    </div>
+    <div>
+      <%= f.label :schema_json, "JSON-LD schema (JSON)", class: "mb-1 block text-sm font-medium text-foreground" %>
+      <%= f.text_area :schema_json, value: (@route.schema_json.presence || {}).to_json, rows: 6, class: "w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs" %>
+    </div>
+      </section>
+    <% end %>
+    <% workspace = Inkwell::Hooks.filter(:theme_route_seo_workspace, nil, route: @route, social: social_fields, advanced: advanced_fields) %>
+    <% if workspace.present? %>
+      <%= workspace.html_safe %>
+    <% else %>
     <div>
       <%= f.label :seo_title, "SEO title", class: "mb-1 block text-sm font-medium text-foreground" %>
       <%= f.text_field :seo_title, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
@@ -40,29 +69,13 @@
       <%= f.label :meta_description, "Meta description", class: "mb-1 block text-sm font-medium text-foreground" %>
       <%= f.text_area :meta_description, rows: 4, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
     </div>
-    <div>
-      <%= f.label :canonical_url, "Canonical URL", class: "mb-1 block text-sm font-medium text-foreground" %>
-      <%= f.text_field :canonical_url, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
-    </div>
-    <div>
-      <%= f.label :social_image_id, "Social image (media ID)", class: "mb-1 block text-sm font-medium text-foreground" %>
-      <%= f.number_field :social_image_id, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
-      <% if @route.social_image %><p class="mt-1 text-xs text-muted-foreground"><%= @route.social_image.url %></p><% end %>
-    </div>
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div>
-        <%= f.label :robots, "Robots", class: "mb-1 block text-sm font-medium text-foreground" %>
-        <%= f.select :robots, [["Index, follow", "index, follow"], ["No index, follow", "noindex, follow"], ["Index, nofollow", "index, nofollow"], ["No index, nofollow", "noindex, nofollow"]], {}, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
-      </div>
+      <%= social_fields %>
+      <%= advanced_fields %>
+    <% end %>
       <div>
         <%= f.label :status, "Status", class: "mb-1 block text-sm font-medium text-foreground" %>
         <%= f.select :status, ThemeRoute::STATUSES, {}, class: "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm" %>
       </div>
-    </div>
-    <div>
-      <%= f.label :schema_json, "JSON-LD schema (JSON)", class: "mb-1 block text-sm font-medium text-foreground" %>
-      <%= f.text_area :schema_json, value: (@route.schema_json.presence || {}).to_json, rows: 6, class: "w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs" %>
-    </div>
     <div>
       <%= f.label :draft_data, "Draft data (JSON)", class: "mb-1 block text-sm font-medium text-foreground" %>
       <%= f.text_area :draft_data, value: @route.draft_data.to_json, rows: 4, class: "w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-xs" %>

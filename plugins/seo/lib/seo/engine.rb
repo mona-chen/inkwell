@@ -32,6 +32,13 @@ module Seo
     private
 
     def register_meta_tag_hooks
+      Inkwell::Hooks.on_filter(:theme_document_seo, source: plugin_slug) do |payload, document:|
+        og = payload.fetch("og", {}).compact
+        og["url"] = payload["canonical"] if payload["canonical"].present?
+        og["type"] = document.at_css('meta[property="og:type"]')&.[]("content").presence || "website"
+        payload.merge("og" => og)
+      end
+
       # Filter: emit comprehensive meta tags for every post/page render.
       # Covers: description, Open Graph, Twitter Cards, canonical, robots, JSON-LD.
       Inkwell::Hooks.on_filter(:head_meta, source: plugin_slug) do |tags, post:|
@@ -95,6 +102,11 @@ module Seo
     end
 
     def register_editor_panels
+      Inkwell::Hooks.on_filter(:theme_route_seo_workspace, source: plugin_slug) do |_panel, route:, social:, advanced:|
+        preview = Page.new(site: route.site, title: route.display_title, slug: route.path, seo_title: route.seo_title, seo_description: route.meta_description)
+        seo_workspace_html(preview, "theme_route", social: social, advanced: advanced)
+      end
+
       # Inject SEO panel into post editor sidebar.
       Inkwell::Hooks.on_filter(:post_editor_panels, source: plugin_slug) do |panels, post:|
         next Array(panels) unless post
@@ -140,10 +152,10 @@ module Seo
       HTML
     end
 
-    def seo_workspace_html(record, type)
+    def seo_workspace_html(record, type, social: nil, advanced: nil)
       <<~HTML.squish
-        <section id="seo-optimization" class="ink-seo-workspace mt-8 rounded-xl border border-border bg-background shadow-sm" data-controller="seo-editor" data-seo-editor-resource-value="#{type}" data-seo-editor-record-id-value="#{record.id}" data-seo-editor-analysis-url-value="/plugins/seo_toolkit/analyze">
-          #{seo_workspace_layout(seo_panel_html(record, type), record)}
+        <section id="seo-optimization" class="ink-seo-workspace mt-8 rounded-xl border border-border bg-background shadow-sm" data-controller="seo-editor" data-seo-editor-resource-value="#{type}" data-seo-editor-record-id-value="#{record.id}" #{'data-seo-editor-analysis-url-value="/plugins/seo_toolkit/analyze"' unless social}>
+          #{seo_workspace_layout(seo_panel_html(record, type), record, social_fields: social, advanced_fields: advanced)}
         </section>
       HTML
     end
@@ -235,7 +247,7 @@ module Seo
       HTML
     end
 
-    def seo_workspace_layout(html, record)
+    def seo_workspace_layout(html, record, social_fields: nil, advanced_fields: nil)
       fragment = Nokogiri::HTML.fragment(html)
       search, social = fragment.css(".seo-ws-main > section").to_a
       analysis, readability, schema, advanced = fragment.css(".seo-ws-side > details").to_a
@@ -251,18 +263,29 @@ module Seo
       [schema, advanced].each { |section| section["open"] = "open" }
       summary = Seo::ContentAnalysis.new(record)
       reading = Seo::ReadabilityAnalysis.new(record)
+      if social_fields
+        search.css('input[name$="[seo_focus_keyword]"], input[name$="[seo_slug_override]"]').each do |field|
+          field.ancestors(".seo-field").first.remove
+        end
+        search.at_css("textarea")["name"] = "theme_route[meta_description]"
+        social = %(<section class="seo-panel"><h3 class="mb-3 text-sm font-semibold">Social appearance</h3>#{social_fields}</section>)
+      end
       tabs = %w[Search Social Advanced].map do |name|
         key = name.downcase
         %(<button type="button" id="seo-tab-#{key}" role="tab" aria-controls="seo-panel-#{key}" data-seo-editor-target="tab" data-tab="#{key}" data-action="seo-editor#switchTab keydown->seo-editor#tabKeydown">#{name}</button>)
       end.join
       output = <<~HTML
-        <div class="seo-workspace-nav"><div role="tablist" aria-label="Search and sharing settings">#{tabs}</div><span data-seo-editor-target="analysisStatus" role="status">Based on your current draft</span></div>
+        <div class="seo-workspace-nav"><div role="tablist" aria-label="Search and sharing settings">#{tabs}</div><span data-seo-editor-target="analysisStatus" role="status">#{social_fields ? "Theme page" : "Based on your current draft"}</span></div>
         <div id="seo-panel-search" role="tabpanel" aria-labelledby="seo-tab-search" data-seo-editor-target="panel" data-tab="search" class="seo-tab-panel seo-search-layout">
           <div class="seo-editing-column">#{search.to_html}</div>
+          #{unless social_fields
+            <<~REVIEW
           <aside class="seo-review-column"><div class="seo-health"><span class="seo-health-caption">DRAFT REVIEW</span><div><strong data-seo-editor-target="score">#{summary.score}</strong><span>/ 100</span></div><p data-seo-editor-target="wordCount">#{ContentDocument.new(record.editing_blocks).words.length} words analyzed</p></div>#{analysis.to_html}#{readability.to_html}<p class="seo-review-note">Recommendations update as you write.</p></aside>
+            REVIEW
+          end}
         </div>
-        <div id="seo-panel-social" role="tabpanel" aria-labelledby="seo-tab-social" data-seo-editor-target="panel" data-tab="social" class="seo-tab-panel">#{social.to_html}</div>
-        <div id="seo-panel-advanced" role="tabpanel" aria-labelledby="seo-tab-advanced" data-seo-editor-target="panel" data-tab="advanced" class="seo-tab-panel seo-advanced-layout">#{schema.to_html}#{advanced.to_html}</div>
+        <div id="seo-panel-social" role="tabpanel" aria-labelledby="seo-tab-social" data-seo-editor-target="panel" data-tab="social" class="seo-tab-panel">#{social_fields ? social : social.to_html}</div>
+        <div id="seo-panel-advanced" role="tabpanel" aria-labelledby="seo-tab-advanced" data-seo-editor-target="panel" data-tab="advanced" class="seo-tab-panel seo-advanced-layout">#{advanced_fields || "#{schema.to_html}#{advanced.to_html}"}</div>
       HTML
       document = Nokogiri::HTML.fragment(output)
       document.css("input:not([type=hidden]), textarea, select").each_with_index do |field, index|

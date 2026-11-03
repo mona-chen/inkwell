@@ -39,6 +39,8 @@ module ThemeRuntime
       replace_meta(head, "og:title", og["title"], property: true)
       replace_meta(head, "og:description", og["description"], property: true)
       replace_meta(head, "og:image", og["image"], property: true)
+      replace_meta(head, "og:url", og["url"], property: true)
+      replace_meta(head, "og:type", og["type"], property: true)
       twitter = @payload["twitter"] || {}
       replace_meta(head, "twitter:card", twitter["card"])
       replace_meta(head, "twitter:title", twitter["title"])
@@ -62,7 +64,7 @@ module ThemeRuntime
       script = Nokogiri::XML::Node.new("script", @document)
       script["type"] = "application/ld+json"
       script["data-inkwell-seo"] = "1"
-      script.content = schema.is_a?(String) ? schema : JSON.generate(schema)
+      script.content = ERB::Util.json_escape(schema.is_a?(String) ? schema : JSON.generate(schema))
       head.add_child(script)
     end
 

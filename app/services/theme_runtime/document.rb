@@ -23,7 +23,9 @@ module ThemeRuntime
         Parts.new(site: @site, theme_slug: @theme_slug || @site&.active_theme).apply!(document) if @site
         Regions.new(data: @data, serializer: @serializer).render!(document)
       end
-      Seo.new(document, @data.dig("page", "seo")).apply!
+      seo = @data.dig("page", "seo")
+      seo = Inkwell::Hooks.filter(:theme_document_seo, seo, document: document)
+      Seo.new(document, seo).apply!
       inject_data(document)
       mark_mode(document)
       document.to_html

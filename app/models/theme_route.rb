@@ -57,7 +57,7 @@ class ThemeRoute < ApplicationRecord
   end
 
   def display_title
-    title_override.presence || draft_data["title"].presence || seo_title.presence || route_key.humanize
+    title_override.presence || draft_data["title"].presence || route_key.humanize
   end
 
   def match_path?(candidate)

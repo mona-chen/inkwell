@@ -7,7 +7,7 @@ export default class extends Controller {
   connect() {
     this.form = this.element.closest("form")
     this.generatedDescription = this.serpDescriptionTarget.textContent.trim()
-    this.featuredImage = this.ogPreviewImageTarget.style.backgroundImage
+    this.featuredImage = this.hasOgPreviewImageTarget ? this.ogPreviewImageTarget.style.backgroundImage : ""
     this._update = () => { this.update(); this.queueAnalysis() }
     this.form?.addEventListener("input", this._update)
     this.form?.addEventListener("change", this._update)
@@ -46,21 +46,25 @@ export default class extends Controller {
   }
 
   update() {
-    const title = this.seoTitleTarget.value.trim() || this.form?.querySelector(`[name="${this.resourceValue}[title]"]`)?.value.trim() || ""
+    const title = this.seoTitleTarget.value.trim() || this.form?.querySelector(`[name="${this.resourceValue}[title]"]`)?.value.trim() || this.seoTitleTarget.placeholder || ""
     const description = this.metaDescriptionTarget.value.trim() || this.form?.querySelector(`[name="${this.resourceValue}[excerpt]"]`)?.value.trim() || this.generatedDescription || ""
-    const ogTitle = this.ogTitleTarget.value.trim() || title
-    const ogDescription = this.ogDescriptionTarget.value.trim() || description
-    this.serpTitleTarget.textContent = title || "Your post title"
+    if (this.hasOgTitleTarget) this.updateSocial(title, description)
+    this.serpTitleTarget.textContent = title || "Your page title"
     this.serpDescriptionTarget.textContent = description || "Add a description to preview your search appearance."
     this.metaDescriptionTarget.placeholder = description || "Describe what readers will find on this page…"
     this.descriptionSourceTarget.textContent = this.metaDescriptionTarget.value.trim() ? "Using your custom description" : description ? "Using the summary generated from your draft" : "No description yet"
-    this.serpSlugTarget.textContent = this.slugTarget.value.trim() || this.slugTarget.placeholder.trim()
+    if (this.hasSlugTarget) this.serpSlugTarget.textContent = this.slugTarget.value.trim() || this.slugTarget.placeholder.trim()
+    this.updateCount(this.titleCountTarget, title.length, 60, 30)
+    this.updateCount(this.descriptionCountTarget, description.length, 155, 120)
+  }
+
+  updateSocial(title, description) {
+    const ogTitle = this.ogTitleTarget.value.trim() || title
+    const ogDescription = this.ogDescriptionTarget.value.trim() || description
     this.ogPreviewTitleTarget.textContent = ogTitle || "Your post title"
     this.ogPreviewDescriptionTarget.textContent = ogDescription
     this.xPreviewTitleTarget.textContent = this.xTitleTarget.value.trim() || ogTitle || "Your post title"
     this.xPreviewDescriptionTarget.textContent = this.xDescriptionTarget.value.trim() || ogDescription
-    this.updateCount(this.titleCountTarget, title.length, 60, 30)
-    this.updateCount(this.descriptionCountTarget, description.length, 155, 120)
     const featured = this.form?.querySelector('[data-media-picker-target="preview"] img')?.getAttribute("src")
     const og = this.ogImageTarget.value.trim() || featured
     const x = this.xImageTarget.value.trim() || og
@@ -84,6 +88,7 @@ export default class extends Controller {
   }
 
   queueAnalysis() {
+    if (!this.hasAnalysisUrlValue) return
     clearTimeout(this.timer)
     this.request?.abort()
     this.analysisStatusTarget.textContent = "Updating draft review…"
