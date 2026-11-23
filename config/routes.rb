@@ -164,6 +164,9 @@ Rails.application.routes.draw do
   get "theme-islands/:kind", to: "theme_islands#show", format: false
   # Last: application and plugin endpoints always take precedence over imported paths.
   get "theme-assets/:theme_slug/*asset_path", to: "theme_sites#asset", format: false
-  get "*imported_path", to: "theme_sites#show", format: false
+  # Active Storage appends its routes after the application's routes. Leave its
+  # namespace unmatched here so blob redirects, variants and disk delivery work.
+  get "*imported_path", to: "theme_sites#show", format: false,
+    constraints: ->(request) { !request.path.start_with?("#{ActiveStorage.routes_prefix}/") }
 
 end
