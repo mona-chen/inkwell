@@ -26,12 +26,27 @@ module ThemeRuntime
       seo = @data.dig("page", "seo")
       seo = Inkwell::Hooks.filter(:theme_document_seo, seo, document: document)
       Seo.new(document, seo).apply!
+      apply_site_favicon(document)
       inject_data(document)
       mark_mode(document)
       document.to_html
     end
 
     private
+
+    def apply_site_favicon(document)
+      favicon = @site&.setting("site_favicon").to_s
+      return unless favicon.match?(%r{\A(?:https?://|/(?!/))})
+
+      head = document.at_css("head")
+      return unless head
+
+      head.css('link[rel="icon"], link[rel="shortcut icon"]').remove
+      head.add_child(Nokogiri::XML::Node.new("link", document).tap do |link|
+        link["rel"] = "icon"
+        link["href"] = favicon
+      end)
+    end
 
     def regions_renderable?
       render_mode == "server_injected"

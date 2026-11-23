@@ -24,14 +24,19 @@ PUBLIC_HOST = "${{ RAILDOCK_PUBLIC_DOMAIN }}"
 
 [[services.storage]]
 host = "inkwell-storage"
-container = "/rails/storage"
+container = "/app/storage"
+
+# Imported theme releases are runtime data, not part of the application image.
+[[services.storage]]
+host = "inkwell-themes"
+container = "/app/app/themes"
 
 [[services.cron]]
 command = "bin/rails solid_cache:prune_stale"
 schedule = "0 3 * * *"
 
 [services.scripts]
-predeploy = "bin/rails db:migrate"
+predeploy = "bin/rails db:migrate themes:verify"
 
 # ── PostgreSQL ─────────────────────────────────────────────────
 

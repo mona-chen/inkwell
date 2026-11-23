@@ -1,13 +1,26 @@
 namespace :themes do
+  desc "Reject a deployment whose configured active theme is missing or incomplete"
+  task verify: :environment do
+    Site.active.find_each do |site|
+      slug = site.active_theme
+      next if slug.blank?
+
+      abort "Active theme missing for site #{site.id}: #{slug}. Check persistent theme storage." unless ThemeManager.available.include?(slug)
+      errors = ThemePackages::Runtime.for(slug)&.readiness_errors || []
+      abort "Active theme incomplete for site #{site.id}: #{errors.join('; ')}" if errors.any?
+    end
+    puts "Active themes verified."
+  end
+
   desc "Import a source directory: themes:import[DIRECTORY,SLUG,SPA]"
-  task :import, [:source, :slug, :spa] => :environment do |_task, args|
+  task :import, [ :source, :slug, :spa ] => :environment do |_task, args|
     abort "A source directory is required" if args[:source].blank?
     manifest = ThemePackages::Importer.new.import_directory!(args[:source], slug: args[:slug], spa: ActiveModel::Type::Boolean.new.cast(args[:spa]))
     puts "Imported #{manifest.fetch('slug')}. Review dependencies before activation."
   end
 
   desc "Show a theme's declared dependencies: themes:dependencies[SLUG]"
-  task :dependencies, [:slug] => :environment do |_task, args|
+  task :dependencies, [ :slug ] => :environment do |_task, args|
     runtime = ThemePackages::Runtime.for(args[:slug]) or abort "Theme package not found"
     dependencies = ThemePackages::Dependencies.new(runtime.manifest.data.fetch("dependencies", {}))
     puts dependencies.gemfile
@@ -18,7 +31,7 @@ namespace :themes do
   end
 
   desc "Install packages and build a trusted theme source: themes:build[SLUG]"
-  task :build, [:slug] => :environment do |_task, args|
+  task :build, [ :slug ] => :environment do |_task, args|
     ThemePackages::Builder.new.build!(args[:slug])
     puts "Built #{args[:slug]}."
   rescue ThemePackages::Builder::Error => error
