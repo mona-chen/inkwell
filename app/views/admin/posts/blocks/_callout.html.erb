@@ -13,6 +13,8 @@
       <% end %>
     </div>
     <div data-choice-field-target="preview" class="callout-preview mt-2 rounded-r-lg border-l-4 p-3 text-sm leading-relaxed">
+      <input type="text" data-field="title" data-action="input->block-editor#serialize" value="<%= local_assigns[:data]&.dig("title") %>"
+             placeholder="Title (optional — defaults to Note, Tip, Warning…)" class="w-full border-0 focus:ring-0 p-0 mb-1 bg-transparent text-sm font-semibold text-foreground placeholder:text-muted-foreground placeholder:font-normal">
       <textarea data-field="text" data-action="input->block-editor#onInput keydown->block-editor#onKeydown" rows="2"
                 placeholder="Callout text" class="w-full border-0 focus:ring-0 resize-none text-sm leading-relaxed p-0 bg-transparent text-foreground placeholder:text-muted-foreground"><%= local_assigns[:data]&.dig("text") %></textarea>
     </div>

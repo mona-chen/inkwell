@@ -46,6 +46,7 @@ module Admin
                   div(class: "text-xs text-muted-foreground") { @current_site&.name || "Inkwell" }
                 end
               end
+              menu.item("Your profile", href: admin_profile_path, icon: :circle_user)
               menu.item("Settings", href: admin_settings_path, icon: :settings)
               menu.item("View site", href: "/", icon: :external_link)
               menu.separator

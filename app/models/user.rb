@@ -15,7 +15,33 @@ class User < ApplicationRecord
   has_many :user_sites, class_name: "Multisite::UserSite", dependent: :destroy
   has_many :accessible_sites, through: :user_sites, source: :site
 
-  validates :name, presence: true
+  belongs_to :avatar_item, class_name: "MediaItem", optional: true
+
+  PROFILE_LINK_KINDS = %w[website x linkedin github instagram youtube tiktok email other].freeze
+  PROFILE_LINK_LABELS = { "website" => "Website", "x" => "X", "linkedin" => "LinkedIn", "github" => "GitHub", "instagram" => "Instagram", "youtube" => "YouTube", "tiktok" => "TikTok", "email" => "Email", "other" => "Link" }.freeze
+  MAX_PROFILE_LINKS = 8
+
+  validates :name, presence: true, length: { maximum: 120 }
+  validates :job_title, length: { maximum: 120 }
+  validates :bio, length: { maximum: 2000 }
+  validate :profile_links_are_safe
+  validate :avatar_item_belongs_to_site
+
+  before_validation :normalize_profile_links
+
+  # The avatar shown publicly: a media-library upload wins over a pasted URL.
+  def avatar_display_url
+    avatar_item&.url.presence || avatar_url.presence
+  end
+
+  # [{ "kind" => "linkedin", "label" => "LinkedIn", "url" => "https://…" }, …]
+  def profile_links
+    Array(super).select { |link| link.is_a?(Hash) }
+  end
+
+  def initials
+    name.to_s.split.first(2).map { |part| part[0] }.join.upcase.presence || "?"
+  end
 
   scope :active, -> { where(deactivated_at: nil) }
 
@@ -87,6 +113,41 @@ class User < ApplicationRecord
   end
 
   delegate :can?, to: :role
+
+  private
+
+  def normalize_profile_links
+    links = Array(self[:profile_links]).filter_map do |link|
+      link = link.to_h.stringify_keys.slice("kind", "label", "url").transform_values { |value| value.to_s.strip }
+      next if link["url"].blank?
+
+      link["url"] = "https://#{link['url']}" unless link["url"].match?(%r{\A[a-z][a-z0-9+.-]*:}i)
+      link["kind"] = PROFILE_LINK_KINDS.include?(link["kind"]) ? link["kind"] : self.class.link_kind_for(link["url"])
+      link["label"] = link["label"].presence || PROFILE_LINK_LABELS.fetch(link["kind"], "Link")
+      link
+    end
+    self[:profile_links] = links.first(MAX_PROFILE_LINKS)
+  end
+
+  def self.link_kind_for(url)
+    host = (URI.parse(url).host.to_s.downcase.sub(/\Awww\./, "") rescue "")
+    return "email" if url.start_with?("mailto:")
+    { "x.com" => "x", "twitter.com" => "x", "linkedin.com" => "linkedin", "github.com" => "github", "instagram.com" => "instagram", "youtube.com" => "youtube", "tiktok.com" => "tiktok" }.fetch(host, "website")
+  end
+
+  def profile_links_are_safe
+    profile_links.each do |link|
+      next if link["url"].to_s.match?(%r{\A(?:https?://[^\s]+|mailto:[^\s@]+@[^\s@]+)\z}i)
+      errors.add(:profile_links, "must be http(s) or mailto links (#{link['url'].to_s.truncate(40)})")
+    end
+  end
+
+  def avatar_item_belongs_to_site
+    return unless avatar_item
+    errors.add(:avatar_item, "must be an image from this site's media library") unless avatar_item.site_id == site_id && avatar_item.image?
+  end
+
+  public
 
   def admin?
     role.name == "admin"

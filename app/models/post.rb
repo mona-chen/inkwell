@@ -53,10 +53,8 @@ class Post < ApplicationRecord
 
   # Rough reading time based on visible text (~200 wpm).
   def reading_time
-    text = content_blocks.map { |b| b.dig("data", "text").to_s }.join(" ")
-    words = text.scan(/\S+/).size
-    minutes = (words / 200.0).ceil
-    minutes < 1 ? 1 : minutes
+    words = ContentDocument.new(content_blocks).words.size
+    [ (words / 220.0).ceil, 1 ].max
   end
 
   # Featured image URL: explicit featured_image (media library) or the first image block.
@@ -105,9 +103,24 @@ class Post < ApplicationRecord
     with_lock do
       @skip_revision = true
       revisions.create!(user: Current.user || author, title_snapshot: title, content_snapshot: content || [])
-      update!(content: publishable_draft_content, draft_content: nil, status: "published")
+      next_content = publishable_draft_content
+      attributes = { content: next_content, draft_content: nil, status: "published" }
+      # A meaningful content change to an already-live post is what readers (and search
+      # engines) see as "Updated"; metadata-only saves don't move this date.
+      attributes[:content_modified_at] = Time.current if status == "published" && published_at.present? && next_content != content
+      update!(attributes)
     ensure
       @skip_revision = false
+    end
+  end
+
+  # Scheduled posts go live with their reviewed draft, exactly like an explicit publish.
+  def publish_scheduled!
+    with_lock do
+      attributes = { status: "published", published_at: scheduled_for || Time.current }
+      attributes[:content] = publishable_draft_content if draft_content.present?
+      attributes[:draft_content] = nil
+      update!(attributes)
     end
   end
 

@@ -23,11 +23,11 @@
         <button type="button"
                 data-action="block-editor#addBlock"
                 data-block-editor-type-param="<%= type %>"
-                data-search-item="<%= type.titleize %>"
+                data-search-item="<%= BlockRenderer.label_for(type) %> <%= type.tr("_", " ") %>"
                 data-search-group="blocks"
                 class="flex flex-col items-center gap-1 rounded-lg p-2 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
           <%= render Ink::Icon.new(BlockRenderer.icon_for(type), size: :sm) %>
-          <span><%= type.titleize %></span>
+          <span class="text-center leading-tight"><%= BlockRenderer.label_for(type) %></span>
         </button>
       <% end %>
     </div>

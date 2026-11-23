@@ -89,6 +89,8 @@ module Admin
 
           f.submit "Save", class: "rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
 
+          a(href: admin_profile_path(author: user == @current_user ? nil : user.to_param), class: "rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground") { "Profile" }
+
           if user.deactivated?
             render ButtonTo.new("Reactivate", href: reactivate_admin_user_path(user), method: :post, variant: :ghost, size: :xs)
           else

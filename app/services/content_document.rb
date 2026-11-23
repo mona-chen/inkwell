@@ -34,12 +34,29 @@ class ContentDocument
       add_text(html.to_html)
     else
       @headings += 1 if block["type"] == "heading"
-      @links += 1 if block["type"] == "button" && data["url"].present?
+      @headings += 1 if block["type"] == "faq"
+      @links += 1 if %w[button cta].include?(block["type"]) && (data["url"].presence || data["primary_url"]).present?
       @images << data if block["type"] == "image" && data["url"].present?
-      %w[text content caption items].each { |key| add_text(data[key].is_a?(Array) ? data[key].join(" ") : data[key]) if data[key].present? }
+      structured_strings(data).each do |value|
+        @links += value.scan(InlineText::LINK).size
+        add_text(InlineText.plain(value))
+      end
     end
   rescue JSON::ParserError
     # Invalid rich text cannot be rendered and should not contribute JSON source as prose.
+  end
+
+  # Every human-readable string in a structured block (table cells, FAQ answers, stats…),
+  # skipping technical values such as URLs, tones and sizes.
+  TECHNICAL_KEYS = %w[url link primary_url secondary_url tone style size level language anchor ordered row_headers highlight width height alt credit].freeze
+
+  def structured_strings(value, key = nil)
+    case value
+    when Hash then value.flat_map { |k, v| TECHNICAL_KEYS.include?(k.to_s) ? [] : structured_strings(v, k) }
+    when Array then value.flat_map { |v| structured_strings(v, key) }
+    when String then value.strip.empty? ? [] : [ value ]
+    else []
+    end
   end
 
   def read_node(node)

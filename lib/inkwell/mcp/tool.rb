@@ -16,7 +16,13 @@ module Inkwell
       end
 
       def call(context, arguments)
-        raise AgentAccess::Error, "Arguments do not match #{name}'s input schema" unless @validator.valid?(arguments)
+        unless @validator.valid?(arguments)
+          details = @validator.validate(arguments).first(5).map do |error|
+            pointer = error["data_pointer"].presence || "/"
+            "#{pointer}: #{error['error'] || error['type']}"
+          end
+          raise AgentAccess::Error, "Arguments do not match #{name}'s input schema. #{details.join('; ')}".strip
+        end
         @handler.call(context, arguments)
       end
     end

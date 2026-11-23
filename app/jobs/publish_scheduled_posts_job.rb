@@ -5,7 +5,7 @@ class PublishScheduledPostsJob < ApplicationJob
 
   def perform
     Post.where(status: "scheduled").where("scheduled_for <= ?", Time.current).find_each do |post|
-      post.update!(status: "published", published_at: post.scheduled_for)
+      post.publish_scheduled!
     end
   end
 end

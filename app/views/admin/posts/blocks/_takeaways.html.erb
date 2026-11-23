@@ -1,0 +1,10 @@
+<% data = local_assigns[:data] || {} %>
+<div data-block-editor-target="block" data-type="takeaways" class="group relative py-1.5 px-1 -mx-1 rounded transition-colors">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <div class="ink-sblock ink-sblock--takeaways" data-controller="item-list" data-item-list-placeholder-value="A crisp, self-contained point" data-item-list-max-value="8" data-item-list-add-label-value="Add takeaway">
+    <%= render "admin/posts/blocks/block_label", type: "takeaways", hint: "3–5 points near the top" %>
+    <input type="text" data-field="title" data-action="input->block-editor#serialize" value="<%= data["title"] %>" placeholder="Key takeaways" class="ink-sblock__title" aria-label="Takeaways title">
+    <input type="hidden" data-field="items" data-field-format="json" data-item-list-target="field" data-action="input->block-editor#serialize" value="<%= Array(data["items"].presence || []).to_json %>">
+    <div class="ink-items" data-item-list-target="rows"></div>
+  </div>
+</div>

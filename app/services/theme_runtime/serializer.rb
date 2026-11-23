@@ -8,9 +8,25 @@ module ThemeRuntime
 
     attr_reader :site, :base_url
 
-    def initialize(site:, base_url: nil)
+    # `paths` maps content roles to the active theme's URL patterns, e.g.
+    # { "post" => "/blog/:slug", "author" => "/contributors/:slug", "blog" => "/blog" },
+    # so every link and canonical URL in the contract points at the theme's routes.
+    def initialize(site:, base_url: nil, paths: {})
       @site = site
       @base_url = base_url.presence || site.url
+      @paths = (paths || {}).transform_keys(&:to_s).compact_blank
+    end
+
+    def post_path(post) = route_for("post", post.slug, post.url)
+    def author_path(user) = route_for("author", user.to_param, "/authors/#{user.to_param}")
+    def blog_path = @paths["blog"].presence || "/posts"
+
+    def category_path(term)
+      "#{blog_path}?category=#{CGI.escape(term.slug.to_s)}"
+    end
+
+    def tag_path(term)
+      "#{blog_path}?tag=#{CGI.escape(term.slug.to_s)}"
     end
 
     def site_payload
@@ -41,11 +57,16 @@ module ThemeRuntime
       elsif record.is_a?(User)
         {
           "type" => "author", "id" => record.id.to_s, "title" => record.name.to_s,
-          "slug" => record.to_param.to_s, "url" => "/authors/#{record.to_param}",
-          "html" => record.bio.to_s, "excerpt" => record.bio.to_s,
+          "slug" => record.to_param.to_s, "url" => author_path(record),
+          "html" => ERB::Util.html_escape(record.bio.to_s).gsub(/\r?\n/, "<br>"), "excerpt" => record.bio.to_s,
+          "image" => absolute(record.avatar_display_url),
           "published_at" => nil, "updated_at" => record.updated_at&.utc&.iso8601,
           "author" => author_payload(record),
-          "seo" => seo_payload(record: nil, route: route, path: path || "/authors/#{record.to_param}")
+          "seo" => seo_payload(record: nil, route: route, path: path || author_path(record)).tap do |seo|
+            seo["title"] ||= "#{record.name} — #{site.name}"
+            seo["description"] ||= record.bio.to_s.truncate(160).presence
+            seo["schema"] ||= person_schema(record)
+          end
         }
       else
         {
@@ -56,21 +77,62 @@ module ThemeRuntime
       end
     end
 
-    def post_payload(post)
-      {
+    # `full: false` is the lightweight card shape used in listings (no body HTML).
+    def post_payload(post, full: true)
+      document = ContentDocument.new(post.content_blocks)
+      analysis = full ? ContentHtml.analyze(post.content_blocks) : { "html" => "", "toc" => [], "faq" => [] }
+      categories = post.categories.order(:name).map { |term| term_payload(term) }
+      payload = {
         "type" => "post",
         "id" => post.id.to_s,
         "title" => post.title.to_s,
         "slug" => post.slug.to_s,
         "image" => absolute(post.featured_image_url),
-        "url" => post.url,
-        "html" => ContentHtml.render(post.content_blocks),
-        "excerpt" => post.excerpt.presence || ContentDocument.new(post.content_blocks).text.truncate(300),
+        "image_alt" => post.featured_image_alt.presence || post.featured_image&.alt_text.presence || "",
+        "url" => post_path(post),
+        "html" => analysis["html"],
+        "excerpt" => post.excerpt.presence || document.text.truncate(300),
         "published_at" => post.published_at&.utc&.iso8601,
         "updated_at" => post.updated_at&.utc&.iso8601,
-        "author" => author_payload(post.author),
-        "seo" => seo_payload(record: post, path: post.url)
+        "modified_at" => post.content_modified_at&.utc&.iso8601,
+        "reading_time" => [ (document.words.size / 220.0).ceil, 1 ].max,
+        "word_count" => document.words.size,
+        "featured" => !!post.cornerstone,
+        "category" => categories.first,
+        "categories" => categories,
+        "tags" => post.tags.order(:name).map { |term| term_payload(term) },
+        "toc" => analysis["toc"],
+        "author" => author_payload(post.author)
       }
+      payload["seo"] = seo_payload(record: post, path: payload["url"]).merge("schema" => post_schema(post, payload, analysis["faq"])) if full
+      payload
+    end
+
+    def term_payload(term)
+      {
+        "id" => term.id.to_s,
+        "name" => term.name.to_s,
+        "slug" => term.slug.to_s,
+        "description" => term.try(:description).to_s,
+        "url" => term.taxonomy == "tag" ? tag_path(term) : category_path(term)
+      }
+    end
+
+    # Categories that have at least one published post, most-used first.
+    def categories(limit: 20)
+      counts = PostTerm.joins(:term).where(terms: { site_id: site.id, taxonomy: "category" }, termable_type: "Post", termable_id: site.posts.published.select(:id)).group(:term_id).count
+      Term.where(id: counts.keys).sort_by { |term| [ -counts[term.id], term.name.to_s ] }.first(limit).map do |term|
+        term_payload(term).merge("count" => counts[term.id])
+      end
+    end
+
+    # Posts that share a category or tag with `post`, topped up with the latest posts.
+    def related_posts(post, limit: 3)
+      term_ids = post.post_terms.pluck(:term_id)
+      scope = site.posts.published.where.not(id: post.id).includes(:author, :featured_image)
+      related = term_ids.any? ? scope.joins(:post_terms).where(post_terms: { term_id: term_ids }).group("posts.id").order(Arel.sql("COUNT(post_terms.id) DESC, posts.published_at DESC")).limit(limit).to_a : []
+      related += scope.where.not(id: related.map(&:id)).order(published_at: :desc).limit(limit - related.size).to_a if related.size < limit
+      related.map { |record| post_payload(record, full: false) }
     end
 
     def page_record_payload(page)
@@ -95,24 +157,26 @@ module ThemeRuntime
         "id" => user.id.to_s,
         "name" => user.name.to_s,
         "slug" => user.to_param.to_s,
-        "url" => "/authors/#{user.to_param}",
+        "url" => author_path(user),
         "bio" => user.bio.to_s,
-        "avatar" => absolute(user.avatar_url),
+        "title" => user.job_title.to_s,
+        "avatar" => absolute(user.avatar_display_url),
+        "links" => user.profile_links.map { |link| link.slice("label", "url", "kind") },
         "posts_count" => user.posts.published.count
       }
     end
 
-    def posts(limit: 10, query: "latest", page: 1, per_page: nil, author: nil, tag: nil, category: nil, search: nil, related_to: nil)
-      scope = site.posts.published.includes(:author).order(published_at: :desc)
+    def posts(limit: 10, query: "latest", page: 1, per_page: nil, author: nil, tag: nil, category: nil, search: nil, related_to: nil, full: false)
+      scope = site.posts.published.includes(:author, :featured_image).order(published_at: :desc)
       scope = scope.where(author: author) if author
       scope = scope.where.not(id: related_to.id) if related_to.respond_to?(:id)
       scope = scope.joins(:terms).where(terms: { slug: tag, taxonomy: "tag" }) if tag.present?
       scope = scope.joins(:terms).where(terms: { slug: category, taxonomy: "category" }) if category.present?
-      scope = scope.where("posts.title ILIKE ?", "%#{search}%") if search.present?
+      scope = scope.where("posts.title ILIKE :q OR posts.excerpt ILIKE :q", q: "%#{ActiveRecord::Base.sanitize_sql_like(search.to_s)}%") if search.present?
       size = (per_page || limit).to_i.clamp(1, MAX_COLLECTION)
       page = page.to_i.clamp(1, 10_000)
       total = scope.count if block_given?
-      records = scope.order(id: :desc).offset((page - 1) * size).limit(size).map { |post| post_payload(post) }
+      records = scope.order(id: :desc).offset((page - 1) * size).limit(size).map { |post| post_payload(post, full: full) }
       yield pagination(page: page, per_page: size, total: total) if block_given?
       records
     end
@@ -224,6 +288,57 @@ module ThemeRuntime
     end
 
     private
+
+    def route_for(role, slug, fallback)
+      pattern = @paths[role].to_s
+      pattern.end_with?("/:slug") ? pattern.sub(/:slug\z/, slug.to_s) : fallback
+    end
+
+    # BlogPosting + BreadcrumbList (+ FAQPage) as one JSON-LD graph.
+    def post_schema(post, payload, faq)
+      url = absolute(payload["url"])
+      author = post.author
+      graph = []
+      article = {
+        "@type" => post.schema_article_type.presence_in(%w[Article BlogPosting NewsArticle TechArticle]) || "BlogPosting",
+        "@id" => "#{url}#article",
+        "headline" => post.seo_title_display.to_s.truncate(110),
+        "description" => post.seo_description_display.to_s,
+        "url" => url,
+        "mainEntityOfPage" => url,
+        "datePublished" => payload["published_at"],
+        "dateModified" => payload["modified_at"] || payload["updated_at"],
+        "wordCount" => payload["word_count"],
+        "inLanguage" => "en",
+        "publisher" => { "@type" => "Organization", "name" => site.name.to_s, "url" => absolute(site.url), "logo" => (absolute(site.logo_item&.url.presence || site.logo_url) && { "@type" => "ImageObject", "url" => absolute(site.logo_item&.url.presence || site.logo_url) }) }.compact
+      }
+      article["image"] = [ absolute(post.seo_og_image) ].compact if post.seo_og_image.present?
+      article["author"] = person_schema(author).except("@context") if author
+      article["articleSection"] = payload.dig("category", "name") if payload["category"]
+      article["keywords"] = payload["tags"].map { |tag| tag["name"] }.join(", ") if payload["tags"].any?
+      graph << article.compact
+      crumbs = [ [ site.name.to_s, absolute("/") ], [ "Blog", absolute(blog_path) ] ]
+      crumbs << [ payload.dig("category", "name"), absolute(payload.dig("category", "url")) ] if payload["category"]
+      crumbs << [ post.title.to_s, url ]
+      graph << { "@type" => "BreadcrumbList", "itemListElement" => crumbs.each_with_index.map { |(name, item), index| { "@type" => "ListItem", "position" => index + 1, "name" => name, "item" => item } } }
+      if faq.any?
+        graph << { "@type" => "FAQPage", "mainEntity" => faq.map { |entry| { "@type" => "Question", "name" => entry["question"], "acceptedAnswer" => { "@type" => "Answer", "text" => entry["answer"] } } } }
+      end
+      { "@context" => "https://schema.org", "@graph" => graph }
+    end
+
+    def person_schema(user)
+      {
+        "@context" => "https://schema.org",
+        "@type" => "Person",
+        "name" => user.name.to_s,
+        "url" => absolute(author_path(user)),
+        "jobTitle" => user.job_title.presence,
+        "description" => user.bio.presence,
+        "image" => absolute(user.avatar_display_url),
+        "sameAs" => user.profile_links.map { |link| link["url"] }.presence
+      }.compact
+    end
 
     def theme_route_payload(route, path: nil)
       {

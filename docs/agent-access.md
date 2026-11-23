@@ -102,6 +102,30 @@ MCP-only client cannot render/compile a visual draft. MCP publishing refuses an
 uncompiled shared document. Builder Save draft now leaves live content untouched;
 Publish remains separate. This preserves one canonical renderer and real editability.
 
+## Write and publish articles
+
+Writing agents should start with `inkwell.content_guide`, which returns every
+content block with its exact data shape and an example, plus the editorial
+workflow and SEO standards. The usual flow:
+
+1. `inkwell.content_guide`, `inkwell.terms_list`, `inkwell.authors_list`.
+2. `inkwell.media_upload` for images (always with alt text).
+3. `inkwell.content_create` (`kind: post`, `title`, optional `slug`, `excerpt`).
+4. `inkwell.content_save_draft` with typed blocks — real `table` blocks for
+   comparisons, `takeaways`, `stats`, `pros_cons`, `callout`, `faq`, `cta`,
+   `embed`, `image`, `rich_text`… Validation errors name the exact field
+   (e.g. `/blocks/3/data/rows`). Short text fields accept inline `**bold**`,
+   `*italic*`, `` `code` `` and `[links](https://…)`.
+5. `inkwell.content_update_metadata` for `excerpt`, SEO/social fields,
+   `featured_image_id` + `featured_image_alt`, `categories` (first is primary),
+   `tags`, `author_id` and `cornerstone` (featured on the blog index).
+6. `inkwell.content_read` returns `seo_checks`; fix failures, then
+   `inkwell.content_publish` (or pass `publish_at` to schedule a post).
+
+`inkwell.term_upsert` manages categories/tags and their descriptions;
+`inkwell.profile_update` edits the credential owner's public author profile
+(name, role, bio, avatar media, links) — admins may pass `user_id`.
+
 ## Rails plugins contribute tools
 
 Register definitions on the engine class, outside `on_activate`:

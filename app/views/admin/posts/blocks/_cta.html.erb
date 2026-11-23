@@ -1,0 +1,16 @@
+<% data = local_assigns[:data] || {} %>
+<div data-block-editor-target="block" data-type="cta" class="group relative py-1.5 px-1 -mx-1 rounded transition-colors">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <div class="ink-sblock ink-sblock--cta">
+    <%= render "admin/posts/blocks/block_label", type: "cta" %>
+    <input type="text" data-field="eyebrow" data-action="input->block-editor#serialize" value="<%= data["eyebrow"] %>" placeholder="Eyebrow (optional)" class="ink-sblock__eyebrow" aria-label="Eyebrow">
+    <input type="text" data-field="title" data-action="input->block-editor#serialize" value="<%= data["title"] %>" placeholder="Try Ruut free" class="ink-sblock__title ink-sblock__title--lg" aria-label="Call to action title">
+    <textarea data-field="text" data-action="input->block-editor#serialize" rows="2" placeholder="One sentence on why the reader should act now." class="ink-sblock__text" aria-label="Call to action text"><%= data["text"] %></textarea>
+    <div class="ink-sblock__pair">
+      <input type="text" data-field="primary_label" data-action="input->block-editor#serialize" value="<%= data["primary_label"] %>" placeholder="Primary button" aria-label="Primary button label">
+      <input type="text" data-field="primary_url" data-action="input->block-editor#serialize" value="<%= data["primary_url"] %>" placeholder="https://app.ruut.chat/…" inputmode="url" aria-label="Primary button link">
+      <input type="text" data-field="secondary_label" data-action="input->block-editor#serialize" value="<%= data["secondary_label"] %>" placeholder="Secondary button (optional)" aria-label="Secondary button label">
+      <input type="text" data-field="secondary_url" data-action="input->block-editor#serialize" value="<%= data["secondary_url"] %>" placeholder="https://cal.com/…" inputmode="url" aria-label="Secondary button link">
+    </div>
+  </div>
+</div>

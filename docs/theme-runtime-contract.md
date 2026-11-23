@@ -122,9 +122,45 @@ block activation.
 ```
 
 Allowed regions: `site`, `navigation`, `posts`, `post`, `authors`, `author`,
-`comments`, `search`, `pagination`, `seo`. Region attributes are validated and
-translated into fixed queries; attribute text is never evaluated. Unknown region
-names stay ordinary HTML, and malformed known regions are left untouched.
+`comments`, `search`, `pagination`, `seo`, `categories`, `related`, `toc`. Region
+attributes are validated and translated into fixed queries; attribute text is
+never evaluated. Unknown region names stay ordinary HTML, and malformed known
+regions are left untouched.
+
+Optional attributes: `data-inkwell-limit` (1–100), `data-inkwell-heading` (2–4,
+heading level for card titles) and, on `posts`, `data-inkwell-layout="feature"`
+(the first page's lead story — a post marked featured/cornerstone when present —
+renders as `.ink-post-card--featured`).
+
+| Region | Renders |
+| --- | --- |
+| `posts` | `.ink-region-posts` of `.ink-post-card` (media, category `.ink-chip`, title, excerpt, `.ink-post-meta` byline with avatar, date and reading time). Honors `?category=`, `?tag=`, `?q=` and `?page=` on the blog index. |
+| `post` | The full article: `.ink-article__header` (breadcrumbs, title, dek, author, published/updated, reading time, `.ink-share`), cover, `.ink-article__aside` with `.ink-toc`, `.ink-prose` body and `.ink-article__footer` (tags, `.ink-author-box`). |
+| `categories` | `.ink-categories` tab list; the active filter has `aria-current="page"`. |
+| `related` | Up to three posts sharing a category or tag (topped up with recent posts). |
+| `toc` | The article's `.ink-toc` on its own, for custom layouts. |
+| `author` | `.ink-author-profile` with avatar, name, role, bio, links and story count. |
+
+### Content blocks
+
+Post bodies (`page.html`) use one semantic vocabulary that themes style:
+headings carry stable `id`s (collected into `page.toc`), and structured blocks
+render as `.ink-table` (with `.is-highlighted` columns and `.ink-mark--yes/no/partial`
+cells), `.ink-takeaways`, `.ink-callout--{info,tip,success,warning,danger}`,
+`.ink-quote` / `.ink-quote--pull`, `.ink-stats`, `.ink-proscons`, `.ink-faq`
+(`<details>` items), `.ink-cta`, `.ink-embed`, `.ink-code`, `.ink-figure--{wide,full}`
+and `.ink-list--check`. The catalog lives in `app/services/content_blocks.rb`;
+see the Ruut theme's `public/journal.css` for a complete reference stylesheet.
+
+### Post, author and listing data
+
+Posts add `reading_time`, `word_count`, `modified_at` (last meaningful content
+change after publishing), `featured`, `category`, `categories`, `tags`, `toc`
+and `image_alt`; `seo.schema` is a BlogPosting + BreadcrumbList (+ FAQPage) graph
+and `seo.article` carries `article:*` meta. Authors add `title` and `links`.
+Documents add `related`, `categories` and the active `filter`. Post and author
+URLs follow the theme's declared `blog_post`/`author` templates (e.g.
+`/blog/:slug`), which are also the canonical URLs.
 
 The fixture markup remains in source for local development. In production,
 Inkwell fills these regions server-side by default.

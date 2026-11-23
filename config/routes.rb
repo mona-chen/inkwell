@@ -74,6 +74,8 @@ Rails.application.routes.draw do
       end
     end
 
+    resource :profile, only: %i[show update]
+
     resources :users, only: %i[index create update destroy] do
       member do
         post :deactivate

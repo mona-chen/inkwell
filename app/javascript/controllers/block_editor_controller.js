@@ -138,9 +138,28 @@ export function parseMarkdown(text) {
 // Deliberately NOT a rich-text contenteditable blob (that's how WP's classic editor became an
 // HTML-soup liability) — every block is structured fields, so what's stored is always valid,
 // renderable data, never partially-typed markup.
+// Field (de)serialization. Plain fields store their string value; `data-field-format="json"`
+// fields hold structured data (table rows, FAQ items…) as JSON in a hidden input, and
+// `data-field-format="int"` stores a number (or null when empty).
+function readField(field) {
+  if (field.type === "checkbox") return field.checked
+  const format = field.dataset.fieldFormat
+  if (format === "json") {
+    try { return field.value ? JSON.parse(field.value) : null } catch { return field.value }
+  }
+  if (format === "int") return field.value === "" ? null : parseInt(field.value, 10)
+  return field.value
+}
+
+function writeField(field, value) {
+  if (field.type === "checkbox") { field.checked = !!value; return }
+  if (field.dataset.fieldFormat === "json") { field.value = value == null ? "" : (typeof value === "string" ? value : JSON.stringify(value)); return }
+  field.value = value ?? ""
+}
+
 export default class extends Controller {
   static targets = ["list", "block", "hiddenField", "blockPicker", "emptyState", "slashMenu", "saveStatus", "undoButton", "redoButton", "wordCount", "inspector", "settingsToggle"]
-  static values = { types: Array, saveUrl: String, resourceKey: String, autosaveMetadata: Boolean }
+  static values = { types: Array, labels: Object, saveUrl: String, resourceKey: String, autosaveMetadata: Boolean }
 
   connect() {
     this.sortable = Sortable.create(this.listTarget, {
@@ -390,7 +409,7 @@ export default class extends Controller {
   duplicateBlock(event) {
     const block = event.target.closest("[data-block-editor-target='block']")
     const data = {}
-    block.querySelectorAll("[data-field]").forEach(field => { data[field.dataset.field] = field.type === "checkbox" ? field.checked : field.value })
+    block.querySelectorAll("[data-field]").forEach(field => { data[field.dataset.field] = readField(field) })
     const copy = this.buildBlockEl({ type: block.dataset.type, data })
     block.after(copy)
     this.commit()
@@ -509,7 +528,7 @@ export default class extends Controller {
   }
 
   buildSlashMenu(query = "") {
-    const labels = { paragraph: "Text", heading: "Heading", rich_text: "Formatted text", image: "Image", quote: "Quote", list: "List", code: "Code", separator: "Divider", callout: "Callout", button: "Button" }
+    const labels = { paragraph: "Text", heading: "Heading", rich_text: "Formatted text", image: "Image", quote: "Quote", list: "List", code: "Code", separator: "Divider", callout: "Callout", button: "Button", ...(this.hasLabelsValue ? this.labelsValue : {}) }
     this.slashTypes = this.types.filter(type => `${labels[type] || type} ${type}`.toLowerCase().includes(query.toLowerCase().replaceAll("_", " ")))
     this.slashIndex = 0
     this.slashMenuTarget.replaceChildren()
@@ -654,7 +673,7 @@ export default class extends Controller {
     return JSON.stringify(this.blockTargets.map((el) => {
       const data = {}
       el.querySelectorAll("[data-field]").forEach((field) => {
-        data[field.dataset.field] = field.type === "checkbox" ? field.checked : field.value
+        data[field.dataset.field] = readField(field)
       })
       return { type: el.dataset.type, data }
     }))
@@ -725,9 +744,7 @@ export default class extends Controller {
     const el = template.content.cloneNode(true).firstElementChild
     el.setAttribute("data-type", block.type)
     el.querySelectorAll("[data-field]").forEach((field) => {
-      const key = field.dataset.field
-      if (field.type === "checkbox") field.checked = !!block.data[key]
-      else field.value = block.data[key] ?? ""
+      writeField(field, block.data?.[field.dataset.field])
     })
     return el
   }
@@ -802,8 +819,7 @@ export default class extends Controller {
     Object.entries(data || {}).forEach(([key, value]) => {
       const field = el.querySelector(`[data-field="${key}"]`)
       if (!field) return
-      if (field.type === "checkbox") field.checked = !!value
-      else field.value = value ?? ""
+      writeField(field, value)
       field.dispatchEvent(new Event(field.type === "checkbox" ? "change" : "input", { bubbles: true }))
     })
     this.commit()
@@ -869,6 +885,13 @@ export default class extends Controller {
         } catch { return sum }
       }
       el.querySelectorAll("[data-field]").forEach((f) => {
+        if (f.dataset.fieldFormat === "json") {
+          const strings = []
+          const walk = (value) => { if (typeof value === "string") strings.push(value); else if (value && typeof value === "object") Object.values(value).forEach(walk) }
+          walk(readField(f))
+          sum += (strings.join(" ").match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)?.length || 0)
+          return
+        }
         // Skip hidden serialized fields (e.g. page_builder ERB) — count real text only.
         if (f.type === "textarea" || f.type === "text") {
           sum += ((f.value || "").match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu)?.length || 0)

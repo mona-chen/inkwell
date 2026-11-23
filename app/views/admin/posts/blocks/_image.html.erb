@@ -67,6 +67,17 @@
              data-action="input->block-editor#serialize" placeholder="Caption (optional)"
              value="<%= html_escape(local_assigns[:data]&.dig("caption")) %>"
              class="w-full rounded-md border border-border px-2 py-1.5 text-sm focus:outline-none">
+      <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+        <input type="text" data-field="credit" data-action="input->block-editor#serialize" placeholder="Credit (optional, e.g. Photo: Ruut)"
+               value="<%= html_escape(local_assigns[:data]&.dig("credit")) %>"
+               class="w-full rounded-md border border-border px-2 py-1.5 text-sm focus:outline-none">
+        <% size = local_assigns[:data]&.dig("size").presence || "content" %>
+        <select data-field="size" data-action="change->block-editor#serialize" aria-label="Image width" class="rounded-md border border-border bg-background px-2 py-1.5 text-sm">
+          <% [ [ "content", "Text width" ], [ "wide", "Wide" ], [ "full", "Full bleed" ] ].each do |value, label| %>
+            <option value="<%= value %>" <%= "selected" if size == value %>><%= label %></option>
+          <% end %>
+        </select>
+      </div>
     </div>
   </div>
 

@@ -1,0 +1,11 @@
+<% data = local_assigns[:data] || {} %>
+<div data-block-editor-target="block" data-type="faq" class="group relative py-1.5 px-1 -mx-1 rounded transition-colors">
+  <%= render "admin/posts/blocks/toolbar" %>
+  <div class="ink-sblock ink-sblock--faq" data-controller="item-list" data-item-list-max-value="20" data-item-list-add-label-value="Add question"
+       data-item-list-fields-value="<%= [ { key: "question", label: "Question", strong: true }, { key: "answer", label: "Answer", multiline: true, placeholder: "Answer in 1–3 sentences" } ].to_json %>">
+    <%= render "admin/posts/blocks/block_label", type: "faq", hint: "Adds FAQ rich results" %>
+    <input type="text" data-field="title" data-action="input->block-editor#serialize" value="<%= data["title"] %>" placeholder="Frequently asked questions" class="ink-sblock__title" aria-label="FAQ title">
+    <input type="hidden" data-field="items" data-field-format="json" data-item-list-target="field" data-action="input->block-editor#serialize" value="<%= Array(data["items"].presence || []).to_json %>">
+    <div class="ink-items" data-item-list-target="rows"></div>
+  </div>
+</div>

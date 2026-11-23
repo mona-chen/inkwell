@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_03_140100) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_23_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -337,6 +337,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_140100) do
     t.string "breadcrumb_title"
     t.string "canonical_url_override"
     t.jsonb "content", default: [], null: false
+    t.datetime "content_modified_at"
     t.boolean "cornerstone", default: false, null: false
     t.datetime "created_at", null: false
     t.jsonb "draft_content"
@@ -578,6 +579,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_140100) do
   create_table "terms", force: :cascade do |t|
     t.string "ancestry"
     t.datetime "created_at", null: false
+    t.text "description"
     t.string "name", null: false
     t.bigint "site_id", null: false
     t.string "slug", null: false
@@ -706,17 +708,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_140100) do
   end
 
   create_table "users", force: :cascade do |t|
+    t.bigint "avatar_item_id"
     t.string "avatar_url"
-    t.string "bio"
+    t.text "bio"
     t.datetime "created_at", null: false
     t.datetime "current_sign_in_at"
     t.string "current_sign_in_ip"
     t.datetime "deactivated_at"
     t.string "email", null: false
     t.string "encrypted_password", default: "", null: false
+    t.string "job_title"
     t.datetime "last_sign_in_at"
     t.string "last_sign_in_ip"
     t.string "name", null: false
+    t.jsonb "profile_links", default: [], null: false
     t.datetime "remember_created_at"
     t.datetime "reset_password_sent_at"
     t.string "reset_password_token"
@@ -724,6 +729,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_140100) do
     t.integer "sign_in_count", default: 0, null: false
     t.bigint "site_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["avatar_item_id"], name: "index_users_on_avatar_item_id"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
     t.index ["role_id"], name: "index_users_on_role_id"
@@ -848,6 +854,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_03_140100) do
   add_foreign_key "theme_routes", "sites"
   add_foreign_key "user_sites", "sites"
   add_foreign_key "user_sites", "users"
+  add_foreign_key "users", "media_items", column: "avatar_item_id", on_delete: :nullify
   add_foreign_key "users", "roles"
   add_foreign_key "users", "sites"
   add_foreign_key "webhook_deliveries", "webhook_endpoints"

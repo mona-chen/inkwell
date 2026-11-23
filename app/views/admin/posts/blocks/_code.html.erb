@@ -3,6 +3,9 @@
   <%= render "admin/posts/blocks/toolbar" %>
   <input data-field="language" data-action="input->block-editor#serialize" type="text"
          value="<%= local_assigns[:data]&.dig("language") %>" placeholder="Language (e.g. ruby, css, js)"
+         class="w-full bg-transparent text-xs text-muted-foreground border-0 focus:ring-0 p-0 mb-1 placeholder:text-muted-foreground">
+  <input data-field="filename" data-action="input->block-editor#serialize" type="text"
+         value="<%= local_assigns[:data]&.dig("filename") %>" placeholder="Filename (optional)"
          class="w-full bg-transparent text-xs text-muted-foreground border-0 focus:ring-0 p-0 mb-2 placeholder:text-muted-foreground">
   <textarea data-field="code" data-action="input->block-editor#onInput keydown->block-editor#onKeydown"
             rows="5" placeholder="code = everything(%w[is data])" spellcheck="false"

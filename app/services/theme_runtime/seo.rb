@@ -46,6 +46,10 @@ module ThemeRuntime
       replace_meta(head, "twitter:title", twitter["title"])
       replace_meta(head, "twitter:description", twitter["description"])
       replace_meta(head, "twitter:image", twitter["image"])
+      article = @payload["article"] || {}
+      %w[published_time modified_time section author].each do |key|
+        replace_meta(head, "article:#{key}", article[key], property: true)
+      end
     end
 
     def set_canonical(head)

@@ -1,0 +1,2 @@
+<%# Small eyebrow identifying a structured block inside the manuscript. %>
+<p class="ink-sblock__label"><%= render Ink::Icon.new(BlockRenderer.icon_for(type), size: :xs) %><span><%= BlockRenderer.label_for(type) %></span><% if local_assigns[:hint] %><small><%= hint %></small><% end %></p>

@@ -2,6 +2,7 @@
 
 <div data-controller="block-editor"
      data-block-editor-types-value="<%= BlockRenderer.registered_types.to_json %>"
+     data-block-editor-labels-value="<%= BlockRenderer.labels.to_json %>"
      data-block-editor-save-url-value="<%= page.new_record? ? nil : admin_page_path(page) %>"
      data-block-editor-resource-key-value="page"
      class="admin-block-editor grid gap-6">

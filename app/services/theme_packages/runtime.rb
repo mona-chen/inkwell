@@ -70,7 +70,7 @@ module ThemePackages
         site: Current.site,
         path: path,
         theme_slug: manifest.slug,
-        query: controller.params.to_unsafe_h.symbolize_keys.slice(:page, :q),
+        query: controller.params.to_unsafe_h.symbolize_keys.slice(:page, :q, :category, :tag),
         preview: controller.params[:preview_theme] == manifest.slug && controller.current_user&.admin?,
         allow_spa_fallback: fallback,
         base_url: controller.request.base_url

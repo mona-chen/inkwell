@@ -2,6 +2,7 @@ module Blocks
   class CalloutComponent < ViewComponent::Base
     TONES = {
       "info"    => "border-indigo-200 bg-indigo-50 text-indigo-900",
+      "tip"     => "border-violet-200 bg-violet-50 text-violet-900",
       "success" => "border-green-200 bg-green-50 text-green-900",
       "warning" => "border-amber-200 bg-amber-50 text-amber-900",
       "danger"  => "border-red-200 bg-red-50 text-red-900",

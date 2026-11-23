@@ -57,7 +57,20 @@ module ThemeRuntime
     end
 
     def serializer
-      @serializer ||= Serializer.new(site: site, base_url: base_url)
+      @serializer ||= Serializer.new(site: site, base_url: base_url, paths: theme_paths)
+    end
+
+    # The theme's declared URL patterns for posts, authors and the blog index.
+    def theme_paths
+      manifest = runtime&.manifest
+      return {} unless manifest
+
+      templates = manifest.templates
+      routes = manifest.routes
+      pick = ->(role) { templates[role].presence.then { |path| path if path && routes.key?(path) } }
+      { "post" => pick.call("blog_post"), "author" => pick.call("author"), "blog" => pick.call("blog_index") }.compact
+    rescue StandardError
+      {}
     end
 
     private
@@ -163,16 +176,18 @@ module ThemeRuntime
 
       case match&.route&.route_key.to_s
       when /blog|archive|index|home/, ""
-        if record.is_a?(Post)
+        if record.is_a?(User)
+          # Author pages list that author's stories (handled below).
+        elsif record.is_a?(Post)
           posts = [ serializer.post_payload(record) ]
         else
-          posts = serializer.posts(limit: 10, search: query[:q], page: query[:page] || 1) { |metadata| pagination = metadata }
+          posts = listing { |metadata| pagination = metadata }
         end
       end
       if pagination.nil? && posts.empty? && !record.is_a?(Post) && (archive_page? || query[:q].present?)
-        posts = serializer.posts(limit: 10, search: query[:q], page: query[:page] || 1) { |metadata| pagination = metadata }
+        posts = listing { |metadata| pagination = metadata }
       end
-      posts = serializer.posts(limit: 10, author: record) if record.is_a?(User) && posts.empty?
+      posts = serializer.posts(limit: 12, author: record) if record.is_a?(User) && posts.empty?
       authors = serializer.authors(limit: 12) if record.is_a?(User) || route&.route_key.to_s.include?("author")
       comments = serializer.comments(record, limit: 50) if record.is_a?(Post)
 
@@ -188,12 +203,36 @@ module ThemeRuntime
       )
       seo = serializer.seo_payload(record: record, route: route, path: path)
       seo["canonical"] = route&.canonical_url.presence || serializer.absolute_url(runtime.manifest.canonical_route(path))
+      if record.is_a?(Post)
+        # Articles: keep the JSON-LD graph and article meta built by the post payload.
+        post_seo = data.dig("page", "seo") || {}
+        # The theme's own post route is canonical (so /posts/x and /blog/x don't compete).
+        seo["canonical"] = record.canonical_url_override.presence || (theme_paths["post"] ? serializer.absolute_url(data.dig("page", "url")) : seo["canonical"])
+        seo["schema"] = post_seo["schema"] if post_seo["schema"].present?
+        seo["og"] = (seo["og"] || {}).merge("type" => "article")
+        seo["article"] = {
+          "published_time" => data.dig("page", "published_at"),
+          "modified_time" => data.dig("page", "modified_at") || data.dig("page", "updated_at"),
+          "section" => data.dig("page", "category", "name"),
+          "author" => data.dig("page", "author", "name")
+        }.compact
+        data["related"] = serializer.related_posts(record, limit: 3)
+      elsif record.is_a?(User)
+        seo = data.dig("page", "seo").merge("canonical" => seo["canonical"])
+      end
       data["page"]["seo"] = seo
+      data["categories"] = serializer.categories if archive_page? || record.is_a?(Post)
+      data["filter"] = { "category" => query[:category].presence, "tag" => query[:tag].presence, "q" => query[:q].presence }
       data
     end
 
+    # Blog listing honouring ?category=, ?tag=, ?q= and ?page=.
+    def listing(&block)
+      serializer.posts(limit: 12, search: query[:q], category: query[:category].presence, tag: query[:tag].presence, page: query[:page] || 1, &block)
+    end
+
     def archive_page?
-      match&.route&.route_key.to_s.match?(/blog|archive|index|home/) || path == "/"
+      match&.route&.route_key.to_s.match?(/blog|archive|index|home/) || path == "/" || (theme_paths["blog"].present? && path == theme_paths["blog"])
     end
   end
 end

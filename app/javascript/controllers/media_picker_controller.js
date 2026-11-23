@@ -63,7 +63,7 @@ export default class extends Controller {
     // Ignore selections made in another picker dialog (image blocks etc).
     if (frame && this.hasFrameTarget && frame !== this.frameTarget.id) return
     // Logo/attachment fields store the media id; image-block url fields store the URL.
-    const wantsId = this.urlFieldTarget.name === "settings[site_logo]" || this.urlFieldTarget.name === "post[featured_image_id]"
+    const wantsId = this.urlFieldTarget.dataset.mediaValue === "id" || this.urlFieldTarget.name === "settings[site_logo]" || this.urlFieldTarget.name === "post[featured_image_id]"
     this.urlFieldTarget.value = wantsId ? (id || "") : url
     this.urlFieldTarget.dispatchEvent(new Event("input", { bubbles: true })) // triggers block-editor#serialize
     if (this.hasAltFieldTarget) {

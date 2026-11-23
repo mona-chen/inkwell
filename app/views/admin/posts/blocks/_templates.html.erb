@@ -11,6 +11,9 @@
 <template id="block-template-callout"><%= render "admin/posts/blocks/callout", data: {} %></template>
 <template id="block-template-button"><%= render "admin/posts/blocks/button", data: {} %></template>
 <template id="block-template-rich_text"><%= render "admin/posts/blocks/rich_text", data: {} %></template>
+<% %w[table takeaways stats pros_cons faq cta embed].each do |type| %>
+<template id="block-template-<%= type %>"><%= render "admin/posts/blocks/#{type}", data: {} %></template>
+<% end %>
 
 <%# Reusable patterns (heading+paragraph, hero, pull quote, …) for the "+ Add block" picker %>
 <%= render "admin/posts/blocks/patterns" %>

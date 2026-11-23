@@ -3,9 +3,12 @@ module ThemeRuntime
   # Rails helpers, islands and Builder previews. Unknown keys are discarded.
   module Contract
     SITE_KEYS = %w[id name url logo].freeze
-    SEO_KEYS = %w[title description canonical robots og twitter schema sitemap].freeze
-    PAGE_KEYS = %w[type id title slug url html excerpt image published_at updated_at author seo].freeze
-    AUTHOR_KEYS = %w[id name slug url bio avatar posts_count].freeze
+    SEO_KEYS = %w[title description canonical robots og twitter article schema sitemap].freeze
+    PAGE_KEYS = %w[type id title slug url html excerpt image image_alt published_at updated_at modified_at reading_time word_count featured category categories tags toc author seo].freeze
+    AUTHOR_KEYS = %w[id name slug url bio title avatar links posts_count].freeze
+    TERM_KEYS = %w[id name slug description url count].freeze
+    TOC_KEYS = %w[id text level].freeze
+    LINK_KEYS = %w[kind label url].freeze
     COMMENT_KEYS = %w[id post_id parent_id author body html created_at].freeze
     NAVIGATION_KEYS = %w[label url active children].freeze
     PAGINATION_KEYS = %w[page per_page total pages next previous].freeze
@@ -22,7 +25,10 @@ module ThemeRuntime
         "posts" => Array(data["posts"]).filter_map { |item| normalize_page(item) },
         "authors" => Array(data["authors"]).filter_map { |item| normalize_author(item) },
         "comments" => Array(data["comments"]).filter_map { |item| normalize_comment(item) },
-        "pagination" => normalize_pagination(data["pagination"])
+        "pagination" => normalize_pagination(data["pagination"]),
+        "related" => Array(data["related"]).filter_map { |item| normalize_page(item) },
+        "categories" => Array(data["categories"]).filter_map { |item| normalize_term(item) },
+        "filter" => normalize_filter(data["filter"])
       }
     end
 
@@ -36,12 +42,31 @@ module ThemeRuntime
       result = PAGE_KEYS.to_h { |key| [ key, data[key] ] }
       result["author"] = normalize_author(data["author"])
       result["seo"] = normalize_seo(data["seo"])
+      result["category"] = data["category"].is_a?(Hash) ? normalize_term(data["category"]) : nil
+      result["categories"] = Array(data["categories"]).filter_map { |item| normalize_term(item) }
+      result["tags"] = Array(data["tags"]).filter_map { |item| normalize_term(item) }
+      result["toc"] = Array(data["toc"]).filter_map { |item| item.is_a?(Hash) ? TOC_KEYS.to_h { |key| [ key, item[key] ] } : nil }
+      result["featured"] = !!data["featured"]
       result
+    end
+
+    def normalize_term(value)
+      return unless value.is_a?(Hash)
+
+      TERM_KEYS.to_h { |key| [ key, value[key] ] }
+    end
+
+    # The active listing filter (category/tag/search) so themes can mark tabs as current.
+    def normalize_filter(value)
+      data = value.is_a?(Hash) ? value : {}
+      %w[category tag q].to_h { |key| [ key, data[key].presence ] }
     end
 
     def normalize_author(value)
       data = value.is_a?(Hash) ? value : {}
-      AUTHOR_KEYS.to_h { |key| [ key, data[key] ] }
+      result = AUTHOR_KEYS.to_h { |key| [ key, data[key] ] }
+      result["links"] = Array(data["links"]).filter_map { |item| item.is_a?(Hash) ? LINK_KEYS.to_h { |key| [ key, item[key] ] } : nil }
+      result
     end
 
     def normalize_comment(value)
@@ -65,6 +90,7 @@ module ThemeRuntime
       result = SEO_KEYS.to_h { |key| [ key, data[key] ] }
       result["og"] = string_hash(data["og"])
       result["twitter"] = string_hash(data["twitter"])
+      result["article"] = string_hash(data["article"]).compact_blank
       result["sitemap"] = data.key?("sitemap") ? !!data["sitemap"] : true
       result
     end

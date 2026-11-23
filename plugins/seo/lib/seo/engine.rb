@@ -35,7 +35,7 @@ module Seo
       Inkwell::Hooks.on_filter(:theme_document_seo, source: plugin_slug) do |payload, document:|
         og = payload.fetch("og", {}).compact
         og["url"] = payload["canonical"] if payload["canonical"].present?
-        og["type"] = document.at_css('meta[property="og:type"]')&.[]("content").presence || "website"
+        og["type"] = og["type"].presence || document.at_css('meta[property="og:type"]')&.[]("content").presence || "website"
         payload.merge("og" => og)
       end
 

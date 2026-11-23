@@ -9,6 +9,7 @@
 <div data-controller="block-editor"
      data-action="click->block-editor#revealPanel"
      data-block-editor-types-value="<%= BlockRenderer.registered_types.to_json %>"
+     data-block-editor-labels-value="<%= BlockRenderer.labels.to_json %>"
      data-block-editor-save-url-value="<%= post.new_record? ? nil : admin_post_path(post) %>"
      data-block-editor-resource-key-value="post"
      data-block-editor-autosave-metadata-value="<%= post.status != "published" %>"

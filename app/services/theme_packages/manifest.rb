@@ -5,7 +5,7 @@ module ThemePackages
     DECLARATION_KEY = /\A(?:[a-z][a-z0-9_]*|404)\z/
     CONTRACT_VERSIONS = %w[1].freeze
     CONTENT_TYPES = %w[posts pages authors comments categories tags media].freeze
-    REGION_TYPES = %w[site navigation posts post authors author comments search pagination seo].freeze
+    REGION_TYPES = %w[site navigation posts post authors author comments search pagination seo categories related toc].freeze
     EDITABLE_REGION_TYPES = %w[rich_text query html text image].freeze
     RUNTIME_MODES = %w[server_injected client_hydration data_endpoint].freeze
     RESERVED = %w[

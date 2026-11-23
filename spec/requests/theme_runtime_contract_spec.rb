@@ -69,7 +69,7 @@ RSpec.describe "Theme runtime contract", type: :request do
     expect(document.at_css("meta[name='inkwell-rendering']")["content"]).to eq("server")
     expect(document.at_css("script#inkwell-data")["data-inkwell-contract"]).to eq("1")
     data = JSON.parse(document.at_css("script#inkwell-data").content)
-    expect(data.keys).to eq(%w[site navigation page posts authors comments pagination])
+    expect(data.keys).to eq(%w[site navigation page posts authors comments pagination related categories filter])
     expect(data.dig("site", "name")).to eq("Contract Site")
     expect(document.at_css("[data-inkwell-region='posts']")["data-inkwell-rendered"]).to eq("posts")
     expect(response.body).to include("A sample story")
@@ -191,7 +191,7 @@ RSpec.describe "Theme runtime contract", type: :request do
 
   it "compares fixture and production documents through the same contract" do
     fixture = ThemeRuntime::Fixtures.new(theme_root, "inkwell/fixtures").load
-    expect(fixture.keys).to eq(%w[site navigation page posts authors comments pagination])
+    expect(fixture.keys).to eq(%w[site navigation page posts authors comments pagination related categories filter])
     expect(fixture.dig("site", "id")).to eq("fixture-site")
     expect(fixture["posts"].first.keys).to eq(ThemeRuntime::Contract::PAGE_KEYS)
 

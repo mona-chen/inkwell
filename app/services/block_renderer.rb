@@ -16,7 +16,14 @@ class BlockRenderer
     "separator" => Blocks::SeparatorComponent,
     "callout"   => Blocks::CalloutComponent,
     "button"    => Blocks::ButtonComponent,
-    "rich_text" => Blocks::RichTextComponent
+    "rich_text" => Blocks::RichTextComponent,
+    "table"     => Blocks::StructuredComponent.for("table"),
+    "takeaways" => Blocks::StructuredComponent.for("takeaways"),
+    "stats"     => Blocks::StructuredComponent.for("stats"),
+    "pros_cons" => Blocks::StructuredComponent.for("pros_cons"),
+    "faq"       => Blocks::StructuredComponent.for("faq"),
+    "cta"       => Blocks::StructuredComponent.for("cta"),
+    "embed"     => Blocks::StructuredComponent.for("embed")
   }
 
   # Block type → editor partial (defaults to admin/posts/blocks/<type>). Plugins register
@@ -42,7 +49,14 @@ class BlockRenderer
     "separator"  => "separator-horizontal",
     "callout"    => "info",
     "button"     => "mouse-pointer-click",
-    "rich_text"  => "pen-line"
+    "rich_text"  => "pen-line",
+    "table"      => "table",
+    "takeaways"  => "list-checks",
+    "stats"      => "chart-no-axes-column",
+    "pros_cons"  => "columns-2",
+    "faq"        => "circle-help",
+    "cta"        => "megaphone",
+    "embed"      => "play"
   }.freeze
 
   # Reusable block patterns shown in the editor's "+ Add block" picker. Each is
@@ -92,6 +106,23 @@ class BlockRenderer
         { "type" => "list", "data" => { "ordered" => true, "items" => "First step\nSecond step\nThird step" } }
       ]
     },
+    "comparison" => {
+      "title" => "Comparison",
+      "icon" => "table",
+      "blocks" => [
+        { "type" => "heading", "data" => { "level" => 2, "text" => "At a glance" } },
+        { "type" => "table", "data" => { "caption" => "Product A vs Product B", "columns" => [ "Feature", "Product A", "Product B" ], "highlight" => 1, "rows" => [ [ "Feature one", "✓", "✓" ], [ "Feature two", "✓", "✗" ], [ "Starting price", "", "" ] ], "note" => "Published information checked on …" } },
+        { "type" => "pros_cons", "data" => { "pros_title" => "Choose Product A if", "pros" => [ "" ], "cons_title" => "Choose Product B if", "cons" => [ "" ] } }
+      ]
+    },
+    "article-close" => {
+      "title" => "FAQ + CTA",
+      "icon" => "circle-help",
+      "blocks" => [
+        { "type" => "faq", "data" => { "items" => [ { "question" => "", "answer" => "" } ] } },
+        { "type" => "cta", "data" => { "title" => "Ready to get started?", "text" => "", "primary_label" => "Get started", "primary_url" => "https://" } }
+      ]
+    },
     "cta-callout" => {
       "title" => "Callout + button",
       "icon" => "mouse-pointer-click",
@@ -113,6 +144,15 @@ class BlockRenderer
 
     def icon_for(type)
       ICONS[type.to_s] || "square"
+    end
+
+    # Human label for pickers and menus, from the shared block catalog.
+    def label_for(type)
+      ContentBlocks.catalog.dig(type.to_s, :label) || type.to_s.titleize
+    end
+
+    def labels
+      registered_types.index_with { |type| label_for(type) }
     end
 
     def patterns

@@ -2,7 +2,9 @@ class PostsController < ApplicationController
   before_action :activate_theme
 
   def index
-    return if params.values_at(:category, :slug).none?(&:present?) && render_theme_blog("blog_index")
+    # Static themes render their own listing, including ?category=, tag archives and search.
+    params[:tag] ||= params[:slug] if params[:slug].present?
+    return if render_theme_blog("blog_index")
 
     @posts = Current.site.posts.published.includes(:author)
     @category = Current.site.terms.find_by(taxonomy: "category", slug: params[:category]) if params[:category].present?

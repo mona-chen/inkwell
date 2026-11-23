@@ -6,4 +6,14 @@
   <input data-field="attribution" data-action="input->block-editor#serialize" type="text"
          value="<%= local_assigns[:data]&.dig("attribution") %>" placeholder="Attribution (optional)"
          class="w-full text-sm border-0 focus:ring-0 mt-2 p-0 bg-transparent text-foreground placeholder:text-muted-foreground">
+  <div class="mt-1 flex items-center gap-3">
+    <input data-field="role" data-action="input->block-editor#serialize" type="text"
+           value="<%= local_assigns[:data]&.dig("role") %>" placeholder="Role or company (optional)"
+           class="min-w-0 flex-1 text-xs border-0 focus:ring-0 p-0 bg-transparent text-muted-foreground placeholder:text-muted-foreground">
+    <% style = local_assigns[:data]&.dig("style").presence || "default" %>
+    <select data-field="style" data-action="change->block-editor#serialize" aria-label="Quote style" class="rounded-md border border-border bg-background px-2 py-1 text-xs">
+      <option value="default" <%= "selected" if style == "default" %>>Inline quote</option>
+      <option value="pull" <%= "selected" if style == "pull" %>>Pull quote</option>
+    </select>
+  </div>
 </div>
