@@ -28,7 +28,7 @@ class User < ApplicationRecord
     return nil if email.blank?
 
     user = find_by(email: email)
-    return user unless defined?(Multisite::UserSite)
+    return user unless user && defined?(Multisite::UserSite)
 
     # Super-admins can always authenticate, even when Current.site is nil (e.g. fresh install).
     return user if user&.super_admin?

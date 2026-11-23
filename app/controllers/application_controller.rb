@@ -36,8 +36,8 @@ class ApplicationController < ActionController::Base
   # otherwise fall back to the default site (or the first one). `||=` preserves whatever the
   # middleware already set on Current.site — this is the multisite entry point.
   def set_current_attributes
-    Current.user = current_user if respond_to?(:current_user)
     Current.site ||= resolve_current_site
+    Current.user = current_user if respond_to?(:current_user)
   end
 
   def resolve_current_site

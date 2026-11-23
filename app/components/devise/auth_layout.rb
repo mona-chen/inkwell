@@ -1,6 +1,8 @@
 module Devise
   # Full HTML document for auth pages, rendered by the app's custom Devise controllers.
   class AuthLayout < ApplicationComponent
+    include Phlex::Rails::Helpers::Flash
+
     def initialize(title:, subtitle: nil)
       @title = title
       @subtitle = subtitle
